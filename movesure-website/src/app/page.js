@@ -1,5 +1,7 @@
-"use client";
+'use client';
+
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Truck, 
   MapPin, 
@@ -14,181 +16,193 @@ import {
   ArrowRight,
   Menu,
   X,
-  Eye,
-  EyeOff,
-  Lock,
-  User,
-  Building,
+  LogIn,
   UserPlus,
-  LogIn
+  Zap,
+  Brain,
+  Cpu,
+  Database,
+  Globe,
+  TrendingUp,
+  Users,
+  Award,
+  Sparkles,
+  MousePointer
 } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Form states
-  const [loginData, setLoginData] = useState({
-    username: '',
-    password: ''
-  });
-
-  const [registerData, setRegisterData] = useState({
-    username: '',
-    password: '',
-    confirmPassword: '',
-    name: '',
-    post: '',
-    branchId: ''
-  });
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
+    
+    const handleMouseMove = (e) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
   }, []);
 
   const handleNavClick = () => {
     setIsMenuOpen(false);
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Login attempt:', loginData);
-      setIsLoading(false);
-      setShowLogin(false);
-      // Add your login logic here
-      alert('Login functionality would be implemented here');
-    }, 1500);
+  const navigateToLogin = () => {
+    router.push('/login');
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    
-    if (registerData.password !== registerData.confirmPassword) {
-      alert('Passwords do not match');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Register attempt:', registerData);
-      setIsLoading(false);
-      setShowRegister(false);
-      // Add your registration logic here
-      alert('Registration functionality would be implemented here');
-    }, 1500);
-  };
-
-  const closeModals = () => {
-    setShowLogin(false);
-    setShowRegister(false);
-    setLoginData({ username: '', password: '' });
-    setRegisterData({ username: '', password: '', confirmPassword: '', name: '', post: '', branchId: '' });
+  const navigateToRegister = () => {
+    router.push('/register');
   };
 
   const services = [
     {
-      icon: <Truck className="w-12 h-12 text-blue-600" />,
-      title: "Fleet Management",
-      description: "Smart tracking and optimization of your entire transportation fleet with real-time insights."
+      icon: <Brain className="w-12 h-12 text-indigo-400" />,
+      title: "AI Fleet Intelligence",
+      description: "Neural network-powered fleet optimization with predictive maintenance and autonomous decision making.",
+      gradient: "from-indigo-500/10 to-purple-500/10"
     },
     {
-      icon: <MapPin className="w-12 h-12 text-blue-600" />,
-      title: "Route Optimization",
-      description: "AI-powered route planning to reduce costs, save time, and improve delivery efficiency."
+      icon: <Cpu className="w-12 h-12 text-cyan-400" />,
+      title: "Smart Route Computing",
+      description: "Quantum-inspired algorithms for real-time route optimization across multi-dimensional transport networks.",
+      gradient: "from-cyan-500/10 to-blue-500/10"
     },
     {
-      icon: <Shield className="w-12 h-12 text-blue-600" />,
-      title: "Cargo Security",
-      description: "Advanced monitoring and security solutions to protect your valuable cargo during transit."
+      icon: <Database className="w-12 h-12 text-emerald-400" />,
+      title: "Predictive Analytics",
+      description: "Advanced machine learning models that forecast demand, optimize capacity, and prevent disruptions.",
+      gradient: "from-emerald-500/10 to-teal-500/10"
     },
     {
-      icon: <BarChart3 className="w-12 h-12 text-blue-600" />,
-      title: "Analytics Dashboard",
-      description: "Comprehensive data analytics and reporting to make informed transportation decisions."
+      icon: <Shield className="w-12 h-12 text-violet-400" />,
+      title: "Neural Security",
+      description: "AI-powered threat detection and autonomous security protocols for comprehensive cargo protection.",
+      gradient: "from-violet-500/10 to-purple-500/10"
     }
   ];
 
   const features = [
-    "Real-time GPS tracking",
-    "Automated dispatch system",
-    "Driver performance monitoring",
-    "Fuel consumption optimization",
-    "Maintenance scheduling",
-    "Customer notifications"
+    "Real-time AI decision engine",
+    "Predictive maintenance alerts",
+    "Autonomous route planning",
+    "Neural network monitoring",
+    "Quantum-inspired optimization",
+    "Machine learning insights"
   ];
 
   const testimonials = [
     {
-      name: "Sarah Johnson",
-      company: "LogiCorp Solutions",
+      name: "Dr. Sarah Chen",
+      company: "FutureTech Logistics",
       rating: 5,
-      text: "Movesure.ai transformed our logistics operations. We've seen 30% improvement in delivery times."
+      text: "The AI capabilities are revolutionary. Our efficiency increased by 40% within the first month of deployment."
     },
     {
-      name: "Michael Chen",
-      company: "TransGlobal Inc",
+      name: "Marcus Rodriguez",
+      company: "NextGen Transport",
       rating: 5,
-      text: "The AI-powered route optimization saved us thousands in fuel costs. Highly recommended!"
+      text: "The predictive analytics saved us millions in potential losses. This is the future of logistics."
     },
     {
-      name: "Emma Rodriguez",
-      company: "Swift Delivery",
+      name: "Elena Kowalski",
+      company: "Quantum Delivery Systems",
       rating: 5,
-      text: "Outstanding customer support and intuitive interface. Our drivers love the new system."
+      text: "Seamless integration with our existing systems. The AI learns and adapts incredibly fast."
     }
   ];
 
+  const stats = [
+    { value: "99.7%", label: "AI Accuracy", icon: <Brain className="w-6 h-6" /> },
+    { value: "47%", label: "Cost Reduction", icon: <TrendingUp className="w-6 h-6" /> },
+    { value: "250ms", label: "Response Time", icon: <Zap className="w-6 h-6" /> },
+    { value: "500K+", label: "AI Decisions/Day", icon: <Cpu className="w-6 h-6" /> }
+  ];
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"></div>
+        <div 
+          className="absolute inset-0 opacity-30"
+          style={{
+            background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(99, 102, 241, 0.1), transparent 40%)`
+          }}
+        ></div>
+        
+        {/* Neural Network Animation */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></div>
+          <div className="absolute top-1/3 right-1/3 w-1 h-1 bg-cyan-400 rounded-full animate-ping"></div>
+          <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
+          <div className="absolute top-2/3 right-1/4 w-1 h-1 bg-violet-400 rounded-full animate-ping"></div>
+        </div>
+      </div>
+
       {/* Navigation */}
-      <nav className={`fixed w-full z-40 transition-all duration-300 ${
-        isScrolled ? 'bg-white/95 backdrop-blur-sm shadow-lg' : 'bg-transparent'
+      <nav className={`fixed w-full z-50 transition-all duration-500 ${
+        isScrolled 
+          ? 'bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50' 
+          : 'bg-transparent'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex items-center space-x-2">
-                <Truck className="w-8 h-8 text-blue-600" />
-                <span className="text-2xl font-bold text-gray-900">Movesure.ai</span>
+            <div className="flex items-center group">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <Truck className="w-8 h-8 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+                  <div className="absolute inset-0 bg-indigo-400/20 rounded-full animate-pulse"></div>
+                </div>
+                <span className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                  Movesure.ai
+                </span>
               </div>
             </div>
             
             {/* Desktop Menu */}
             <div className="hidden md:block">
               <div className="flex items-center space-x-8">
-                <a href="#services" className="text-gray-700 hover:text-blue-600 transition-colors">Services</a>
-                <a href="#features" className="text-gray-700 hover:text-blue-600 transition-colors">Features</a>
-                <a href="#about" className="text-gray-700 hover:text-blue-600 transition-colors">About</a>
-                <a href="#contact" className="text-gray-700 hover:text-blue-600 transition-colors">Contact</a>
-                <button 
-                  onClick={() => setShowLogin(true)}
-                  className="text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-2"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Login
-                </button>
-                <button 
-                  onClick={() => setShowRegister(true)}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  Register
-                </button>
+                <a href="#services" className="text-slate-300 hover:text-indigo-400 transition-colors duration-300 font-medium">
+                  Solutions
+                </a>
+                <a href="#features" className="text-slate-300 hover:text-indigo-400 transition-colors duration-300 font-medium">
+                  AI Features
+                </a>
+                <a href="#testimonials" className="text-slate-300 hover:text-indigo-400 transition-colors duration-300 font-medium">
+                  Testimonials
+                </a>
+                <a href="#contact" className="text-slate-300 hover:text-indigo-400 transition-colors duration-300 font-medium">
+                  Contact
+                </a>
+                
+                <div className="flex items-center space-x-4">
+                  <button 
+                    onClick={navigateToLogin}
+                    className="text-slate-300 hover:text-white transition-colors duration-300 flex items-center gap-2 font-medium"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Login
+                  </button>
+                  <button 
+                    onClick={navigateToRegister}
+                    className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-2 font-medium shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Get Started
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -196,7 +210,7 @@ export default function Home() {
             <div className="md:hidden">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-gray-700 hover:text-blue-600"
+                className="text-slate-300 hover:text-indigo-400 transition-colors"
                 aria-label="Toggle mobile menu"
               >
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -207,105 +221,134 @@ export default function Home() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden bg-white border-t shadow-lg">
+          <div className="md:hidden bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/50">
             <div className="px-2 pt-2 pb-3 space-y-1">
-              <a href="#services" onClick={handleNavClick} className="block px-3 py-2 text-gray-700 hover:text-blue-600">Services</a>
-              <a href="#features" onClick={handleNavClick} className="block px-3 py-2 text-gray-700 hover:text-blue-600">Features</a>
-              <a href="#about" onClick={handleNavClick} className="block px-3 py-2 text-gray-700 hover:text-blue-600">About</a>
-              <a href="#contact" onClick={handleNavClick} className="block px-3 py-2 text-gray-700 hover:text-blue-600">Contact</a>
-              <button 
-                onClick={() => { setShowLogin(true); setIsMenuOpen(false); }}
-                className="w-full text-left px-3 py-2 text-gray-700 hover:text-blue-600 flex items-center gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                Login
-              </button>
-              <button 
-                onClick={() => { setShowRegister(true); setIsMenuOpen(false); }}
-                className="w-full text-left bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors mt-2 flex items-center gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-                Register
-              </button>
+              <a href="#services" onClick={handleNavClick} className="block px-3 py-2 text-slate-300 hover:text-indigo-400 transition-colors">Solutions</a>
+              <a href="#features" onClick={handleNavClick} className="block px-3 py-2 text-slate-300 hover:text-indigo-400 transition-colors">AI Features</a>
+              <a href="#testimonials" onClick={handleNavClick} className="block px-3 py-2 text-slate-300 hover:text-indigo-400 transition-colors">Testimonials</a>
+              <a href="#contact" onClick={handleNavClick} className="block px-3 py-2 text-slate-300 hover:text-indigo-400 transition-colors">Contact</a>
+              
+              <div className="pt-4 space-y-2">
+                <button 
+                  onClick={() => { navigateToLogin(); setIsMenuOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </button>
+                <button 
+                  onClick={() => { navigateToRegister(); setIsMenuOpen(false); }}
+                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-2 rounded-lg transition-colors mt-2 flex items-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Get Started
+                </button>
+              </div>
             </div>
           </div>
         )}
       </nav>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 to-indigo-100/20 opacity-40"></div>
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Smart Transportation
-              <span className="text-blue-600 block">Solutions</span>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 leading-relaxed">
-              Revolutionize your logistics with AI-powered fleet management, 
-              route optimization, and real-time tracking solutions.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
-                onClick={() => setShowRegister(true)}
-                className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg"
-              >
-                Start Free Trial
-                <ArrowRight className="inline-block ml-2 w-5 h-5" />
-              </button>
-              <button className="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:border-blue-600 hover:text-blue-600 transition-all">
-                Watch Demo
-              </button>
+      <section className="relative min-h-screen flex items-center justify-center z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="max-w-5xl mx-auto">
+            {/* AI Badge */}
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-full px-6 py-2 mb-8">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm font-medium text-indigo-300">Powered by Advanced AI Neural Networks</span>
             </div>
-          </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-16 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">500+</div>
-              <div className="text-gray-600">Active Fleets</div>
+            <h1 className="text-6xl md:text-8xl font-bold mb-8 leading-tight">
+              <span className="bg-gradient-to-r from-white via-indigo-200 to-cyan-200 bg-clip-text text-transparent">
+                Next-Gen AI
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                Transportation
+              </span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-slate-300 mb-12 leading-relaxed max-w-4xl mx-auto">
+              Revolutionize your logistics with quantum-inspired AI algorithms, 
+              neural network optimization, and autonomous decision-making systems.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
+              <button 
+                onClick={navigateToRegister}
+                className="group bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-2xl shadow-indigo-500/25 hover:shadow-indigo-500/40"
+              >
+                <span className="flex items-center justify-center gap-3">
+                  Start AI Journey
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </span>
+              </button>
+              <button className="border-2 border-slate-700 hover:border-indigo-500/50 text-slate-300 hover:text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 backdrop-blur-sm">
+                <span className="flex items-center justify-center gap-3">
+                  <MousePointer className="w-5 h-5" />
+                  Interactive Demo
+                </span>
+              </button>
             </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">99.9%</div>
-              <div className="text-gray-600">Uptime</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">30%</div>
-              <div className="text-gray-600">Cost Reduction</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">24/7</div>
-              <div className="text-gray-600">Support</div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+              {stats.map((stat, index) => (
+                <div key={index} className="text-center group">
+                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-indigo-500/30 transition-all duration-300">
+                    <div className="flex justify-center mb-3 text-indigo-400 group-hover:text-indigo-300 transition-colors">
+                      {stat.icon}
+                    </div>
+                    <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
+                    <div className="text-slate-400 text-sm">{stat.label}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
       {/* Services Section */}
-      <section id="services" className="py-20 bg-white">
+      <section id="services" className="relative py-32 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Our Services
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-full px-6 py-2 mb-6">
+              <Brain className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm font-medium text-indigo-300">AI-Powered Solutions</span>
+            </div>
+            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+              <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Intelligent Solutions
+              </span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Comprehensive transportation solutions designed to optimize your operations 
-              and maximize efficiency across your entire supply chain.
+            <p className="text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
+              Experience the future of transportation with our cutting-edge AI technology 
+              that learns, adapts, and optimizes in real-time.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {services.map((service, index) => (
-              <div key={index} className="group bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                <div className="mb-6 group-hover:scale-110 transition-transform duration-300">
-                  {service.icon}
+              <div key={index} className="group relative">
+                <div className={`bg-gradient-to-br ${service.gradient} backdrop-blur-sm border border-slate-700/50 rounded-3xl p-8 hover:border-indigo-500/30 transition-all duration-500 transform hover:-translate-y-2`}>
+                  <div className="flex items-start gap-6">
+                    <div className="flex-shrink-0">
+                      <div className="p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 group-hover:border-indigo-500/30 transition-all duration-300">
+                        {service.icon}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-white mb-4">{service.title}</h3>
+                      <p className="text-slate-300 leading-relaxed mb-6">{service.description}</p>
+                      <button className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-2 group-hover:gap-3 transition-all duration-300">
+                        Explore AI Capabilities
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">{service.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{service.description}</p>
-                <button className="mt-6 text-blue-600 font-semibold flex items-center hover:text-blue-700 transition-colors">
-                  Learn More <ChevronRight className="ml-1 w-4 h-4" />
-                </button>
               </div>
             ))}
           </div>
@@ -313,62 +356,90 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-gray-50">
+      <section id="features" className="relative py-32 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                Advanced Features for Modern Transportation
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500/10 to-indigo-500/10 border border-cyan-500/20 rounded-full px-6 py-2 mb-6">
+                <Cpu className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-medium text-cyan-300">Neural Network Features</span>
+              </div>
+              
+              <h2 className="text-5xl md:text-6xl font-bold mb-8">
+                <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                  Advanced AI
+                </span>
+                <br />
+                <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
+                  Capabilities
+                </span>
               </h2>
-              <p className="text-xl text-gray-600 mb-8">
-                Our platform combines cutting-edge AI technology with user-friendly interfaces 
-                to deliver unparalleled transportation management capabilities.
+              
+              <p className="text-xl text-slate-400 mb-8 leading-relaxed">
+                Our neural networks continuously learn from millions of data points, 
+                making intelligent decisions that evolve with your business needs.
               </p>
               
-              <div className="space-y-4">
+              <div className="space-y-4 mb-10">
                 {features.map((feature, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
-                    <span className="text-gray-700 text-lg">{feature}</span>
+                  <div key={index} className="flex items-center space-x-4 group">
+                    <div className="flex-shrink-0">
+                      <CheckCircle className="w-6 h-6 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+                    </div>
+                    <span className="text-slate-300 text-lg group-hover:text-white transition-colors">{feature}</span>
                   </div>
                 ))}
               </div>
 
-              <button className="mt-8 bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg">
-                Explore All Features
+              <button className="bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40">
+                <span className="flex items-center gap-3">
+                  <Brain className="w-5 h-5" />
+                  Explore AI Engine
+                </span>
               </button>
             </div>
 
             <div className="relative">
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-8 rounded-3xl shadow-2xl">
-                <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-white font-semibold">Live Dashboard</span>
-                    <Clock className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/80">Active Vehicles</span>
-                      <span className="text-white font-bold">247</span>
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
+                {/* AI Dashboard Mockup */}
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 backdrop-blur-sm p-6 rounded-2xl border border-indigo-500/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-white font-semibold flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-indigo-400" />
+                        AI Neural Dashboard
+                      </span>
+                      <div className="flex gap-2">
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse delay-100"></div>
+                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse delay-200"></div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/80">On-time Delivery</span>
-                      <span className="text-white font-bold">98.5%</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/80">Fuel Efficiency</span>
-                      <span className="text-white font-bold">+15%</span>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-300">Neural Processing</span>
+                        <span className="text-emerald-400 font-bold">97.3%</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-300">AI Decisions/Min</span>
+                        <span className="text-cyan-400 font-bold">12,847</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-300">Learning Rate</span>
+                        <span className="text-indigo-400 font-bold">+24.6%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <MapPin className="w-5 h-5 text-white" />
-                    <span className="text-white font-semibold">Route Optimization</span>
-                  </div>
-                  <div className="text-white/80 text-sm">
-                    AI has optimized 15 routes today, saving an estimated 2.3 hours and $450 in fuel costs.
+                  
+                  <div className="bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 backdrop-blur-sm p-6 rounded-2xl border border-cyan-500/20">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Zap className="w-5 h-5 text-cyan-400" />
+                      <span className="text-white font-semibold">Quantum Optimization</span>
+                    </div>
+                    <div className="text-slate-300 text-sm">
+                      AI has optimized 1,247 routes today, reducing costs by $89,000 
+                      and improving delivery times by 34 minutes on average.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -378,29 +449,44 @@ export default function Home() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-20 bg-white">
+      <section id="testimonials" className="relative py-32 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              What Our Clients Say
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 rounded-full px-6 py-2 mb-6">
+              <Users className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm font-medium text-emerald-300">Client Success Stories</span>
+            </div>
+            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+              <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Trusted by Leaders
+              </span>
             </h2>
-            <p className="text-xl text-gray-600">
-              Join hundreds of satisfied customers who trust Movesure.ai
+            <p className="text-xl text-slate-400 max-w-3xl mx-auto">
+              Join industry pioneers who are transforming their operations with our AI technology
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-gray-50 p-8 rounded-2xl shadow-lg">
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-700 mb-6 italic">&quot;{testimonial.text}&quot;</p>
-                <div>
-                  <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                  <div className="text-gray-600">{testimonial.company}</div>
+              <div key={index} className="group">
+                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-3xl p-8 hover:border-indigo-500/30 transition-all duration-500 h-full">
+                  <div className="flex items-center mb-6">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
+                    ))}
+                  </div>
+                  <p className="text-slate-300 mb-8 italic leading-relaxed">&quot;{testimonial.text}&quot;</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">
+                        {testimonial.name.split(' ').map(n => n[0]).join('')}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white">{testimonial.name}</div>
+                      <div className="text-slate-400 text-sm">{testimonial.company}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -409,436 +495,171 @@ export default function Home() {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 bg-gradient-to-br from-blue-600 to-indigo-700">
+      <section id="contact" className="relative py-32 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Ready to Get Started?
-            </h2>
-            <p className="text-xl text-blue-100 max-w-3xl mx-auto">
-              Transform your transportation operations today. Contact our team for a personalized demo.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div className="space-y-8">
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <Phone className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <div className="text-white font-semibold">Phone</div>
-                  <div className="text-blue-100">+1 (555) 123-4567</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <Mail className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <div className="text-white font-semibold">Email</div>
-                  <div className="text-blue-100">contact@movesure.ai</div>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <MapPin className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <div className="text-white font-semibold">Address</div>
-                  <div className="text-blue-100">123 Transportation Hub<br />Tech City, TC 12345</div>
-                </div>
-              </div>
+          <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-sm border border-indigo-500/20 rounded-3xl p-12">
+            <div className="text-center mb-16">
+              <h2 className="text-5xl md:text-6xl font-bold mb-6">
+                <span className="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                  Ready to Transform?
+                </span>
+              </h2>
+              <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+                Join the AI revolution in transportation. Let's build the future together.
+              </p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl">
-              <form className="space-y-6">
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Your Name"
-                    className="w-full px-4 py-3 bg-white/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
-                  />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <div className="flex items-center space-x-4 group">
+                  <div className="bg-gradient-to-br from-indigo-500/20 to-purple-500/20 p-4 rounded-2xl border border-indigo-500/20 group-hover:border-indigo-400/40 transition-all duration-300">
+                    <Phone className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold">AI Support Line</div>
+                    <div className="text-slate-300">+1 (555) 123-4567</div>
+                  </div>
                 </div>
-                <div>
-                  <input
-                    type="email"
-                    placeholder="Your Email"
-                    className="w-full px-4 py-3 bg-white/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
-                  />
+                
+                <div className="flex items-center space-x-4 group">
+                  <div className="bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 p-4 rounded-2xl border border-cyan-500/20 group-hover:border-cyan-400/40 transition-all duration-300">
+                    <Mail className="w-6 h-6 text-cyan-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold">Neural Network Team</div>
+                    <div className="text-slate-300">ai@movesure.ai</div>
+                  </div>
                 </div>
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Company Name"
-                    className="w-full px-4 py-3 bg-white/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
-                  />
+
+                <div className="flex items-center space-x-4 group">
+                  <div className="bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 p-4 rounded-2xl border border-emerald-500/20 group-hover:border-emerald-400/40 transition-all duration-300">
+                    <Globe className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold">Global AI Center</div>
+                    <div className="text-slate-300">123 Neural Network Hub<br />Tech Valley, CA 94000</div>
+                  </div>
                 </div>
-                <div>
-                  <textarea
-                    placeholder="Tell us about your transportation needs..."
-                    rows={4}
-                    className="w-full px-4 py-3 bg-white/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
-                  ></textarea>
-                </div>
-                <button type="submit" className="w-full bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                  Send Message
-                </button>
-              </form>
+              </div>
+
+              <div className="bg-slate-800/30 backdrop-blur-sm p-8 rounded-2xl border border-slate-700/50">
+                <form className="space-y-6">
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Your Name"
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="email"
+                      placeholder="Your Email"
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Company Name"
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300"
+                    />
+                  </div>
+                  <div>
+                    <textarea
+                      placeholder="Tell us about your AI transformation needs..."
+                      rows={4}
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 resize-none"
+                    ></textarea>
+                  </div>
+                  <button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      <Sparkles className="w-5 h-5" />
+                      Start AI Consultation
+                    </span>
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className="relative py-20 z-10 border-t border-slate-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Truck className="w-8 h-8 text-blue-400" />
-                <span className="text-2xl font-bold">Movesure.ai</span>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="relative">
+                  <Truck className="w-10 h-10 text-indigo-400" />
+                  <div className="absolute inset-0 bg-indigo-400/20 rounded-full animate-pulse"></div>
+                </div>
+                <span className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                  Movesure.ai
+                </span>
               </div>
-              <p className="text-gray-400">
-                Leading the future of transportation with AI-powered solutions.
+              <p className="text-slate-400 mb-8 max-w-md leading-relaxed">
+                Pioneering the future of transportation with advanced AI neural networks, 
+                quantum-inspired algorithms, and autonomous decision-making systems.
               </p>
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-full px-4 py-2">
+                  <span className="text-sm font-medium text-indigo-300">AI-Powered Since 2024</span>
+                </div>
+              </div>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold mb-4">Services</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Fleet Management</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Route Optimization</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Cargo Security</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Analytics</a></li>
+              <h3 className="text-lg font-semibold mb-6 text-white">AI Solutions</h3>
+              <ul className="space-y-3 text-slate-400">
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">Neural Fleet Management</a></li>
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">Quantum Route Optimization</a></li>
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">Predictive Analytics</a></li>
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">AI Security Systems</a></li>
               </ul>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">News</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API Reference</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Status</a></li>
+              <h3 className="text-lg font-semibold mb-6 text-white">Company</h3>
+              <ul className="space-y-3 text-slate-400">
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">About AI Team</a></li>
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">Research & Development</a></li>
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">AI Ethics</a></li>
+                <li><a href="#" className="hover:text-indigo-400 transition-colors duration-300">Neural Network Blog</a></li>
               </ul>
             </div>
           </div>
           
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 Movesure.ai. All rights reserved.</p>
+          <div className="border-t border-slate-800/50 mt-16 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="text-slate-400 mb-4 md:mb-0">
+                <p>&copy; 2025 Movesure.ai. All rights reserved. Powered by Neural Networks.</p>
+              </div>
+              <div className="flex items-center gap-6">
+                <a href="#" className="text-slate-400 hover:text-indigo-400 transition-colors duration-300 text-sm">Privacy Policy</a>
+                <a href="#" className="text-slate-400 hover:text-indigo-400 transition-colors duration-300 text-sm">AI Terms</a>
+                <a href="#" className="text-slate-400 hover:text-indigo-400 transition-colors duration-300 text-sm">Neural Ethics</a>
+              </div>
+            </div>
           </div>
         </div>
       </footer>
 
-      {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative">
-            <button
-              onClick={closeModals}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <LogIn className="w-8 h-8 text-blue-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
-              <p className="text-gray-600">Sign in to your account</p>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <div className="relative">
-                  <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="username"
-                    type="text"
-                    value={loginData.username}
-                    onChange={(e) => setLoginData({...loginData, username: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your username"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={loginData.password}
-                    onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="w-5 h-5" />
-                    Sign In
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
-                Don't have an account?{' '}
-                <button
-                  onClick={() => {
-                    setShowLogin(false);
-                    setShowRegister(true);
-                  }}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Sign up
-                </button>
-              </p>
+      {/* Floating AI Assistant */}
+      <div className="fixed bottom-8 right-8 z-50">
+        <button className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white p-4 rounded-full shadow-2xl shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 group">
+          <Brain className="w-6 h-6 group-hover:scale-110 transition-transform duration-300" />
+          <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block">
+            <div className="bg-slate-800 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap">
+              AI Assistant
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Register Modal */}
-      {showRegister && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={closeModals}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UserPlus className="w-8 h-8 text-blue-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
-              <p className="text-gray-600">Join Movesure.ai today</p>
-            </div>
-
-            <form onSubmit={handleRegister} className="space-y-6">
-              <div>
-                <label htmlFor="reg-name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="reg-name"
-                    type="text"
-                    value={registerData.name}
-                    onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your full name"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="reg-username" className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <div className="relative">
-                  <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="reg-username"
-                    type="text"
-                    value={registerData.username}
-                    onChange={(e) => setRegisterData({...registerData, username: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Choose a username"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="reg-post" className="block text-sm font-medium text-gray-700 mb-2">
-                  Position/Role
-                </label>
-                <div className="relative">
-                  <Building className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="reg-post"
-                    type="text"
-                    value={registerData.post}
-                    onChange={(e) => setRegisterData({...registerData, post: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Manager, Driver, Admin"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="reg-branch" className="block text-sm font-medium text-gray-700 mb-2">
-                  Branch ID (Optional)
-                </label>
-                <div className="relative">
-                  <MapPin className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="reg-branch"
-                    type="text"
-                    value={registerData.branchId}
-                    onChange={(e) => setRegisterData({...registerData, branchId: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter branch ID"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="reg-password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="reg-password"
-                    type={showPassword ? "text" : "password"}
-                    value={registerData.password}
-                    onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Create a password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="reg-confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    id="reg-confirm-password"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={registerData.confirmPassword}
-                    onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Confirm your password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  required
-                />
-                <label htmlFor="terms" className="text-sm text-gray-600">
-                  I agree to the{' '}
-                  <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Privacy Policy
-                  </a>
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                    Creating account...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-5 h-5" />
-                    Create Account
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
-                Already have an account?{' '}
-                <button
-                  onClick={() => {
-                    setShowRegister(false);
-                    setShowLogin(true);
-                  }}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Sign in
-                </button>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+        </button>
+      </div>
     </div>
   );
 }

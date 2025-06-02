@@ -58,7 +58,7 @@ export default function DashboardPage() {
                     Welcome back, {user.name || user.username}!
                   </h1>
                   <p className="mt-1 text-sm text-gray-600">
-                    Here's what's happening with your account today.
+                    Heres whats happening with your account today.
                   </p>
                 </div>
                 <div className="flex-shrink-0">

@@ -177,7 +177,7 @@ export const AuthProvider = ({ children }) => {
       router.push('/login');
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if there's an error, clear auth and redirect
+      // Even if theres an error, clear auth and redirect
       await clearAuth();
       router.push('/login');
     }

@@ -128,7 +128,7 @@ const GRLookupPrintSystem = ({ onClose }) => {
 
       setBiltyData(fullBiltyData);
       
-      // Auto-print if it's an exact match
+      // Auto-print if its an exact match
       const exactMatch = fullBiltyData.gr_no.toLowerCase() === grNumber.toLowerCase();
       if (exactMatch) {
         setShowPDFGenerator(true);

@@ -207,7 +207,7 @@ function AccessDeniedPage({ requiredModule }) {
           <div className="flex items-center">
             <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
             <span className="text-sm text-yellow-800">
-              You don't have permission to access this page
+              You dont have permission to access this page
             </span>
           </div>
         </div>

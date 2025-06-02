@@ -28,7 +28,7 @@ const PDFGenerator = ({
   const COORDINATES = {
     // 🏢 HEADER SECTION
     HEADER: {
-      GST_NO: { x: 10, y: 10 },                    // Top left GST number
+      GST_NO: { x: 8, y: 8 },                    // Top left GST number
       COMPANY_NAME: { x: 105, y: 18 },             // Center company name
       BANK_DETAIL_1: { x: 12, y: 25 },             // First bank detail line
       BANK_DETAIL_2: { x: 12, y: 28 },             // Second bank detail line
@@ -43,8 +43,8 @@ const PDFGenerator = ({
       GR_LABEL: { x: 162, y: 51.4 },                         // "GR NO" text
       GR_NUMBER: { x: 175, y: 51.4 },                        // Actual GR number
       CAUTION_BOX: { x: 160, y: 55, width: 80, height: 20 }, // Caution box
-      CAUTION_LABEL: { x: 185, y: 60 },                    // "CAUTION" text
-      CAUTION_TEXT_START: { x: 164, y: 63 },               // Caution description start
+      CAUTION_LABEL: { x: 185, y: 58.5 },                    // "CAUTION" text
+      CAUTION_TEXT_START: { x: 162, y: 61.5 },               // Caution description start
     },
 
     // 🎯 COPY TYPE AND DATE SECTION
@@ -52,7 +52,7 @@ const PDFGenerator = ({
       COPY_TYPE: { x: 105, y: 10 },               // "CONSIGNEE COPY" / "DRIVER COPY"
       COPY_UNDERLINE: { x1: 85, y: 10, x2: 125 }, // Underline for copy type
       DATE: { x: 12, y: 35 },                     // Date field
-      ROUTE: { x: 60, y: 35 },                    // Route (FROM TO CITY)
+      ROUTE: { x: 55, y: 37 },                    // Route (FROM TO CITY)
     },
 
     // 🚚 DELIVERY AND CONTACT SECTION
@@ -284,7 +284,7 @@ const PDFGenerator = ({
       `GST No: ${permDetails?.gst || '09COVPS5556J1ZT'}`, 
       COORDINATES.HEADER.GST_NO.x, 
       y + COORDINATES.HEADER.GST_NO.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.NOTICE
     );
     
     // Company Name (center, large and bold)
@@ -303,14 +303,14 @@ const PDFGenerator = ({
       `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || '0010002100076368'} IFSC CODE ${permDetails?.ifsc_code_1 || '0001000'}`, 
       COORDINATES.HEADER.BANK_DETAIL_1.x, 
       y + COORDINATES.HEADER.BANK_DETAIL_1.y,
-      STYLES.FONTS.SMALL
+      STYLES.FONTS.LABELS
     );
     addStyledText(
       pdf, 
       `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || '923010361683636'} IFSC CODE ${permDetails?.ifsc_code_2 || '0001837'}`, 
       COORDINATES.HEADER.BANK_DETAIL_2.x, 
       y + COORDINATES.HEADER.BANK_DETAIL_2.y,
-      STYLES.FONTS.SMALL
+      STYLES.FONTS.LABELS
     );
     
     // Branch Address (right side)
@@ -371,7 +371,7 @@ const PDFGenerator = ({
       `${fromCityName} TO ${toCityName} (${toCityCode})`, 
       COORDINATES.COPY_SECTION.ROUTE.x, 
       y + COORDINATES.COPY_SECTION.ROUTE.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.NOTICE
     );
     
     // 🚚 DELIVERY SECTION - Transport name only (delivery type moved)
@@ -604,18 +604,34 @@ const PDFGenerator = ({
     );
     
     
-    // RIGHT SECTION - Charges with enhanced styling
+    // RIGHT SECTION - Charges with enhanced styling and proper alignment
     const amount = (parseFloat(biltyData.wt) * parseFloat(biltyData.rate)).toFixed(2);
     
-    addStyledText(pdf, `AMOUNT: ${amount}`, COORDINATES.TABLE_SECTION.AMOUNT.x, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `LABOUR CHARGE: ${biltyData.labour_charge}`, COORDINATES.TABLE_SECTION.LABOUR_CHARGE.x, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `BILTY CHARGE: ${biltyData.bill_charge}`, COORDINATES.TABLE_SECTION.BILTY_CHARGE.x, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `TOLL TAX: ${biltyData.toll_charge}`, COORDINATES.TABLE_SECTION.TOLL_TAX.x, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `PF: 0.00`, COORDINATES.TABLE_SECTION.PF.x, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `OTHER CHARGE: ${biltyData.other_charge}`, COORDINATES.TABLE_SECTION.OTHER_CHARGE.x, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.LABELS);
+    // Define column positions for proper alignment
+    const labelX = COORDINATES.TABLE_SECTION.AMOUNT.x;     // Label column at x=155
+    const valueX = labelX + 45;                            // Value column at x=200 (45mm offset)
+    
+    // Charges section with aligned columns
+    addStyledText(pdf, `AMOUNT:`, labelX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.LABELS);
+    addStyledText(pdf, `${amount}`, valueX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.VALUES, { align: 'right' });
+    
+    addStyledText(pdf, `LABOUR CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.LABELS);
+    addStyledText(pdf, `${biltyData.labour_charge}`, valueX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
+    
+    addStyledText(pdf, `BILTY CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.LABELS);
+    addStyledText(pdf, `${biltyData.bill_charge}`, valueX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
+    
+    addStyledText(pdf, `TOLL TAX:`, labelX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.LABELS);
+    addStyledText(pdf, `${biltyData.toll_charge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.VALUES, { align: 'right' });
+    
+    addStyledText(pdf, `PF:`, labelX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.LABELS);
+    addStyledText(pdf, `0.00`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.VALUES, { align: 'right' });
+    
+    addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.LABELS);
+    addStyledText(pdf, `${biltyData.other_charge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
     
     // Total section - Extra thick line
-    pdf.setLineWidth(STYLES.LINES.EXTRA_THICK);
+    pdf.setLineWidth(STYLES.LINES.NORMAL);
     pdf.line(
       COORDINATES.TABLE_SECTION.TOTAL_LINE.x1, 
       y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y,
@@ -641,7 +657,7 @@ const PDFGenerator = ({
       STYLES.FONTS.LARGE_STATUS
     );
     
-    // 📢 NOTICE SECTION - Enhanced
+    // 📢 NOTICE SECTION - Enhanced with additional important notices
     addStyledText(
       pdf, 
       'NOTICE', 
@@ -649,6 +665,52 @@ const PDFGenerator = ({
       y + COORDINATES.NOTICE_SECTION.NOTICE_LABEL.y,
       STYLES.FONTS.NOTICE
     );
+    
+    // NEW: Important notices section with proper spacing
+    let noticeY = COORDINATES.NOTICE_SECTION.NOTICE_LABEL.y + 3; // Start below "NOTICE" label
+    
+    // Notice 1: Bank authorization notice
+    setStyle(pdf, STYLES.FONTS.TINY);
+    const notice1Text = "The Consignment covered by this set of special Lorry Receipt from shall be stored at the destination under the cannot of the Transport Operator & shall be delivered to of the order of the Consignee Bank whose name is mentioned in the Lorry Receipt. It will under no circumstance be delivered to anyone without the written authority from the consignee bank or it's order endored of the consignee copy or on a seperate letter of authority. We are not responsible for leakage n illegal goods. The Consignee Copy is only for BILL CLEARING not for Bank Advance.";
+    const notice1Lines = pdf.splitTextToSize(notice1Text, 130); // Fit within available width
+    notice1Lines.forEach(line => {
+      pdf.text(line, 12, y + noticeY);
+      noticeY += 2.5;
+    });
+    
+    // Add spacing between notices
+    noticeY += 2;
+    
+    // Notice 2: Responsibility disclaimer
+    const notice2Text = "";
+    const notice2Lines = pdf.splitTextToSize(notice2Text, 130);
+    notice2Lines.forEach(line => {
+      pdf.text(line, 12, y + noticeY);
+      noticeY += 2.5;
+    });
+    
+    // Add spacing between notices
+    noticeY += 2;
+    
+    // Notice 3: Consignee copy purpose (only for consignee copy)
+    if (copyType.toLowerCase() === 'consignee') {
+      const notice3Text = "";
+      const notice3Lines = pdf.splitTextToSize(notice3Text, 130);
+      notice3Lines.forEach(line => {
+        pdf.text(line, 12, y + noticeY);
+        noticeY += 2.5;
+      });
+    }
+    
+    // Notice 3: Driver copy notice (only for driver copy)
+    if (copyType.toLowerCase() === 'driver') {
+      const notice3Text = "";
+      const notice3Lines = pdf.splitTextToSize(notice3Text, 130);
+      notice3Lines.forEach(line => {
+        pdf.text(line, 12, y + noticeY);
+        noticeY += 2.5;
+      });
+    }
     
     // 📄 FOOTER SECTION - Enhanced styling
     // Bottom horizontal line - Thick
@@ -772,13 +834,13 @@ const PDFGenerator = ({
       );
       
       // Caution description text
-      setStyle(pdf, STYLES.FONTS.TINY);
+      setStyle(pdf, STYLES.FONTS.SMALL);
       const cautionText = "The Consignment Will Not Be Declared Diverted Re-Routed or Re-Booked Without Consignee Bank's Written Permission Will Not Be Delivered";
-      const lines = pdf.splitTextToSize(cautionText, 33);
+      const lines = pdf.splitTextToSize(cautionText, 47);
       let lineY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y;
       lines.forEach(line => {
         pdf.text(line, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, lineY);
-        lineY += 2;
+        lineY += 2.9; // Increased spacing from 2 to 2.5 for better readability
       });
       
       // Second copy caution box (with Y offset)
@@ -799,11 +861,11 @@ const PDFGenerator = ({
       );
       
       // Second copy caution text
-      setStyle(pdf, STYLES.FONTS.TINY);
+      setStyle(pdf, STYLES.FONTS.SMALL);
       lineY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + COORDINATES.SPACING.SECOND_COPY_OFFSET;
       lines.forEach(line => {
         pdf.text(line, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, lineY);
-        lineY += 2;
+        lineY += 2.9; // Increased spacing from 2 to 2.5 for better readability
       });
       
       // 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING

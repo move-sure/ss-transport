@@ -551,7 +551,7 @@ const PDFGenerator = ({
       `PVT MARKS: ${biltyData.pvt_marks || 'SS/1'}`, 
       COORDINATES.TABLE_SECTION.PVT_MARKS.x, 
       y + COORDINATES.TABLE_SECTION.PVT_MARKS.y,
-      STYLES.FONTS.VALUES
+      STYLES.FONTS.LABELS
     );
     addStyledText(
       pdf, 
@@ -1007,41 +1007,3 @@ const PDFGenerator = ({
 };
 
 export default PDFGenerator;
-
-/*
-==========================================
-🆕 NEW FEATURES ADDED:
-==========================================
-
-✅ ENHANCED FONT STYLING:
-   - Company name: Size 20, Bold
-   - Headers/Labels: Size 9, Bold  
-   - Values: Size 9, Normal
-   - GR Number: Size 12, Bold
-   - Total Amount: Size 14, Bold
-   - Payment Status: Size 14, Bold
-   - Notice: Size 12, Bold
-
-✅ DELIVERY TYPE RELOCATION:
-   - Moved from "DELIVERY AT" section
-   - Now displays near payment mode (TO PAY/PAID/FOC)
-   - Coordinates: { x: 190, y: 95 }
-   - Shows as "DD" for door-delivery, "GD" for godown-delivery
-
-✅ 4 NEW VERTICAL LINES ADDED:
-   - VERTICAL_LINE_1: { x: 40, y1: 100, y2: 136 }
-   - VERTICAL_LINE_2: { x: 120, y1: 100, y2: 136 }
-   - VERTICAL_LINE_3: { x: 70, y1: 100, y2: 136 }
-   - VERTICAL_LINE_4: { x: 200, y1: 100, y2: 136 }
-
-✅ ENHANCED LINE STYLES:
-   - Normal lines: 0.5mm
-   - Thick lines: 1.0mm  
-   - Extra thick lines: 1.5mm (for total line)
-
-🔧 HOW TO CUSTOMIZE:
-   - Change coordinates in COORDINATES.EXTRA_LINES
-   - Modify font sizes in STYLES.FONTS
-   - Adjust line thickness in STYLES.LINES
-   - All styling maintained per your requirements!
-*/

@@ -505,7 +505,7 @@ export default function Home() {
                 </span>
               </h2>
               <p className="text-xl text-slate-300 max-w-3xl mx-auto">
-                Join the AI revolution in transportation. Let's build the future together.
+                Join the AI revolution in transportation. Lets build the future together.
               </p>
             </div>
 

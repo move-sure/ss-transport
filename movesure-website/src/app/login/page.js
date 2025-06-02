@@ -1,11 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import bcrypt from 'bcryptjs';
-import { Truck, User, Lock, ArrowRight, Shield, Globe, Clock } from 'lucide-react';
+import { 
+  Truck, 
+  User, 
+  Lock, 
+  ArrowRight, 
+  Shield, 
+  CheckCircle, 
+  Eye, 
+  EyeOff,
+  MapPin,
+  Clock
+} from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,11 +28,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (initialized && !loading && isAuthenticated) {
-      console.log('Already authenticated, redirecting to dashboard');
       setIsRedirecting(true);
       router.push('/dashboard');
     }
@@ -55,8 +65,6 @@ export default function LoginPage() {
         throw new Error('Password is required');
       }
 
-      console.log('Starting login process for username:', formData.username);
-
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -65,19 +73,13 @@ export default function LoginPage() {
         .single();
 
       if (userError || !userData) {
-        console.error('User fetch error:', userError);
         throw new Error('Invalid username or password');
       }
-
-      console.log('User found:', userData.username);
 
       const passwordMatch = await bcrypt.compare(formData.password, userData.password_hash);
       if (!passwordMatch) {
-        console.log('Password verification failed');
         throw new Error('Invalid username or password');
       }
-
-      console.log('Password verified successfully');
 
       const clientInfo = getClientInfo();
       const { data: sessionData, error: sessionError } = await supabase
@@ -95,11 +97,8 @@ export default function LoginPage() {
         .single();
 
       if (sessionError) {
-        console.error('Session creation error:', sessionError);
         throw new Error('Failed to create session');
       }
-
-      console.log('Session created:', sessionData);
 
       const tokenExpiry = new Date();
       tokenExpiry.setHours(tokenExpiry.getHours() + 24);
@@ -120,11 +119,8 @@ export default function LoginPage() {
         .single();
 
       if (tokenError) {
-        console.error('Token creation error:', tokenError);
         throw new Error('Failed to create authentication token');
       }
-
-      console.log('Token created:', tokenData);
 
       const loginSuccess = await login(userData, tokenData, sessionData);
 
@@ -132,15 +128,12 @@ export default function LoginPage() {
         throw new Error('Login failed');
       }
 
-      console.log('Login successful, redirecting to dashboard');
       setIsRedirecting(true);
-
       setTimeout(() => {
         router.push('/dashboard');
       }, 1000);
 
     } catch (error) {
-      console.error('Login error:', error);
       setError(error.message || 'Login failed');
     } finally {
       setIsLoading(false);
@@ -149,13 +142,13 @@ export default function LoginPage() {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-black">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-300 border-t-white mx-auto"></div>
-            <Truck className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-black" />
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto"></div>
+            <Truck className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-blue-600" />
           </div>
-          <p className="mt-6 text-white text-xl font-semibold">Initializing Movesure.io...</p>
+          <p className="mt-4 text-gray-900 font-medium">Loading...</p>
         </div>
       </div>
     );
@@ -163,79 +156,87 @@ export default function LoginPage() {
 
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-green-300 border-t-white mx-auto"></div>
-            <ArrowRight className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white animate-pulse" />
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent mx-auto"></div>
+            <CheckCircle className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-green-600" />
           </div>
-          <p className="mt-6 text-white text-xl font-semibold">Redirecting to Dashboard...</p>
-          <p className="mt-2 text-green-200 text-sm">Welcome back! Setting up your workspace...</p>
+          <p className="mt-4 text-gray-900 font-medium">Redirecting to Dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden text-black">
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full mix-blend-overlay filter blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-96 h-96 bg-blue-300 rounded-full mix-blend-overlay filter blur-xl animate-pulse delay-1000"></div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Truck className="w-8 h-8 text-blue-600" />
+              <span className="text-2xl font-bold text-gray-900">Movesure</span>
+              <span className="text-sm text-blue-600 font-medium">.io</span>
+            </div>
+            <button
+              onClick={() => router.push('/')}
+              className="text-gray-600 hover:text-blue-600 transition-colors font-medium"
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="relative z-10 min-h-screen flex">
-        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 text-black">
+      <div className="flex min-h-[calc(100vh-80px)]">
+        {/* Left Side - Features */}
+        <div className="hidden lg:flex lg:w-1/2 bg-blue-600 flex-col justify-center items-center p-12 text-white">
           <div className="max-w-md text-center">
-            <div className="flex items-center justify-center mb-8">
-              <div className="relative">
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm p-6 rounded-2xl border border-white border-opacity-30">
-                  <Truck className="w-16 h-16 text-black" />
-                </div>
-                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-400 to-red-500 p-2 rounded-lg">
-                  <span className="text-xs font-bold text-white">AI</span>
-                </div>
-              </div>
+            <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20 mb-8">
+              <Truck className="w-16 h-16 text-white mx-auto" />
             </div>
             
-            <h1 className="text-4xl font-bold mb-4 text-white">
-              movesure.io
+            <h1 className="text-4xl font-bold mb-4">
+              Welcome to Movesure
             </h1>
             
             <p className="text-xl text-blue-100 mb-8">
-              Professional Transport Management System
+              Indias leading transport management system
             </p>
             
             <div className="space-y-4 text-left">
-              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
-                <Shield className="w-6 h-6 text-green-400" />
-                <span className="text-black">Secure & Encrypted</span>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-4 rounded-lg">
+                <Shield className="w-6 h-6 text-white" />
+                <span className="text-white">Secure & Encrypted</span>
               </div>
-              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
-                <Globe className="w-6 h-6 text-blue-400" />
-                <span className="text-black">Real-time Tracking</span>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-4 rounded-lg">
+                <MapPin className="w-6 h-6 text-white" />
+                <span className="text-white">Real-time Tracking</span>
               </div>
-              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
-                <Clock className="w-6 h-6 text-purple-400" />
-                <span className="text-black">24/7 Operations</span>
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-4 rounded-lg">
+                <Clock className="w-6 h-6 text-white" />
+                <span className="text-white">24/7 Operations</span>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Right Side - Login Form */}
         <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8">
           <div className="w-full max-w-md">
+            {/* Mobile Header */}
             <div className="lg:hidden text-center mb-8">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm p-4 rounded-xl border border-white border-opacity-30">
-                  <Truck className="w-12 h-12 text-white" />
-                </div>
+              <div className="bg-blue-600 p-4 rounded-xl mb-4 inline-block">
+                <Truck className="w-12 h-12 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-white">movesure.io</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Movesure.io</h1>
+              <p className="text-gray-600">Transport Management System</p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+            <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
               <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
                 <p className="text-gray-600">Sign in to access your dashboard</p>
               </div>
 
@@ -244,7 +245,7 @@ export default function LoginPage() {
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span className="text-black font-medium">{error}</span>
+                      <span className="text-red-700 font-medium">{error}</span>
                     </div>
                   </div>
                 )}
@@ -264,7 +265,7 @@ export default function LoginPage() {
                         required
                         value={formData.username}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-black font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
                         placeholder="Enter your username"
                       />
                     </div>
@@ -280,27 +281,37 @@ export default function LoginPage() {
                       </div>
                       <input
                         name="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-black font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                        className="w-full pl-10 pr-12 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
                         placeholder="Enter your password"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 <button
-                  onClick={handleSubmit}
+                  type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-lg shadow-lg transform transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg transform transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center gap-3">
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span className="text-white font-semibold">Authenticating...</span>
+                      <span className="text-white font-semibold">Signing In...</span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2">
@@ -313,7 +324,7 @@ export default function LoginPage() {
 
               <div className="mt-8 text-center">
                 <div className="text-gray-600">
-                  Dont have an account?{' '}
+                  Don't have an account?{' '}
                   <button
                     onClick={() => router.push('/register')}
                     className="text-blue-600 font-semibold hover:text-blue-700 transition-colors duration-200 underline underline-offset-2"
@@ -324,9 +335,9 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="text-center mt-8 text-white text-sm">
-              <p>© 2024 movesure.io. All rights reserved.</p>
-              <p className="mt-1">Powered by Advanced AI Technology</p>
+            <div className="text-center mt-8 text-gray-500 text-sm">
+              <p>© 2025 Movesure.io. All rights reserved.</p>
+              <p className="mt-1">Secure transport management for India</p>
             </div>
           </div>
         </div>

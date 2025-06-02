@@ -31,7 +31,7 @@ const MODULE_CONFIG = {
   },
   'master': {
     name: 'Master',
-    path: '/master',
+    path: '/staff',
     icon: 'Database',
   },
   'report': {
@@ -41,12 +41,12 @@ const MODULE_CONFIG = {
   },
   'setting': {
     name: 'Settings',
-    path: '/settings',
+    path: '/bilty-setting',
     icon: 'Settings',
   },
   'staff': {
     name: 'Admin',
-    path: '/admin',
+    path: '/test',
     icon: 'Wrench',
   }
 };
@@ -57,11 +57,11 @@ const ROUTE_MODULE_MAP = {
   '/e-way-bill': 'e-way-bill',
   '/loading': 'loading',
   '/challan': 'challan',
-  '/master': 'master',
+  '/staff': 'master',
   '/report': 'report',
-  '/settings': 'setting',
-  '/setting': 'setting',
-  '/admin': 'staff',
+  '/bilty-setting': 'setting',
+  '/bilty-setting': 'setting',
+  '/test': 'staff',
   '/staff': 'staff',
   '/user-modules': 'staff',
 };

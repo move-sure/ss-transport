@@ -29,7 +29,7 @@ export const MODULE_CONFIG = {
   },
   'master': {
     name: 'Master',
-    path: '/master',
+    path: '/staff',
     icon: 'Database',
     description: 'Master data management'
   },
@@ -41,7 +41,7 @@ export const MODULE_CONFIG = {
   },
   'setting': {
     name: 'Settings',
-    path: '/settings',
+    path: '/bilty-setting',
     icon: 'Settings',
     description: 'Application settings'
   },

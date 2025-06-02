@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import bcrypt from 'bcryptjs';
+import { Truck, User, Lock, ArrowRight, Shield, Globe, Clock } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,11 +16,13 @@ export default function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
     if (initialized && !loading && isAuthenticated) {
       console.log('Already authenticated, redirecting to dashboard');
+      setIsRedirecting(true);
       router.push('/dashboard');
     }
   }, [initialized, loading, isAuthenticated, router]);
@@ -34,7 +37,7 @@ export default function LoginPage() {
 
   const getClientInfo = () => {
     return {
-      ip_address: '127.0.0.1', // You might want to get real IP in production
+      ip_address: '127.0.0.1',
       user_agent: navigator.userAgent
     };
   };
@@ -45,7 +48,6 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Validation
       if (!formData.username.trim()) {
         throw new Error('Username is required');
       }
@@ -55,7 +57,6 @@ export default function LoginPage() {
 
       console.log('Starting login process for username:', formData.username);
 
-      // Get user from database
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -70,7 +71,6 @@ export default function LoginPage() {
 
       console.log('User found:', userData.username);
 
-      // Verify password
       const passwordMatch = await bcrypt.compare(formData.password, userData.password_hash);
       if (!passwordMatch) {
         console.log('Password verification failed');
@@ -79,7 +79,6 @@ export default function LoginPage() {
 
       console.log('Password verified successfully');
 
-      // Create session record
       const clientInfo = getClientInfo();
       const { data: sessionData, error: sessionError } = await supabase
         .from('user_sessions')
@@ -102,7 +101,6 @@ export default function LoginPage() {
 
       console.log('Session created:', sessionData);
 
-      // Create token with 24 hour expiry
       const tokenExpiry = new Date();
       tokenExpiry.setHours(tokenExpiry.getHours() + 24);
 
@@ -128,7 +126,6 @@ export default function LoginPage() {
 
       console.log('Token created:', tokenData);
 
-      // Call login function from auth context
       const loginSuccess = await login(userData, tokenData, sessionData);
 
       if (!loginSuccess) {
@@ -136,11 +133,11 @@ export default function LoginPage() {
       }
 
       console.log('Login successful, redirecting to dashboard');
+      setIsRedirecting(true);
 
-      // Wait a bit for state to update before redirecting
       setTimeout(() => {
         router.push('/dashboard');
-      }, 100);
+      }, 1000);
 
     } catch (error) {
       console.error('Login error:', error);
@@ -150,89 +147,186 @@ export default function LoginPage() {
     }
   };
 
-  // Show loading while auth is initializing
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-black">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-lg">Loading...</p>
+          <div className="relative">
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-300 border-t-white mx-auto"></div>
+            <Truck className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-black" />
+          </div>
+          <p className="mt-6 text-white text-xl font-semibold">Initializing Movesure.io...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-green-300 border-t-white mx-auto"></div>
+            <ArrowRight className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white animate-pulse" />
+          </div>
+          <p className="mt-6 text-white text-xl font-semibold">Redirecting to Dashboard...</p>
+          <p className="mt-2 text-green-200 text-sm">Welcome back! Setting up your workspace...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Sign in to your account
-        </h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden text-black">
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full mix-blend-overlay filter blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-96 h-96 bg-blue-300 rounded-full mix-blend-overlay filter blur-xl animate-pulse delay-1000"></div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-                {error}
+      <div className="relative z-10 min-h-screen flex">
+        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 text-black">
+          <div className="max-w-md text-center">
+            <div className="flex items-center justify-center mb-8">
+              <div className="relative">
+                <div className="bg-white bg-opacity-20 backdrop-blur-sm p-6 rounded-2xl border border-white border-opacity-30">
+                  <Truck className="w-16 h-16 text-black" />
+                </div>
+                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-400 to-red-500 p-2 rounded-lg">
+                  <span className="text-xs font-bold text-white">AI</span>
+                </div>
               </div>
-            )}
+            </div>
+            
+            <h1 className="text-4xl font-bold mb-4 text-white">
+              movesure.io
+            </h1>
+            
+            <p className="text-xl text-blue-100 mb-8">
+              Professional Transport Management System
+            </p>
+            
+            <div className="space-y-4 text-left">
+              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
+                <Shield className="w-6 h-6 text-green-400" />
+                <span className="text-black">Secure & Encrypted</span>
+              </div>
+              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
+                <Globe className="w-6 h-6 text-blue-400" />
+                <span className="text-black">Real-time Tracking</span>
+              </div>
+              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
+                <Clock className="w-6 h-6 text-purple-400" />
+                <span className="text-black">24/7 Operations</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
-              <div className="mt-1">
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
+        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8">
+          <div className="w-full max-w-md">
+            <div className="lg:hidden text-center mb-8">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-white bg-opacity-20 backdrop-blur-sm p-4 rounded-xl border border-white border-opacity-30">
+                  <Truck className="w-12 h-12 text-white" />
+                </div>
+              </div>
+              <h1 className="text-2xl font-bold text-white">movesure.io</h1>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
+                <p className="text-gray-600">Sign in to access your dashboard</p>
+              </div>
+
+              <div className="space-y-6">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span className="text-black font-medium">{error}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Username
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        name="username"
+                        type="text"
+                        required
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-black font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                        placeholder="Enter your username"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        name="password"
+                        type="password"
+                        required
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-black font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                        placeholder="Enter your password"
+                        onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSubmit}
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-lg shadow-lg transform transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span className="text-white font-semibold">Authenticating...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-white font-semibold">Sign In</span>
+                      <ArrowRight className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-8 text-center">
+                <div className="text-gray-600">
+                  Dont have an account?{' '}
+                  <button
+                    onClick={() => router.push('/register')}
+                    className="text-blue-600 font-semibold hover:text-blue-700 transition-colors duration-200 underline underline-offset-2"
+                  >
+                    Register here
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
-              </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6">
-            <div className="text-center">
-              <span className="text-sm text-gray-600">Dont have an account? </span>
-              <button
-                onClick={() => router.push('/register')}
-                className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
-              >
-                Register here
-              </button>
+            <div className="text-center mt-8 text-white text-sm">
+              <p>© 2024 movesure.io. All rights reserved.</p>
+              <p className="mt-1">Powered by Advanced AI Technology</p>
             </div>
           </div>
         </div>

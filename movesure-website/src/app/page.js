@@ -191,7 +191,7 @@ export default function Home() {
       <section className="pt-24 pb-16 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium inline-block mb-6">
-            🚛 India's #1 Transport Management System
+            🚛 Indias #1 Transport Management System
           </div>
           
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
@@ -302,7 +302,7 @@ export default function Home() {
             <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8">
               <div className="bg-white rounded-lg p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-gray-900 font-semibold">Today's Summary</span>
+                  <span className="text-gray-900 font-semibold">Todays Summary</span>
                   <Clock className="w-5 h-5 text-blue-600" />
                 </div>
                 <div className="space-y-3">
@@ -345,7 +345,7 @@ export default function Home() {
                     <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-4 italic">"{testimonial.text}"</p>
+                <p className="text-gray-700 mb-4 italic">{testimonial.text}</p>
                 <div>
                   <div className="font-semibold text-gray-900">{testimonial.name}</div>
                   <div className="text-gray-600 text-sm">{testimonial.company}</div>
@@ -399,7 +399,7 @@ export default function Home() {
                 <span className="text-2xl font-bold">Movesure.io</span>
               </div>
               <p className="text-gray-400 mb-4 max-w-md">
-                India's leading transport management system. Simplifying logistics 
+                Indias leading transport management system. Simplifying logistics 
                 for businesses across the country.
               </p>
             </div>

@@ -195,6 +195,31 @@ const PDFGenerator = ({
     };
   }, [pdfUrl]);
 
+  // NEW: Add keyboard event listener for Enter key to print PDF
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      // Check if Enter key is pressed
+      if (event.key === 'Enter' && pdfUrl) {
+        event.preventDefault(); // Prevent default browser behavior
+        printPDF(); // Print the PDF from embedded preview
+      }
+      
+      // Optional: Also handle Ctrl+P to print PDF instead of page
+      if (event.ctrlKey && event.key === 'p' && pdfUrl) {
+        event.preventDefault(); // Prevent default browser print dialog
+        printPDF(); // Print the PDF instead
+      }
+    };
+
+    // Add event listener when component mounts
+    document.addEventListener('keydown', handleKeyPress);
+    
+    // Cleanup event listener when component unmounts
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [pdfUrl]); // Re-run when pdfUrl changes
+
   const loadAllDataAndGeneratePreview = async () => {
     try {
       setLoading(true);
@@ -388,7 +413,7 @@ const PDFGenerator = ({
     // GSTIN - Bold label
     addStyledText(
       pdf, 
-      `GSTIN: ${permDetails?.gst || transport?.gst_number || '24503825250'}`, 
+      `GSTIN: ${transport?.gst_number || '24503825250'}`, 
       COORDINATES.DELIVERY_SECTION.GSTIN.x, 
       y + COORDINATES.DELIVERY_SECTION.GSTIN.y,
       STYLES.FONTS.LABELS
@@ -625,7 +650,7 @@ const PDFGenerator = ({
     addStyledText(pdf, `${biltyData.toll_charge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.VALUES, { align: 'right' });
     
     addStyledText(pdf, `PF:`, labelX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `0.00`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.VALUES, { align: 'right' });
+    addStyledText(pdf, `${biltyData.pf_charge}`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.VALUES, { align: 'right' });
     
     addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.LABELS);
     addStyledText(pdf, `${biltyData.other_charge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
@@ -913,10 +938,35 @@ const PDFGenerator = ({
 
   const printPDF = () => {
     if (pdfUrl) {
-      const printWindow = window.open(pdfUrl);
-      printWindow.addEventListener('load', () => {
-        printWindow.print();
-      });
+      // Create a hidden iframe to print the PDF
+      const printFrame = document.createElement('iframe');
+      printFrame.style.display = 'none';
+      printFrame.src = pdfUrl;
+      
+      document.body.appendChild(printFrame);
+      
+      printFrame.onload = () => {
+        try {
+          // Focus on the iframe content and print
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
+          
+          // Remove the iframe after a short delay
+          setTimeout(() => {
+            document.body.removeChild(printFrame);
+          }, 1000);
+        } catch (error) {
+          console.error('Error printing PDF:', error);
+          // Fallback: Open in new window and print
+          const printWindow = window.open(pdfUrl, '_blank');
+          printWindow.addEventListener('load', () => {
+            printWindow.print();
+          });
+          document.body.removeChild(printFrame);
+        }
+      };
+    } else {
+      alert('PDF is not ready yet. Please wait for the preview to load.');
     }
   };
 

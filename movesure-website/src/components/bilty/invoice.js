@@ -1,8 +1,177 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Check } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
 
 const InvoiceDetailsSection = ({ formData, setFormData }) => {
+  const [contentOptions, setContentOptions] = useState([]);
+  const [showContentDropdown, setShowContentDropdown] = useState(false);
+  const [contentSearch, setContentSearch] = useState('');
+  const [selectedContentIndex, setSelectedContentIndex] = useState(-1);
+  const [isAddingContent, setIsAddingContent] = useState(false);
+  const [newContentName, setNewContentName] = useState('');
+  const contentRef = useRef(null);
+
+  // Initialize content search when formData changes
+  useEffect(() => {
+    if (formData.contain && contentSearch !== formData.contain) {
+      setContentSearch(formData.contain);
+    }
+  }, [formData.contain]);
+
+  // Load content options on component mount
+  useEffect(() => {
+    loadContentOptions();
+  }, []);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (contentRef.current && !contentRef.current.contains(event.target)) {
+        setShowContentDropdown(false);
+        setIsAddingContent(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const loadContentOptions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('content_management')
+        .select('*')
+        .order('content_name');
+      
+      if (error) throw error;
+      setContentOptions(data || []);
+    } catch (error) {
+      console.error('Error loading content options:', error);
+    }
+  };
+
+  const handleContentSelect = (content) => {
+    setContentSearch(content.content_name);
+    setFormData(prev => ({ ...prev, contain: content.content_name }));
+    setShowContentDropdown(false);
+    setSelectedContentIndex(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (isAddingContent) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAddNewContent();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsAddingContent(false);
+        setNewContentName('');
+      }
+      return;
+    }
+
+    if (!showContentDropdown || filteredContent.length === 0) {
+      if (e.key === 'ArrowDown' && !showContentDropdown) {
+        e.preventDefault();
+        setShowContentDropdown(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedContentIndex(prev => 
+          prev < filteredContent.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedContentIndex(prev => 
+          prev > 0 ? prev - 1 : filteredContent.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedContentIndex >= 0) {
+          handleContentSelect(filteredContent[selectedContentIndex]);
+        } else if (filteredContent.length > 0) {
+          handleContentSelect(filteredContent[0]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowContentDropdown(false);
+        setSelectedContentIndex(-1);
+        break;
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setContentSearch(value);
+    setFormData(prev => ({ ...prev, contain: value }));
+    setShowContentDropdown(true);
+    setSelectedContentIndex(-1);
+    setIsAddingContent(false);
+  };
+
+  const handleAddNewContent = async () => {
+    if (!newContentName.trim()) return;
+
+    try {
+      // Check if content already exists
+      const existingContent = contentOptions.find(
+        c => c.content_name.toLowerCase() === newContentName.trim().toLowerCase()
+      );
+
+      if (existingContent) {
+        // If exists, just select it
+        handleContentSelect(existingContent);
+        setIsAddingContent(false);
+        setNewContentName('');
+        return;
+      }
+
+      // Add new content to database
+      const { data, error } = await supabase
+        .from('content_management')
+        .insert([{ content_name: newContentName.trim() }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setContentOptions(prev => [...prev, data]);
+      
+      // Select the new content
+      handleContentSelect(data);
+      
+      setIsAddingContent(false);
+      setNewContentName('');
+    } catch (error) {
+      console.error('Error adding new content:', error);
+      alert('Error adding new content. Please try again.');
+    }
+  };
+
+  const startAddingContent = () => {
+    setIsAddingContent(true);
+    setNewContentName(contentSearch);
+    setShowContentDropdown(false);
+  };
+
+  const filteredContent = contentOptions.filter(content =>
+    content.content_name.toLowerCase().includes(contentSearch.toLowerCase())
+  );
+
+  // Check if current search exactly matches any existing content
+  const exactMatch = contentOptions.find(
+    c => c.content_name.toLowerCase() === contentSearch.toLowerCase()
+  );
+
   return (
     <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-md">
       <div className="grid grid-cols-3 gap-6">
@@ -38,18 +207,91 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </select>
         </div>
 
+        {/* Enhanced Content Field with Dropdown */}
         <div className="flex items-center gap-3">
           <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
             CONTENT
           </span>
-          <input
-            type="text"
-            value={formData.contain}
-            onChange={(e) => setFormData(prev => ({ ...prev, contain: e.target.value }))}
-            className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
-            placeholder="Goods description"
-            tabIndex={16}
-          />
+          <div className="relative flex-1" ref={contentRef}>
+            {isAddingContent ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newContentName}
+                  onChange={(e) => setNewContentName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter new content name..."
+                  className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-green-400 rounded-lg focus:outline-none focus:border-green-600 bg-white shadow-sm"
+                  autoFocus
+                />
+                <button
+                  onClick={handleAddNewContent}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={contentSearch}
+                onChange={handleInputChange}
+                onFocus={() => setShowContentDropdown(true)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search or type goods description..."
+                className="w-full px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                tabIndex={16}
+              />
+            )}
+
+            {showContentDropdown && !isAddingContent && (
+              <div className="absolute z-30 mt-1 w-full bg-white border-2 border-blue-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                <div className="p-2 bg-blue-50 text-xs font-medium border-b border-blue-200 flex justify-between items-center">
+                  <span>CONTENT OPTIONS</span>
+                  {contentSearch && !exactMatch && (
+                    <button
+                      onClick={startAddingContent}
+                      className="flex items-center gap-1 text-green-600 hover:text-green-700 font-semibold"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add New
+                    </button>
+                  )}
+                </div>
+                
+                {filteredContent.length > 0 ? (
+                  filteredContent.map((content, index) => (
+                    <button
+                      key={content.content_id}
+                      onClick={() => handleContentSelect(content)}
+                      className={`w-full px-3 py-2 text-left hover:bg-blue-50 text-sm transition-colors border-b border-gray-100 ${
+                        index === selectedContentIndex ? 'bg-blue-100' : ''
+                      }`}
+                    >
+                      <div className="font-medium text-gray-800">{content.content_name}</div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    {contentSearch ? (
+                      <div className="flex justify-between items-center">
+                        <span>No matching content found</span>
+                        <button
+                          onClick={startAddingContent}
+                          className="text-green-600 hover:text-green-700 font-semibold flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add "{contentSearch}"
+                        </button>
+                      </div>
+                    ) : (
+                      'Start typing to search content...'
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Row 2 - Invoice Details */}

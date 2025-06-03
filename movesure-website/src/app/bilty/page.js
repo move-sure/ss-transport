@@ -80,6 +80,7 @@ export default function BiltyForm() {
     toll_charge: 0,
     dd_charge: 0,
     other_charge: 0,
+    pf_charge: 0,
     total: 50,
     remark: '',
     saving_option: 'SAVE'
@@ -208,7 +209,8 @@ export default function BiltyForm() {
       setFormData({
         ...fullBilty,
         bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
-        invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : ''
+        invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : '',
+        pf_charge: fullBilty.pf_charge || 0
       });
       
       setCurrentBiltyId(bilty.id);
@@ -375,6 +377,7 @@ export default function BiltyForm() {
       toll_charge: 0,
       dd_charge: 0,
       other_charge: 0,
+      pf_charge: 0,
       total: 50,
       remark: '',
       saving_option: 'SAVE'

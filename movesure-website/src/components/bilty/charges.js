@@ -22,10 +22,11 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                   (formData.bill_charge || 0) + 
                   (formData.toll_charge || 0) + 
                   (formData.dd_charge || 0) + 
-                  (formData.other_charge || 0);
+                  (formData.other_charge || 0) + 
+                  (formData.pf_charge || 0);
     setFormData(prev => ({ ...prev, total }));
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
-      formData.toll_charge, formData.dd_charge, formData.other_charge, setFormData]);
+      formData.toll_charge, formData.dd_charge, formData.other_charge, formData.pf_charge, setFormData]);
 
   return (
     <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-md">
@@ -151,6 +152,20 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                 />
               </div>
 
+              {/* PF Charge */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-2 text-xs font-bold rounded shadow-sm whitespace-nowrap">
+                  PF CHR
+                </span>
+                <input
+                  type="number"
+                  value={formData.pf_charge}
+                  onChange={(e) => setFormData(prev => ({ ...prev, pf_charge: parseFloat(e.target.value) || 0 }))}
+                  className="w-24 px-2 py-2 text-gray-800 font-bold border-2 border-blue-300 rounded focus:outline-none focus:border-blue-600 text-center bg-white"
+                  tabIndex={27}
+                />
+              </div>
+
               {/* Other Charge */}
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-2 text-xs font-bold rounded shadow-sm whitespace-nowrap">
@@ -161,7 +176,7 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                   value={formData.other_charge}
                   onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
                   className="w-24 px-2 py-2 text-gray-800 font-bold border-2 border-blue-300 rounded focus:outline-none focus:border-blue-600 text-center bg-white"
-                  tabIndex={27}
+                  tabIndex={28}
                 />
               </div>
 
@@ -175,7 +190,7 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                   value={formData.toll_charge}
                   onChange={(e) => setFormData(prev => ({ ...prev, toll_charge: parseFloat(e.target.value) || 0 }))}
                   className="w-24 px-2 py-2 text-gray-800 font-bold border-2 border-blue-300 rounded focus:outline-none focus:border-blue-600 text-center bg-white"
-                  tabIndex={28}
+                  tabIndex={29}
                 />
               </div>
 
@@ -190,7 +205,7 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                     value={formData.total}
                     readOnly
                     className="w-24 px-2 py-3 text-gray-800 font-bold border-4 border-red-400 rounded bg-red-50 text-center text-lg shadow-md"
-                    tabIndex={29}
+                    tabIndex={30}
                   />
                 </div>
               </div>

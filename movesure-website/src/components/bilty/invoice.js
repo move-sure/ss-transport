@@ -281,7 +281,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                           className="text-green-600 hover:text-green-700 font-semibold flex items-center gap-1"
                         >
                           <Plus className="w-3 h-3" />
-                          Add "{contentSearch}"
+                          Add {contentSearch}
                         </button>
                       </div>
                     ) : (

@@ -126,6 +126,8 @@ const TruckCard = memo(({ truck, onEdit, onDelete, onToggleStatus, getTruckIcon,
   </div>
 ));
 
+TruckCard.displayName = 'TruckCard';
+
 // Memoized staff card component
 const StaffCard = memo(({ member, onEdit, onDelete, onToggleStatus, getPostIcon }) => (
   <div className="bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
@@ -205,6 +207,8 @@ const StaffCard = memo(({ member, onEdit, onDelete, onToggleStatus, getPostIcon 
     </div>
   </div>
 ));
+
+StaffCard.displayName = 'StaffCard';
 
 export default function TruckStaffManagement() {
   const { user } = useAuth();

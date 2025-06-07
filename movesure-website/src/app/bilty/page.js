@@ -93,6 +93,13 @@ export default function BiltyForm() {
     }
   }, [user]);
 
+  // Check for edit data from bilty list after initial data is loaded
+  useEffect(() => {
+    if (!loading && cities.length > 0) {
+      checkForEditData();
+    }
+  }, [loading, cities]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -126,6 +133,64 @@ export default function BiltyForm() {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [formData, selectedBillBook, isEditMode, currentBiltyId]);
+
+  const checkForEditData = async () => {
+    try {
+      // Check if there's edit data from bilty list
+      const editData = localStorage.getItem('editBiltyData');
+      if (editData) {
+        const { biltyId, grNo, editMode } = JSON.parse(editData);
+        
+        if (editMode && biltyId) {
+          console.log('Loading bilty for edit:', { biltyId, grNo });
+          
+          // Load the full bilty data
+          const { data: fullBilty, error } = await supabase
+            .from('bilty')
+            .select('*')
+            .eq('id', biltyId)
+            .single();
+          
+          if (error) {
+            console.error('Error loading bilty for edit:', error);
+            alert('Error loading bilty data for editing');
+            localStorage.removeItem('editBiltyData');
+            return;
+          }
+          
+          console.log('Loaded bilty data:', fullBilty);
+          
+          // Set form data with the existing bilty
+          setFormData({
+            ...fullBilty,
+            bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
+            invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+            pf_charge: fullBilty.pf_charge || 0
+          });
+          
+          // Set edit mode
+          setIsEditMode(true);
+          setCurrentBiltyId(biltyId);
+          
+          // Set to city name for display
+          if (fullBilty.to_city_id) {
+            const city = cities.find(c => c.id === fullBilty.to_city_id);
+            if (city) {
+              setToCityName(city.city_name);
+            }
+          }
+          
+          // Clear the localStorage data
+          localStorage.removeItem('editBiltyData');
+          
+          console.log('Edit mode set successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking edit data:', error);
+      localStorage.removeItem('editBiltyData');
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -167,8 +232,8 @@ export default function BiltyForm() {
         }
       }
       
-      // Set default bill book and GR - ALWAYS NEW ON LOAD
-      if (booksRes.data?.length > 0) {
+      // Set default bill book and GR - Only if not editing
+      if (booksRes.data?.length > 0 && !localStorage.getItem('editBiltyData')) {
         const defaultBook = branchRes.data?.default_bill_book_id 
           ? booksRes.data.find(b => b.id === branchRes.data.default_bill_book_id) || booksRes.data[0]
           : booksRes.data[0];
@@ -180,6 +245,12 @@ export default function BiltyForm() {
         // Ensure we're in new mode
         setIsEditMode(false);
         setCurrentBiltyId(null);
+      } else if (booksRes.data?.length > 0) {
+        // Still set the selected bill book even in edit mode for bill book dropdown
+        const defaultBook = branchRes.data?.default_bill_book_id 
+          ? booksRes.data.find(b => b.id === branchRes.data.default_bill_book_id) || booksRes.data[0]
+          : booksRes.data[0];
+        setSelectedBillBook(defaultBook);
       }
       
     } catch (error) {
@@ -248,6 +319,7 @@ export default function BiltyForm() {
       let savedData;
       
       if (isEditMode && currentBiltyId) {
+        console.log('Updating existing bilty:', currentBiltyId);
         const { data, error } = await supabase
           .from('bilty')
           .update(saveData)
@@ -257,8 +329,9 @@ export default function BiltyForm() {
         
         if (error) throw error;
         savedData = data;
+        console.log('Bilty updated successfully');
       } else {
-        // Check for duplicate GR number
+        // Check for duplicate GR number only when creating new
         const { data: existingBilty } = await supabase
           .from('bilty')
           .select('id')
@@ -272,6 +345,7 @@ export default function BiltyForm() {
           return;
         }
         
+        console.log('Creating new bilty');
         const { data, error } = await supabase
           .from('bilty')
           .insert([saveData])
@@ -307,6 +381,7 @@ export default function BiltyForm() {
           
           setSelectedBillBook(prev => ({ ...prev, current_number: newCurrentNumber }));
         }
+        console.log('New bilty created successfully');
       }
       
       // Get to city name
@@ -386,6 +461,11 @@ export default function BiltyForm() {
     setIsEditMode(false);
     setCurrentBiltyId(null);
     setToCityName('');
+    
+    // Clear any remaining localStorage data
+    localStorage.removeItem('editBiltyData');
+    
+    console.log('Form reset to new mode');
   };
 
   const toggleEditMode = () => {
@@ -427,7 +507,11 @@ export default function BiltyForm() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50">
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-2xl font-bold text-gray-800">Loading...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="text-2xl font-bold text-gray-800">Loading...</div>
+            <div className="text-sm text-gray-600 mt-2">Preparing bilty form...</div>
+          </div>
         </div>
       </div>
     );
@@ -444,6 +528,11 @@ export default function BiltyForm() {
               <span className="text-lg font-semibold"><strong>STAFF:</strong> {user?.username}</span>
               <span className="text-lg font-semibold"><strong>FROM-CITY:</strong> {fromCityName}</span>
               <span className="text-lg font-semibold"><strong>DATE:</strong> {format(new Date(), 'dd/MM/yyyy')}</span>
+              {isEditMode && currentBiltyId && (
+                <span className="bg-yellow-400 text-black px-3 py-1 rounded-lg font-bold text-sm">
+                  EDITING: {formData.gr_no}
+                </span>
+              )}
             </div>
             
             {/* Bill Book Selector */}

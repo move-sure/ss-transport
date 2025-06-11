@@ -301,7 +301,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </span>
           <input
             type="text"
-            value={formData.invoice_no}
+            value={formData.invoice_no || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="Invoice number"
@@ -315,7 +315,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </span>
           <input
             type="number"
-            value={formData.invoice_value}
+            value={formData.invoice_value || 0}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="0"
@@ -329,7 +329,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </span>
           <input
             type="text"
-            value={formData.e_way_bill}
+            value={formData.e_way_bill || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="E-way bill number"

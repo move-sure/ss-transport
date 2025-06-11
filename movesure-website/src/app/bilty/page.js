@@ -310,21 +310,94 @@ export default function BiltyForm() {
     try {
       setSaving(true);
       
-      if (!formData.gr_no || !formData.consignor_name) {
-        alert('Please fill required fields');
+      // Enhanced validation
+      console.log('Starting save process...');
+      console.log('Form data:', formData);
+      console.log('User:', user);
+      console.log('Is Draft:', isDraft);
+      console.log('Is Edit Mode:', isEditMode);
+      console.log('Current Bilty ID:', currentBiltyId);
+      
+      // Validate required fields
+      if (!formData.gr_no?.trim()) {
+        alert('GR Number is required');
         return;
       }
       
+      if (!formData.consignor_name?.trim()) {
+        alert('Consignor name is required');
+        return;
+      }
+      
+      if (!formData.consignee_name?.trim()) {
+        alert('Consignee name is required');
+        return;
+      }
+      
+      if (!formData.to_city_id) {
+        alert('Destination city is required');
+        return;
+      }
+      
+      if (!user?.branch_id) {
+        alert('Branch information is missing. Please login again.');
+        return;
+      }
+      
+      // Prepare save data with explicit type conversion and null handling
       const saveData = {
-        ...formData,
+        gr_no: formData.gr_no?.toString().trim(),
+        branch_id: user.branch_id,
+        staff_id: user.id,
+        from_city_id: formData.from_city_id || null,
+        to_city_id: formData.to_city_id || null,
+        bilty_date: formData.bilty_date,
+        delivery_type: formData.delivery_type || 'godown-delivery',
+        consignor_name: formData.consignor_name?.toString().trim(),
+        consignor_gst: formData.consignor_gst?.toString().trim() || null,
+        consignor_number: formData.consignor_number?.toString().trim() || null,
+        consignee_name: formData.consignee_name?.toString().trim(),
+        consignee_gst: formData.consignee_gst?.toString().trim() || null,
+        consignee_number: formData.consignee_number?.toString().trim() || null,
+        transport_name: formData.transport_name?.toString().trim() || null,
+        transport_gst: formData.transport_gst?.toString().trim() || null,
+        transport_number: formData.transport_number?.toString().trim() || null,
+        payment_mode: formData.payment_mode || 'to-pay',
+        contain: formData.contain?.toString().trim() || null,
+        invoice_no: formData.invoice_no?.toString().trim() || null,
+        invoice_value: parseFloat(formData.invoice_value) || 0,
+        invoice_date: formData.invoice_date || null,
+        e_way_bill: formData.e_way_bill?.toString().trim() || null,
+        document_number: formData.document_number?.toString().trim() || null,
+        no_of_pkg: parseInt(formData.no_of_pkg) || 0,
+        wt: parseFloat(formData.wt) || 0,
+        rate: parseFloat(formData.rate) || 0,
+        pvt_marks: formData.pvt_marks?.toString().trim() || null,
+        freight_amount: parseFloat(formData.freight_amount) || 0,
+        labour_charge: parseFloat(formData.labour_charge) || 0,
+        bill_charge: parseFloat(formData.bill_charge) || 0,
+        toll_charge: parseFloat(formData.toll_charge) || 0,
+        dd_charge: parseFloat(formData.dd_charge) || 0,
+        other_charge: parseFloat(formData.other_charge) || 0,
+        pf_charge: parseFloat(formData.pf_charge) || 0,
+        total: parseFloat(formData.total) || 0,
+        remark: formData.remark?.toString().trim() || null,
         saving_option: isDraft ? 'DRAFT' : 'SAVE',
-        is_active: true
+        is_active: true,
+        created_at: isEditMode ? undefined : new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
+      
+      console.log('Prepared save data:', saveData);
       
       let savedData;
       
       if (isEditMode && currentBiltyId) {
         console.log('Updating existing bilty:', currentBiltyId);
+        
+        // Remove created_at for updates
+        delete saveData.created_at;
+        
         const { data, error } = await supabase
           .from('bilty')
           .update(saveData)
@@ -332,12 +405,19 @@ export default function BiltyForm() {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
+        
         savedData = data;
-        console.log('Bilty updated successfully');
+        console.log('Bilty updated successfully:', savedData);
       } else {
+        console.log('Creating new bilty...');
+        
         // Check for duplicate GR number only when creating new
-        const { data: existingBilty } = await supabase
+        console.log('Checking for duplicate GR number...');
+        const { data: existingBilty, error: duplicateError } = await supabase
           .from('bilty')
           .select('id')
           .eq('gr_no', formData.gr_no)
@@ -345,23 +425,40 @@ export default function BiltyForm() {
           .eq('is_active', true)
           .single();
         
+        if (duplicateError && duplicateError.code !== 'PGRST116') {
+          console.error('Error checking duplicate:', duplicateError);
+          throw new Error('Error checking for duplicate GR number');
+        }
+        
         if (existingBilty) {
           alert('GR Number already exists! Please refresh and try again.');
           return;
         }
         
-        console.log('Creating new bilty');
+        console.log('No duplicate found, inserting new bilty...');
         const { data, error } = await supabase
           .from('bilty')
           .insert([saveData])
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error details:', {
+            error,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
+          throw error;
+        }
+        
         savedData = data;
+        console.log('New bilty created successfully:', savedData);
         
         // Update bill book current number if not draft
         if (!isDraft && selectedBillBook) {
+          console.log('Updating bill book current number...');
           let newCurrentNumber = selectedBillBook.current_number + 1;
           
           if (newCurrentNumber > selectedBillBook.to_number) {
@@ -379,14 +476,18 @@ export default function BiltyForm() {
             }
           }
           
-          await supabase
+          const { error: billBookError } = await supabase
             .from('bill_books')
             .update({ current_number: newCurrentNumber })
             .eq('id', selectedBillBook.id);
           
+          if (billBookError) {
+            console.error('Bill book update error:', billBookError);
+            // Don't throw here, bilty was saved successfully
+          }
+          
           setSelectedBillBook(prev => ({ ...prev, current_number: newCurrentNumber }));
         }
-        console.log('New bilty created successfully');
       }
       
       // Get to city name
@@ -394,6 +495,7 @@ export default function BiltyForm() {
       setToCityName(toCity?.city_name || '');
       
       // Refresh existing bilties list
+      console.log('Refreshing bilties list...');
       const { data: updatedBilties } = await supabase
         .from('bilty')
         .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
@@ -412,9 +514,31 @@ export default function BiltyForm() {
         resetForm();
       }
       
+      console.log('Save process completed successfully');
+      
     } catch (error) {
-      console.error('Error saving bilty:', error);
-      alert('Error saving bilty. Please try again.');
+      console.error('Error saving bilty:', {
+        error,
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        stack: error?.stack
+      });
+      
+      // More specific error messages
+      if (error?.code === '23505') {
+        alert('Duplicate entry error. Please check your data and try again.');
+      } else if (error?.code === '23502') {
+        alert('Missing required field. Please fill all required fields.');
+      } else if (error?.code === '23503') {
+        alert('Invalid reference data. Please check city or branch selection.');
+      } else if (error?.message?.includes('JWT')) {
+        alert('Session expired. Please login again.');
+        router.push('/login');
+      } else {
+        alert(`Error saving bilty: ${error?.message || 'Unknown error'}. Please try again.`);
+      }
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { X, Download, Eye, Printer, FileText, Package, Truck } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -24,7 +24,7 @@ const ChallanPDFPreview = ({
   const pdfViewerRef = useRef(null);
 
   // Generate PDF blob for preview
-  const generatePDFBlob = async () => {
+  const generatePDFBlob = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -50,7 +50,7 @@ const ChallanPDFPreview = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches]);
 
   // Generate Loading Challan PDF Blob with Split Layout
   const generateLoadingChallanPDFBlob = async (allBiltiesData) => {

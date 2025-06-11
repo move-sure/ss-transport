@@ -573,7 +573,7 @@ const ChallanPDFPreview = ({
     if (isOpen && type) {
       generatePDFBlob();
     }
-  }, [isOpen, type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches]);
+  }, [isOpen, type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, generatePDFBlob]);
 
   // Cleanup URL when component unmounts
   useEffect(() => {

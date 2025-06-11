@@ -276,7 +276,7 @@ const GRNumberSection = ({
                     ))
                   ) : grSearch ? (
                     <div className="px-3 py-3 text-xs text-gray-600 text-center">
-                      No bilties found matching "{grSearch}"
+                      No bilties found matching &quot;{grSearch}&quot;
                     </div>
                   ) : (
                     <div className="px-3 py-3 text-xs text-gray-600 text-center">

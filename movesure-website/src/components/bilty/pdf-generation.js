@@ -39,12 +39,12 @@ const PDFGenerator = ({
     // 📱 QR CODE AND GR NUMBER SECTION
     QR_SECTION: {
       QR_CODE: { x: 180, y: 10, width: 25, height: 25 },  // QR code position and size
-      GR_BOX: { x: 160, y: 45, width: 80, height: 10 },   // GR number box
-      GR_LABEL: { x: 162, y: 51.4 },                         // "GR NO" text
-      GR_NUMBER: { x: 174, y: 51.4 },                        // Actual GR number
-      CAUTION_BOX: { x: 160, y: 55, width: 80, height: 20 }, // Caution box
-      CAUTION_LABEL: { x: 185, y: 58.5 },                    // "CAUTION" text
-      CAUTION_TEXT_START: { x: 162, y: 61.5 },               // Caution description start
+      GR_BOX: { x: 147, y: 45, width: 60, height: 10 },   // GR number box
+      GR_LABEL: { x: 150, y: 51.4 },                         // "GR NO" text
+      GR_NUMBER: { x: 163.5, y: 51.4 },                        // Actual GR number
+      CAUTION_BOX: { x: 147, y: 55, width: 60, height: 20 }, // Caution box
+      CAUTION_LABEL: { x: 177, y: 58.5 },                    // "CAUTION" text
+      CAUTION_TEXT_START: { x: 150, y: 61.5 },               // Caution description start
     },
 
     // 🎯 COPY TYPE AND DATE SECTION
@@ -125,13 +125,13 @@ const PDFGenerator = ({
       WEBSITE: { x: 12, y: 141 },                   // Website
       BOOKED_RISK: { x: 80, y: 140 },              // "BOOKED AT OWNER'S RISK"
       CUSTOMER_CARE: { x: 12, y: 145 },            // Customer care
-      SIGNATURE: { x: 155, y: 142 },               // Signature line
+      SIGNATURE: { x: 155, y: 146 },               // Signature line
     },
 
     // 📏 NEW: EXTRA VERTICAL LINES SECTION
     EXTRA_LINES: {
       VERTICAL_LINE_1: { x: 70, y1: 95, y2: 118 },   // First extra vertical line
-      VERTICAL_LINE_2: { x: 173.5, y1: 45, y2: 55.5 },  // Second extra vertical line
+      VERTICAL_LINE_2: { x: 162.5, y1: 45, y2: 55.5 },  // Second extra vertical line
     },
 
     // 📏 SPACING AND OFFSETS
@@ -583,7 +583,7 @@ const PDFGenerator = ({
       `${toCityCode}`, 
       COORDINATES.TABLE_SECTION.CITY_CODE.x, 
       y + COORDINATES.TABLE_SECTION.CITY_CODE.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.NOTICE
     );
     addStyledText(
       pdf, 
@@ -819,7 +819,7 @@ const PDFGenerator = ({
       );
       
       addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y, STYLES.FONTS.LABELS);
-      addStyledText(pdf, `SS-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y, STYLES.FONTS.GR_NUMBER);
+      addStyledText(pdf, `SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y, STYLES.FONTS.GR_NUMBER);
       
       // Second copy GR box (with Y offset)
       pdf.rect(
@@ -830,7 +830,7 @@ const PDFGenerator = ({
       );
       
       addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.LABELS);
-      addStyledText(pdf, `SS-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_NUMBER);
+      addStyledText(pdf, `SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_NUMBER);
       
       // ⚠️ CAUTION BOXES WITH ENHANCED STYLING
       // First copy caution box
@@ -853,12 +853,12 @@ const PDFGenerator = ({
       
       // Caution description text
       setStyle(pdf, STYLES.FONTS.SMALL);
-      const cautionText = "The Consignment Will Not Be Declared Diverted Re-Routed or Re-Booked Without Consignee Bank's Written Permission Will Not Be Delivered";
-      const lines = pdf.splitTextToSize(cautionText, 47);
+      const cautionText = "The Consignment Will Not Be Declared Diverted Re-Routed or Re-Booked Without Consignee Bank's Written Permission Will Not Be Delivered, All Subject To Aligarh Jurisdiction.";
+      const lines = pdf.splitTextToSize(cautionText, 55);
       let lineY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y;
       lines.forEach(line => {
         pdf.text(line, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, lineY);
-        lineY += 2.9; // Increased spacing from 2 to 2.5 for better readability
+        lineY += 3; // Increased spacing from 2 to 2.5 for better readability
       });
       
       // Second copy caution box (with Y offset)
@@ -883,12 +883,12 @@ const PDFGenerator = ({
       lineY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + COORDINATES.SPACING.SECOND_COPY_OFFSET;
       lines.forEach(line => {
         pdf.text(line, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, lineY);
-        lineY += 2.9; // Increased spacing from 2 to 2.5 for better readability
+        lineY += 3; // Increased spacing from 2 to 2.5 for better readability
       });
       
       // 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING
       // First copy (Consignee)
-      addBillCopy(pdf, 0, 'CONSIGNEE', qrDataURL, permDetails, fromCity, toCity, transport);
+      addBillCopy(pdf, 0, 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport);
       
       // ➖ DASHED SEPARATOR LINE - Enhanced
       pdf.setLineWidth(STYLES.LINES.THICK);
@@ -1003,7 +1003,7 @@ const PDFGenerator = ({
               <div className="flex items-center gap-4 text-white text-opacity-90 text-sm">
                 <span className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
-                  GR: <span className="font-semibold">SS-2025-26-{biltyData.gr_no}</span>
+                  GR: <span className="font-semibold">SSTC-2025-26-{biltyData.gr_no}</span>
                 </span>
                 <span className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-white rounded-full"></div>

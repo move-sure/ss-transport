@@ -4,10 +4,11 @@ import React, { useEffect } from 'react';
 
 const PackageChargesSection = ({ formData, setFormData, rates }) => {
   useEffect(() => {
-    // Calculate labour charge based on number of packages
-    const labourCharge = (formData.no_of_pkg || 0) * 20;
+    // Calculate labour charge based on number of packages and labour rate
+    const labourRate = formData.labour_rate || 20; // Default to 20 if not set
+    const labourCharge = (formData.no_of_pkg || 0) * labourRate;
     setFormData(prev => ({ ...prev, labour_charge: labourCharge }));
-  }, [formData.no_of_pkg, setFormData]);
+  }, [formData.no_of_pkg, formData.labour_rate, setFormData]);
 
   useEffect(() => {
     // Calculate freight amount
@@ -27,6 +28,13 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
     setFormData(prev => ({ ...prev, total }));
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
       formData.toll_charge, formData.dd_charge, formData.other_charge, formData.pf_charge, setFormData]);
+
+  // Initialize labour rate if not set
+  useEffect(() => {
+    if (!formData.labour_rate) {
+      setFormData(prev => ({ ...prev, labour_rate: 20 }));
+    }
+  }, [formData.labour_rate, setFormData]);
 
   return (
     <div className="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-lg">
@@ -99,6 +107,26 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                   tabIndex={23}
                 />
               </div>
+
+              {/* Labour Rate - New Field */}
+              <div className="flex items-center gap-3 col-span-2">
+                <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
+                  LABOUR RATE
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.labour_rate || 20}
+                  onChange={(e) => setFormData(prev => ({ ...prev, labour_rate: parseFloat(e.target.value) || 20 }))}
+                  className="w-32 px-3 py-2 text-black font-semibold border-2 border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 bg-white shadow-sm hover:border-orange-400 transition-colors"
+                  placeholder="20"
+                  tabIndex={23.5}
+                />
+                <span className="text-sm text-gray-600 font-medium">₹ per package</span>
+                <span className="text-xs text-gray-500 ml-auto">
+                  Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 20)).toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -124,18 +152,23 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                 />
               </div>
 
-              {/* Labour Charge */}
+              {/* Labour Charge with Rate Display */}
               <div className="flex items-center justify-between gap-2">
-                <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   LABOUR
                 </span>
-                <input
-                  type="number"
-                  value={formData.labour_charge}
-                  onChange={(e) => setFormData(prev => ({ ...prev, labour_charge: parseFloat(e.target.value) || 0 }))}
-                  className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded focus:outline-none focus:border-purple-600 text-center bg-white hover:border-purple-400 transition-colors"
-                  tabIndex={25}
-                />
+                <div className="flex flex-col items-end">
+                  <input
+                    type="number"
+                    value={formData.labour_charge}
+                    onChange={(e) => setFormData(prev => ({ ...prev, labour_charge: parseFloat(e.target.value) || 0 }))}
+                    className="w-24 px-2 py-2 text-black font-bold border-2 border-orange-300 rounded focus:outline-none focus:border-orange-500 text-center bg-white hover:border-orange-400 transition-colors"
+                    tabIndex={25}
+                  />
+                  <span className="text-xs text-gray-500 mt-1">
+                    @₹{formData.labour_rate || 20}/pkg
+                  </span>
+                </div>
               </div>
 
               {/* Bill Charge */}
@@ -166,6 +199,20 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                 />
               </div>
 
+              {/* Toll Charge - Moved here after PF Charge */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  TOLL
+                </span>
+                <input
+                  type="number"
+                  value={formData.toll_charge}
+                  onChange={(e) => setFormData(prev => ({ ...prev, toll_charge: parseFloat(e.target.value) || 0 }))}
+                  className="w-24 px-2 py-2 text-black font-bold border-2 border-green-300 rounded focus:outline-none focus:border-green-600 text-center bg-white hover:border-green-400 transition-colors"
+                  tabIndex={28}
+                />
+              </div>
+
               {/* Other Charge */}
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
@@ -175,20 +222,6 @@ const PackageChargesSection = ({ formData, setFormData, rates }) => {
                   type="number"
                   value={formData.other_charge}
                   onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
-                  className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded focus:outline-none focus:border-purple-600 text-center bg-white hover:border-purple-400 transition-colors"
-                  tabIndex={28}
-                />
-              </div>
-
-              {/* Toll Charge */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
-                  TOLL
-                </span>
-                <input
-                  type="number"
-                  value={formData.toll_charge}
-                  onChange={(e) => setFormData(prev => ({ ...prev, toll_charge: parseFloat(e.target.value) || 0 }))}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded focus:outline-none focus:border-purple-600 text-center bg-white hover:border-purple-400 transition-colors"
                   tabIndex={29}
                 />

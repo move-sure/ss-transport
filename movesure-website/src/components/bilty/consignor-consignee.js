@@ -1,14 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Plus, AlertTriangle } from 'lucide-react';
-import supabase from '../../app/utils/supabase';
+import { Eye, EyeOff, Plus, AlertTriangle, Search } from 'lucide-react';
+import { 
+  useConsignorConsigneeSearch,
+  addNewConsignor,
+  addNewConsignee,
+  updateConsignorNumber,
+  updateConsigneeNumber,
+  checkDuplicateConsignor,
+  checkDuplicateConsignee,
+  getSimilarConsignors,
+  getSimilarConsignees
+} from './consignor-consignee-helper';
 
 const ConsignorConsigneeSection = ({ 
   formData, 
   setFormData, 
-  consignors, 
-  consignees,
   onDataUpdate // Callback to refresh consignors/consignees lists
 }) => {
   const [showConsignorDropdown, setShowConsignorDropdown] = useState(false);
@@ -20,11 +28,13 @@ const ConsignorConsigneeSection = ({
   const [showConsignorDetails, setShowConsignorDetails] = useState(false);
   const [showConsigneeDetails, setShowConsigneeDetails] = useState(false);
   
-  // New states for adding new entries
+  // Modal states
   const [showAddConsignor, setShowAddConsignor] = useState(false);
   const [showAddConsignee, setShowAddConsignee] = useState(false);
   const [addingConsignor, setAddingConsignor] = useState(false);
   const [addingConsignee, setAddingConsignee] = useState(false);
+  
+  // Form data for new entries
   const [newConsignorData, setNewConsignorData] = useState({
     company_name: '',
     gst_num: '',
@@ -36,7 +46,7 @@ const ConsignorConsigneeSection = ({
     number: ''
   });
   
-  // New states for suggestions and duplicate detection
+  // Suggestions and validation states
   const [consignorSuggestions, setConsignorSuggestions] = useState([]);
   const [consigneeSuggestions, setConsigneeSuggestions] = useState([]);
   const [consignorExists, setConsignorExists] = useState(false);
@@ -44,6 +54,9 @@ const ConsignorConsigneeSection = ({
   
   const consignorRef = useRef(null);
   const consigneeRef = useRef(null);
+
+  // Use the optimized search hook
+  const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();
 
   // Initialize search values when formData changes (for edit mode)
   useEffect(() => {
@@ -68,7 +81,37 @@ const ConsignorConsigneeSection = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleConsignorSelect = (consignor) => {
+  // Handle consignor search with optimized database query
+  const handleConsignorSearchChange = (value) => {
+    setConsignorSearch(value);
+    setFormData(prev => ({ ...prev, consignor_name: value }));
+    
+    if (value.length >= 2) {
+      searchDatabase(value, 'consignors');
+      setShowConsignorDropdown(true);
+    } else {
+      setShowConsignorDropdown(false);
+      clearResults();
+    }
+    setConsignorSelectedIndex(-1);
+  };
+
+  // Handle consignee search with optimized database query
+  const handleConsigneeSearchChange = (value) => {
+    setConsigneeSearch(value);
+    setFormData(prev => ({ ...prev, consignee_name: value }));
+    
+    if (value.length >= 2) {
+      searchDatabase(value, 'consignees');
+      setShowConsigneeDropdown(true);
+    } else {
+      setShowConsigneeDropdown(false);
+      clearResults();
+    }
+    setConsigneeSelectedIndex(-1);
+  };
+
+  const handleConsignorSelect = async (consignor) => {
     setConsignorSearch(consignor.company_name);
     setFormData(prev => ({
       ...prev,
@@ -78,9 +121,10 @@ const ConsignorConsigneeSection = ({
     }));
     setShowConsignorDropdown(false);
     setConsignorSelectedIndex(-1);
+    clearResults();
   };
 
-  const handleConsigneeSelect = (consignee) => {
+  const handleConsigneeSelect = async (consignee) => {
     setConsigneeSearch(consignee.company_name);
     setFormData(prev => ({
       ...prev,
@@ -90,30 +134,67 @@ const ConsignorConsigneeSection = ({
     }));
     setShowConsigneeDropdown(false);
     setConsigneeSelectedIndex(-1);
+    clearResults();
   };
 
+  // Handle phone number updates for existing consignors/consignees
+  const handleConsignorNumberChange = async (e) => {
+    const newNumber = e.target.value;
+    setFormData(prev => ({ ...prev, consignor_number: newNumber }));
+    
+    // If consignor exists and number is being updated, save to database
+    if (formData.consignor_name && newNumber && newNumber.length >= 10) {
+      try {
+        const result = await updateConsignorNumber(formData.consignor_name, newNumber);
+        if (result.success) {
+          console.log('Consignor number updated successfully');
+        }
+      } catch (error) {
+        console.error('Error updating consignor number:', error);
+      }
+    }
+  };
+
+  const handleConsigneeNumberChange = async (e) => {
+    const newNumber = e.target.value;
+    setFormData(prev => ({ ...prev, consignee_number: newNumber }));
+    
+    // If consignee exists and number is being updated, save to database
+    if (formData.consignee_name && newNumber && newNumber.length >= 10) {
+      try {
+        const result = await updateConsigneeNumber(formData.consignee_name, newNumber);
+        if (result.success) {
+          console.log('Consignee number updated successfully');
+        }
+      } catch (error) {
+        console.error('Error updating consignee number:', error);
+      }
+    }
+  };
+
+  // Keyboard navigation
   const handleConsignorKeyDown = (e) => {
-    if (!showConsignorDropdown || filteredConsignors.length === 0) return;
+    if (!showConsignorDropdown || searchResults.consignors.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         setConsignorSelectedIndex(prev => 
-          prev < filteredConsignors.length - 1 ? prev + 1 : 0
+          prev < searchResults.consignors.length - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
         setConsignorSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredConsignors.length - 1
+          prev > 0 ? prev - 1 : searchResults.consignors.length - 1
         );
         break;
       case 'Enter':
         e.preventDefault();
         if (consignorSelectedIndex >= 0) {
-          handleConsignorSelect(filteredConsignors[consignorSelectedIndex]);
-        } else if (filteredConsignors.length > 0) {
-          handleConsignorSelect(filteredConsignors[0]);
+          handleConsignorSelect(searchResults.consignors[consignorSelectedIndex]);
+        } else if (searchResults.consignors.length > 0) {
+          handleConsignorSelect(searchResults.consignors[0]);
         }
         break;
       case 'Escape':
@@ -125,27 +206,27 @@ const ConsignorConsigneeSection = ({
   };
 
   const handleConsigneeKeyDown = (e) => {
-    if (!showConsigneeDropdown || filteredConsignees.length === 0) return;
+    if (!showConsigneeDropdown || searchResults.consignees.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         setConsigneeSelectedIndex(prev => 
-          prev < filteredConsignees.length - 1 ? prev + 1 : 0
+          prev < searchResults.consignees.length - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
         setConsigneeSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredConsignees.length - 1
+          prev > 0 ? prev - 1 : searchResults.consignees.length - 1
         );
         break;
       case 'Enter':
         e.preventDefault();
         if (consigneeSelectedIndex >= 0) {
-          handleConsigneeSelect(filteredConsignees[consigneeSelectedIndex]);
-        } else if (filteredConsignees.length > 0) {
-          handleConsigneeSelect(filteredConsignees[0]);
+          handleConsigneeSelect(searchResults.consignees[consigneeSelectedIndex]);
+        } else if (searchResults.consignees.length > 0) {
+          handleConsigneeSelect(searchResults.consignees[0]);
         }
         break;
       case 'Escape':
@@ -156,59 +237,42 @@ const ConsignorConsigneeSection = ({
     }
   };
 
-  const filteredConsignors = consignors.filter(c => 
-    c.company_name.toLowerCase().includes(consignorSearch.toLowerCase()) ||
-    (c.gst_num && c.gst_num.toLowerCase().includes(consignorSearch.toLowerCase()))
-  );
-
-  const filteredConsignees = consignees.filter(c => 
-    c.company_name.toLowerCase().includes(consigneeSearch.toLowerCase()) ||
-    (c.gst_num && c.gst_num.toLowerCase().includes(consigneeSearch.toLowerCase()))
-  );
-
-  // Check for existing consignor when typing
+  // Check for existing companies when typing in add modals
   useEffect(() => {
-    if (newConsignorData.company_name.trim()) {
-      const searchTerm = newConsignorData.company_name.toLowerCase();
-      
-      // Filter suggestions
-      const suggestions = consignors.filter(c => 
-        c.company_name.toLowerCase().includes(searchTerm)
-      ).slice(0, 5);
-      setConsignorSuggestions(suggestions);
-      
-      // Check if exact match exists
-      const exactMatch = consignors.find(c => 
-        c.company_name.toLowerCase() === searchTerm
-      );
-      setConsignorExists(!!exactMatch);
-    } else {
-      setConsignorSuggestions([]);
-      setConsignorExists(false);
-    }
-  }, [newConsignorData.company_name, consignors]);
+    const checkConsignor = async () => {
+      if (newConsignorData.company_name.trim()) {
+        const suggestions = await getSimilarConsignors(newConsignorData.company_name, 5);
+        setConsignorSuggestions(suggestions);
+        
+        const exists = await checkDuplicateConsignor(newConsignorData.company_name);
+        setConsignorExists(exists);
+      } else {
+        setConsignorSuggestions([]);
+        setConsignorExists(false);
+      }
+    };
+    
+    const timeoutId = setTimeout(checkConsignor, 300);
+    return () => clearTimeout(timeoutId);
+  }, [newConsignorData.company_name]);
 
-  // Check for existing consignee when typing
   useEffect(() => {
-    if (newConsigneeData.company_name.trim()) {
-      const searchTerm = newConsigneeData.company_name.toLowerCase();
-      
-      // Filter suggestions
-      const suggestions = consignees.filter(c => 
-        c.company_name.toLowerCase().includes(searchTerm)
-      ).slice(0, 5);
-      setConsigneeSuggestions(suggestions);
-      
-      // Check if exact match exists
-      const exactMatch = consignees.find(c => 
-        c.company_name.toLowerCase() === searchTerm
-      );
-      setConsigneeExists(!!exactMatch);
-    } else {
-      setConsigneeSuggestions([]);
-      setConsigneeExists(false);
-    }
-  }, [newConsigneeData.company_name, consignees]);
+    const checkConsignee = async () => {
+      if (newConsigneeData.company_name.trim()) {
+        const suggestions = await getSimilarConsignees(newConsigneeData.company_name, 5);
+        setConsigneeSuggestions(suggestions);
+        
+        const exists = await checkDuplicateConsignee(newConsigneeData.company_name);
+        setConsigneeExists(exists);
+      } else {
+        setConsigneeSuggestions([]);
+        setConsigneeExists(false);
+      }
+    };
+    
+    const timeoutId = setTimeout(checkConsignee, 300);
+    return () => clearTimeout(timeoutId);
+  }, [newConsigneeData.company_name]);
 
   const handleConsignorSuggestionSelect = (consignor) => {
     setNewConsignorData({
@@ -242,29 +306,22 @@ const ConsignorConsigneeSection = ({
     try {
       setAddingConsignor(true);
       
-      const { data, error } = await supabase
-        .from('consignors')
-        .insert([{
-          company_name: newConsignorData.company_name.trim(),
-          company_add: 'address-not-yet-assigned',
-          gst_num: newConsignorData.gst_num.trim() || null,
-          number: newConsignorData.number.trim() || null
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const result = await addNewConsignor(newConsignorData);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       // Update form data with new consignor
       setFormData(prev => ({
         ...prev,
-        consignor_name: data.company_name,
-        consignor_gst: data.gst_num || '',
-        consignor_number: data.number || ''
+        consignor_name: result.data.company_name,
+        consignor_gst: result.data.gst_num || '',
+        consignor_number: result.data.number || ''
       }));
 
       // Update search field
-      setConsignorSearch(data.company_name);
+      setConsignorSearch(result.data.company_name);
 
       // Reset add form
       setNewConsignorData({ company_name: '', gst_num: '', number: '' });
@@ -273,7 +330,7 @@ const ConsignorConsigneeSection = ({
       setShowAddConsignor(false);
       setShowConsignorDropdown(false);
 
-      // Refresh consignors list in parent component
+      // Refresh data in parent component
       if (onDataUpdate) {
         onDataUpdate();
       }
@@ -282,7 +339,7 @@ const ConsignorConsigneeSection = ({
 
     } catch (error) {
       console.error('Error adding consignor:', error);
-      alert('Error adding consignor. Please try again.');
+      alert('Error adding consignor: ' + error.message);
     } finally {
       setAddingConsignor(false);
     }
@@ -302,29 +359,22 @@ const ConsignorConsigneeSection = ({
     try {
       setAddingConsignee(true);
       
-      const { data, error } = await supabase
-        .from('consignees')
-        .insert([{
-          company_name: newConsigneeData.company_name.trim(),
-          company_add: 'address-not-yet-assigned',
-          gst_num: newConsigneeData.gst_num.trim() || null,
-          number: newConsigneeData.number.trim() || null
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const result = await addNewConsignee(newConsigneeData);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       // Update form data with new consignee
       setFormData(prev => ({
         ...prev,
-        consignee_name: data.company_name,
-        consignee_gst: data.gst_num || '',
-        consignee_number: data.number || ''
+        consignee_name: result.data.company_name,
+        consignee_gst: result.data.gst_num || '',
+        consignee_number: result.data.number || ''
       }));
 
       // Update search field
-      setConsigneeSearch(data.company_name);
+      setConsigneeSearch(result.data.company_name);
 
       // Reset add form
       setNewConsigneeData({ company_name: '', gst_num: '', number: '' });
@@ -333,7 +383,7 @@ const ConsignorConsigneeSection = ({
       setShowAddConsignee(false);
       setShowConsigneeDropdown(false);
 
-      // Refresh consignees list in parent component
+      // Refresh data in parent component
       if (onDataUpdate) {
         onDataUpdate();
       }
@@ -342,7 +392,7 @@ const ConsignorConsigneeSection = ({
 
     } catch (error) {
       console.error('Error adding consignee:', error);
-      alert('Error adding consignee. Please try again.');
+      alert('Error adding consignee: ' + error.message);
     } finally {
       setAddingConsignee(false);
     }
@@ -359,26 +409,35 @@ const ConsignorConsigneeSection = ({
               CONSIGNOR
             </span>
             <div className="relative flex-1" ref={consignorRef}>
-              <input
-                type="text"
-                value={consignorSearch}
-                onChange={(e) => {
-                  setConsignorSearch(e.target.value);
-                  setFormData(prev => ({ ...prev, consignor_name: e.target.value }));
-                  setShowConsignorDropdown(true);
-                  setConsignorSelectedIndex(-1);
-                }}
-                onFocus={() => setShowConsignorDropdown(true)}
-                onKeyDown={handleConsignorKeyDown}
-                placeholder="Search consignor..."
-                className="w-full px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                tabIndex={8}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={consignorSearch}
+                  onChange={(e) => handleConsignorSearchChange(e.target.value)}
+                  onFocus={() => {
+                    if (consignorSearch.length >= 2) {
+                      setShowConsignorDropdown(true);
+                    }
+                  }}
+                  onKeyDown={handleConsignorKeyDown}
+                  placeholder="Type to search consignor..."
+                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                  tabIndex={8}
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+                {!isSearching && consignorSearch && (
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
+                )}
+              </div>
               
               {showConsignorDropdown && (
                 <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                   <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
-                    CONSIGNOR WISE AUTO FILL DETAILS HERE
+                    CONSIGNOR SEARCH RESULTS ({searchResults.consignors.length})
                   </div>
                   
                   {/* Add New Consignor Button */}
@@ -392,8 +451,8 @@ const ConsignorConsigneeSection = ({
                     </div>
                   </button>
 
-                  {filteredConsignors.length > 0 ? (
-                    filteredConsignors.map((consignor, index) => (
+                  {searchResults.consignors.length > 0 ? (
+                    searchResults.consignors.map((consignor, index) => (
                       <button
                         key={consignor.id}
                         onClick={() => handleConsignorSelect(consignor)}
@@ -408,9 +467,9 @@ const ConsignorConsigneeSection = ({
                         </div>
                       </button>
                     ))
-                  ) : (
+                  ) : !isSearching && (
                     <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignors found
+                      No consignors found for "{consignorSearch}"
                     </div>
                   )}
                 </div>
@@ -426,26 +485,35 @@ const ConsignorConsigneeSection = ({
               CONSIGNEE
             </span>
             <div className="relative flex-1" ref={consigneeRef}>
-              <input
-                type="text"
-                value={consigneeSearch}
-                onChange={(e) => {
-                  setConsigneeSearch(e.target.value);
-                  setFormData(prev => ({ ...prev, consignee_name: e.target.value }));
-                  setShowConsigneeDropdown(true);
-                  setConsigneeSelectedIndex(-1);
-                }}
-                onFocus={() => setShowConsigneeDropdown(true)}
-                onKeyDown={handleConsigneeKeyDown}
-                placeholder="Search consignee..."
-                className="w-full px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                tabIndex={9}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={consigneeSearch}
+                  onChange={(e) => handleConsigneeSearchChange(e.target.value)}
+                  onFocus={() => {
+                    if (consigneeSearch.length >= 2) {
+                      setShowConsigneeDropdown(true);
+                    }
+                  }}
+                  onKeyDown={handleConsigneeKeyDown}
+                  placeholder="Type to search consignee..."
+                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                  tabIndex={9}
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+                {!isSearching && consigneeSearch && (
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
+                )}
+              </div>
               
               {showConsigneeDropdown && (
                 <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                   <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
-                    CONSIGNEE WISE AUTO FILL DETAILS HERE
+                    CONSIGNEE SEARCH RESULTS ({searchResults.consignees.length})
                   </div>
                   
                   {/* Add New Consignee Button */}
@@ -459,8 +527,8 @@ const ConsignorConsigneeSection = ({
                     </div>
                   </button>
 
-                  {filteredConsignees.length > 0 ? (
-                    filteredConsignees.map((consignee, index) => (
+                  {searchResults.consignees.length > 0 ? (
+                    searchResults.consignees.map((consignee, index) => (
                       <button
                         key={consignee.id}
                         onClick={() => handleConsigneeSelect(consignee)}
@@ -475,9 +543,9 @@ const ConsignorConsigneeSection = ({
                         </div>
                       </button>
                     ))
-                  ) : (
+                  ) : !isSearching && (
                     <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignees found
+                      No consignees found for "{consigneeSearch}"
                     </div>
                   )}
                 </div>
@@ -535,9 +603,9 @@ const ConsignorConsigneeSection = ({
                   <input
                     type="text"
                     value={formData.consignor_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, consignor_number: e.target.value }))}
+                    onChange={handleConsignorNumberChange}
                     className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignor Phone"
+                    placeholder="Consignor Phone (auto-saves)"
                     tabIndex={11}
                   />
                 </div>
@@ -572,9 +640,9 @@ const ConsignorConsigneeSection = ({
                   <input
                     type="text"
                     value={formData.consignee_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, consignee_number: e.target.value }))}
+                    onChange={handleConsigneeNumberChange}
                     className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignee Phone"
+                    placeholder="Consignee Phone (auto-saves)"
                     tabIndex={13}
                   />
                 </div>
@@ -587,7 +655,7 @@ const ConsignorConsigneeSection = ({
       {/* Add New Consignor Modal */}
       {showAddConsignor && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-800 mb-4 text-center bg-emerald-100 py-2 rounded">
               Add New Consignor
             </h3>
@@ -623,7 +691,7 @@ const ConsignorConsigneeSection = ({
                     <div className="p-2 bg-emerald-100 text-emerald-800 text-xs font-bold">
                       Similar companies found - Click to use existing:
                     </div>
-                    {consignorSuggestions.map((consignor, index) => (
+                    {consignorSuggestions.map((consignor) => (
                       <button
                         key={consignor.id}
                         onClick={() => handleConsignorSuggestionSelect(consignor)}
@@ -688,7 +756,7 @@ const ConsignorConsigneeSection = ({
       {/* Add New Consignee Modal */}
       {showAddConsignee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-800 mb-4 text-center bg-emerald-100 py-2 rounded">
               Add New Consignee
             </h3>
@@ -724,7 +792,7 @@ const ConsignorConsigneeSection = ({
                     <div className="p-2 bg-emerald-100 text-emerald-800 text-xs font-bold">
                       Similar companies found - Click to use existing:
                     </div>
-                    {consigneeSuggestions.map((consignee, index) => (
+                    {consigneeSuggestions.map((consignee) => (
                       <button
                         key={consignee.id}
                         onClick={() => handleConsigneeSuggestionSelect(consignee)}

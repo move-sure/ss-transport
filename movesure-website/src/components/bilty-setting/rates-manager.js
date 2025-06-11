@@ -1,287 +1,139 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
+import { useRatesManager } from './rates-manager-helper';
 
 const RatesComponent = () => {
   const { user } = useAuth();
-  const [rates, setRates] = useState([]);
-  const [filteredRates, setFilteredRates] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [consignors, setConsignors] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    branch_id: '',
-    city_id: '',
-    consignor_id: '',
-    rate: '',
-    is_default: false
-  });
-  const [editingId, setEditingId] = useState(null);
+  const {
+    // State
+    rates,
+    filteredRates,
+    branches,
+    cities,
+    consignors,
+    loading,
+    dataLoading,
+    searchLoading,
+    exportLoading,
+    submitLoading,
+    
+    // Search state
+    searchTerm,
+    searchFilter,
+    isSearching,
+    
+    // Pagination
+    currentPage,
+    totalPages,
+    totalRates,
+    startItem,
+    endItem,
+    
+    // Form state
+    formData,
+    editingId,
+    
+    // Functions
+    fetchStaticData,
+    fetchRates,
+    handleSearchChange,
+    handleFilterChange,
+    clearSearch,
+    handleConsignorChange,
+    handleSubmit,
+    handleEdit,
+    handleDelete,
+    cancelEdit,
+    downloadCSV,
+    goToPage,
+    setFormData
+  } = useRatesManager();
 
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    fetchStaticData();
+  }, [fetchStaticData]);
 
   useEffect(() => {
-    filterRates();
-  }, [rates, searchTerm]);
-
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      await fetchBranches();
-      await fetchCities();
-      await fetchConsignors();
-      await fetchRates();
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      alert('Error loading data. Please refresh the page.');
-    } finally {
-      setLoading(false);
+    if (!dataLoading) {
+      fetchRates();
     }
-  };
+  }, [fetchRates, dataLoading]);
 
-  const fetchRates = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('rates')
-        .select(`
-          *,
-          branches!rates_branch_id_fkey (branch_name, branch_code),
-          cities!rates_city_id_fkey (city_name, city_code),
-          consignors!rates_consignor_id_fkey (company_name)
-        `)
-        .order('id');
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
 
-      if (error) {
-        console.error('Error in fetchRates:', error);
-        // Fallback to basic query without joins
-        const { data: basicData, error: basicError } = await supabase
-          .from('rates')
-          .select('*')
-          .order('id');
-        
-        if (basicError) throw basicError;
-        
-        // Manually fetch related data
-        const ratesWithDetails = await Promise.all(basicData.map(async (rate) => {
-          const [branchRes, cityRes, consignorRes] = await Promise.all([
-            supabase.from('branches').select('branch_name, branch_code').eq('id', rate.branch_id).single(),
-            supabase.from('cities').select('city_name, city_code').eq('id', rate.city_id).single(),
-            rate.consignor_id ? supabase.from('consignors').select('company_name').eq('id', rate.consignor_id).single() : { data: null }
-          ]);
-          
-          return {
-            ...rate,
-            branches: branchRes.data,
-            cities: cityRes.data,
-            consignors: consignorRes.data
-          };
-        }));
-        
-        setRates(ratesWithDetails || []);
-        return;
-      }
-      
-      setRates(data || []);
-    } catch (error) {
-      console.error('Error fetching rates:', error);
-      setRates([]);
-    }
-  };
-
-  const fetchBranches = async () => {
-    const { data, error } = await supabase
-      .from('branches')
-      .select('*')
-      .eq('is_active', true)
-      .order('branch_name');
-
-    if (error) throw error;
-    setBranches(data || []);
-  };
-
-  const fetchCities = async () => {
-    const { data, error } = await supabase
-      .from('cities')
-      .select('*')
-      .order('city_name');
-
-    if (error) throw error;
-    setCities(data || []);
-  };
-
-  const fetchConsignors = async () => {
-    const { data, error } = await supabase
-      .from('consignors')
-      .select('*')
-      .order('company_name');
-
-    if (error) throw error;
-    setConsignors(data || []);
-  };
-
-  const filterRates = () => {
-    if (!searchTerm.trim()) {
-      setFilteredRates(rates);
-      return;
+    const pages = [];
+    const maxPagesToShow = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+    
+    if (endPage - startPage + 1 < maxPagesToShow) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
     }
 
-    const filtered = rates.filter(rate => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        rate.branches?.branch_name?.toLowerCase().includes(searchLower) ||
-        rate.branches?.branch_code?.toLowerCase().includes(searchLower) ||
-        rate.cities?.city_name?.toLowerCase().includes(searchLower) ||
-        rate.cities?.city_code?.toLowerCase().includes(searchLower) ||
-        rate.consignors?.company_name?.toLowerCase().includes(searchLower) ||
-        rate.rate.toString().includes(searchLower)
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => goToPage(i)}
+          className={`px-3 py-1 mx-1 rounded ${
+            currentPage === i
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          {i}
+        </button>
       );
-    });
-
-    setFilteredRates(filtered);
-  };
-
-  const handleConsignorChange = (consignorId) => {
-    setFormData({
-      ...formData,
-      consignor_id: consignorId,
-      is_default: !consignorId // true if no consignor, false if consignor selected
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.branch_id || !formData.city_id || !formData.rate) {
-      alert('Please fill all required fields');
-      return;
     }
 
-    try {
-      setLoading(true);
-
-      const rateData = {
-        branch_id: formData.branch_id,
-        city_id: formData.city_id,
-        consignor_id: formData.consignor_id || null,
-        rate: parseFloat(formData.rate),
-        is_default: !formData.consignor_id // true if no consignor, false if consignor selected
-      };
-
-      if (editingId) {
-        const { error } = await supabase
-          .from('rates')
-          .update(rateData)
-          .eq('id', editingId);
-
-        if (error) throw error;
-        alert('Rate updated successfully!');
-      } else {
-        const { error } = await supabase
-          .from('rates')
-          .insert([rateData]);
-
-        if (error) throw error;
-        alert('Rate added successfully!');
-      }
-
-      setFormData({
-        branch_id: '',
-        city_id: '',
-        consignor_id: '',
-        rate: '',
-        is_default: false
-      });
-      setEditingId(null);
-      fetchRates();
-    } catch (error) {
-      console.error('Error saving rate:', error);
-      alert('Error saving rate: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
+    return (
+      <div className="flex items-center justify-center mt-4 space-x-2">
+        <button
+          onClick={() => goToPage(1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+        >
+          First
+        </button>
+        <button
+          onClick={() => goToPage(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+        >
+          Previous
+        </button>
+        {pages}
+        <button
+          onClick={() => goToPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+        >
+          Next
+        </button>
+        <button
+          onClick={() => goToPage(totalPages)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+        >
+          Last
+        </button>
+      </div>
+    );
   };
 
-  const handleEdit = (rate) => {
-    setFormData({
-      branch_id: rate.branch_id,
-      city_id: rate.city_id,
-      consignor_id: rate.consignor_id || '',
-      rate: rate.rate.toString(),
-      is_default: rate.is_default
-    });
-    setEditingId(rate.id);
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this rate?')) return;
-
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from('rates')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      alert('Rate deleted successfully!');
-      fetchRates();
-    } catch (error) {
-      console.error('Error deleting rate:', error);
-      alert('Error deleting rate: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cancelEdit = () => {
-    setFormData({
-      branch_id: '',
-      city_id: '',
-      consignor_id: '',
-      rate: '',
-      is_default: false
-    });
-    setEditingId(null);
-  };
-
-  const downloadCSV = () => {
-    const dataToExport = searchTerm && filteredRates.length > 0 ? filteredRates : rates;
-    
-    if (dataToExport.length === 0) {
-      alert('No data to export');
-      return;
-    }
-
-    const headers = ['Branch', 'City', 'Consignor', 'Rate', 'Is Default'];
-    const csvContent = [
-      headers.join(','),
-      ...dataToExport.map(rate => [
-        `"${rate.branches?.branch_name || 'N/A'}"`,
-        `"${rate.cities?.city_name || 'N/A'}"`,
-        `"${rate.consignors?.company_name || 'Default Rate'}"`,
-        rate.rate,
-        rate.is_default ? 'Yes' : 'No'
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `rates_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert(`Exported ${dataToExport.length} rates to CSV`);
-  };
+  if (dataLoading) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-gray-600">Loading rates manager...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -289,21 +141,89 @@ const RatesComponent = () => {
         <h2 className="text-2xl font-bold text-black">Manage Rates</h2>
         <button
           onClick={downloadCSV}
-          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center gap-2"
+          disabled={exportLoading || dataLoading}
+          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          📥 Download CSV
+          📥 {exportLoading ? 'Exporting...' : 'Download CSV'}
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-6">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-          placeholder="Search by branch, city, consignor, or rate..."
-        />
+      {/* Enhanced Search Section */}
+      <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+          {/* Search Input */}
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Rates
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                placeholder="Search by branch, city, consignor, or rate amount..."
+                disabled={searchLoading}
+              />
+              {searchLoading && (
+                <div className="absolute right-3 top-2.5">
+                  <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                </div>
+              )}
+              {searchTerm && !searchLoading && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Options */}
+          <div className="flex flex-col md:flex-row gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter Type
+              </label>
+              <select
+                value={searchFilter}
+                onChange={(e) => handleFilterChange(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black bg-white"
+                disabled={searchLoading}
+              >
+                <option value="all">All Rates</option>
+                <option value="default">Default Rates Only</option>
+                <option value="consignor">Consignor Specific Only</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Status */}
+        {isSearching && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-blue-800">
+                <span className="font-medium">Search Results:</span> 
+                {searchLoading ? ' Searching...' : ` Found ${filteredRates.length} rates matching "${searchTerm}"`}
+                {searchFilter !== 'all' && (
+                  <span className="ml-2 px-2 py-1 bg-blue-100 rounded-full text-xs">
+                    {searchFilter === 'default' ? 'Default Rates' : 'Consignor Specific'}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={clearSearch}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                Clear Search
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Add/Edit Form */}
@@ -317,7 +237,7 @@ const RatesComponent = () => {
               value={formData.branch_id}
               onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              disabled={loading}
+              disabled={submitLoading}
               required
             >
               <option value="">Select Branch</option>
@@ -337,7 +257,7 @@ const RatesComponent = () => {
               value={formData.city_id}
               onChange={(e) => setFormData({ ...formData, city_id: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              disabled={loading}
+              disabled={submitLoading}
               required
             >
               <option value="">Select City</option>
@@ -357,7 +277,7 @@ const RatesComponent = () => {
               value={formData.consignor_id}
               onChange={(e) => handleConsignorChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              disabled={loading}
+              disabled={submitLoading}
             >
               <option value="">Default Rate (No Consignor)</option>
               {consignors.map((consignor) => (
@@ -380,7 +300,7 @@ const RatesComponent = () => {
               onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
               placeholder="Enter rate"
-              disabled={loading}
+              disabled={submitLoading}
               required
             />
           </div>
@@ -406,10 +326,10 @@ const RatesComponent = () => {
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitLoading}
             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50"
           >
-            {loading ? 'Saving...' : editingId ? 'Update Rate' : 'Add Rate'}
+            {submitLoading ? 'Saving...' : (editingId ? 'Update Rate' : 'Add Rate')}
           </button>
           
           {editingId && (
@@ -424,7 +344,14 @@ const RatesComponent = () => {
         </div>
       </form>
 
-      {/* Rates List */}
+      {/* Pagination Info - Only show when not searching */}
+      {!isSearching && totalRates > 0 && (
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {startItem} to {endItem} of {totalRates} rates
+        </div>
+      )}
+
+      {/* Rates Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full table-auto border-collapse">
           <thead>
@@ -438,72 +365,71 @@ const RatesComponent = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredRates.length > 0 ? filteredRates.map((rate) => (
-              <tr key={rate.id} className="hover:bg-gray-50">
-                <td className="border px-4 py-2 text-black">
-                  {rate.branches?.branch_name} ({rate.branches?.branch_code})
-                </td>
-                <td className="border px-4 py-2 text-black">
-                  {rate.cities?.city_name} ({rate.cities?.city_code})
-                </td>
-                <td className="border px-4 py-2 text-black">
-                  {rate.consignors?.company_name || 'Default Rate'}
-                </td>
-                <td className="border px-4 py-2 text-black">₹{rate.rate}</td>
-                <td className="border px-4 py-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    rate.is_default 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {rate.is_default ? 'Default' : 'Specific'}
-                  </span>
-                </td>
-                <td className="border px-4 py-2">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(rate)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                      disabled={loading}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(rate.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                      disabled={loading}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
+            {loading ? (
               <tr>
                 <td colSpan="6" className="border px-4 py-8 text-center text-gray-500">
-                  {loading ? 'Loading rates...' : 
-                   searchTerm ? 'No rates found matching your search.' : 
-                   'No rates found. Add your first rate above.'}
+                  Loading rates...
                 </td>
               </tr>
+            ) : (
+              // Show filtered rates when searching, otherwise show paginated rates
+              (isSearching ? filteredRates : rates).length > 0 ? 
+              (isSearching ? filteredRates : rates).map((rate) => (
+                <tr key={rate.id} className="hover:bg-gray-50">
+                  <td className="border px-4 py-2 text-black">
+                    {rate.branches?.branch_name || 'N/A'} ({rate.branches?.branch_code || 'N/A'})
+                  </td>
+                  <td className="border px-4 py-2 text-black">
+                    {rate.cities?.city_name || 'N/A'} ({rate.cities?.city_code || 'N/A'})
+                  </td>
+                  <td className="border px-4 py-2 text-black">
+                    {rate.consignors?.company_name || 'Default Rate'}
+                  </td>
+                  <td className="border px-4 py-2 text-black">₹{rate.rate}</td>
+                  <td className="border px-4 py-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      rate.is_default 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {rate.is_default ? 'Default' : 'Specific'}
+                    </span>
+                  </td>
+                  <td className="border px-4 py-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(rate)}
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                        disabled={submitLoading}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(rate.id)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                        disabled={submitLoading}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="6" className="border px-4 py-8 text-center text-gray-500">
+                    {isSearching ? 
+                      `No rates found matching "${searchTerm}"${searchFilter !== 'all' ? ` in ${searchFilter} rates` : ''}` : 
+                      'No rates found. Add your first rate above.'}
+                  </td>
+                </tr>
+              )
             )}
           </tbody>
         </table>
       </div>
 
-      {searchTerm && (
-        <div className="mt-4 text-sm text-black">
-          Showing {filteredRates.length} of {rates.length} rates
-          {rates.length > 0 && (
-            <button 
-              onClick={() => console.log('Current rates data:', rates)}
-              className="ml-4 text-blue-600 underline text-xs"
-            >
-              Debug: Log rates data
-            </button>
-          )}
-        </div>
-      )}
+      {/* Pagination - Only show when not searching */}
+      {!isSearching && renderPagination()}
     </div>
   );
 };

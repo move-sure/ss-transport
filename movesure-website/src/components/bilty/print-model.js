@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Printer, X, FileText, Download } from 'lucide-react';
+import { Printer, X, FileText, Save } from 'lucide-react';
 import PDFGenerator from './pdf-generation';
 
 const PrintModal = ({ 
   isOpen, 
   onClose, 
-  onPrint, 
   onSaveOnly,
   biltyData,
   branchData,
@@ -22,7 +21,7 @@ const PrintModal = ({
       const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          handlePrintPDF();
+          handlePrint();
         } else if (e.key === 'Tab') {
           e.preventDefault();
           onSaveOnly();
@@ -37,17 +36,13 @@ const PrintModal = ({
     }
   }, [isOpen, onSaveOnly, onClose]);
 
-  const handlePrintPDF = () => {
+  const handlePrint = () => {
     setShowPDFGenerator(true);
-  };
-
-  const handleWebPrint = () => {
-    onPrint(); // This will use the existing web print functionality
   };
 
   const closePDFGenerator = () => {
     setShowPDFGenerator(false);
-    onClose(); // Close the main modal when PDF generator closes
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -66,79 +61,90 @@ const PrintModal = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 border border-blue-200">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-800">
-            <FileText className="w-5 h-5 text-green-600" />
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200">
+        {/* Header with movesure.io branding */}
+        <div className="text-center mb-6">
+          <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
+          <div className="w-16 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full"></div>
+        </div>
+
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold flex items-center gap-3 text-black">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
             Bilty Saved Successfully!
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-black transition-colors p-2 hover:bg-gray-100 rounded-full"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4 border border-blue-200">
-            <div className="text-sm font-bold text-gray-900 mb-2">
-              GR Number: <span className="text-blue-600">{biltyData?.gr_no}</span>
+        <div className="mb-8">
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 mb-6 border border-purple-200">
+            <div className="text-lg font-bold text-black mb-3 text-center">
+              GR Number: <span className="text-purple-600">{biltyData?.gr_no}</span>
             </div>
-            <div className="text-xs text-gray-600 space-y-1">
-              <div><strong>From:</strong> {biltyData?.consignor_name}</div>
-              <div><strong>To:</strong> {biltyData?.consignee_name}</div>
-              <div><strong>Route:</strong> {fromCityName} → {toCityName}</div>
-              <div><strong>Amount:</strong> <span className="font-bold text-green-600">₹{biltyData?.total}</span></div>
+            <div className="text-sm text-gray-700 space-y-2">
+              <div className="flex justify-between">
+                <span className="font-medium">From:</span> 
+                <span className="text-black">{biltyData?.consignor_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">To:</span> 
+                <span className="text-black">{biltyData?.consignee_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Route:</span> 
+                <span className="text-black">{fromCityName} → {toCityName}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 mt-3">
+                <span className="font-bold">Total Amount:</span> 
+                <span className="font-bold text-purple-600 text-lg">₹{biltyData?.total}</span>
+              </div>
             </div>
           </div>
           
-          <p className="text-sm text-gray-600 text-center mb-4">
-            Choose your preferred printing option:
+          <p className="text-gray-600 text-center mb-6 text-sm">
+            Choose an action for your bilty document
           </p>
 
-          {/* Print Options */}
-          <div className="grid grid-cols-1 gap-3">
-            {/* PDF Download Option */}
+          {/* Action Buttons */}
+          <div className="grid grid-cols-1 gap-4">
+            {/* Print Button */}
             <button
-              onClick={handlePrintPDF}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center justify-center gap-2 shadow-md transition-all"
+              onClick={handlePrint}
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-500 text-white px-6 py-4 rounded-xl hover:from-purple-700 hover:to-blue-600 focus:outline-none focus:ring-4 focus:ring-purple-300 flex items-center justify-center gap-3 shadow-lg transition-all transform hover:scale-[1.02] font-semibold"
             >
-              <Download className="w-5 h-5" />
-              <div className="text-left">
-                <div className="font-semibold">Generate PDF {showShortcuts && '(Enter)'}</div>
-                <div className="text-xs opacity-90">Professional format with QR codes (Recommended)</div>
+              <Printer className="w-6 h-6" />
+              <div>
+                <div className="text-lg">Print Bilty {showShortcuts && '(Enter)'}</div>
+                <div className="text-xs opacity-90">Generate & Download PDF</div>
               </div>
             </button>
 
-            {/* Web Print Option */}
+            {/* Save Only Button */}
             <button
-              onClick={handleWebPrint}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-2 shadow-md transition-all"
+              onClick={onSaveOnly}
+              className="w-full bg-white border-2 border-purple-600 text-purple-600 px-6 py-4 rounded-xl hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-300 flex items-center justify-center gap-3 shadow-md transition-all transform hover:scale-[1.02] font-semibold"
             >
-              <Printer className="w-5 h-5" />
-              <div className="text-left">
-                <div className="font-semibold">Web Print</div>
-                <div className="text-xs opacity-90">Browser print (Basic format)</div>
+              <Save className="w-6 h-6" />
+              <div>
+                <div className="text-lg">Save Only {showShortcuts && '(Tab)'}</div>
+                <div className="text-xs opacity-70">Save without printing</div>
               </div>
             </button>
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={onSaveOnly}
-            className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 text-white px-4 py-2 rounded-lg hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 shadow-md transition-all"
-          >
-            Save Only {showShortcuts && '(Tab)'}
-          </button>
-        </div>
-
-        <div className="mt-3 text-center">
+        <div className="text-center">
           <button
             onClick={onClose}
-            className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-gray-500 hover:text-black transition-colors px-4 py-2 rounded-lg hover:bg-gray-100"
           >
             Close {showShortcuts && '(Esc)'}
           </button>

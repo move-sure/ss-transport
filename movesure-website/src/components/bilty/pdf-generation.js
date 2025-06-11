@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import supabase from '../../app/utils/supabase';
-import { Download, X, RefreshCw, Printer } from 'lucide-react';
+import { Download, X, RefreshCw, Printer, FileText, Eye } from 'lucide-react';
 
 const PDFGenerator = ({ 
   biltyData, 
@@ -41,7 +41,7 @@ const PDFGenerator = ({
       QR_CODE: { x: 180, y: 10, width: 25, height: 25 },  // QR code position and size
       GR_BOX: { x: 160, y: 45, width: 80, height: 10 },   // GR number box
       GR_LABEL: { x: 162, y: 51.4 },                         // "GR NO" text
-      GR_NUMBER: { x: 175, y: 51.4 },                        // Actual GR number
+      GR_NUMBER: { x: 174, y: 51.4 },                        // Actual GR number
       CAUTION_BOX: { x: 160, y: 55, width: 80, height: 20 }, // Caution box
       CAUTION_LABEL: { x: 185, y: 58.5 },                    // "CAUTION" text
       CAUTION_TEXT_START: { x: 162, y: 61.5 },               // Caution description start
@@ -573,16 +573,9 @@ const PDFGenerator = ({
     // MIDDLE SECTION - Package details with enhanced styling
     addStyledText(
       pdf, 
-      `PVT MARKS: ${biltyData.pvt_marks || 'SS/1'}`, 
+      `PVT MARKS: ${biltyData.pvt_marks || 'SS'} / ${biltyData.no_of_pkg}`, 
       COORDINATES.TABLE_SECTION.PVT_MARKS.x, 
       y + COORDINATES.TABLE_SECTION.PVT_MARKS.y,
-      STYLES.FONTS.LABELS
-    );
-    addStyledText(
-      pdf, 
-      `/ ${biltyData.no_of_pkg}`, 
-      COORDINATES.TABLE_SECTION.PACKAGE_COUNT.x, 
-      y + COORDINATES.TABLE_SECTION.PACKAGE_COUNT.y,
       STYLES.FONTS.LABELS
     );
     addStyledText(
@@ -826,7 +819,7 @@ const PDFGenerator = ({
       );
       
       addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y, STYLES.FONTS.LABELS);
-      addStyledText(pdf, biltyData.gr_no, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y, STYLES.FONTS.GR_NUMBER);
+      addStyledText(pdf, `SS-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y, STYLES.FONTS.GR_NUMBER);
       
       // Second copy GR box (with Y offset)
       pdf.rect(
@@ -837,7 +830,7 @@ const PDFGenerator = ({
       );
       
       addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.LABELS);
-      addStyledText(pdf, biltyData.gr_no, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_NUMBER);
+      addStyledText(pdf, `SS-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_NUMBER);
       
       // ⚠️ CAUTION BOXES WITH ENHANCED STYLING
       // First copy caution box
@@ -972,84 +965,190 @@ const PDFGenerator = ({
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="animate-spin h-12 w-12 text-blue-600 mb-4 mx-auto" />
-          <p className="text-lg font-semibold">Loading bill details...</p>
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-50 to-blue-50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-12 text-center border border-purple-200">
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <RefreshCw className="animate-spin h-8 w-8 text-white" />
+          </div>
+          <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
+          <div className="w-16 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full mb-4"></div>
+          <p className="text-lg font-semibold text-black mb-2">Loading Bill Details...</p>
+          <p className="text-sm text-gray-600">Please wait while we prepare your document</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      {/* Header - Controls */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 flex justify-between items-center text-white shadow-lg">
-        <h2 className="text-lg font-semibold">🚛 PDF Preview - GR: {biltyData.gr_no}</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => loadAllDataAndGeneratePreview()}
-            disabled={isGenerating}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating ? 'Generating...' : 'Refresh Preview'}
-          </button>
-          <button
-            onClick={printPDF}
-            disabled={!pdfUrl}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            <Printer className="w-4 h-4" />
-            Print
-          </button>
-          <button
-            onClick={downloadPDF}
-            disabled={!pdfUrl}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Download PDF
-          </button>
-          <button
-            onClick={onClose}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-          >
-            <X className="w-4 h-4" />
-            Close
-          </button>
-        </div>
-      </div>
+    <div className="fixed inset-0 bg-gradient-to-br from-purple-50 to-blue-50 z-50 flex flex-col">
+      {/* Modern Header with movesure.io branding - Made smaller */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-500 shadow-2xl">
+        <div className="px-6 py-4">
+          {/* Updated navbar layout */}
+          <div className="flex justify-between items-center">
+            {/* Left side - movesure.io branding */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-xl font-bold text-white">movesure.io</div>
+                <div className="w-16 h-0.5 bg-white bg-opacity-40 rounded-full"></div>
+              </div>
+            </div>
 
-      {/* PDF Preview Area */}
-      <div className="flex-1 p-4 bg-gray-100">
-        {pdfUrl ? (
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full border border-gray-300 rounded-lg shadow-lg bg-white"
-            title="PDF Preview"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full bg-white border-2 border-dashed border-gray-300 rounded-lg">
-            <div className="text-center text-gray-500">
-              <div className="text-6xl mb-4">📄</div>
-              <p className="text-lg">PDF Preview will appear here</p>
-              {isGenerating && <p className="text-sm mt-2">Generating preview...</p>}
+            {/* Right side - Document info and action buttons */}
+            <div className="flex items-center gap-6">
+              {/* Document info */}
+              <div className="flex items-center gap-4 text-white text-opacity-90 text-sm">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  GR: <span className="font-semibold">SS-2025-26-{biltyData.gr_no}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  Route: {fromCityData?.city_name || 'N/A'} → {toCityData?.city_name || 'N/A'}
+                </span>
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  Amount: ₹{biltyData.total}
+                </span>
+              </div>
+
+              {/* Action buttons with fixed colors */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => loadAllDataAndGeneratePreview()}
+                  disabled={isGenerating}
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-lg font-medium transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2 border border-gray-600"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                  {isGenerating ? 'Generating...' : 'Refresh'}
+                </button>
+                
+                <button
+                  onClick={printPDF}
+                  disabled={!pdfUrl}
+                  className="bg-white text-purple-600 px-5 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2 shadow-lg"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print PDF
+                </button>
+                
+                <button
+                  onClick={downloadPDF}
+                  disabled={!pdfUrl}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-2.5 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2 shadow-lg"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+                
+                <button
+                  onClick={onClose}
+                  className="bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-lg transition-all transform hover:scale-105 border border-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Status Bar */}
-      <div className="bg-white border-t border-gray-200 px-4 py-2 flex justify-between items-center text-sm text-gray-600">
-        <div className="flex items-center gap-4">
-          <span>Status: {pdfUrl ? '✅ Ready' : '⏳ Loading...'}</span>
-          <span>GR: {biltyData.gr_no}</span>
-          <span>Route: {fromCityData?.city_name || 'N/A'} → {toCityData?.city_name || 'N/A'}</span>
-          <span>Total: ₹{biltyData.total}</span>
+      {/* PDF Preview Area with modern design */}
+      <div className="flex-1 p-6">
+        <div className="h-full bg-white rounded-2xl shadow-2xl border border-purple-200 overflow-hidden">
+          {pdfUrl ? (
+            <>
+              {/* Preview header */}
+              <div className="bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                    <Eye className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold">Document Preview</h3>
+                    <p className="text-white text-opacity-80 text-sm">Bilty Document - Ready for print</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-white text-sm font-medium">Live Preview</span>
+                </div>
+              </div>
+
+              {/* PDF iframe */}
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full border-0"
+                title="PDF Preview"
+                style={{ height: 'calc(100% - 70px)' }}
+              />
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-24 h-24 bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <FileText className="w-12 h-12 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-black mb-3">Document Preview</h3>
+                <p className="text-gray-600 mb-4">Your PDF preview will appear here</p>
+                {isGenerating && (
+                  <div className="flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
+                    <span className="text-purple-600 font-medium">Generating preview...</span>
+                  </div>
+                )}
+                {!isGenerating && !pdfUrl && (
+                  <button
+                    onClick={() => loadAllDataAndGeneratePreview()}
+                    className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-600 transition-all transform hover:scale-105 flex items-center gap-2 mx-auto"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    Generate Preview
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-        <div>
-          <span>Press Ctrl+P to print directly from browser</span>
+      </div>
+
+      {/* Modern Status Bar */}
+      <div className="bg-white border-t border-purple-200 px-6 py-3">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${pdfUrl ? 'bg-green-500' : 'bg-orange-500'} animate-pulse`}></div>
+              <span className="font-medium text-black">
+                Status: {pdfUrl ? 'Ready for Print' : 'Loading...'}
+              </span>
+            </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            <span className="text-gray-600">
+              <span className="font-medium text-purple-600">GR:</span> {biltyData.gr_no}
+            </span>
+            <div className="h-4 w-px bg-gray-300"></div>
+            <span className="text-gray-600">
+              <span className="font-medium text-purple-600">Route:</span> {fromCityData?.city_name || 'N/A'} → {toCityData?.city_name || 'N/A'}
+            </span>
+            <div className="h-4 w-px bg-gray-300"></div>
+            <span className="text-gray-600">
+              <span className="font-medium text-purple-600">Total:</span> ₹{biltyData.total}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <Printer className="w-4 h-4 text-purple-600" />
+              <span>Press <kbd className="px-2 py-1 bg-gray-100 rounded border text-xs font-mono">Ctrl+P</kbd> for browser print</span>
+            </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-1 bg-gray-100 rounded border text-xs font-mono">Enter</kbd>
+              <span>Direct PDF print</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

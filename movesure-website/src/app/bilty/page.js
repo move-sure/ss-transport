@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
+import { useRouter } from 'next/navigation';
 import supabase from '../utils/supabase';
 import { format } from 'date-fns';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ArrowLeft, Building2, User, MapPin, Calendar, FileText, Settings } from 'lucide-react';
 
 // Import all components
 import GRNumberSection from '../../components/bilty/grnumber-manager';
@@ -18,6 +19,7 @@ import PrintBilty from '../../components/bilty/print-bilty';
 
 export default function BiltyForm() {
   const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -30,6 +32,9 @@ export default function BiltyForm() {
   const [savedBiltyData, setSavedBiltyData] = useState(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showBillBookDropdown, setShowBillBookDropdown] = useState(false);
+  
+  // Add reset key to force component re-renders
+  const [resetKey, setResetKey] = useState(0);
   
   // State for dropdown data
   const [billBooks, setBillBooks] = useState([]);
@@ -462,6 +467,9 @@ export default function BiltyForm() {
     setCurrentBiltyId(null);
     setToCityName('');
     
+    // Increment reset key to force component re-renders and clear local states
+    setResetKey(prev => prev + 1);
+    
     // Clear any remaining localStorage data
     localStorage.removeItem('editBiltyData');
     
@@ -503,14 +511,32 @@ export default function BiltyForm() {
     resetForm();
   };
 
+  const refreshConsignorConsigneeData = async () => {
+    try {
+      const [consignorsRes, consigneesRes] = await Promise.all([
+        supabase.from('consignors').select('*').order('company_name'),
+        supabase.from('consignees').select('*').order('company_name')
+      ]);
+      
+      setConsignors(consignorsRes.data || []);
+      setConsignees(consigneesRes.data || []);
+    } catch (error) {
+      console.error('Error refreshing consignor/consignee data:', error);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <div className="text-2xl font-bold text-gray-800">Loading...</div>
-            <div className="text-sm text-gray-600 mt-2">Preparing bilty form...</div>
+            <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <FileText className="w-8 h-8 text-black" />
+            </div>
+            <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
+            <div className="w-20 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full mb-4"></div>
+            <div className="text-lg font-semibold text-black">Loading Bilty Form...</div>
+            <div className="text-sm text-gray-600 mt-2">Preparing your workspace...</div>
           </div>
         </div>
       </div>
@@ -518,30 +544,42 @@ export default function BiltyForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 rounded-xl shadow-2xl p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-8 text-white">
-              <span className="text-lg font-semibold"><strong>BRANCH:</strong> {branchData?.branch_name}</span>
-              <span className="text-lg font-semibold"><strong>STAFF:</strong> {user?.username}</span>
-              <span className="text-lg font-semibold"><strong>FROM-CITY:</strong> {fromCityName}</span>
-              <span className="text-lg font-semibold"><strong>DATE:</strong> {format(new Date(), 'dd/MM/yyyy')}</span>
-              {isEditMode && currentBiltyId && (
-                <span className="bg-yellow-400 text-black px-3 py-1 rounded-lg font-bold text-sm">
-                  EDITING: {formData.gr_no}
-                </span>
-              )}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+      <div className="w-full px-6 py-6">
+        {/* Enhanced Header with Back Button */}
+        <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
+          {/* Top Section - Back Button and Brand */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="bg-white bg-opacity-20 hover:bg-opacity-30 text-purple-600 p-3 rounded-xl transition-all transform hover:scale-105 border border-white border-opacity-20 flex items-center gap-2 font-medium"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Dashboard
+              </button>
+              <div className="h-8 w-px bg-white bg-opacity-30"></div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-white">movesure.io</div>
+                  <div className="w-16 h-0.5 bg-white bg-opacity-40 rounded-full"></div>
+                </div>
+              </div>
             </div>
-            
+
             {/* Bill Book Selector */}
             <div className="relative">
               <div className="flex items-center gap-3">
-                <span className="text-white font-bold">BILL BOOK:</span>
+                <span className="text-white font-bold flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  BILL BOOK:
+                </span>
                 <button
                   onClick={() => setShowBillBookDropdown(!showBillBookDropdown)}
-                  className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors border-2 border-blue-300 flex items-center gap-2 shadow-md"
+                  className="bg-white text-purple-600 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors border-2 border-purple-300 flex items-center gap-2 shadow-lg"
                 >
                   <span>
                     {selectedBillBook ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''}` : 'Select Bill Book'}
@@ -551,18 +589,18 @@ export default function BiltyForm() {
               </div>
               
               {showBillBookDropdown && (
-                <div className="absolute z-30 right-0 mt-2 w-80 bg-white border-2 border-blue-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                <div className="absolute z-30 right-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
                   {billBooks.map((book) => (
                     <button
                       key={book.id}
                       onClick={() => handleBillBookSelect(book)}
-                      className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-blue-100 transition-colors"
+                      className="w-full px-4 py-3 text-left hover:bg-purple-50 border-b border-purple-100 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-b-0"
                     >
                       <div className="text-sm font-bold text-black">
                         {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
                         {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
                       </div>
-                      <div className="text-xs text-black">
+                      <div className="text-xs text-gray-600">
                         Next: {generateGRNumber(book)}
                       </div>
                     </button>
@@ -570,17 +608,69 @@ export default function BiltyForm() {
                 </div>
               )}
             </div>
+          </div>
 
-            {showShortcuts && (
-              <div className="text-xs text-white bg-blue-700 p-3 rounded-lg border border-blue-400">
-                <div>Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit)</div>
+          {/* Main Header Info */}
+          <div className="flex justify-between items-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-white flex-1">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <Building2 className="w-4 h-4 text-purple-300" />
+                </div>
+                <div>
+                  <div className="text-xs text-white text-opacity-80">BRANCH</div>
+                  <div className="font-bold">{branchData?.branch_name}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <User className="w-4 h-4 text-purple-300" />
+                </div>
+                <div>
+                  <div className="text-xs text-white text-opacity-80">STAFF</div>
+                  <div className="font-bold">{user?.username}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <MapPin className="w-4 h-4 text-purple-300" />
+                </div>
+                <div>
+                  <div className="text-xs text-white text-opacity-80">FROM CITY</div>
+                  <div className="font-bold">{fromCityName}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-purple-300" />
+                </div>
+                <div>
+                  <div className="text-xs text-white text-opacity-80">DATE</div>
+                  <div className="font-bold">{format(new Date(), 'dd/MM/yyyy')}</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Edit Mode Indicator */}
+            {isEditMode && currentBiltyId && (
+              <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-black px-6 py-3 rounded-xl font-bold text-sm border-2 border-amber-300 shadow-lg">
+                EDITING: {formData.gr_no}
               </div>
             )}
           </div>
+
+          {/* Keyboard Shortcuts */}
+          {showShortcuts && (
+            <div className="mt-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20">
+              <div className="text-sm text-white text-center font-medium">
+                <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit)
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-xl shadow-2xl border border-blue-200 p-6 space-y-6">
+        {/* Form Sections - Full Width */}
+        <div className="bg-white rounded-2xl shadow-2xl border border-purple-200 p-8 space-y-8">
           {/* Row 1: GR Number Management */}
           <GRNumberSection 
             formData={formData}
@@ -599,6 +689,7 @@ export default function BiltyForm() {
 
           {/* Row 2: City & Transport */}
           <CityTransportSection
+            key={`city-transport-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
             cities={cities}
@@ -609,20 +700,24 @@ export default function BiltyForm() {
 
           {/* Row 3: Consignor & Consignee */}
           <ConsignorConsigneeSection
+            key={`consignor-consignee-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
             consignors={consignors}
             consignees={consignees}
+            onDataUpdate={refreshConsignorConsigneeData}
           />
 
           {/* Row 4: Invoice Details */}
           <InvoiceDetailsSection
+            key={`invoice-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
           />
 
           {/* Row 5: Package & Charges */}
           <PackageChargesSection
+            key={`charges-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
             rates={rates}

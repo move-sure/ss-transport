@@ -124,15 +124,16 @@ const ChallanPDFPreview = ({
       doc.setFillColor(245, 245, 245); // Light gray background
       doc.rect(margin, startY - 5, tableWidth, 8, 'F');
       
-      // Left Column Header with adjusted positions
-      doc.setFontSize(9);
+      // Left Column Header with adjusted positions for new layout
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('S.No', margin + 1, startY);
-      doc.text('G.R.No', margin + 12, startY);
-      doc.text('Pkg', margin + 45, startY);
-      doc.text('Station', margin + 55, startY);
-      doc.text('Pvt. Mark', margin + 75, startY);
+      doc.text('G.R.No', margin + 10, startY);
+      doc.text('Pkg', margin + 30, startY);
+      doc.text('Station', margin + 38, startY);
+      doc.text('Pvt. Mark', margin + 50, startY);
+      doc.text('Remark', margin + 70, startY);
       
       // Draw table borders and grid for left column with adjusted positions
       doc.setLineWidth(0.3);
@@ -141,16 +142,17 @@ const ChallanPDFPreview = ({
       // Header border
       doc.rect(margin, startY - 5, tableWidth, 8);
       
-      // Vertical lines in header - adjusted positions
-      doc.line(margin + 8, startY - 5, margin + 8, startY + 3); // After S.No (smaller)
-      doc.line(margin + 42, startY - 5, margin + 42, startY + 3); // After G.R.No (smaller)
-      doc.line(margin + 52, startY - 5, margin + 52, startY + 3); // After Pkg
-      doc.line(margin + 72, startY - 5, margin + 72, startY + 3); // After Station (bigger)
+      // Vertical lines in header - adjusted positions for new layout
+      doc.line(margin + 7, startY - 5, margin + 7, startY + 3); // After S.No
+      doc.line(margin + 28, startY - 5, margin + 28, startY + 3); // After G.R.No (smaller)
+      doc.line(margin + 35, startY - 5, margin + 35, startY + 3); // After Pkg
+      doc.line(margin + 47, startY - 5, margin + 47, startY + 3); // After Station
+      doc.line(margin + 67, startY - 5, margin + 67, startY + 3); // After Pvt. Mark
       
       let currentY = startY + 8;
       
       // Left column data with borders
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       leftColumnData.forEach((bilty, index) => {
         const srNo = pageStart + index + 1;
@@ -164,11 +166,21 @@ const ChallanPDFPreview = ({
         // Row text with adjusted positions
         doc.setTextColor(0, 0, 0);
         doc.text(srNo.toString(), margin + 1, currentY);
-        doc.text(bilty.gr_no || '', margin + 12, currentY);
-        doc.text((bilty.no_of_pkg || 0).toString(), margin + 45, currentY);
-        doc.text(bilty.to_city_code || '', margin + 55, currentY);
-        const pvtMark = bilty.pvt_marks ? `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}` : `/${bilty.no_of_pkg || 0}`;
-        doc.text(pvtMark, margin + 75, currentY);
+        doc.text(bilty.gr_no || '', margin + 10, currentY);
+        doc.text((bilty.no_of_pkg || 0).toString(), margin + 30, currentY);
+        doc.text(bilty.to_city_code || '', margin + 38, currentY);
+        
+        // Fix pvt_marks display - handle both string and number cases
+        let pvtMarkText = '';
+        if (bilty.pvt_marks && bilty.pvt_marks.toString().trim() !== '') {
+          pvtMarkText = `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}`;
+        } else {
+          pvtMarkText = `/${bilty.no_of_pkg || 0}`;
+        }
+        doc.text(pvtMarkText, margin + 50, currentY);
+        
+        // Add empty remark field
+        doc.text('', margin + 70, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
@@ -176,10 +188,11 @@ const ChallanPDFPreview = ({
         doc.rect(margin, currentY - 4, tableWidth, rowHeight);
         
         // Vertical lines with adjusted positions
-        doc.line(margin + 8, currentY - 4, margin + 8, currentY + 2);
-        doc.line(margin + 42, currentY - 4, margin + 42, currentY + 2);
-        doc.line(margin + 52, currentY - 4, margin + 52, currentY + 2);
-        doc.line(margin + 72, currentY - 4, margin + 72, currentY + 2);
+        doc.line(margin + 7, currentY - 4, margin + 7, currentY + 2);
+        doc.line(margin + 28, currentY - 4, margin + 28, currentY + 2);
+        doc.line(margin + 35, currentY - 4, margin + 35, currentY + 2);
+        doc.line(margin + 47, currentY - 4, margin + 47, currentY + 2);
+        doc.line(margin + 67, currentY - 4, margin + 67, currentY + 2);
         
         currentY += rowHeight;
       });
@@ -197,10 +210,11 @@ const ChallanPDFPreview = ({
         doc.rect(margin, currentY - 4, tableWidth, rowHeight);
         
         // Vertical lines with adjusted positions
-        doc.line(margin + 8, currentY - 4, margin + 8, currentY + 2);
-        doc.line(margin + 42, currentY - 4, margin + 42, currentY + 2);
-        doc.line(margin + 52, currentY - 4, margin + 52, currentY + 2);
-        doc.line(margin + 72, currentY - 4, margin + 72, currentY + 2);
+        doc.line(margin + 7, currentY - 4, margin + 7, currentY + 2);
+        doc.line(margin + 28, currentY - 4, margin + 28, currentY + 2);
+        doc.line(margin + 35, currentY - 4, margin + 35, currentY + 2);
+        doc.line(margin + 47, currentY - 4, margin + 47, currentY + 2);
+        doc.line(margin + 67, currentY - 4, margin + 67, currentY + 2);
         
         currentY += rowHeight;
       }
@@ -213,30 +227,32 @@ const ChallanPDFPreview = ({
       doc.setFillColor(245, 245, 245);
       doc.rect(rightColumnX, currentY - 5, tableWidth, 8, 'F');
       
-      // Right Column Header with adjusted positions
-      doc.setFontSize(9);
+      // Right Column Header with adjusted positions for new layout
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('S.No', rightColumnX + 1, currentY);
-      doc.text('G.R.No', rightColumnX + 12, currentY);
-      doc.text('Pkg', rightColumnX + 45, currentY);
-      doc.text('Station', rightColumnX + 55, currentY);
-      doc.text('Pvt. Mark', rightColumnX + 75, currentY);
+      doc.text('G.R.No', rightColumnX + 10, currentY);
+      doc.text('Pkg', rightColumnX + 30, currentY);
+      doc.text('Station', rightColumnX + 38, currentY);
+      doc.text('Pvt. Mark', rightColumnX + 50, currentY);
+      doc.text('Remark', rightColumnX + 70, currentY);
       
       // Header border for right column
       doc.setLineWidth(0.3);
       doc.rect(rightColumnX, currentY - 5, tableWidth, 8);
       
       // Vertical lines in header with adjusted positions
-      doc.line(rightColumnX + 8, currentY - 5, rightColumnX + 8, currentY + 3);
-      doc.line(rightColumnX + 42, currentY - 5, rightColumnX + 42, currentY + 3);
-      doc.line(rightColumnX + 52, currentY - 5, rightColumnX + 52, currentY + 3);
-      doc.line(rightColumnX + 72, currentY - 5, rightColumnX + 72, currentY + 3);
+      doc.line(rightColumnX + 7, currentY - 5, rightColumnX + 7, currentY + 3);
+      doc.line(rightColumnX + 28, currentY - 5, rightColumnX + 28, currentY + 3);
+      doc.line(rightColumnX + 35, currentY - 5, rightColumnX + 35, currentY + 3);
+      doc.line(rightColumnX + 47, currentY - 5, rightColumnX + 47, currentY + 3);
+      doc.line(rightColumnX + 67, currentY - 5, rightColumnX + 67, currentY + 3);
       
       currentY += 8;
       
       // Right column data with borders
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       rightColumnData.forEach((bilty, index) => {
         const srNo = pageStart + itemsPerColumn + index + 1;
@@ -250,11 +266,21 @@ const ChallanPDFPreview = ({
         // Row text with adjusted positions
         doc.setTextColor(0, 0, 0);
         doc.text(srNo.toString(), rightColumnX + 1, currentY);
-        doc.text(bilty.gr_no || '', rightColumnX + 12, currentY);
-        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 45, currentY);
-        doc.text(bilty.to_city_code || '', rightColumnX + 55, currentY);
-        const pvtMark = bilty.pvt_marks ? `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}` : `/${bilty.no_of_pkg || 0}`;
-        doc.text(pvtMark, rightColumnX + 75, currentY);
+        doc.text(bilty.gr_no || '', rightColumnX + 10, currentY);
+        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 30, currentY);
+        doc.text(bilty.to_city_code || '', rightColumnX + 38, currentY);
+        
+        // Fix pvt_marks display - handle both string and number cases
+        let pvtMarkText = '';
+        if (bilty.pvt_marks && bilty.pvt_marks.toString().trim() !== '') {
+          pvtMarkText = `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}`;
+        } else {
+          pvtMarkText = `/${bilty.no_of_pkg || 0}`;
+        }
+        doc.text(pvtMarkText, rightColumnX + 50, currentY);
+        
+        // Add empty remark field
+        doc.text('', rightColumnX + 70, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
@@ -262,10 +288,11 @@ const ChallanPDFPreview = ({
         doc.rect(rightColumnX, currentY - 4, tableWidth, rowHeight);
         
         // Vertical lines with adjusted positions
-        doc.line(rightColumnX + 8, currentY - 4, rightColumnX + 8, currentY + 2);
-        doc.line(rightColumnX + 42, currentY - 4, rightColumnX + 42, currentY + 2);
-        doc.line(rightColumnX + 52, currentY - 4, rightColumnX + 52, currentY + 2);
-        doc.line(rightColumnX + 72, currentY - 4, rightColumnX + 72, currentY + 2);
+        doc.line(rightColumnX + 7, currentY - 4, rightColumnX + 7, currentY + 2);
+        doc.line(rightColumnX + 28, currentY - 4, rightColumnX + 28, currentY + 2);
+        doc.line(rightColumnX + 35, currentY - 4, rightColumnX + 35, currentY + 2);
+        doc.line(rightColumnX + 47, currentY - 4, rightColumnX + 47, currentY + 2);
+        doc.line(rightColumnX + 67, currentY - 4, rightColumnX + 67, currentY + 2);
         
         currentY += rowHeight;
       });
@@ -283,10 +310,11 @@ const ChallanPDFPreview = ({
         doc.rect(rightColumnX, currentY - 4, tableWidth, rowHeight);
         
         // Vertical lines with adjusted positions
-        doc.line(rightColumnX + 8, currentY - 4, rightColumnX + 8, currentY + 2);
-        doc.line(rightColumnX + 42, currentY - 4, rightColumnX + 42, currentY + 2);
-        doc.line(rightColumnX + 52, currentY - 4, rightColumnX + 52, currentY + 2);
-        doc.line(rightColumnX + 72, currentY - 4, rightColumnX + 72, currentY + 2);
+        doc.line(rightColumnX + 7, currentY - 4, rightColumnX + 7, currentY + 2);
+        doc.line(rightColumnX + 28, currentY - 4, rightColumnX + 28, currentY + 2);
+        doc.line(rightColumnX + 35, currentY - 4, rightColumnX + 35, currentY + 2);
+        doc.line(rightColumnX + 47, currentY - 4, rightColumnX + 47, currentY + 2);
+        doc.line(rightColumnX + 67, currentY - 4, rightColumnX + 67, currentY + 2);
         
         currentY += rowHeight;
       }
@@ -560,118 +588,256 @@ const ChallanPDFPreview = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-full max-h-[95vh] mx-4 flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full m-4 flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-xl">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-6 border-b-2 border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl shadow-lg">
+          <div className="flex items-center gap-4">
             {type === 'loading' ? (
               <>
-                <Package className="w-6 h-6" />
-                <h3 className="text-xl font-bold">Loading Challan Preview</h3>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Package className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Loading Challan Preview</h3>
+                  <p className="text-purple-100 text-sm">Generate and preview loading challan document</p>
+                </div>
               </>
             ) : (
               <>
-                <Truck className="w-6 h-6" />
-                <h3 className="text-xl font-bold">
-                  Challan Preview - {selectedChallan?.challan_no}
-                </h3>
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <Truck className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">
+                    Challan Preview - {selectedChallan?.challan_no}
+                  </h3>
+                  <p className="text-purple-100 text-sm">Generate and preview challan document</p>
+                </div>
               </>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownload}
-              disabled={loading || error || !pdfUrl}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              Download
-            </button>
-            
-            <button
-              onClick={handlePrint}
-              disabled={loading || error || !pdfUrl}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-            >
-              <Printer className="w-4 h-4" />
-              Print
-            </button>
-            
-            <button
-              onClick={onClose}
-              className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <button
+            onClick={onClose}
+            className="bg-white/20 hover:bg-white/30 text-white p-3 rounded-lg transition-all hover:scale-105"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Main Content - Split Layout */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel - Controls */}
+          <div className="w-1/2 p-6 border-r-2 border-purple-200 bg-white overflow-y-auto">
+            <div className="space-y-6">
+              {/* Document Info Card */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 shadow-md">
+                <h4 className="text-lg font-bold text-black mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-purple-600" />
+                  Document Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-semibold text-black">Type:</span>
+                    <p className="text-purple-800 font-bold">{type === 'loading' ? 'Loading Challan' : 'Transit Challan'}</p>
+                  </div>
+                  {type === 'challan' && (
+                    <div>
+                      <span className="font-semibold text-black">Challan No:</span>
+                      <p className="text-purple-800 font-bold">{selectedChallan?.challan_no}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="font-semibold text-black">Date:</span>
+                    <p className="text-black">{format(new Date(), 'dd/MM/yyyy')}</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-black">Total Bilties:</span>
+                    <p className="text-purple-800 font-bold">
+                      {type === 'loading' ? (bilties.length + transitBilties.length) : transitBilties.length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-bold text-black mb-4">Actions</h4>
+                
+                <button
+                  onClick={generatePDFBlob}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                >
+                  <Eye className="w-5 h-5" />
+                  {loading ? 'Generating Preview...' : 'Generate Preview'}
+                </button>
+
+                <button
+                  onClick={handleDownload}
+                  disabled={loading || error || !pdfUrl}
+                  className="w-full bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-800 hover:to-purple-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                >
+                  <Download className="w-5 h-5" />
+                  Download PDF
+                </button>
+                
+                <button
+                  onClick={handlePrint}
+                  disabled={loading || error || !pdfUrl}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                >
+                  <Printer className="w-5 h-5" />
+                  Print Document
+                </button>
+              </div>
+
+              {/* Status Display */}
+              {loading && (
+                <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <div>
+                      <div className="text-lg font-bold text-black">Generating PDF...</div>
+                      <div className="text-sm text-purple-600">This may take a moment</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="bg-red-100 p-2 rounded-lg">
+                      <FileText className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-red-800">Error Generating PDF</div>
+                      <div className="text-red-600 text-sm">{error}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={generatePDFBlob}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors font-bold"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* Summary Statistics */}
+              {(type === 'loading' && (bilties.length > 0 || transitBilties.length > 0)) || 
+               (type === 'challan' && transitBilties.length > 0) && (
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 shadow-md">
+                  <h4 className="text-lg font-bold text-black mb-4">Summary</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <span className="font-semibold text-black">Total Packages:</span>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {(type === 'loading' ? [...bilties, ...transitBilties] : transitBilties)
+                          .reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <span className="font-semibold text-black">Total Weight:</span>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {(type === 'loading' ? [...bilties, ...transitBilties] : transitBilties)
+                          .reduce((sum, bilty) => sum + (bilty.wt || 0), 0).toFixed(2)} kg
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel - PDF Preview */}
+          <div className="w-1/2 p-6 bg-gray-50 overflow-hidden flex flex-col">
+            <div className="mb-4">
+              <h4 className="text-lg font-bold text-black flex items-center gap-2">
+                <Eye className="w-5 h-5 text-purple-600" />
+                Document Preview
+              </h4>
+              <p className="text-sm text-gray-600">Real-time preview of your PDF document</p>
+            </div>
+
+            <div className="flex-1 border-2 border-purple-300 rounded-xl overflow-hidden bg-white shadow-lg">
+              {!loading && !error && pdfUrl && (
+                <iframe
+                  ref={pdfViewerRef}
+                  src={pdfUrl}
+                  className="w-full h-full"
+                  title="PDF Preview"
+                />
+              )}
+
+              {!loading && !error && !pdfUrl && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <div className="bg-purple-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-10 h-10 text-purple-600" />
+                    </div>
+                    <div className="text-lg font-bold text-black mb-2">No Preview Available</div>
+                    <div className="text-gray-600 mb-4">Click "Generate Preview" to view the PDF</div>
+                    <button
+                      onClick={generatePDFBlob}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-bold"
+                    >
+                      Generate Preview
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {loading && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                    <div className="text-lg font-bold text-black mb-2">Generating Preview...</div>
+                    <div className="text-purple-600">Please wait while we create your document</div>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-10 h-10 text-red-600" />
+                    </div>
+                    <div className="text-lg font-bold text-red-800 mb-2">Preview Error</div>
+                    <div className="text-red-600 mb-4">{error}</div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 p-4 overflow-hidden">
-          {loading && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <div className="text-lg font-semibold text-gray-700">Generating PDF...</div>
-                <div className="text-sm text-gray-500">This may take a moment</div>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center bg-red-50 border border-red-200 rounded-lg p-8 max-w-md">
-                <FileText className="w-16 h-16 text-red-400 mx-auto mb-4" />
-                <div className="text-lg font-semibold text-red-800 mb-2">Error Generating PDF</div>
-                <div className="text-red-600 mb-4">{error}</div>
-                <button
-                  onClick={generatePDFBlob}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Try Again
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!loading && !error && pdfUrl && (
-            <div className="h-full border border-gray-300 rounded-lg overflow-hidden bg-gray-100">
-              <iframe
-                ref={pdfViewerRef}
-                src={pdfUrl}
-                className="w-full h-full"
-                title="PDF Preview"
-              />
-            </div>
-            )}
-
-          {!loading && !error && !pdfUrl && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <div className="text-lg font-semibold text-gray-700 mb-2">No PDF Available</div>
-                <div className="text-gray-500">Click the button above to generate a PDF</div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <div className="flex items-center gap-4">
+        <div className="p-4 border-t-2 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 rounded-b-xl">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-6 text-black">
               {type === 'loading' && (
-                <span>📋 Available Bilties: {bilties.length}</span>
+                <span className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-purple-600" />
+                  Available Bilties: <span className="font-bold text-purple-600">{bilties.length + transitBilties.length}</span>
+                </span>
               )}
               {type === 'challan' && (
                 <>
-                  <span>🚛 Challan: {selectedChallan?.challan_no}</span>
-                  <span>📦 Bilties: {transitBilties.length}</span>
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  <span className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-purple-600" />
+                    Challan: <span className="font-bold text-purple-600">{selectedChallan?.challan_no}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-blue-600" />
+                    Bilties: <span className="font-bold text-blue-600">{transitBilties.length}</span>
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                     selectedChallan?.is_dispatched 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-green-100 text-green-800'
+                      ? 'bg-red-100 text-red-800 border border-red-200' 
+                      : 'bg-green-100 text-green-800 border border-green-200'
                   }`}>
                     {selectedChallan?.is_dispatched ? 'DISPATCHED' : 'PENDING'}
                   </span>
@@ -679,7 +845,7 @@ const ChallanPDFPreview = ({
               )}
             </div>
             
-            <div className="text-xs">
+            <div className="text-xs text-gray-600 bg-white px-3 py-1 rounded-full border border-purple-200">
               Generated: {format(new Date(), 'dd/MM/yyyy HH:mm:ss')}
             </div>
           </div>

@@ -173,17 +173,17 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   );
 
   return (
-    <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-md">
+    <div className="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-lg">
       <div className="grid grid-cols-3 gap-6">
         {/* Row 1 - Main Options */}
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
+          <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             DELIVERY
           </span>
           <select
             value={formData.delivery_type}
             onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
-            className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+            className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             tabIndex={14}
           >
             <option value="godown-delivery">Godown</option>
@@ -192,13 +192,13 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
+          <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             PAYMENT
           </span>
           <select
             value={formData.payment_mode}
             onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-            className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+            className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             tabIndex={15}
           >
             <option value="to-pay">To Pay</option>
@@ -209,7 +209,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
 
         {/* Enhanced Content Field with Dropdown */}
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
+          <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             CONTENT
           </span>
           <div className="relative flex-1" ref={contentRef}>
@@ -221,12 +221,12 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                   onChange={(e) => setNewContentName(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Enter new content name..."
-                  className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-green-400 rounded-lg focus:outline-none focus:border-green-600 bg-white shadow-sm"
+                  className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-400 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm"
                   autoFocus
                 />
                 <button
                   onClick={handleAddNewContent}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1"
+                  className="px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 flex items-center gap-1 shadow-md transition-all"
                 >
                   <Check className="w-4 h-4" />
                 </button>
@@ -239,19 +239,19 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 onFocus={() => setShowContentDropdown(true)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search or type goods description..."
-                className="w-full px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
                 tabIndex={16}
               />
             )}
 
             {showContentDropdown && !isAddingContent && (
-              <div className="absolute z-30 mt-1 w-full bg-white border-2 border-blue-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                <div className="p-2 bg-blue-50 text-xs font-medium border-b border-blue-200 flex justify-between items-center">
-                  <span>CONTENT OPTIONS</span>
+              <div className="absolute z-30 mt-1 w-full bg-white border-2 border-purple-300 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 text-xs font-bold border-b border-purple-200 flex justify-between items-center">
+                  <span className="text-black">CONTENT OPTIONS</span>
                   {contentSearch && !exactMatch && (
                     <button
                       onClick={startAddingContent}
-                      className="flex items-center gap-1 text-green-600 hover:text-green-700 font-semibold"
+                      className="flex items-center gap-1 text-purple-600 hover:text-purple-800 font-bold transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                       Add New
@@ -264,21 +264,21 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                     <button
                       key={content.content_id}
                       onClick={() => handleContentSelect(content)}
-                      className={`w-full px-3 py-2 text-left hover:bg-blue-50 text-sm transition-colors border-b border-gray-100 ${
-                        index === selectedContentIndex ? 'bg-blue-100' : ''
+                      className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
+                        index === selectedContentIndex ? 'bg-purple-100' : ''
                       }`}
                     >
-                      <div className="font-medium text-gray-800">{content.content_name}</div>
+                      <div className="font-semibold text-black">{content.content_name}</div>
                     </button>
                   ))
                 ) : (
-                  <div className="px-3 py-2 text-sm text-gray-500">
+                  <div className="px-4 py-3 text-sm text-gray-600">
                     {contentSearch ? (
                       <div className="flex justify-between items-center">
                         <span>No matching content found</span>
                         <button
                           onClick={startAddingContent}
-                          className="text-green-600 hover:text-green-700 font-semibold flex items-center gap-1"
+                          className="text-purple-600 hover:text-purple-800 font-bold flex items-center gap-1 transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                           Add {contentSearch}
@@ -296,42 +296,42 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
 
         {/* Row 2 - Invoice Details */}
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
+          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             INV NO
           </span>
           <input
             type="text"
             value={formData.invoice_no}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
-            className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+            className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="Invoice number"
             tabIndex={17}
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
+          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             INV VAL
           </span>
           <input
             type="number"
             value={formData.invoice_value}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
-            className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+            className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="0"
             tabIndex={18}
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md whitespace-nowrap min-w-[80px]">
+          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             E-WAY
           </span>
           <input
             type="text"
             value={formData.e_way_bill}
             onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}
-            className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+            className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="E-way bill number"
             tabIndex={19}
           />

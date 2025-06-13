@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, BarChart3, Database, Wrench, Package, Receipt } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, BarChart3, Database, Wrench, Package, Receipt, Search } from 'lucide-react';
 
 // Module configuration
 const MODULE_CONFIG = {
@@ -13,11 +13,13 @@ const MODULE_CONFIG = {
     path: '/bilty',
     icon: 'FileText',
     isBilty: true,
+    shortcut: 'Alt+B'
   },
   'e-way-bill': {
     name: 'E-Way Bill',
-    path: '/e-way-bill',
+    path: '/ewb',
     icon: 'Receipt',
+    shortcut: 'Alt+E'
   },
   'loading': {
     name: 'Loading',
@@ -28,6 +30,22 @@ const MODULE_CONFIG = {
     name: 'Challan',
     path: '/challan',
     icon: 'FileText',
+    shortcut: 'Alt+C'
+  },
+  'challan-setting': {
+    name: 'Challan Settings',
+    path: '/challan-setting',
+    icon: 'Settings',
+  },
+  'truck-management': {
+    name: 'Truck Add',
+    path: '/truck-management',
+    icon: 'Truck',
+  },
+  'search': {
+    name: 'Search',
+    path: '/search',
+    icon: 'Search',
   },
   'master': {
     name: 'Master',
@@ -54,15 +72,17 @@ const MODULE_CONFIG = {
 // Route to module mapping
 const ROUTE_MODULE_MAP = {
   '/bilty': 'bilty',
+  '/ewb': 'e-way-bill',
   '/e-way-bill': 'e-way-bill',
   '/loading': 'loading',
   '/challan': 'challan',
+  '/challan-setting': 'challan-setting',
+  '/truck-management': 'truck-management',
+  '/search': 'search',
   '/staff': 'master',
   '/report': 'report',
   '/bilty-setting': 'setting',
-  '/bilty-setting': 'setting',
   '/test': 'staff',
-  '/staff': 'staff',
   '/user-modules': 'staff',
 };
 
@@ -84,11 +104,43 @@ export default function Navbar() {
       fetchUserModules();
     }
   }, [user?.id]);
-
   // Update navigation items when modules change
   useEffect(() => {
     const items = getNavigationItems(userModules);
     setNavigationItems(items);
+  }, [userModules]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.altKey) {
+        switch (event.key.toLowerCase()) {
+          case 'b':
+            event.preventDefault();
+            if (userModules.includes('bilty')) {
+              handleNavClick({ path: '/bilty', module: 'bilty' });
+            }
+            break;
+          case 'c':
+            event.preventDefault();
+            if (userModules.includes('challan')) {
+              handleNavClick({ path: '/challan', module: 'challan' });
+            }
+            break;
+          case 'e':
+            event.preventDefault();
+            if (userModules.includes('e-way-bill')) {
+              handleNavClick({ path: '/ewb', module: 'e-way-bill' });
+            }
+            break;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [userModules]);
 
   const fetchUserModules = async () => {
@@ -108,15 +160,13 @@ export default function Navbar() {
     } catch (error) {
       console.error('Error fetching user modules:', error);
     }
-  };
-
-  const getNavigationItems = (userModules) => {
+  };  const getNavigationItems = (userModules) => {
     if (!Array.isArray(userModules) || userModules.length === 0) {
       return [];
     }
 
     const navigationItems = [];
-    const moduleOrder = ['bilty', 'e-way-bill', 'loading', 'challan', 'master', 'report', 'setting', 'staff'];
+    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff'];
 
     moduleOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -126,6 +176,7 @@ export default function Navbar() {
           path: config.path,
           module: moduleName,
           isBilty: config.isBilty || false,
+          shortcut: config.shortcut || null,
         });
       }
     });
@@ -139,6 +190,9 @@ export default function Navbar() {
       'e-way-bill': <Receipt className="h-4 w-4" />,
       'loading': <Package className="h-4 w-4" />,
       'challan': <FileText className="h-4 w-4" />,
+      'challan-setting': <Settings className="h-4 w-4" />,
+      'truck-management': <Truck className="h-4 w-4" />,
+      'search': <Search className="h-4 w-4" />,
       'master': <Database className="h-4 w-4" />,
       'report': <BarChart3 className="h-4 w-4" />,
       'setting': <Settings className="h-4 w-4" />,
@@ -243,31 +297,28 @@ export default function Navbar() {
       <div className="max-w-full mx-auto px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Left side - Logo/Brand and Navigation */}
-          <div className="flex items-center space-x-8">
-            {/* Logo/Brand */}
+          <div className="flex items-center space-x-6">            {/* Logo/Brand */}
             <div className="flex-shrink-0 flex items-center">
-              <div className="bg-white rounded-lg p-2 mr-3">
-                <Database className="h-6 w-6 text-blue-900" />
+              <div className="bg-white rounded-lg p-2 mr-2">
+                <Database className="h-5 w-5 text-blue-900" />
               </div>
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-lg font-bold text-white">
                 Dashboard
               </h1>
             </div>
-            
-            {/* Navigation Links */}
+              {/* Navigation Links */}
             <div className="flex space-x-1">
               {navigationItems.map((item) => {
                 const isActive = isActiveRoute(item.path);
                 const isLoading = navigating === item.path;
-                
-                if (item.isBilty) {
+                  if (item.isBilty) {
                   // Special styling for Bilty button
                   return (
                     <button
                       key={item.name}
                       onClick={() => handleNavClick(item)}
                       disabled={isLoading}
-                      className={`px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isActive 
                           ? 'bg-blue-100 text-blue-900 shadow-lg scale-105' 
                           : 'bg-white text-blue-900 hover:bg-blue-50'
@@ -279,16 +330,18 @@ export default function Navbar() {
                         getModuleIcon(item.module)
                       )}
                       <span>{item.name}</span>
+                      {item.shortcut && (
+                        <span className="text-xs opacity-70 ml-1">({item.shortcut})</span>
+                      )}
                     </button>
                   );
                 }
-                
-                return (
+                  return (
                   <button
                     key={item.name}
                     onClick={() => handleNavClick(item)}
                     disabled={isLoading}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}                    className={`px-3 py-2 rounded-md text-xs font-medium transition-all duration-200 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       isActive
                         ? 'text-white bg-blue-700 shadow-md'
                         : 'text-blue-100 hover:text-white hover:bg-blue-700'
@@ -300,6 +353,9 @@ export default function Navbar() {
                       getModuleIcon(item.module)
                     )}
                     <span>{item.name}</span>
+                    {item.shortcut && (
+                      <span className="text-xs opacity-70 ml-1">({item.shortcut})</span>
+                    )}
                   </button>
                 );
               })}

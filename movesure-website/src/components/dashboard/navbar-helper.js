@@ -1,4 +1,4 @@
-import { FileText, Truck, BarChart3, Database, Settings, Wrench, Package, Receipt } from 'lucide-react';
+import { FileText, Truck, BarChart3, Database, Settings, Wrench, Package, Receipt, Search } from 'lucide-react';
 
 // Module configuration with their display names and paths
 export const MODULE_CONFIG = {
@@ -7,13 +7,15 @@ export const MODULE_CONFIG = {
     path: '/bilty',
     icon: 'FileText',
     isBilty: true, // Special flag for the big button
-    description: 'Create and manage bilty documents'
+    description: 'Create and manage bilty documents',
+    shortcut: 'Alt+B'
   },
   'e-way-bill': {
     name: 'E-Way Bill',
-    path: '/e-way-bill',
+    path: '/ewb',
     icon: 'Receipt',
-    description: 'Generate and track e-way bills'
+    description: 'Generate and track e-way bills',
+    shortcut: 'Alt+E'
   },
   'loading': {
     name: 'Loading',
@@ -25,7 +27,26 @@ export const MODULE_CONFIG = {
     name: 'Challan',
     path: '/challan',
     icon: 'FileText',
-    description: 'Create and manage challans'
+    description: 'Create and manage challans',
+    shortcut: 'Alt+C'
+  },
+  'challan-setting': {
+    name: 'Challan Settings',
+    path: '/challan-setting',
+    icon: 'Settings',
+    description: 'Configure challan settings'
+  },
+  'truck-management': {
+    name: 'Truck Add',
+    path: '/truck-management',
+    icon: 'Truck',
+    description: 'Add and manage trucks'
+  },
+  'search': {
+    name: 'Search',
+    path: '/search',
+    icon: 'Search',
+    description: 'Search bilty and documents'
   },
   'master': {
     name: 'Master',
@@ -63,21 +84,19 @@ export const getNavigationItems = (userModules) => {
     return [];
   }
 
-  const navigationItems = [];
-
-  // Define the order in which modules should appear in the navbar
-  const moduleOrder = ['bilty', 'e-way-bill', 'loading', 'challan', 'master', 'report', 'setting', 'staff'];
+  const navigationItems = [];  // Define the order in which modules should appear in the navbar
+  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff'];
 
   moduleOrder.forEach(moduleName => {
     if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
-      const config = MODULE_CONFIG[moduleName];
-      navigationItems.push({
-        name: config.name,
-        path: config.path,
-        module: moduleName,
-        isBilty: config.isBilty || false,
-        description: config.description
-      });
+      const config = MODULE_CONFIG[moduleName];        navigationItems.push({
+          name: config.name,
+          path: config.path,
+          module: moduleName,
+          isBilty: config.isBilty || false,
+          description: config.description,
+          shortcut: config.shortcut || null
+        });
     }
   });
 
@@ -95,6 +114,9 @@ export const getModuleIcon = (moduleName) => {
     'e-way-bill': <Receipt className="h-4 w-4" />,
     'loading': <Package className="h-4 w-4" />,
     'challan': <FileText className="h-4 w-4" />,
+    'challan-setting': <Settings className="h-4 w-4" />,
+    'truck-management': <Truck className="h-4 w-4" />,
+    'search': <Search className="h-4 w-4" />,
     'master': <Database className="h-4 w-4" />,
     'report': <BarChart3 className="h-4 w-4" />,
     'setting': <Settings className="h-4 w-4" />,

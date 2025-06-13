@@ -8,10 +8,11 @@ import { Users, Plus, Trash2, Save, Search, CheckCircle, XCircle, Shield, User }
 const AVAILABLE_MODULES = [
   { name: 'bilty', label: 'Bilty', description: 'Create and manage bilty documents' },
   { name: 'e-way-bill', label: 'E-Way Bill', description: 'Generate and track e-way bills' },
-  { name: 'loading', label: 'Loading', description: 'Manage loading operations' },
   { name: 'challan', label: 'Challan', description: 'Create and manage challans' },
+  { name: 'challan-setting', label: 'Challan Settings', description: 'Configure challan settings' },
+  { name: 'truck-management', label: 'Truck Add', description: 'Add and manage trucks' },
+  { name: 'search', label: 'Search', description: 'Search bilty and documents' },
   { name: 'master', label: 'Master', description: 'Master data management' },
-  { name: 'report', label: 'Report', description: 'View and generate reports' },
   { name: 'setting', label: 'Settings', description: 'Application settings' },
   { name: 'staff', label: 'Staff', description: 'Administrative functions' }
 ];

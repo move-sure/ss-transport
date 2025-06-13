@@ -499,8 +499,8 @@ const ConsignorConsigneeSection = ({
                     }
                   }}
                   onKeyDown={handleConsignorKeyDown}
-                  placeholder="Type to search consignor..."
-                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                  placeholder="👤 Type to search consignor..."
+                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                   tabIndex={8}
                 />
                 {isSearching && (
@@ -572,8 +572,8 @@ const ConsignorConsigneeSection = ({
                     }
                   }}
                   onKeyDown={handleConsigneeKeyDown}
-                  placeholder="Type to search consignee..."
-                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                  placeholder="🏢 Type to search consignee..."
+                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                   tabIndex={9}
                 />
                 {isSearching && (
@@ -640,30 +640,28 @@ const ConsignorConsigneeSection = ({
             <div className="flex items-center gap-3">
               <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
                 GST NO
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={consignorGstRef}
                 value={formData.consignor_gst}
                 onChange={handleConsignorGSTChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                placeholder="Consignor GST (auto-saves)"
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                placeholder="📄 Consignor GST (auto-saves)"
                 tabIndex={10}
               />
             </div>
             <div className="flex items-center gap-3">
               <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
                 PHONE
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={consignorPhoneRef}
                 value={formData.consignor_number}
                 onChange={handleConsignorNumberChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 11)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                placeholder="Consignor Phone (auto-saves)"
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                placeholder="📞 Consignor Phone (auto-saves)"
                 tabIndex={11}
               />
             </div>
@@ -679,30 +677,28 @@ const ConsignorConsigneeSection = ({
             <div className="flex items-center gap-3">
               <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
                 GST NO
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={consigneeGstRef}
                 value={formData.consignee_gst}
                 onChange={handleConsigneeGSTChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 12)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                placeholder="Consignee GST (auto-saves)"
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                placeholder="📄 Consignee GST (auto-saves)"
                 tabIndex={12}
               />
             </div>
             <div className="flex items-center gap-3">
               <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
                 PHONE
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={consigneePhoneRef}
                 value={formData.consignee_number}
                 onChange={handleConsigneeNumberChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 13)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                placeholder="Consignee Phone (auto-saves)"
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                placeholder="📞 Consignee Phone (auto-saves)"
                 tabIndex={13}
               />
             </div>

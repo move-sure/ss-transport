@@ -257,10 +257,13 @@ const BiltyDetailsModal = ({
                 <div className="flex justify-between">
                   <span className="text-slate-600">Weight:</span>
                   <span className="font-semibold text-slate-900">{bilty.wt || 0} kg</span>
-                </div>
-                <div className="flex justify-between">
+                </div>                <div className="flex justify-between">
                   <span className="text-slate-600">Rate per kg:</span>
                   <span className="font-semibold text-slate-900">₹{bilty.rate || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Labour Rate:</span>
+                  <span className="font-semibold text-slate-900">₹{bilty.labour_rate || 0}/pkg</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Content:</span>

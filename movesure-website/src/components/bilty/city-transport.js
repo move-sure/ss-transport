@@ -9,7 +9,8 @@ const CityTransportSection = ({
   cities, 
   transports, 
   rates, 
-  fromCityName 
+  fromCityName,
+  resetKey // Add resetKey prop to handle focus on reset
 }) => {
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [citySearch, setCitySearch] = useState('');  const [selectedIndex, setSelectedIndex] = useState(-1);  const cityRef = useRef(null);
@@ -127,6 +128,25 @@ const CityTransportSection = ({
     const isDifferentFromSource = city.city_name.toLowerCase() !== fromCityName.toLowerCase();
     return matchesSearch && isDifferentFromSource;
   });
+
+  // Focus on city input when component resets or first loads
+  useEffect(() => {
+    if (resetKey > 0 && cityInputRef.current) {
+      setTimeout(() => {
+        cityInputRef.current.focus();
+      }, 100);
+    }
+  }, [resetKey]);
+
+  // Also focus on mount for new forms
+  useEffect(() => {
+    if (cityInputRef.current && !formData.to_city_id) {
+      setTimeout(() => {
+        cityInputRef.current.focus();
+      }, 300);
+    }
+  }, []);
+
   return (
     <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-md">
       {/* Main City Section */}
@@ -137,16 +157,15 @@ const CityTransportSection = ({
             <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
               TO CITY
             </span>
-            <div className="relative flex-1" ref={cityRef}>
-              <input
+            <div className="relative flex-1" ref={cityRef}>              <input
                 type="text"
                 ref={cityInputRef}
                 value={citySearch}
                 onChange={handleInputChange}
                 onFocus={() => setShowCityDropdown(true)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search city..."
-                className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                placeholder="🔍 Search city... (Start typing city name or code)"
+                className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm city-input-focus focus-pulse transition-all duration-200 hover:border-blue-400"
               />
               
               {showCityDropdown && (
@@ -190,13 +209,12 @@ const CityTransportSection = ({
             <div className="flex items-center gap-3">
               <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
                 TRANSPORT
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={transportNameRef}
                 value={formData.transport_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
-                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Transport name"
               />
             </div>
@@ -207,13 +225,12 @@ const CityTransportSection = ({
             <div className="flex items-center gap-2">
               <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
                 GST
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={transportGstRef}
                 value={formData.transport_gst}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
-                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="GST number"
               />
             </div>
@@ -224,13 +241,12 @@ const CityTransportSection = ({
             <div className="flex items-center gap-2">
               <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
                 PHONE
-              </span>
-              <input
+              </span>              <input
                 type="text"
                 ref={transportNumberRef}
                 value={formData.transport_number}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
-                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Phone number"
               />
             </div>

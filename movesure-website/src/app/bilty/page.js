@@ -49,8 +49,7 @@ export default function BiltyForm() {
   
   // Selected bill book
   const [selectedBillBook, setSelectedBillBook] = useState(null);
-  
-  // Form data
+    // Form data
   const [formData, setFormData] = useState({
     gr_no: '',
     branch_id: '',
@@ -77,6 +76,7 @@ export default function BiltyForm() {
     no_of_pkg: 0,
     wt: 0,
     rate: 0,
+    labour_rate: 20,
     pvt_marks: '',
     freight_amount: 0,
     labour_charge: 0,
@@ -101,8 +101,7 @@ export default function BiltyForm() {
     if (!loading && cities.length > 0) {
       checkForEditData();
     }
-  }, [loading, cities]);
-  // Keyboard shortcuts
+  }, [loading, cities]);  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Alt') setShowShortcuts(true);      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -121,7 +120,17 @@ export default function BiltyForm() {
         e.preventDefault();
         toggleEditMode();
       }
-    };    const handleKeyUp = (e) => {
+      // Alt+N for new bill
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        resetForm();
+      }
+      // Alt+C for challan page
+      if (e.altKey && e.key === 'c') {
+        e.preventDefault();
+        router.push('/challan');
+      }
+    };const handleKeyUp = (e) => {
       if (e.key === 'Alt') setShowShortcuts(false);
     };
     
@@ -158,13 +167,13 @@ export default function BiltyForm() {
           }
           
           console.log('Loaded bilty data:', fullBilty);
-          
-          // Set form data with the existing bilty
+            // Set form data with the existing bilty
           setFormData({
             ...fullBilty,
             bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
             invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-            pf_charge: fullBilty.pf_charge || 0
+            pf_charge: fullBilty.pf_charge || 0,
+            labour_rate: fullBilty.labour_rate || 20
           });
           
           // Set edit mode
@@ -275,12 +284,12 @@ export default function BiltyForm() {
         .single();
       
       if (error) throw error;
-      
-      setFormData({
+        setFormData({
         ...fullBilty,
         bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
         invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : '',
-        pf_charge: fullBilty.pf_charge || 0
+        pf_charge: fullBilty.pf_charge || 0,
+        labour_rate: fullBilty.labour_rate || 20
       });
       
       setCurrentBiltyId(bilty.id);
@@ -337,8 +346,7 @@ export default function BiltyForm() {
         alert('Branch information is missing. Please login again.');
         return;
       }
-      
-      // Prepare save data with explicit type conversion and null handling
+        // Prepare save data with explicit type conversion and null handling
       const saveData = {
         gr_no: formData.gr_no?.toString().trim(),
         branch_id: user.branch_id,
@@ -366,6 +374,7 @@ export default function BiltyForm() {
         no_of_pkg: parseInt(formData.no_of_pkg) || 0,
         wt: parseFloat(formData.wt) || 0,
         rate: parseFloat(formData.rate) || 0,
+        labour_rate: parseFloat(formData.labour_rate) || 20,
         pvt_marks: formData.pvt_marks?.toString().trim() || null,
         freight_amount: parseFloat(formData.freight_amount) || 0,
         labour_charge: parseFloat(formData.labour_charge) || 0,
@@ -446,12 +455,11 @@ export default function BiltyForm() {
           });
           throw error;
         }
-        
-        savedData = data;
+          savedData = data;
         console.log('New bilty created successfully:', savedData);
         
-        // Update bill book current number if not draft
-        if (!isDraft && selectedBillBook) {
+        // Update bill book current number for both draft and saved bilties
+        if (selectedBillBook) {
           console.log('Updating bill book current number...');
           let newCurrentNumber = selectedBillBook.current_number + 1;
           
@@ -499,8 +507,7 @@ export default function BiltyForm() {
         .limit(50);
       
       setExistingBilties(updatedBilties || []);
-      
-      // Show print modal if not draft
+        // Show print modal if not draft
       if (!isDraft) {
         setSavedBiltyData(savedData);
         setShowPrintModal(true);
@@ -536,9 +543,7 @@ export default function BiltyForm() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const resetForm = () => {
+  };  const resetForm = () => {
     const newGrNo = selectedBillBook ? generateGRNumber(selectedBillBook) : '';
     
     setFormData({
@@ -562,15 +567,18 @@ export default function BiltyForm() {
       contain: '',
       invoice_no: '',
       invoice_value: 0,
-      invoice_date: format(new Date(), 'yyyy-MM-dd'),      e_way_bill: '',
+      invoice_date: format(new Date(), 'yyyy-MM-dd'),
+      e_way_bill: '',
       document_number: '',
       no_of_pkg: 0,
       wt: 0,
       rate: 0,
+      labour_rate: 20,
       pvt_marks: '',
       freight_amount: 0,
       labour_charge: 0,
-      bill_charge: 50,      toll_charge: 20,
+      bill_charge: 50,
+      toll_charge: 20,
       dd_charge: 0,
       other_charge: 0,
       pf_charge: 0,
@@ -579,9 +587,11 @@ export default function BiltyForm() {
       saving_option: 'SAVE'
     });
     
+    // Always set to new mode after reset
     setIsEditMode(false);
     setCurrentBiltyId(null);
     setToCityName('');
+    setSavedBiltyData(null); // Clear saved bilty data
     
     // Increment reset key to force component re-renders and clear local states
     setResetKey(prev => prev + 1);
@@ -611,7 +621,6 @@ export default function BiltyForm() {
     }
     setShowBillBookDropdown(false);
   };
-
   const handlePrint = () => {
     setShowPrintModal(false);
     setShowPrintBilty(true);
@@ -624,6 +633,7 @@ export default function BiltyForm() {
 
   const handlePrintClose = () => {
     setShowPrintBilty(false);
+    // Always reset to new bilty after print, regardless of edit mode
     resetForm();
   };
 
@@ -777,7 +787,7 @@ export default function BiltyForm() {
           {showShortcuts && (
             <div className="mt-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20">
               <div className="text-sm text-white text-center font-medium">
-                <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Enter (Next Field)
+                <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
               </div>
             </div>
           )}
@@ -799,9 +809,7 @@ export default function BiltyForm() {
             resetForm={resetForm}
             existingBilties={existingBilties}
             showShortcuts={showShortcuts}
-          />
-
-          {/* Row 2: City & Transport */}
+          />          {/* Row 2: City & Transport */}
           <CityTransportSection
             key={`city-transport-${resetKey}`}
             formData={formData}
@@ -810,6 +818,7 @@ export default function BiltyForm() {
             transports={transports}
             rates={rates}
             fromCityName={fromCityName}
+            resetKey={resetKey}
           />
 
           {/* Row 3: Consignor & Consignee */}
@@ -827,23 +836,23 @@ export default function BiltyForm() {
             key={`invoice-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
-          />
-
-          {/* Row 5: Package & Charges */}
+          />          {/* Row 5: Package & Charges */}
           <PackageChargesSection
             key={`charges-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
             rates={rates}
+            onSave={handleSave}
+            saving={saving}
+            isEditMode={isEditMode}
+            showShortcuts={showShortcuts}
           />
 
           {/* Row 6: Action Buttons */}
           <ActionButtonsSection
-            onSave={handleSave}
             onReset={resetForm}
             onSaveDraft={() => handleSave(true)}
             saving={saving}
-            isEditMode={isEditMode}
             showShortcuts={showShortcuts}
           />
         </div>

@@ -239,8 +239,7 @@ const GRNumberSection = ({
                         CHANGE
                       </button>
                     </div>
-                  ) : (                    /* Search input when in edit mode but no bilty selected */
-                    <input
+                  ) : (                    /* Search input when in edit mode but no bilty selected */                    <input
                       type="text"
                       ref={grInputRef}
                       value={grSearch}
@@ -251,18 +250,17 @@ const GRNumberSection = ({
                       }}
                       onFocus={() => setShowGRDropdown(true)}
                       onKeyDown={handleKeyDown}
-                      className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                      placeholder="Search GR..."
+                      className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                      placeholder="🔍 Search GR..."
                       tabIndex={1}
                       autoFocus
                     />
                   )}
                 </>
-              ) : (
-                <input
+              ) : (                <input
                   type="text"
                   value={formData.gr_no}
-                  className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-bold border-2 border-gray-300 rounded-lg bg-gray-100 shadow-md"
+                  className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-bold border-2 border-gray-300 rounded-lg bg-gray-100 shadow-md transition-all duration-200"
                   readOnly
                   tabIndex={-1}
                 />

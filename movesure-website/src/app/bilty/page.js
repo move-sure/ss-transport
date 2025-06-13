@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import supabase from '../utils/supabase';
 import { format } from 'date-fns';
 import { ChevronDown, ArrowLeft, Building2, User, MapPin, Calendar, FileText, Settings } from 'lucide-react';
+import { SimpleNavigationProvider } from '../../components/bilty/simple-navigation';
 
 // Import all components
 import GRNumberSection from '../../components/bilty/grnumber-manager';
@@ -19,8 +20,7 @@ import PrintBilty from '../../components/bilty/print-bilty';
 
 export default function BiltyForm() {
   const { user } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
   // Edit mode and print states
@@ -72,8 +72,7 @@ export default function BiltyForm() {
     contain: '',
     invoice_no: '',
     invoice_value: 0,
-    invoice_date: format(new Date(), 'yyyy-MM-dd'),
-    e_way_bill: '',
+    invoice_date: format(new Date(), 'yyyy-MM-dd'),    e_way_bill: '',
     document_number: '',
     no_of_pkg: 0,
     wt: 0,
@@ -81,12 +80,11 @@ export default function BiltyForm() {
     pvt_marks: '',
     freight_amount: 0,
     labour_charge: 0,
-    bill_charge: 50,
-    toll_charge: 0,
+    bill_charge: 50,    toll_charge: 20,
     dd_charge: 0,
     other_charge: 0,
     pf_charge: 0,
-    total: 50,
+    total: 70,
     remark: '',
     saving_option: 'SAVE'
   });
@@ -104,12 +102,10 @@ export default function BiltyForm() {
       checkForEditData();
     }
   }, [loading, cities]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Alt') setShowShortcuts(true);
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if (e.key === 'Alt') setShowShortcuts(true);      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         handleSave(false);
       }
@@ -125,9 +121,7 @@ export default function BiltyForm() {
         e.preventDefault();
         toggleEditMode();
       }
-    };
-
-    const handleKeyUp = (e) => {
+    };    const handleKeyUp = (e) => {
       if (e.key === 'Alt') setShowShortcuts(false);
     };
     
@@ -568,8 +562,7 @@ export default function BiltyForm() {
       contain: '',
       invoice_no: '',
       invoice_value: 0,
-      invoice_date: format(new Date(), 'yyyy-MM-dd'),
-      e_way_bill: '',
+      invoice_date: format(new Date(), 'yyyy-MM-dd'),      e_way_bill: '',
       document_number: '',
       no_of_pkg: 0,
       wt: 0,
@@ -577,12 +570,11 @@ export default function BiltyForm() {
       pvt_marks: '',
       freight_amount: 0,
       labour_charge: 0,
-      bill_charge: 50,
-      toll_charge: 0,
+      bill_charge: 50,      toll_charge: 20,
       dd_charge: 0,
       other_charge: 0,
       pf_charge: 0,
-      total: 50,
+      total: 70,
       remark: '',
       saving_option: 'SAVE'
     });
@@ -664,11 +656,11 @@ export default function BiltyForm() {
           </div>
         </div>
       </div>
-    );
-  }
+    );  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+    <SimpleNavigationProvider>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
       <div className="w-full px-6 py-6">
         {/* Enhanced Header with Back Button */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
@@ -781,13 +773,11 @@ export default function BiltyForm() {
                 EDITING: {formData.gr_no}
               </div>
             )}
-          </div>
-
-          {/* Keyboard Shortcuts */}
+          </div>          {/* Keyboard Shortcuts */}
           {showShortcuts && (
             <div className="mt-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20">
               <div className="text-sm text-white text-center font-medium">
-                <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit)
+                <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Enter (Next Field)
               </div>
             </div>
           )}
@@ -877,9 +867,9 @@ export default function BiltyForm() {
           branchData={branchData}
           fromCityName={fromCityName}
           toCityName={toCityName}
-          onClose={handlePrintClose}
-        />
+          onClose={handlePrintClose}        />
       )}
     </div>
+    </SimpleNavigationProvider>
   );
 }

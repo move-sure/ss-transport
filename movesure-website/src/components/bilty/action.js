@@ -33,15 +33,13 @@ const ActionButtonsSection = ({
           <RotateCcw className="w-5 h-5" />
           RESET {showShortcuts && '(Ctrl+N)'}
         </button>
-      </div>
-
-      {/* Right side - Save/Print button */}
+      </div>      {/* Right side - Save/Print button */}
       <button
         type="button"
         onClick={() => onSave(false)}
         disabled={saving}
         className="px-12 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
-        tabIndex={30}
+        tabIndex={40}
       >
         <Save className="w-6 h-6" />
         {saving ? 'SAVING...' : isEditMode ? 'UPDATE & PRINT' : 'SAVE & PRINT'} {showShortcuts && '(Ctrl+S)'}

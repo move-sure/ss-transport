@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 const CityTransportSection = ({ 
   formData, 
@@ -12,10 +12,11 @@ const CityTransportSection = ({
   fromCityName 
 }) => {
   const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const [citySearch, setCitySearch] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [showTransportDetails, setShowTransportDetails] = useState(false);
-  const cityRef = useRef(null);
+  const [citySearch, setCitySearch] = useState('');  const [selectedIndex, setSelectedIndex] = useState(-1);  const cityRef = useRef(null);
+  const cityInputRef = useRef(null);
+  const transportNameRef = useRef(null);
+  const transportGstRef = useRef(null);
+  const transportNumberRef = useRef(null);
 
   // Initialize city search when formData has to_city_id (for edit mode)
   useEffect(() => {
@@ -28,14 +29,12 @@ const CityTransportSection = ({
       setCitySearch('');
     }
   }, [formData.to_city_id, cities]);
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (cityRef.current && !cityRef.current.contains(event.target)) {
         setShowCityDropdown(false);
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
+    };    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
@@ -61,36 +60,38 @@ const CityTransportSection = ({
       rate: defaultRate?.rate || prev.rate
     }));
   };
-
   const handleKeyDown = (e) => {
-    if (!showCityDropdown || filteredCities.length === 0) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < filteredCities.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredCities.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0) {
-          handleCitySelect(filteredCities[selectedIndex]);
-        } else if (filteredCities.length > 0) {
-          handleCitySelect(filteredCities[0]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowCityDropdown(false);
-        setSelectedIndex(-1);
-        break;
+    // Handle dropdown navigation
+    if (showCityDropdown && filteredCities.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev < filteredCities.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev > 0 ? prev - 1 : filteredCities.length - 1
+          );
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedIndex >= 0) {
+            handleCitySelect(filteredCities[selectedIndex]);
+          } else if (filteredCities.length > 0) {
+            handleCitySelect(filteredCities[0]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowCityDropdown(false);
+          setSelectedIndex(-1);
+          break;
+      }    } else {
+      // Handle Enter key for navigation when dropdown is not open - removed custom navigation
+      // The simple navigation system will handle this automatically
     }
   };
 
@@ -126,13 +127,12 @@ const CityTransportSection = ({
     const isDifferentFromSource = city.city_name.toLowerCase() !== fromCityName.toLowerCase();
     return matchesSearch && isDifferentFromSource;
   });
-
   return (
     <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-md">
       {/* Main City Section */}
       <div className="grid grid-cols-12 gap-4 items-center">
-        {/* To City - Takes more space */}
-        <div className="col-span-8">
+        {/* To City - Takes full width */}
+        <div className="col-span-12">
           <div className="flex items-center gap-3">
             <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
               TO CITY
@@ -140,13 +140,13 @@ const CityTransportSection = ({
             <div className="relative flex-1" ref={cityRef}>
               <input
                 type="text"
+                ref={cityInputRef}
                 value={citySearch}
                 onChange={handleInputChange}
                 onFocus={() => setShowCityDropdown(true)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search city..."
                 className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
-                tabIndex={4}
               />
               
               {showCityDropdown && (
@@ -177,79 +177,66 @@ const CityTransportSection = ({
             </div>
           </div>
         </div>
-
-        {/* Toggle Transport Details Button */}
-        <div className="col-span-4 flex justify-end">
-          <button
-            onClick={() => setShowTransportDetails(!showTransportDetails)}
-            className="flex items-center gap-2 bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors border-2 border-blue-300 shadow-md"
-          >
-            {showTransportDetails ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {showTransportDetails ? 'Hide Transport' : 'Show Transport'}
-          </button>
-        </div>
       </div>
 
-      {/* Collapsible Transport Details */}
-      {showTransportDetails && (
-        <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
-          <h4 className="text-sm font-bold text-gray-800 mb-3 bg-blue-100 px-3 py-2 rounded text-center">
-            TRANSPORT DETAILS (Auto-filled from city selection)
-          </h4>
-          <div className="grid grid-cols-12 gap-4 items-center">
-            {/* Transport Name */}
-            <div className="col-span-6">
-              <div className="flex items-center gap-3">
-                <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
-                  TRANSPORT
-                </span>
-                <input
-                  type="text"
-                  value={formData.transport_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
-                  className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
-                  tabIndex={5}
-                  placeholder="Transport name"
-                />
-              </div>
+      {/* Transport Details - Always Visible */}
+      <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+        <h4 className="text-sm font-bold text-gray-800 mb-3 bg-blue-100 px-3 py-2 rounded text-center">
+          TRANSPORT DETAILS (Auto-filled from city selection)
+        </h4>
+        <div className="grid grid-cols-12 gap-4 items-center">
+          {/* Transport Name */}
+          <div className="col-span-6">
+            <div className="flex items-center gap-3">
+              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
+                TRANSPORT
+              </span>
+              <input
+                type="text"
+                ref={transportNameRef}
+                value={formData.transport_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
+                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                placeholder="Transport name"
+              />
             </div>
+          </div>
 
-            {/* Transport GST */}
-            <div className="col-span-3">
-              <div className="flex items-center gap-2">
-                <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
-                  GST
-                </span>
-                <input
-                  type="text"
-                  value={formData.transport_gst}
-                  onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
-                  className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
-                  tabIndex={6}
-                  placeholder="GST number"
-                />
-              </div>
+          {/* Transport GST */}
+          <div className="col-span-3">
+            <div className="flex items-center gap-2">
+              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
+                GST
+              </span>
+              <input
+                type="text"
+                ref={transportGstRef}
+                value={formData.transport_gst}
+                onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
+                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                placeholder="GST number"
+              />
             </div>
+          </div>
 
-            {/* Transport Phone */}
-            <div className="col-span-3">
-              <div className="flex items-center gap-2">
-                <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
-                  PHONE
-                </span>
-                <input
-                  type="text"
-                  value={formData.transport_number}
-                  onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
-                  className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
-                  tabIndex={7}
-                  placeholder="Phone number"
-                />
-              </div>
+          {/* Transport Phone */}
+          <div className="col-span-3">
+            <div className="flex items-center gap-2">
+              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
+                PHONE
+              </span>
+              <input
+                type="text"
+                ref={transportNumberRef}
+                value={formData.transport_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
+                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 bg-white shadow-sm"
+                placeholder="Phone number"
+              />
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

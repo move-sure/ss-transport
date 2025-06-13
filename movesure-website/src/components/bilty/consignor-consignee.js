@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Eye, EyeOff, Plus, AlertTriangle, Search } from 'lucide-react';
+import { Plus, AlertTriangle, Search } from 'lucide-react';
+import { useInputNavigation } from './input-navigation';
 import { 
   useConsignorConsigneeSearch,
   addNewConsignor,
@@ -24,11 +25,8 @@ const ConsignorConsigneeSection = ({
   const [showConsignorDropdown, setShowConsignorDropdown] = useState(false);
   const [showConsigneeDropdown, setShowConsigneeDropdown] = useState(false);
   const [consignorSearch, setConsignorSearch] = useState('');
-  const [consigneeSearch, setConsigneeSearch] = useState('');
-  const [consignorSelectedIndex, setConsignorSelectedIndex] = useState(-1);
+  const [consigneeSearch, setConsigneeSearch] = useState('');  const [consignorSelectedIndex, setConsignorSelectedIndex] = useState(-1);
   const [consigneeSelectedIndex, setConsigneeSelectedIndex] = useState(-1);
-  const [showConsignorDetails, setShowConsignorDetails] = useState(false);
-  const [showConsigneeDetails, setShowConsigneeDetails] = useState(false);
   
   // Modal states
   const [showAddConsignor, setShowAddConsignor] = useState(false);
@@ -53,13 +51,20 @@ const ConsignorConsigneeSection = ({
   const [consigneeSuggestions, setConsigneeSuggestions] = useState([]);
   const [consignorExists, setConsignorExists] = useState(false);
   const [consigneeExists, setConsigneeExists] = useState(false);
-  
-  const consignorRef = useRef(null);
+    const consignorRef = useRef(null);
   const consigneeRef = useRef(null);
+  const consignorInputRef = useRef(null);
+  const consigneeInputRef = useRef(null);
+  const consignorGstRef = useRef(null);
+  const consignorPhoneRef = useRef(null);
+  const consigneeGstRef = useRef(null);
+  const consigneePhoneRef = useRef(null);
+  
+  // Input navigation
+  const { register, unregister, handleEnter } = useInputNavigation();
 
   // Use the optimized search hook
   const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();
-
   // Initialize search values when formData changes (for edit mode)
   useEffect(() => {
     if (formData.consignor_name && consignorSearch !== formData.consignor_name) {
@@ -69,6 +74,35 @@ const ConsignorConsigneeSection = ({
       setConsigneeSearch(formData.consignee_name);
     }
   }, [formData.consignor_name, formData.consignee_name]);
+
+  // Register inputs for navigation
+  useEffect(() => {
+    if (consignorInputRef.current) {
+      register(8, consignorInputRef.current);
+    }
+    if (consigneeInputRef.current) {
+      register(9, consigneeInputRef.current);
+    }    if (consignorGstRef.current) {
+      register(10, consignorGstRef.current);
+    }
+    if (consignorPhoneRef.current) {
+      register(11, consignorPhoneRef.current);
+    }
+    if (consigneeGstRef.current) {
+      register(12, consigneeGstRef.current);
+    }
+    if (consigneePhoneRef.current) {
+      register(13, consigneePhoneRef.current);
+    }
+    
+    return () => {
+      unregister(8);
+      unregister(9);
+      unregister(10);
+      unregister(11);
+      unregister(12);
+      unregister(13);    };
+  }, [register, unregister]);
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (consignorRef.current && !consignorRef.current.contains(event.target)) {
@@ -206,69 +240,80 @@ const ConsignorConsigneeSection = ({
       }
     }
   };
-
-  // Keyboard navigation
+  // Keyboard navigation with Enter support
   const handleConsignorKeyDown = (e) => {
-    if (!showConsignorDropdown || searchResults.consignors.length === 0) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setConsignorSelectedIndex(prev => 
-          prev < searchResults.consignors.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setConsignorSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : searchResults.consignors.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (consignorSelectedIndex >= 0) {
-          handleConsignorSelect(searchResults.consignors[consignorSelectedIndex]);
-        } else if (searchResults.consignors.length > 0) {
-          handleConsignorSelect(searchResults.consignors[0]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowConsignorDropdown(false);
-        setConsignorSelectedIndex(-1);
-        break;
+    // Handle dropdown navigation
+    if (showConsignorDropdown && searchResults.consignors.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setConsignorSelectedIndex(prev => 
+            prev < searchResults.consignors.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setConsignorSelectedIndex(prev => 
+            prev > 0 ? prev - 1 : searchResults.consignors.length - 1
+          );
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (consignorSelectedIndex >= 0) {
+            handleConsignorSelect(searchResults.consignors[consignorSelectedIndex]);
+          } else if (searchResults.consignors.length > 0) {
+            handleConsignorSelect(searchResults.consignors[0]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowConsignorDropdown(false);
+          setConsignorSelectedIndex(-1);
+          break;
+      }
+    } else {
+      // Handle Enter key for navigation when dropdown is not open
+      if (e.key === 'Enter') {
+        handleEnter(e, 8);
+      }
     }
   };
 
   const handleConsigneeKeyDown = (e) => {
-    if (!showConsigneeDropdown || searchResults.consignees.length === 0) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setConsigneeSelectedIndex(prev => 
-          prev < searchResults.consignees.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setConsigneeSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : searchResults.consignees.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (consigneeSelectedIndex >= 0) {
-          handleConsigneeSelect(searchResults.consignees[consigneeSelectedIndex]);
-        } else if (searchResults.consignees.length > 0) {
-          handleConsigneeSelect(searchResults.consignees[0]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowConsigneeDropdown(false);
-        setConsigneeSelectedIndex(-1);
-        break;
+    // Handle dropdown navigation
+    if (showConsigneeDropdown && searchResults.consignees.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setConsigneeSelectedIndex(prev => 
+            prev < searchResults.consignees.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setConsigneeSelectedIndex(prev => 
+            prev > 0 ? prev - 1 : searchResults.consignees.length - 1
+          );
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (consigneeSelectedIndex >= 0) {
+            handleConsigneeSelect(searchResults.consignees[consigneeSelectedIndex]);
+          } else if (searchResults.consignees.length > 0) {
+            handleConsigneeSelect(searchResults.consignees[0]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowConsigneeDropdown(false);
+          setConsigneeSelectedIndex(-1);
+          break;
+      }
+    } else {
+      // Handle Enter key for navigation when dropdown is not open
+      if (e.key === 'Enter') {
+        handleEnter(e, 9);
+      }
     }
   };
 
@@ -434,19 +479,18 @@ const ConsignorConsigneeSection = ({
   };
 
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border-2 border-purple-200 shadow-lg">
-      {/* Main Consignor/Consignee Names */}
-      <div className="grid grid-cols-12 gap-4 items-center">
+    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border-2 border-purple-200 shadow-lg">      {/* Main Consignor/Consignee Names */}
+      <div className="grid grid-cols-2 gap-4 items-center">
         {/* Consignor Name */}
-        <div className="col-span-5">
+        <div>
           <div className="flex items-center gap-3">
             <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
               CONSIGNOR
             </span>
             <div className="relative flex-1" ref={consignorRef}>
-              <div className="relative">
-                <input
+              <div className="relative">                <input
                   type="text"
+                  ref={consignorInputRef}
                   value={consignorSearch}
                   onChange={(e) => handleConsignorSearchChange(e.target.value)}
                   onFocus={() => {
@@ -510,18 +554,16 @@ const ConsignorConsigneeSection = ({
               )}
             </div>
           </div>
-        </div>
-
-        {/* Consignee Name */}
-        <div className="col-span-5">
+        </div>        {/* Consignee Name */}
+        <div>
           <div className="flex items-center gap-3">
             <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
               CONSIGNEE
             </span>
             <div className="relative flex-1" ref={consigneeRef}>
-              <div className="relative">
-                <input
+              <div className="relative">                <input
                   type="text"
+                  ref={consigneeInputRef}
                   value={consigneeSearch}
                   onChange={(e) => handleConsigneeSearchChange(e.target.value)}
                   onFocus={() => {
@@ -584,104 +626,89 @@ const ConsignorConsigneeSection = ({
                 </div>
               )}
             </div>
+          </div>        </div>
+      </div>
+
+      {/* Additional Details - Always Visible */}
+      <div className="mt-6 space-y-4">
+        {/* Consignor Details */}
+        <div className="p-5 bg-white rounded-xl border-2 border-purple-200 shadow-lg">
+          <h4 className="text-sm font-bold text-black mb-4 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-3 rounded-xl text-center border border-purple-200">
+            CONSIGNOR ADDITIONAL DETAILS
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+                GST NO
+              </span>
+              <input
+                type="text"
+                ref={consignorGstRef}
+                value={formData.consignor_gst}
+                onChange={handleConsignorGSTChange}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                placeholder="Consignor GST (auto-saves)"
+                tabIndex={10}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+                PHONE
+              </span>
+              <input
+                type="text"
+                ref={consignorPhoneRef}
+                value={formData.consignor_number}
+                onChange={handleConsignorNumberChange}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 11)}
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                placeholder="Consignor Phone (auto-saves)"
+                tabIndex={11}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Toggle Details Buttons */}
-        <div className="col-span-2 flex flex-col gap-2">
-          <button
-            onClick={() => setShowConsignorDetails(!showConsignorDetails)}
-            className="flex items-center justify-center gap-1 bg-white text-purple-600 px-3 py-2 rounded-xl font-bold hover:bg-purple-50 transition-colors border-2 border-purple-300 shadow-lg text-xs"
-          >
-            {showConsignorDetails ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            {showConsignorDetails ? 'Hide' : 'Show'}
-          </button>
-          <button
-            onClick={() => setShowConsigneeDetails(!showConsigneeDetails)}
-            className="flex items-center justify-center gap-1 bg-white text-purple-600 px-3 py-2 rounded-xl font-bold hover:bg-purple-50 transition-colors border-2 border-purple-300 shadow-lg text-xs"
-          >
-            {showConsigneeDetails ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            {showConsigneeDetails ? 'Hide' : 'Show'}
-          </button>
+        {/* Consignee Details */}
+        <div className="p-5 bg-white rounded-xl border-2 border-purple-200 shadow-lg">
+          <h4 className="text-sm font-bold text-black mb-4 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-3 rounded-xl text-center border border-purple-200">
+            CONSIGNEE ADDITIONAL DETAILS
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+                GST NO
+              </span>
+              <input
+                type="text"
+                ref={consigneeGstRef}
+                value={formData.consignee_gst}
+                onChange={handleConsigneeGSTChange}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 12)}
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                placeholder="Consignee GST (auto-saves)"
+                tabIndex={12}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+                PHONE
+              </span>
+              <input
+                type="text"
+                ref={consigneePhoneRef}
+                value={formData.consignee_number}
+                onChange={handleConsigneeNumberChange}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 13)}
+                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
+                placeholder="Consignee Phone (auto-saves)"
+                tabIndex={13}
+              />
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Collapsible Additional Details */}
-      {(showConsignorDetails || showConsigneeDetails) && (
-        <div className="mt-6 space-y-4">
-          {/* Consignor Details */}
-          {showConsignorDetails && (
-            <div className="p-5 bg-white rounded-xl border-2 border-purple-200 shadow-lg">
-              <h4 className="text-sm font-bold text-black mb-4 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-3 rounded-xl text-center border border-purple-200">
-                CONSIGNOR ADDITIONAL DETAILS
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                    GST NO
-                  </span>                  <input
-                    type="text"
-                    value={formData.consignor_gst}
-                    onChange={handleConsignorGSTChange}
-                    className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignor GST (auto-saves)"
-                    tabIndex={10}
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                    PHONE
-                  </span>
-                  <input
-                    type="text"
-                    value={formData.consignor_number}
-                    onChange={handleConsignorNumberChange}
-                    className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignor Phone (auto-saves)"
-                    tabIndex={11}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Consignee Details */}
-          {showConsigneeDetails && (
-            <div className="p-5 bg-white rounded-xl border-2 border-purple-200 shadow-lg">
-              <h4 className="text-sm font-bold text-black mb-4 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-3 rounded-xl text-center border border-purple-200">
-                CONSIGNEE ADDITIONAL DETAILS
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                    GST NO
-                  </span>                  <input
-                    type="text"
-                    value={formData.consignee_gst}
-                    onChange={handleConsigneeGSTChange}
-                    className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignee GST (auto-saves)"
-                    tabIndex={12}
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                    PHONE
-                  </span>
-                  <input
-                    type="text"
-                    value={formData.consignee_number}
-                    onChange={handleConsigneeNumberChange}
-                    className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignee Phone (auto-saves)"
-                    tabIndex={13}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Add New Consignor Modal */}
       {showAddConsignor && (

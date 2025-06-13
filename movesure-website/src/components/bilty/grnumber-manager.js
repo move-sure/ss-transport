@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Edit3, Search, Plus } from 'lucide-react';
+import { useInputNavigation } from './input-navigation';
 
 const GRNumberSection = ({ 
   formData, 
@@ -20,8 +21,13 @@ const GRNumberSection = ({
   const [showGRDropdown, setShowGRDropdown] = useState(false);
   const [grSearch, setGrSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [currentEditingGR, setCurrentEditingGR] = useState('');
-  const grRef = useRef(null);
+  const [currentEditingGR, setCurrentEditingGR] = useState('');  const grRef = useRef(null);
+  const grInputRef = useRef(null);
+  const biltyDateRef = useRef(null);
+  const invoiceDateRef = useRef(null);
+  
+  // Input navigation
+  const { register, unregister, handleEnter } = useInputNavigation();
   
   // Update currentEditingGR when switching between modes
   useEffect(() => {
@@ -39,8 +45,7 @@ const GRNumberSection = ({
       setGrSearch('');
     }
   }, [isEditMode, formData.gr_no, formData.consignor_name]);
-  
-  useEffect(() => {
+    useEffect(() => {
     const handleClickOutside = (event) => {
       if (grRef.current && !grRef.current.contains(event.target)) {
         setShowGRDropdown(false);
@@ -48,7 +53,26 @@ const GRNumberSection = ({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, []);  // Register inputs for navigation
+  useEffect(() => {
+    if (grInputRef.current) {
+      register(1, grInputRef.current, {
+        skipCondition: () => !isEditMode || currentEditingGR !== ''
+      });
+    }
+    if (biltyDateRef.current) {
+      register(32, biltyDateRef.current);
+    }
+    if (invoiceDateRef.current) {
+      register(33, invoiceDateRef.current);
+    }
+    
+    return () => {
+      unregister(1);
+      unregister(32);
+      unregister(33);
+    };
+  }, [register, unregister, isEditMode, currentEditingGR]);
 
   const generateGRNumber = (billBook) => {
     if (!billBook) return '';
@@ -110,36 +134,41 @@ const GRNumberSection = ({
       remark: ''
     }));
   };
-
   const handleKeyDown = (e) => {
-    if (!showGRDropdown || filteredBilties.length === 0) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < filteredBilties.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredBilties.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0) {
-          handleGRSelect(filteredBilties[selectedIndex]);
-        } else if (filteredBilties.length > 0) {
-          handleGRSelect(filteredBilties[0]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowGRDropdown(false);
-        setSelectedIndex(-1);
-        break;
+    // Handle dropdown navigation
+    if (showGRDropdown && filteredBilties.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev < filteredBilties.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev > 0 ? prev - 1 : filteredBilties.length - 1
+          );
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedIndex >= 0) {
+            handleGRSelect(filteredBilties[selectedIndex]);
+          } else if (filteredBilties.length > 0) {
+            handleGRSelect(filteredBilties[0]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowGRDropdown(false);
+          setSelectedIndex(-1);
+          break;
+      }
+    } else {
+      // Handle Enter key for navigation when dropdown is not open
+      if (e.key === 'Enter') {
+        handleEnter(e, 1);
+      }
     }
   };
 
@@ -210,10 +239,10 @@ const GRNumberSection = ({
                         CHANGE
                       </button>
                     </div>
-                  ) : (
-                    /* Search input when in edit mode but no bilty selected */
+                  ) : (                    /* Search input when in edit mode but no bilty selected */
                     <input
                       type="text"
+                      ref={grInputRef}
                       value={grSearch}
                       onChange={(e) => {
                         setGrSearch(e.target.value);
@@ -293,26 +322,26 @@ const GRNumberSection = ({
             <div className="flex items-center gap-2">
               <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-3 py-2.5 text-xs font-bold rounded-lg text-center shadow-md whitespace-nowrap">
                 BILTY DATE
-              </span>
-              <input
+              </span>              <input
                 type="date"
-                value={formData.bilty_date}
+                ref={biltyDateRef}                value={formData.bilty_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, bilty_date: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 32)}
                 className="px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-md"
-                tabIndex={2}
+                tabIndex={32}
               />
             </div>
 
             <div className="flex items-center gap-2">
               <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-3 py-2.5 text-xs font-bold rounded-lg text-center shadow-md whitespace-nowrap">
                 INV DATE
-              </span>
-              <input
+              </span>              <input
                 type="date"
-                value={formData.invoice_date}
+                ref={invoiceDateRef}                value={formData.invoice_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, invoice_date: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 33)}
                 className="px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-md"
-                tabIndex={3}
+                tabIndex={33}
               />
             </div>
           </div>

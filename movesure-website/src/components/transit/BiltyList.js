@@ -6,6 +6,7 @@ import { Search, Package, Calendar, CreditCard, Trash2, CheckSquare, Square, Tru
 
 const BiltyList = ({ 
   bilties, 
+  stationBilties,
   transitBilties, 
   selectedBilties, 
   setSelectedBilties, 
@@ -45,7 +46,6 @@ const BiltyList = ({
     // Finally compare suffixes
     return suffixA.localeCompare(suffixB);
   };
-
   // Filter bilties based on search and filters
   useEffect(() => {
     const applyFilters = (biltiesArray) => {
@@ -66,24 +66,22 @@ const BiltyList = ({
       return filtered.sort(sortByGRNumber);
     };
 
-    setFilteredBilties(applyFilters(bilties));
+    // Combine both regular bilties and station bilties
+    const allAvailableBilties = [...(bilties || []), ...(stationBilties || [])];
+    setFilteredBilties(applyFilters(allAvailableBilties));
     setFilteredTransitBilties(applyFilters(transitBilties));
-  }, [bilties, transitBilties, searchTerm, filterPaymentMode, filterDate]);
-  const handleBiltySelect = (bilty) => {
+  }, [bilties, stationBilties, transitBilties, searchTerm, filterPaymentMode, filterDate]);  const handleBiltySelect = (bilty) => {
     // Only allow selection of regular bilties, not transit bilties, and not for dispatched challans
     if (bilty.in_transit || selectedChallan?.is_dispatched) return;
     
     setSelectedBilties(prev => {
-      const isSelected = prev.find(b => b.id === bilty.id);
+      const isSelected = prev.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
       if (isSelected) {
-        return prev.filter(b => b.id !== bilty.id);
+        return prev.filter(b => !(b.id === bilty.id && b.bilty_type === bilty.bilty_type));
       } else {
-        const newSelection = [...prev, bilty];
-        // Sort selected bilties by GR number too
-        return newSelection.sort(sortByGRNumber);
+        return [...prev, bilty];
       }
-    });
-  };
+    });  };
 
   const handleBiltyDoubleClick = (bilty) => {
     if (!selectedChallan || bilty.in_transit || selectedChallan?.is_dispatched) return;
@@ -147,9 +145,9 @@ const BiltyList = ({
           {/* Compact Transit Bilties Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-yellow-50">
-                <tr>
+              <thead className="bg-yellow-50">                <tr>
                   <th className="px-2 py-1 text-left font-medium text-yellow-800 w-8">#</th>
+                  <th className="px-2 py-1 text-left font-medium text-yellow-800 w-16">Type</th>
                   <th className="px-2 py-1 text-left font-medium text-yellow-800 w-20">GR No</th>
                   <th className="px-2 py-1 text-left font-medium text-yellow-800 w-20">Date</th>
                   <th className="px-2 py-1 text-left font-medium text-yellow-800 w-32">Consignor</th>
@@ -165,9 +163,15 @@ const BiltyList = ({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-yellow-200">
-                {filteredTransitBilties.map((bilty, index) => (
-                  <tr key={`transit-${bilty.id}`} className="hover:bg-yellow-50 transition-colors">
+                {filteredTransitBilties.map((bilty, index) => (                  <tr key={`transit-${bilty.id}-${bilty.bilty_type}`} className="hover:bg-yellow-50 transition-colors">
                     <td className="px-2 py-1 text-gray-900">{index + 1}</td>
+                    <td className="px-2 py-1">
+                      <span className={`px-1 py-0.5 text-xs font-bold rounded ${
+                        bilty.bilty_type === 'station' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {bilty.bilty_type === 'station' ? 'STN' : 'REG'}
+                      </span>
+                    </td>
                     <td className="px-2 py-1">
                       <div className="font-bold text-yellow-800 truncate">{bilty.gr_no}</div>
                     </td>
@@ -319,8 +323,8 @@ const BiltyList = ({
                         <Square className="w-3 h-3" />
                       )}
                     </button>
-                  </th>
-                  <th className="px-2 py-1 text-left font-medium text-blue-800 w-8">#</th>
+                  </th>                  <th className="px-2 py-1 text-left font-medium text-blue-800 w-8">#</th>
+                  <th className="px-2 py-1 text-left font-medium text-blue-800 w-16">Type</th>
                   <th className="px-2 py-1 text-left font-medium text-blue-800 w-20">GR No</th>
                   <th className="px-2 py-1 text-left font-medium text-blue-800 w-20">Date</th>
                   <th className="px-2 py-1 text-left font-medium text-blue-800 w-32">Consignor</th>
@@ -362,8 +366,14 @@ const BiltyList = ({
                             <Square className="w-3 h-3 text-gray-400" />
                           )}
                         </button>
+                      </td>                      <td className="px-2 py-1 text-gray-900">{index + 1}</td>
+                      <td className="px-2 py-1">
+                        <span className={`px-1 py-0.5 text-xs font-bold rounded ${
+                          bilty.bilty_type === 'station' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {bilty.bilty_type === 'station' ? 'STN' : 'REG'}
+                        </span>
                       </td>
-                      <td className="px-2 py-1 text-gray-900">{index + 1}</td>
                       <td className="px-2 py-1">
                         <div className="font-bold text-blue-800 truncate">{bilty.gr_no}</div>
                       </td>

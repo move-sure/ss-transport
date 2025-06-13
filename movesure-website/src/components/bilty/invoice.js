@@ -3,15 +3,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Check } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
+import { useInputNavigation } from './input-navigation';
 
 const InvoiceDetailsSection = ({ formData, setFormData }) => {
   const [contentOptions, setContentOptions] = useState([]);
   const [showContentDropdown, setShowContentDropdown] = useState(false);
   const [contentSearch, setContentSearch] = useState('');
   const [selectedContentIndex, setSelectedContentIndex] = useState(-1);
-  const [isAddingContent, setIsAddingContent] = useState(false);
-  const [newContentName, setNewContentName] = useState('');
+  const [isAddingContent, setIsAddingContent] = useState(false);  const [newContentName, setNewContentName] = useState('');
   const contentRef = useRef(null);
+  const contentInputRef = useRef(null);
+  const paymentModeRef = useRef(null);
+  const deliveryTypeRef = useRef(null);
+  const invoiceNoRef = useRef(null);
+  const invoiceValueRef = useRef(null);
+  const eWayBillRef = useRef(null);
+  const docNumberRef = useRef(null);
+  
+  // Input navigation
+  const { register, unregister, handleEnter } = useInputNavigation();
 
   // Initialize content search when formData changes
   useEffect(() => {
@@ -24,7 +34,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   useEffect(() => {
     loadContentOptions();
   }, []);
-
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -35,7 +44,36 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, []);  // Register inputs for navigation
+  useEffect(() => {
+    if (deliveryTypeRef.current) {
+      register(14, deliveryTypeRef.current);
+    }
+    if (paymentModeRef.current) {
+      register(15, paymentModeRef.current);
+    }
+    if (contentInputRef.current) {
+      register(16, contentInputRef.current);
+    }
+    if (invoiceNoRef.current) {
+      register(17, invoiceNoRef.current);
+    }
+    if (invoiceValueRef.current) {
+      register(18, invoiceValueRef.current);
+    }
+    if (eWayBillRef.current) {
+      register(19, eWayBillRef.current);
+    }
+    
+    return () => {
+      unregister(14);
+      unregister(15);
+      unregister(16);
+      unregister(17);
+      unregister(18);
+      unregister(19);
+    };
+  }, [register, unregister]);
 
   const loadContentOptions = async () => {
     try {
@@ -57,7 +95,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     setShowContentDropdown(false);
     setSelectedContentIndex(-1);
   };
-
   const handleKeyDown = (e) => {
     if (isAddingContent) {
       if (e.key === 'Enter') {
@@ -71,40 +108,44 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       return;
     }
 
-    if (!showContentDropdown || filteredContent.length === 0) {
+    // Handle dropdown navigation
+    if (showContentDropdown && filteredContent.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedContentIndex(prev => 
+            prev < filteredContent.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedContentIndex(prev => 
+            prev > 0 ? prev - 1 : filteredContent.length - 1
+          );
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedContentIndex >= 0) {
+            handleContentSelect(filteredContent[selectedContentIndex]);
+          } else if (filteredContent.length > 0) {
+            handleContentSelect(filteredContent[0]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowContentDropdown(false);
+          setSelectedContentIndex(-1);
+          break;
+      }
+    } else {      // Handle Enter key for navigation when dropdown is not open
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleEnter(e, 16);
+      }
       if (e.key === 'ArrowDown' && !showContentDropdown) {
         e.preventDefault();
         setShowContentDropdown(true);
       }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedContentIndex(prev => 
-          prev < filteredContent.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedContentIndex(prev => 
-          prev > 0 ? prev - 1 : filteredContent.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedContentIndex >= 0) {
-          handleContentSelect(filteredContent[selectedContentIndex]);
-        } else if (filteredContent.length > 0) {
-          handleContentSelect(filteredContent[0]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowContentDropdown(false);
-        setSelectedContentIndex(-1);
-        break;
     }
   };
 
@@ -175,14 +216,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   return (
     <div className="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-lg">
       <div className="grid grid-cols-3 gap-6">
-        {/* Row 1 - Main Options */}
-        <div className="flex items-center gap-3">
+        {/* Row 1 - Main Options */}        <div className="flex items-center gap-3">
           <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             DELIVERY
           </span>
           <select
+            ref={deliveryTypeRef}
             value={formData.delivery_type}
             onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 14)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             tabIndex={14}
           >
@@ -196,8 +238,10 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             PAYMENT
           </span>
           <select
+            ref={paymentModeRef}
             value={formData.payment_mode}
             onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 15)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             tabIndex={15}
           >
@@ -230,10 +274,10 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 >
                   <Check className="w-4 h-4" />
                 </button>
-              </div>
-            ) : (
+              </div>            ) : (
               <input
                 type="text"
+                ref={contentInputRef}
                 value={contentSearch}
                 onChange={handleInputChange}
                 onFocus={() => setShowContentDropdown(true)}
@@ -292,17 +336,17 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Row 2 - Invoice Details */}
+        </div>        {/* Row 2 - Invoice Details */}
         <div className="flex items-center gap-3">
           <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             INV NO
           </span>
           <input
             type="text"
+            ref={invoiceNoRef}
             value={formData.invoice_no || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 17)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="Invoice number"
             tabIndex={17}
@@ -315,22 +359,24 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </span>
           <input
             type="number"
+            ref={invoiceValueRef}
             value={formData.invoice_value || 0}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 18)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="0"
             tabIndex={18}
           />
-        </div>
-
-        <div className="flex items-center gap-3">
+        </div>        <div className="flex items-center gap-3">
           <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             E-WAY
           </span>
           <input
             type="text"
+            ref={eWayBillRef}
             value={formData.e_way_bill || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 19)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-sm hover:border-purple-400 transition-colors"
             placeholder="E-way bill number"
             tabIndex={19}

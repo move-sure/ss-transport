@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useInputNavigation } from './input-navigation';
 
 const CityTransportSection = ({ 
   formData, 
@@ -19,6 +20,8 @@ const CityTransportSection = ({
   const transportGstRef = useRef(null);
   const transportNumberRef = useRef(null);
 
+  // Input navigation
+  const { register, unregister, handleEnter } = useInputNavigation();
   // Initialize city search when formData has to_city_id (for edit mode)
   useEffect(() => {
     if (formData.to_city_id && cities.length > 0) {
@@ -30,6 +33,7 @@ const CityTransportSection = ({
       setCitySearch('');
     }
   }, [formData.to_city_id, cities]);
+  
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (cityRef.current && !cityRef.current.contains(event.target)) {
@@ -38,6 +42,28 @@ const CityTransportSection = ({
     };    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  // Register inputs for navigation
+  useEffect(() => {
+    if (cityInputRef.current) {
+      register(1, cityInputRef.current);
+    }
+    if (transportNameRef.current) {
+      register(2, transportNameRef.current);
+    }
+    if (transportGstRef.current) {
+      register(3, transportGstRef.current);
+    }
+    if (transportNumberRef.current) {
+      register(4, transportNumberRef.current);
+    }
+    
+    return () => {
+      unregister(1);
+      unregister(2);
+      unregister(3);
+      unregister(4);
+    };
+  }, [register, unregister]);
 
   const handleCitySelect = (city) => {
     setCitySearch(city.city_name);
@@ -76,8 +102,7 @@ const CityTransportSection = ({
           setSelectedIndex(prev => 
             prev > 0 ? prev - 1 : filteredCities.length - 1
           );
-          break;
-        case 'Enter':
+          break;        case 'Enter':
           e.preventDefault();
           if (selectedIndex >= 0) {
             handleCitySelect(filteredCities[selectedIndex]);
@@ -91,8 +116,11 @@ const CityTransportSection = ({
           setSelectedIndex(-1);
           break;
       }    } else {
-      // Handle Enter key for navigation when dropdown is not open - removed custom navigation
-      // The simple navigation system will handle this automatically
+      // Handle Enter key for navigation when dropdown is not open
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleEnter(e, 1);
+      }
     }
   };
 
@@ -166,6 +194,7 @@ const CityTransportSection = ({
                 onKeyDown={handleKeyDown}
                 placeholder="🔍 Search city... (Start typing city name or code)"
                 className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm city-input-focus focus-pulse transition-all duration-200 hover:border-blue-400"
+                tabIndex={1}
               />
               
               {showCityDropdown && (
@@ -214,8 +243,10 @@ const CityTransportSection = ({
                 ref={transportNameRef}
                 value={formData.transport_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 2)}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Transport name"
+                tabIndex={3}
               />
             </div>
           </div>
@@ -230,8 +261,10 @@ const CityTransportSection = ({
                 ref={transportGstRef}
                 value={formData.transport_gst}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 3)}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="GST number"
+                tabIndex={4}
               />
             </div>
           </div>
@@ -246,8 +279,10 @@ const CityTransportSection = ({
                 ref={transportNumberRef}
                 value={formData.transport_number}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 4)}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Phone number"
+                tabIndex={5}
               />
             </div>
           </div>

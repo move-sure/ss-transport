@@ -74,34 +74,33 @@ const ConsignorConsigneeSection = ({
       setConsigneeSearch(formData.consignee_name);
     }
   }, [formData.consignor_name, formData.consignee_name]);
-
   // Register inputs for navigation
   useEffect(() => {
     if (consignorInputRef.current) {
-      register(8, consignorInputRef.current);
+      register(5, consignorInputRef.current);
     }
     if (consigneeInputRef.current) {
-      register(9, consigneeInputRef.current);
+      register(6, consigneeInputRef.current);
     }    if (consignorGstRef.current) {
-      register(10, consignorGstRef.current);
+      register(7, consignorGstRef.current);
     }
     if (consignorPhoneRef.current) {
-      register(11, consignorPhoneRef.current);
+      register(8, consignorPhoneRef.current);
     }
     if (consigneeGstRef.current) {
-      register(12, consigneeGstRef.current);
+      register(9, consigneeGstRef.current);
     }
     if (consigneePhoneRef.current) {
-      register(13, consigneePhoneRef.current);
+      register(10, consigneePhoneRef.current);
     }
     
     return () => {
+      unregister(5);
+      unregister(6);
+      unregister(7);
       unregister(8);
       unregister(9);
-      unregister(10);
-      unregister(11);
-      unregister(12);
-      unregister(13);    };
+      unregister(10);    };
   }, [register, unregister]);
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -274,7 +273,7 @@ const ConsignorConsigneeSection = ({
     } else {
       // Handle Enter key for navigation when dropdown is not open
       if (e.key === 'Enter') {
-        handleEnter(e, 8);
+        handleEnter(e, 5);
       }
     }
   };
@@ -312,7 +311,7 @@ const ConsignorConsigneeSection = ({
     } else {
       // Handle Enter key for navigation when dropdown is not open
       if (e.key === 'Enter') {
-        handleEnter(e, 9);
+        handleEnter(e, 6);
       }
     }
   };
@@ -497,11 +496,10 @@ const ConsignorConsigneeSection = ({
                     if (consignorSearch.length >= 2) {
                       setShowConsignorDropdown(true);
                     }
-                  }}
-                  onKeyDown={handleConsignorKeyDown}
+                  }}                  onKeyDown={handleConsignorKeyDown}
                   placeholder="👤 Type to search consignor..."
                   className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                  tabIndex={8}
+                  tabIndex={5}
                 />
                 {isSearching && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -570,11 +568,10 @@ const ConsignorConsigneeSection = ({
                     if (consigneeSearch.length >= 2) {
                       setShowConsigneeDropdown(true);
                     }
-                  }}
-                  onKeyDown={handleConsigneeKeyDown}
+                  }}                  onKeyDown={handleConsigneeKeyDown}
                   placeholder="🏢 Type to search consignee..."
                   className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                  tabIndex={9}
+                  tabIndex={6}
                 />
                 {isSearching && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -645,10 +642,9 @@ const ConsignorConsigneeSection = ({
                 ref={consignorGstRef}
                 value={formData.consignor_gst}
                 onChange={handleConsignorGSTChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 7)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📄 Consignor GST (auto-saves)"
-                tabIndex={10}
+                tabIndex={7}
               />
             </div>
             <div className="flex items-center gap-3">
@@ -659,10 +655,9 @@ const ConsignorConsigneeSection = ({
                 ref={consignorPhoneRef}
                 value={formData.consignor_number}
                 onChange={handleConsignorNumberChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 11)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 8)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📞 Consignor Phone (auto-saves)"
-                tabIndex={11}
+                tabIndex={8}
               />
             </div>
           </div>
@@ -682,10 +677,9 @@ const ConsignorConsigneeSection = ({
                 ref={consigneeGstRef}
                 value={formData.consignee_gst}
                 onChange={handleConsigneeGSTChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 12)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 9)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📄 Consignee GST (auto-saves)"
-                tabIndex={12}
+                tabIndex={9}
               />
             </div>
             <div className="flex items-center gap-3">
@@ -695,11 +689,10 @@ const ConsignorConsigneeSection = ({
                 type="text"
                 ref={consigneePhoneRef}
                 value={formData.consignee_number}
-                onChange={handleConsigneeNumberChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 13)}
+                onChange={handleConsigneeNumberChange}                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
                 className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📞 Consignee Phone (auto-saves)"
-                tabIndex={13}
+                tabIndex={10}
               />
             </div>
           </div>

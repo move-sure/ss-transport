@@ -24,7 +24,6 @@ const GRNumberSection = ({
   const [currentEditingGR, setCurrentEditingGR] = useState('');  const grRef = useRef(null);
   const grInputRef = useRef(null);
   const biltyDateRef = useRef(null);
-  const invoiceDateRef = useRef(null);
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
@@ -53,24 +52,11 @@ const GRNumberSection = ({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);  // Register inputs for navigation
+  }, []);  // Register inputs for navigation - REMOVED: GR number and bilty date not part of navigation flow
   useEffect(() => {
-    if (grInputRef.current) {
-      register(1, grInputRef.current, {
-        skipCondition: () => !isEditMode || currentEditingGR !== ''
-      });
-    }
-    if (biltyDateRef.current) {
-      register(32, biltyDateRef.current);
-    }
-    if (invoiceDateRef.current) {
-      register(33, invoiceDateRef.current);
-    }
-    
+    // No inputs to register for navigation - GR number and date excluded from Enter navigation
     return () => {
-      unregister(1);
-      unregister(32);
-      unregister(33);
+      // Cleanup if needed
     };
   }, [register, unregister, isEditMode, currentEditingGR]);
 
@@ -162,12 +148,11 @@ const GRNumberSection = ({
           e.preventDefault();
           setShowGRDropdown(false);
           setSelectedIndex(-1);
-          break;
-      }
+          break;      }
     } else {
-      // Handle Enter key for navigation when dropdown is not open
+      // Handle Enter key - no navigation for GR number field
       if (e.key === 'Enter') {
-        handleEnter(e, 1);
+        // Do nothing - GR number field is excluded from Enter navigation
       }
     }
   };
@@ -248,11 +233,10 @@ const GRNumberSection = ({
                         setShowGRDropdown(true);
                         setSelectedIndex(-1);
                       }}
-                      onFocus={() => setShowGRDropdown(true)}
-                      onKeyDown={handleKeyDown}
+                      onFocus={() => setShowGRDropdown(true)}                      onKeyDown={handleKeyDown}
                       className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                       placeholder="🔍 Search GR..."
-                      tabIndex={1}
+                      tabIndex={-1}
                       autoFocus
                     />
                   )}
@@ -322,26 +306,10 @@ const GRNumberSection = ({
                 BILTY DATE
               </span>              <input
                 type="date"
-                ref={biltyDateRef}                value={formData.bilty_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, bilty_date: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 32)}
+                ref={biltyDateRef}                value={formData.bilty_date}                onChange={(e) => setFormData(prev => ({ ...prev, bilty_date: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} // Prevent Enter navigation
                 className="px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-md"
-                tabIndex={32}
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-3 py-2.5 text-xs font-bold rounded-lg text-center shadow-md whitespace-nowrap">
-                INV DATE
-              </span>              <input
-                type="date"
-                ref={invoiceDateRef}                value={formData.invoice_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, invoice_date: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 33)}
-                className="px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 bg-white shadow-md"
-                tabIndex={33}
-              />
-            </div>
+              />            </div>
           </div>
         </div>
 

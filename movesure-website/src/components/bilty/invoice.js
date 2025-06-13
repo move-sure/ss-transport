@@ -10,15 +10,14 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   const [showContentDropdown, setShowContentDropdown] = useState(false);
   const [contentSearch, setContentSearch] = useState('');
   const [selectedContentIndex, setSelectedContentIndex] = useState(-1);
-  const [isAddingContent, setIsAddingContent] = useState(false);  const [newContentName, setNewContentName] = useState('');
-  const contentRef = useRef(null);
+  const [isAddingContent, setIsAddingContent] = useState(false);  const [newContentName, setNewContentName] = useState('');  const contentRef = useRef(null);
   const contentInputRef = useRef(null);
   const paymentModeRef = useRef(null);
   const deliveryTypeRef = useRef(null);
   const invoiceNoRef = useRef(null);
   const invoiceValueRef = useRef(null);
   const eWayBillRef = useRef(null);
-  const docNumberRef = useRef(null);
+  const invoiceDateRef = useRef(null);
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
@@ -47,31 +46,28 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   }, []);  // Register inputs for navigation
   useEffect(() => {
     if (deliveryTypeRef.current) {
-      register(14, deliveryTypeRef.current);
+      register(11, deliveryTypeRef.current);
     }
     if (paymentModeRef.current) {
-      register(15, paymentModeRef.current);
+      register(12, paymentModeRef.current);
+    }    if (contentInputRef.current) {
+      register(13, contentInputRef.current);
+    }    if (invoiceNoRef.current) {
+      register(14, invoiceNoRef.current);
+    }    if (invoiceValueRef.current) {
+      register(15, invoiceValueRef.current);
+    }    if (eWayBillRef.current) {
+      register(16, eWayBillRef.current);
+    }    if (invoiceDateRef.current) {
+      register(17, invoiceDateRef.current);
     }
-    if (contentInputRef.current) {
-      register(16, contentInputRef.current);
-    }
-    if (invoiceNoRef.current) {
-      register(17, invoiceNoRef.current);
-    }
-    if (invoiceValueRef.current) {
-      register(18, invoiceValueRef.current);
-    }
-    if (eWayBillRef.current) {
-      register(19, eWayBillRef.current);
-    }
-    
-    return () => {
+      return () => {      unregister(11);
+      unregister(12);
+      unregister(13);
       unregister(14);
       unregister(15);
       unregister(16);
       unregister(17);
-      unregister(18);
-      unregister(19);
     };
   }, [register, unregister]);
 
@@ -140,7 +136,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     } else {      // Handle Enter key for navigation when dropdown is not open
       if (e.key === 'Enter') {
         e.preventDefault();
-        handleEnter(e, 16);
+        handleEnter(e, 13);
       }
       if (e.key === 'ArrowDown' && !showContentDropdown) {
         e.preventDefault();
@@ -223,9 +219,22 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={deliveryTypeRef}
             value={formData.delivery_type}
             onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 14)}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 11)}
+            onFocus={() => {
+              // Auto-scroll to invoice section when delivery type is focused
+              setTimeout(() => {
+                const element = deliveryTypeRef.current;
+                if (element) {
+                  element.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center',
+                    inline: 'nearest'
+                  });
+                }
+              }, 100);
+            }}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200"
-            tabIndex={14}
+            tabIndex={11}
           >
             <option value="godown-delivery">Godown</option>
             <option value="door-delivery">Door</option>
@@ -239,9 +248,9 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={paymentModeRef}
             value={formData.payment_mode}
             onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 15)}
+            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 12)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200"
-            tabIndex={15}
+            tabIndex={12}
           >
             <option value="to-pay">To Pay</option>
             <option value="paid">Paid</option>
@@ -278,9 +287,8 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 onChange={handleInputChange}
                 onFocus={() => setShowContentDropdown(true)}
                 onKeyDown={handleKeyDown}
-                placeholder="📦 Search or type goods description..."
-                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
-                tabIndex={16}
+                placeholder="📦 Search or type goods description..."                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
+                tabIndex={13}
               />
             )}
 
@@ -340,11 +348,10 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             type="text"
             ref={invoiceNoRef}
             value={formData.invoice_no || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 17)}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 14)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
             placeholder="📄 Invoice number"
-            tabIndex={17}
+            tabIndex={14}
           />
         </div>
 
@@ -355,24 +362,39 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             type="number"
             ref={invoiceValueRef}
             value={formData.invoice_value || 0}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 18)}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 15)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 number-input-focus transition-all duration-200"
             placeholder="💰 Invoice value"
-            tabIndex={18}
+            tabIndex={15}
           />
-        </div>        <div className="flex items-center gap-3">
+        </div>        
+
+        <div className="flex items-center gap-3">
           <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             E-WAY
           </span>          <input
             type="text"
             ref={eWayBillRef}
             value={formData.e_way_bill || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 19)}
+            onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 16)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
             placeholder="🚛 E-way bill number"
-            tabIndex={19}
+            tabIndex={16}
+          />
+        </div>
+
+        {/* Row 3 - Invoice Date */}
+        <div className="flex items-center gap-3">
+          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+            INV DATE
+          </span>
+          <input
+            type="date"
+            ref={invoiceDateRef}
+            value={formData.invoice_date}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_date: e.target.value }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 17)}
+            className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
+            tabIndex={17}
           />
         </div>
       </div>

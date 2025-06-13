@@ -11,10 +11,11 @@ export class InputNavigationManager {
     this.currentFocusIndex = 0;
     this.isActive = true;
   }
-
   // Register an input with its navigation order
   registerInput(tabIndex, element, options = {}) {
     if (!element || !tabIndex) return;
+    
+    console.log(`Navigation: Registering input tabIndex ${tabIndex}`);
     
     this.inputMap.set(tabIndex, {
       element,
@@ -84,35 +85,119 @@ export class InputNavigationManager {
     if (inputData.skipCondition && inputData.skipCondition()) return false;
     
     return inputData.canReceiveFocus;
+  }  // Get section information for an input
+  getSectionInfo(tabIndex) {
+    // Define section boundaries based on tabIndex ranges
+    const sections = {
+      'city-transport': { start: 1, end: 4, name: 'City & Transport' },
+      'consignor-consignee': { start: 5, end: 10, name: 'Consignor & Consignee' },
+      'invoice': { start: 11, end: 17, name: 'Invoice Details' },
+      'package': { start: 18, end: 24, name: 'Package Details' },
+      'charges': { start: 25, end: 35, name: 'Charges Section' }
+    };
+
+    for (const [sectionKey, section] of Object.entries(sections)) {
+      if (tabIndex >= section.start && tabIndex <= section.end) {
+        return { key: sectionKey, ...section };
+      }
+    }
+    return null;
   }
 
+  // Check if navigation crosses section boundaries
+  shouldScrollToSection(currentTabIndex, nextTabIndex) {
+    const currentSection = this.getSectionInfo(currentTabIndex);
+    const nextSection = this.getSectionInfo(nextTabIndex);
+    
+    // Scroll if moving to a different section or to the first input of any section
+    return !currentSection || !nextSection || 
+           currentSection.key !== nextSection.key ||
+           nextTabIndex === nextSection.start;
+  }
+  // Smooth scroll to section containing the input
+  scrollToSection(element) {
+    try {
+      // Find the closest section container - looking for the main section containers
+      let sectionContainer = element.closest('.bg-white.p-6, .bg-white.rounded-xl, .bg-gradient-to-r.from-purple-50, .bg-gradient-to-r.from-indigo-50, [class*="rounded-xl"][class*="border"], [class*="rounded-2xl"]');
+      
+      if (!sectionContainer) {
+        // Try to find parent section with common patterns
+        sectionContainer = element.closest('[class*="bg-white"][class*="rounded"], [class*="bg-gradient"][class*="rounded"]');
+      }
+      
+      if (!sectionContainer) {
+        // Fallback: scroll to the element itself with some offset
+        const rect = element.getBoundingClientRect();
+        const offset = 120; // Account for header
+        
+        window.scrollTo({
+          top: window.scrollY + rect.top - offset,
+          behavior: 'smooth'
+        });
+        return;
+      }
+
+      // Calculate scroll position with offset for header
+      const rect = sectionContainer.getBoundingClientRect();
+      const headerOffset = 140; // Adjust based on your header height
+      const targetY = window.scrollY + rect.top - headerOffset;
+      
+      window.scrollTo({
+        top: Math.max(0, targetY),
+        behavior: 'smooth'
+      });
+      
+    } catch (error) {
+      console.warn('Scroll error:', error);
+    }
+  }
   // Navigate to next input
   navigateToNext(currentTabIndex) {
     if (!this.isActive) return false;
     
     const nextInput = this.getNextFocusableInput(currentTabIndex);
-    if (!nextInput) return false;
+    if (!nextInput) {
+      console.warn(`Navigation: No next input found after tabIndex ${currentTabIndex}`);
+      console.log('Available inputs:', Array.from(this.inputMap.keys()).sort((a, b) => a - b));
+      return false;
+    }
     
     const { tabIndex, inputData } = nextInput;
+    console.log(`Navigation: Moving from ${currentTabIndex} to ${tabIndex}`);
     
     try {
+      // Check if we should scroll to new section
+      const shouldScroll = this.shouldScrollToSection(currentTabIndex, tabIndex);
+      
       // Execute before focus callback
       if (inputData.beforeFocus) {
         inputData.beforeFocus();
       }
       
-      // Focus the element
-      inputData.element.focus();
-      
-      // For input elements, also select the text for easy editing
-      if (inputData.element.select && inputData.element.type !== 'number') {
-        inputData.element.select();
+      // Scroll to section if needed
+      if (shouldScroll) {
+        this.scrollToSection(inputData.element);
       }
       
-      // Execute after focus callback
-      if (inputData.afterFocus) {
-        inputData.afterFocus();
-      }
+      // Small delay to ensure scroll starts before focus (for better UX)
+      setTimeout(() => {
+        try {
+          // Focus the element
+          inputData.element.focus();
+          
+          // For input elements, also select the text for easy editing
+          if (inputData.element.select && inputData.element.type !== 'number') {
+            inputData.element.select();
+          }
+          
+          // Execute after focus callback
+          if (inputData.afterFocus) {
+            inputData.afterFocus();
+          }
+        } catch (focusError) {
+          console.warn('Focus error:', focusError);
+        }
+      }, shouldScroll ? 150 : 0); // Delay only if scrolling
       
       this.currentFocusIndex = tabIndex;
       return true;

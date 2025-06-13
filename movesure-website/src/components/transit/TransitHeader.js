@@ -19,6 +19,13 @@ const TransitHeader = ({
     return cityCode || 'Unknown';
   };
 
+  // Calculate total weight of bilties in challan
+  const getTotalWeight = () => {
+    return transitBilties.reduce((total, bilty) => {
+      return total + (parseFloat(bilty.wt) || 0);
+    }, 0).toFixed(2);
+  };
+
   const handleDashboard = () => {
     window.location.href = '/dashboard';
   };
@@ -62,8 +69,7 @@ const TransitHeader = ({
           </div>
           
           {/* Right Section - Stats and Actions */}
-          <div className="flex flex-col gap-4">
-            {/* Stats Row */}
+          <div className="flex flex-col gap-4">            {/* Stats Row */}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="bg-white border-2 border-green-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Package className="w-4 h-4 text-green-600" />
@@ -72,6 +78,10 @@ const TransitHeader = ({
               <div className="bg-white border-2 border-yellow-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Truck className="w-4 h-4 text-yellow-600" />
                 In Challan: <span className="text-yellow-700">{transitBilties.length}</span>
+              </div>
+              <div className="bg-white border-2 border-orange-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
+                <Package className="w-4 h-4 text-orange-600" />
+                Weight: <span className="text-orange-700">{getTotalWeight()} kg</span>
               </div>
               <div className="bg-white border-2 border-purple-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <AlertCircle className="w-4 h-4 text-purple-600" />

@@ -16,7 +16,8 @@ const ChallanSelector = ({
   selectedBiltiesCount,
   branches = [],
   trucks,
-  staff
+  staff,
+  transitBilties = []
 }) => {
   const [showChallanDropdown, setShowChallanDropdown] = useState(false);
   const [showChallanBookDropdown, setShowChallanBookDropdown] = useState(false);
@@ -42,6 +43,21 @@ const ChallanSelector = ({
   // Separate dispatched and non-dispatched challans
   const activeChallans = challans.filter(c => !c.is_dispatched);
   const dispatchedChallans = challans.filter(c => c.is_dispatched);
+
+  // Calculate bilty counts from transit data
+  const getTransitBiltyCounts = () => {
+    if (!selectedChallan || !transitBilties) {
+      return { regCount: 0, stnCount: 0, totalCount: 0 };
+    }
+
+    const regCount = transitBilties.filter(bilty => bilty.bilty_type === 'regular').length;
+    const stnCount = transitBilties.filter(bilty => bilty.bilty_type === 'station').length;
+    const totalCount = regCount + stnCount;
+
+    return { regCount, stnCount, totalCount };
+  };
+
+  const { regCount, stnCount, totalCount } = getTransitBiltyCounts();
 
   const generateChallanNumber = (challanBook) => {
     if (!challanBook) return '';
@@ -88,11 +104,10 @@ const ChallanSelector = ({
               <div className="flex-1">
                 {selectedChallan ? (
                   <div>
-                    <div className="font-bold text-blue-900 text-base">{selectedChallan.challan_no}</div>
-                    <div className="text-sm text-blue-600">
-                      {format(new Date(selectedChallan.date), 'dd/MM/yyyy')} • {selectedChallan.total_bilty_count} bilties
-                      {selectedChallan.is_dispatched && ' • DISPATCHED'}
-                    </div>
+                    <div className="font-bold text-blue-900 text-base">{selectedChallan.challan_no}</div>                  <div className="text-sm text-blue-600">
+                    {format(new Date(selectedChallan.date), 'dd/MM/yyyy')} • {totalCount} bilties
+                    {selectedChallan.is_dispatched && ' • DISPATCHED'}
+                  </div>
                   </div>
                 ) : (
                   <div className="text-gray-500 font-medium">Choose a challan...</div>
@@ -134,10 +149,9 @@ const ChallanSelector = ({
                                   </div>
                                   <div className="text-sm text-gray-600">
                                     {format(new Date(challan.date), 'dd/MM/yyyy')}
-                                  </div>
-                                  <div className="text-xs text-blue-600 flex items-center gap-1 mt-1">
+                                  </div>                                  <div className="text-xs text-blue-600 flex items-center gap-1 mt-1">
                                     <Package className="w-3 h-3" />
-                                    {challan.total_bilty_count} bilties
+                                    {challan.id === selectedChallan?.id ? totalCount : challan.total_bilty_count} bilties
                                   </div>
                                 </div>
                                 <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-bold ml-2 flex-shrink-0">
@@ -173,10 +187,9 @@ const ChallanSelector = ({
                                     {challan.dispatch_date && (
                                       <span> • Dispatched: {format(new Date(challan.dispatch_date), 'dd/MM/yyyy')}</span>
                                     )}
-                                  </div>
-                                  <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                  </div>                                  <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                                     <Package className="w-3 h-3" />
-                                    {challan.total_bilty_count} bilties
+                                    {challan.id === selectedChallan?.id ? totalCount : challan.total_bilty_count} bilties
                                   </div>
                                 </div>
                                 <div className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-bold ml-2 flex-shrink-0">
@@ -192,7 +205,37 @@ const ChallanSelector = ({
                 </div>
               </div>
             )}
-          </div>
+          </div>          {/* Bilty Summary - Show when challan is selected */}
+          {selectedChallan && (
+            <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-200">
+              <h4 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Bilty Summary
+              </h4>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
+                  <div className="text-xs text-gray-600 mb-1">Station Bilties (STN)</div>
+                  <div className="text-xl font-bold text-emerald-700">
+                    {stnCount}
+                  </div>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
+                  <div className="text-xs text-gray-600 mb-1">Regular Bilties (REG)</div>
+                  <div className="text-xl font-bold text-emerald-700">
+                    {regCount}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Total Count */}
+              <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
+                <div className="text-xs text-gray-600 mb-1">Total Bilties in Transit</div>
+                <div className="text-2xl font-bold text-emerald-800">
+                  {totalCount}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Challan Details Card - Show when challan is selected */}
           {selectedChallan && (
@@ -210,9 +253,6 @@ const ChallanSelector = ({
                   <span className="text-blue-900 font-bold">
                     {selectedChallan.truck?.truck_number || 'Not Assigned'}
                   </span>
-                  {selectedChallan.truck?.truck_type && (
-                    <span className="text-gray-600">({selectedChallan.truck.truck_type})</span>
-                  )}
                 </div>
 
                 {/* Driver Details */}

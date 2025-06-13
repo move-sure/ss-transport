@@ -50,109 +50,139 @@ const ChallanPDFPreview = ({
     } finally {
       setLoading(false);
     }
-  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches]);
-
-  // Generate Loading Challan PDF Blob with Split Layout
+  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches]);  // Generate Loading Challan PDF Blob with Split Layout
   const generateLoadingChallanPDFBlob = async (allBiltiesData) => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = 210;
     const pageHeight = 297;
-    const margin = 8;
-    const tableWidth = (pageWidth - (margin * 3)) / 2; // Split page in half
-    const itemsPerColumn = 25; // Max items per column
+    const margin = 6; // Reduced margin
+    const columnGap = 4; // Reduced gap between columns
+    const tableWidth = (pageWidth - (margin * 2) - columnGap) / 2; // Split page in half with smaller gap
+    const itemsPerColumn = 20; // Max items per column (40 total per page)
     const itemsPerPage = itemsPerColumn * 2; // 2 columns per page
-    const rowHeight = 6; // Height for each row
+    const rowHeight = 10; // Increased row height for better readability
     
     let currentPage = 1;
     
-    for (let pageStart = 0; pageStart < allBiltiesData.length; pageStart += itemsPerPage) {
+    // Sort bilties alphabetically by city code first, then by GR number within each city
+    const sortedBiltiesData = [...allBiltiesData].sort((a, b) => {
+      // First sort by city code (to_city_code) alphabetically
+      const cityA = (a.to_city_code || '').toUpperCase();
+      const cityB = (b.to_city_code || '').toUpperCase();
+      
+      if (cityA !== cityB) {
+        return cityA.localeCompare(cityB);
+      }
+      
+      // If same city, sort by GR number
+      const grA = (a.gr_no || '').toUpperCase();
+      const grB = (b.gr_no || '').toUpperCase();
+      
+      // Handle mixed alphanumeric GR numbers properly
+      return grA.localeCompare(grB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+      // Calculate totals once
+    const totalPackages = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
+    const totalWeight = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
+    
+    for (let pageStart = 0; pageStart < sortedBiltiesData.length; pageStart += itemsPerPage) {
       if (pageStart > 0) {
         doc.addPage();
         currentPage++;
       }
+        const pageData = sortedBiltiesData.slice(pageStart, pageStart + itemsPerPage);
       
-      const pageData = allBiltiesData.slice(pageStart, pageStart + itemsPerPage);
-      
-      // Get branch details
-      const fromBranch = branches.find(b => b.id === userBranch?.id) || userBranch;
-      
-      // Title
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('LOADING CHALLAN', pageWidth / 2, 15, { align: 'center' });
-      
-      // Company Details
-      if (permanentDetails) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 23, { align: 'center' });
+      // Add header details only on first page
+      if (currentPage === 1) {
+        // Get branch details
+        const fromBranch = branches.find(b => b.id === userBranch?.id) || userBranch;
         
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        if (permanentDetails.transport_address) {
-          doc.text(permanentDetails.transport_address, pageWidth / 2, 28, { align: 'center' });
+        // Title
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('LOADING CHALLAN', pageWidth / 2, 15, { align: 'center' });
+        
+        // Company Details
+        if (permanentDetails) {
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 23, { align: 'center' });
+          
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          if (permanentDetails.transport_address) {
+            doc.text(permanentDetails.transport_address, pageWidth / 2, 28, { align: 'center' });
+          }
         }
+        
+        // Date and Details (Top Right)
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`CHALLAN NO: ${selectedChallan?.challan_no || 'N/A'}`, pageWidth - margin, 15, { align: 'right' });
+        doc.text(`DATE: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - margin, 20, { align: 'right' });
+        
+        // Add totals below date
+        doc.setFontSize(9);
+        doc.text(`TOTAL PACKAGES: ${totalPackages}`, pageWidth - margin, 25, { align: 'right' });
+        doc.text(`TOTAL WEIGHT: ${totalWeight.toFixed(2)} KG`, pageWidth - margin, 30, { align: 'right' });
+        
+        // Driver & Truck Info (Top Left)
+        doc.setFontSize(9);
+        doc.text(`TRUCK NO: ${selectedChallan?.truck?.truck_number || 'N/A'}`, margin, 15);
+        doc.text(`DRIVER: ${selectedChallan?.driver?.name || 'N/A'}`, margin, 20);
+        doc.text(`OWNER: ${selectedChallan?.owner?.name || 'N/A'}`, margin, 25);
+        
+        // Line separator
+        doc.setLineWidth(0.3);
+        doc.line(margin, 35, pageWidth - margin, 35);
+        
+        var startY = 42; // Start position for first page
+      } else {
+        // For subsequent pages, just add page number and start higher
+        doc.setFontSize(8);
+        doc.text(`Page ${currentPage}`, pageWidth - margin, 15, { align: 'right' });
+        doc.text('LOADING CHALLAN (Continued)', pageWidth / 2, 15, { align: 'center' });
+        
+        var startY = 25; // Start higher for subsequent pages
       }
       
-      // Page Number
+      // Page Number (for all pages)
       doc.setFontSize(8);
-      doc.text(`Page ${currentPage}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-      
-      // Date and Details
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`CHALLAN NO: ${selectedChallan?.challan_no || 'N/A'}`, pageWidth - margin, 15, { align: 'right' });
-      doc.text(`DATE: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - margin, 20, { align: 'right' });
-      
-      // Driver & Truck Info (Top Left)
-      doc.setFontSize(8);
-      doc.text(`TRUCK NO: ${selectedChallan?.truck?.truck_number || 'N/A'}`, margin, 15);
-      doc.text(`DRIVER: ${selectedChallan?.driver?.name || 'N/A'}`, margin, 20);
-      doc.text(`OWNER: ${selectedChallan?.owner?.name || 'N/A'}`, margin, 25);
-      
-      // Line separator
-      doc.setLineWidth(0.3);
-      doc.line(margin, 35, pageWidth - margin, 35);
-      
+      doc.text(`Page ${currentPage}`, pageWidth - margin, pageHeight - 10, { align: 'right' });      
       const leftColumnData = pageData.slice(0, itemsPerColumn);
       const rightColumnData = pageData.slice(itemsPerColumn);
       
-      let startY = 45;
-      
-      // LEFT COLUMN TABLE
-      // Draw table header background
+        // LEFT COLUMN TABLE      // Draw table header background
       doc.setFillColor(245, 245, 245); // Light gray background
-      doc.rect(margin, startY - 5, tableWidth, 8, 'F');
+      doc.rect(margin, startY - 6, tableWidth, 10, 'F'); // Increased header height
       
-      // Left Column Header with adjusted positions for new layout
-      doc.setFontSize(8);
+      // Left Column Header with bigger text and adjusted column widths
+      doc.setFontSize(10); // Increased font size for better visibility
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      doc.text('S.No', margin + 1, startY);
-      doc.text('G.R.No', margin + 10, startY);
-      doc.text('Pkg', margin + 30, startY);
-      doc.text('Station', margin + 38, startY);
-      doc.text('Pvt. Mark', margin + 50, startY);
-      doc.text('Remark', margin + 70, startY);
+      doc.text('S.No', margin + 2, startY);
+      doc.text('G.R.No', margin + 15, startY);
+      doc.text('Pkg', margin + 40, startY);
+      doc.text('Station', margin + 48, startY);
+      doc.text('Pvt. Mark', margin + 62, startY);
+      doc.text('Remark', margin + 80, startY); // Adjusted for better spacing
       
-      // Draw table borders and grid for left column with adjusted positions
+      // Draw table borders and grid for left column with wider columns
       doc.setLineWidth(0.3);
       doc.setDrawColor(0, 0, 0);
       
       // Header border
-      doc.rect(margin, startY - 5, tableWidth, 8);
+      doc.rect(margin, startY - 6, tableWidth, 10); // Increased header height
       
-      // Vertical lines in header - adjusted positions for new layout
-      doc.line(margin + 7, startY - 5, margin + 7, startY + 3); // After S.No
-      doc.line(margin + 28, startY - 5, margin + 28, startY + 3); // After G.R.No (smaller)
-      doc.line(margin + 35, startY - 5, margin + 35, startY + 3); // After Pkg
-      doc.line(margin + 47, startY - 5, margin + 47, startY + 3); // After Station
-      doc.line(margin + 67, startY - 5, margin + 67, startY + 3); // After Pvt. Mark
+      // Vertical lines in header - adjusted for wider columns
+      doc.line(margin + 12, startY - 6, margin + 12, startY + 4); // After S.No
+      doc.line(margin + 38, startY - 6, margin + 38, startY + 4); // After G.R.No (wider)
+      doc.line(margin + 45, startY - 6, margin + 45, startY + 4); // After Pkg
+      doc.line(margin + 60, startY - 6, margin + 60, startY + 4); // After Station
+      doc.line(margin + 78, startY - 6, margin + 78, startY + 4); // After Pvt. Mark
       
-      let currentY = startY + 8;
-      
-      // Left column data with borders
-      doc.setFontSize(7);
+      let currentY = startY + 10; // Adjusted for increased header height      // Left column data with borders and bigger text for better readability
+      doc.setFontSize(9); // Increased font size for better visibility
       doc.setFont('helvetica', 'normal');
       leftColumnData.forEach((bilty, index) => {
         const srNo = pageStart + index + 1;
@@ -160,15 +190,15 @@ const ChallanPDFPreview = ({
         // Draw row background (alternating)
         if (index % 2 === 1) {
           doc.setFillColor(250, 250, 250);
-          doc.rect(margin, currentY - 4, tableWidth, rowHeight, 'F');
+          doc.rect(margin, currentY - 6, tableWidth, rowHeight, 'F'); // Adjusted for increased row height
         }
         
-        // Row text with adjusted positions
+        // Row text with adjusted positions for wider columns
         doc.setTextColor(0, 0, 0);
-        doc.text(srNo.toString(), margin + 1, currentY);
-        doc.text(bilty.gr_no || '', margin + 10, currentY);
-        doc.text((bilty.no_of_pkg || 0).toString(), margin + 30, currentY);
-        doc.text(bilty.to_city_code || '', margin + 38, currentY);
+        doc.text(srNo.toString(), margin + 2, currentY);
+        doc.text(bilty.gr_no || '', margin + 15, currentY);
+        doc.text((bilty.no_of_pkg || 0).toString(), margin + 40, currentY);
+        doc.text(bilty.to_city_code || '', margin + 48, currentY);
         
         // Fix pvt_marks display - handle both string and number cases
         let pvtMarkText = '';
@@ -177,82 +207,77 @@ const ChallanPDFPreview = ({
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
-        doc.text(pvtMarkText, margin + 50, currentY);
+        doc.text(pvtMarkText, margin + 62, currentY);
         
         // Add empty remark field
-        doc.text('', margin + 70, currentY);
+        doc.text('', margin + 80, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(margin, currentY - 4, tableWidth, rowHeight);
+        doc.rect(margin, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
         
-        // Vertical lines with adjusted positions
-        doc.line(margin + 7, currentY - 4, margin + 7, currentY + 2);
-        doc.line(margin + 28, currentY - 4, margin + 28, currentY + 2);
-        doc.line(margin + 35, currentY - 4, margin + 35, currentY + 2);
-        doc.line(margin + 47, currentY - 4, margin + 47, currentY + 2);
-        doc.line(margin + 67, currentY - 4, margin + 67, currentY + 2);
+        // Vertical lines with adjusted positions for wider columns
+        doc.line(margin + 12, currentY - 6, margin + 12, currentY + 4);
+        doc.line(margin + 38, currentY - 6, margin + 38, currentY + 4);
+        doc.line(margin + 45, currentY - 6, margin + 45, currentY + 4);
+        doc.line(margin + 60, currentY - 6, margin + 60, currentY + 4);
+        doc.line(margin + 78, currentY - 6, margin + 78, currentY + 4);
         
         currentY += rowHeight;
-      });
-      
-      // Fill remaining rows in left column if less than itemsPerColumn
+      });      // Fill remaining rows in left column if less than itemsPerColumn
       const remainingLeftRows = itemsPerColumn - leftColumnData.length;
       for (let i = 0; i < remainingLeftRows; i++) {
         if (i % 2 === (leftColumnData.length % 2)) {
           doc.setFillColor(250, 250, 250);
-          doc.rect(margin, currentY - 4, tableWidth, rowHeight, 'F');
+          doc.rect(margin, currentY - 6, tableWidth, rowHeight, 'F'); // Adjusted for increased row height
         }
         
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(margin, currentY - 4, tableWidth, rowHeight);
+        doc.rect(margin, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
         
-        // Vertical lines with adjusted positions
-        doc.line(margin + 7, currentY - 4, margin + 7, currentY + 2);
-        doc.line(margin + 28, currentY - 4, margin + 28, currentY + 2);
-        doc.line(margin + 35, currentY - 4, margin + 35, currentY + 2);
-        doc.line(margin + 47, currentY - 4, margin + 47, currentY + 2);
-        doc.line(margin + 67, currentY - 4, margin + 67, currentY + 2);
+        // Vertical lines with adjusted positions for wider columns
+        doc.line(margin + 12, currentY - 6, margin + 12, currentY + 4);
+        doc.line(margin + 38, currentY - 6, margin + 38, currentY + 4);
+        doc.line(margin + 45, currentY - 6, margin + 45, currentY + 4);
+        doc.line(margin + 60, currentY - 6, margin + 60, currentY + 4);
+        doc.line(margin + 78, currentY - 6, margin + 78, currentY + 4);
         
         currentY += rowHeight;
       }
       
       // RIGHT COLUMN TABLE
-      const rightColumnX = margin + tableWidth + margin;
+      const rightColumnX = margin + tableWidth + columnGap; // Using reduced gap
       currentY = startY;
-      
-      // Draw table header background for right column
+        // Draw table header background for right column
       doc.setFillColor(245, 245, 245);
-      doc.rect(rightColumnX, currentY - 5, tableWidth, 8, 'F');
+      doc.rect(rightColumnX, currentY - 6, tableWidth, 10, 'F'); // Increased header height
       
-      // Right Column Header with adjusted positions for new layout
-      doc.setFontSize(8);
+      // Right Column Header with bigger text and adjusted column widths
+      doc.setFontSize(10); // Increased font size for better visibility
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      doc.text('S.No', rightColumnX + 1, currentY);
-      doc.text('G.R.No', rightColumnX + 10, currentY);
-      doc.text('Pkg', rightColumnX + 30, currentY);
-      doc.text('Station', rightColumnX + 38, currentY);
-      doc.text('Pvt. Mark', rightColumnX + 50, currentY);
-      doc.text('Remark', rightColumnX + 70, currentY);
+      doc.text('S.No', rightColumnX + 2, currentY);
+      doc.text('G.R.No', rightColumnX + 15, currentY);
+      doc.text('Pkg', rightColumnX + 40, currentY);
+      doc.text('Station', rightColumnX + 48, currentY);
+      doc.text('Pvt. Mark', rightColumnX + 62, currentY);
+      doc.text('Remark', rightColumnX + 80, currentY); // Adjusted for better spacing
       
       // Header border for right column
       doc.setLineWidth(0.3);
-      doc.rect(rightColumnX, currentY - 5, tableWidth, 8);
+      doc.rect(rightColumnX, currentY - 6, tableWidth, 10); // Increased header height
       
-      // Vertical lines in header with adjusted positions
-      doc.line(rightColumnX + 7, currentY - 5, rightColumnX + 7, currentY + 3);
-      doc.line(rightColumnX + 28, currentY - 5, rightColumnX + 28, currentY + 3);
-      doc.line(rightColumnX + 35, currentY - 5, rightColumnX + 35, currentY + 3);
-      doc.line(rightColumnX + 47, currentY - 5, rightColumnX + 47, currentY + 3);
-      doc.line(rightColumnX + 67, currentY - 5, rightColumnX + 67, currentY + 3);
+      // Vertical lines in header with wider columns
+      doc.line(rightColumnX + 12, currentY - 6, rightColumnX + 12, currentY + 4);
+      doc.line(rightColumnX + 38, currentY - 6, rightColumnX + 38, currentY + 4);
+      doc.line(rightColumnX + 45, currentY - 6, rightColumnX + 45, currentY + 4);
+      doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
+      doc.line(rightColumnX + 78, currentY - 6, rightColumnX + 78, currentY + 4);
       
-      currentY += 8;
-      
-      // Right column data with borders
-      doc.setFontSize(7);
+      currentY += 10; // Adjusted for increased header height      // Right column data with borders and bigger text for better readability
+      doc.setFontSize(9); // Increased font size for better visibility
       doc.setFont('helvetica', 'normal');
       rightColumnData.forEach((bilty, index) => {
         const srNo = pageStart + itemsPerColumn + index + 1;
@@ -260,15 +285,15 @@ const ChallanPDFPreview = ({
         // Draw row background (alternating)
         if (index % 2 === 1) {
           doc.setFillColor(250, 250, 250);
-          doc.rect(rightColumnX, currentY - 4, tableWidth, rowHeight, 'F');
+          doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight, 'F'); // Adjusted for increased row height
         }
         
-        // Row text with adjusted positions
+        // Row text with adjusted positions for wider columns
         doc.setTextColor(0, 0, 0);
-        doc.text(srNo.toString(), rightColumnX + 1, currentY);
-        doc.text(bilty.gr_no || '', rightColumnX + 10, currentY);
-        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 30, currentY);
-        doc.text(bilty.to_city_code || '', rightColumnX + 38, currentY);
+        doc.text(srNo.toString(), rightColumnX + 2, currentY);
+        doc.text(bilty.gr_no || '', rightColumnX + 15, currentY);
+        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 40, currentY);
+        doc.text(bilty.to_city_code || '', rightColumnX + 48, currentY);
         
         // Fix pvt_marks display - handle both string and number cases
         let pvtMarkText = '';
@@ -277,60 +302,49 @@ const ChallanPDFPreview = ({
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
-        doc.text(pvtMarkText, rightColumnX + 50, currentY);
+        doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
         // Add empty remark field
-        doc.text('', rightColumnX + 70, currentY);
+        doc.text('', rightColumnX + 80, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(rightColumnX, currentY - 4, tableWidth, rowHeight);
+        doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
         
-        // Vertical lines with adjusted positions
-        doc.line(rightColumnX + 7, currentY - 4, rightColumnX + 7, currentY + 2);
-        doc.line(rightColumnX + 28, currentY - 4, rightColumnX + 28, currentY + 2);
-        doc.line(rightColumnX + 35, currentY - 4, rightColumnX + 35, currentY + 2);
-        doc.line(rightColumnX + 47, currentY - 4, rightColumnX + 47, currentY + 2);
-        doc.line(rightColumnX + 67, currentY - 4, rightColumnX + 67, currentY + 2);
+        // Vertical lines with adjusted positions for wider columns
+        doc.line(rightColumnX + 12, currentY - 6, rightColumnX + 12, currentY + 4);
+        doc.line(rightColumnX + 38, currentY - 6, rightColumnX + 38, currentY + 4);
+        doc.line(rightColumnX + 45, currentY - 6, rightColumnX + 45, currentY + 4);
+        doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
+        doc.line(rightColumnX + 78, currentY - 6, rightColumnX + 78, currentY + 4);
         
         currentY += rowHeight;
-      });
-      
-      // Fill remaining rows in right column if less than itemsPerColumn
+      });      // Fill remaining rows in right column if less than itemsPerColumn
       const remainingRightRows = itemsPerColumn - rightColumnData.length;
       for (let i = 0; i < remainingRightRows; i++) {
         if (i % 2 === (rightColumnData.length % 2)) {
           doc.setFillColor(250, 250, 250);
-          doc.rect(rightColumnX, currentY - 4, tableWidth, rowHeight, 'F');
+          doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight, 'F'); // Adjusted for increased row height
         }
         
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(rightColumnX, currentY - 4, tableWidth, rowHeight);
+        doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
         
-        // Vertical lines with adjusted positions
-        doc.line(rightColumnX + 7, currentY - 4, rightColumnX + 7, currentY + 2);
-        doc.line(rightColumnX + 28, currentY - 4, rightColumnX + 28, currentY + 2);
-        doc.line(rightColumnX + 35, currentY - 4, rightColumnX + 35, currentY + 2);
-        doc.line(rightColumnX + 47, currentY - 4, rightColumnX + 47, currentY + 2);
-        doc.line(rightColumnX + 67, currentY - 4, rightColumnX + 67, currentY + 2);
+        // Vertical lines with adjusted positions for wider columns
+        doc.line(rightColumnX + 12, currentY - 6, rightColumnX + 12, currentY + 4);
+        doc.line(rightColumnX + 38, currentY - 6, rightColumnX + 38, currentY + 4);
+        doc.line(rightColumnX + 45, currentY - 6, rightColumnX + 45, currentY + 4);
+        doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
+        doc.line(rightColumnX + 78, currentY - 6, rightColumnX + 78, currentY + 4);
         
         currentY += rowHeight;
       }
     }
     
-    // Calculate totals on last page
-    const totalPackages = allBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
-    
-    // Totals at bottom of last page
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL PACKAGES: ${totalPackages}`, pageWidth / 2, 230, { align: 'center' });
-    
     return doc;
   };
-
   // Generate Challan Bilties PDF Blob with Full Width
   const generateChallanBiltiesPDFBlob = async (transitBiltiesData) => {
     const doc = new jsPDF('landscape', 'mm', 'a4');
@@ -338,105 +352,130 @@ const ChallanPDFPreview = ({
     const pageHeight = 210;
     const margin = 8;
     
+    // Sort bilties alphabetically by city code first, then by GR number within each city
+    const sortedTransitBiltiesData = [...transitBiltiesData].sort((a, b) => {
+      // First sort by city code (to_city_code) alphabetically
+      const cityA = (a.to_city_code || '').toUpperCase();
+      const cityB = (b.to_city_code || '').toUpperCase();
+      
+      if (cityA !== cityB) {
+        return cityA.localeCompare(cityB);
+      }
+      
+      // If same city, sort by GR number
+      const grA = (a.gr_no || '').toUpperCase();
+      const grB = (b.gr_no || '').toUpperCase();
+      
+      // Handle mixed alphanumeric GR numbers properly
+      return grA.localeCompare(grB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    
     // Get branch details for from and to
     const fromBranch = branches.find(b => b.id === selectedChallanBook?.from_branch_id) || userBranch;
     const toBranch = branches.find(b => b.id === selectedChallanBook?.to_branch_id);
-    
-    // Add header function
+      // Add header function
     const addHeader = (pageNum) => {
-      // Title - Center
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('CHALLAN', pageWidth / 2, 15, { align: 'center' });
-      
-      // Company Details - Center
-      if (permanentDetails) {
-        doc.setFontSize(16);
+      // Only add full header details on first page
+      if (pageNum === 1) {
+        // Title - Center
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 25, { align: 'center' });
+        doc.text('CHALLAN', pageWidth / 2, 15, { align: 'center' });
         
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        if (permanentDetails.transport_address) {
-          doc.text(permanentDetails.transport_address, pageWidth / 2, 31, { align: 'center' });
+        // Company Details - Center
+        if (permanentDetails) {
+          doc.setFontSize(16);
+          doc.setFont('helvetica', 'bold');
+          doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 25, { align: 'center' });
+          
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          if (permanentDetails.transport_address) {
+            doc.text(permanentDetails.transport_address, pageWidth / 2, 31, { align: 'center' });
+          }
         }
+        
+        // Challan Number - Top Right
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Challan No: ${selectedChallan.challan_no}`, pageWidth - margin, 15, { align: 'right' });
+        doc.setFontSize(9);
+        doc.text(`Date: ${format(new Date(selectedChallan.date), 'dd-MM-yyyy')}`, pageWidth - margin, 22, { align: 'right' });
+        
+        // Transport Details - Top Left
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TRANSPORT DETAILS:', margin, 15);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        let yPos = 22;
+        
+        if (selectedChallan.truck) {
+          doc.text(`Truck No: ${selectedChallan.truck.truck_number}`, margin, yPos);
+          yPos += 5;
+        }
+        
+        if (selectedChallan.driver) {
+          doc.text(`Driver: ${selectedChallan.driver.name}`, margin, yPos);
+          yPos += 5;
+        }
+        
+        if (selectedChallan.owner) {
+          doc.text(`Owner: ${selectedChallan.owner.name}`, margin, yPos);
+          yPos += 5;
+        }
+        
+        // Horizontal line
+        doc.setLineWidth(0.5);
+        doc.line(margin, 42, pageWidth - margin, 42);
+        
+        // Route Information
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`From: ${fromBranch?.branch_name || 'Unknown'} (${fromBranch?.city_code || ''})`, margin, 50);
+        doc.text(`To: ${toBranch?.branch_name || 'Unknown'} (${toBranch?.city_code || ''})`, pageWidth - margin - 80, 50);      } else {
+        // For subsequent pages, just add minimal header with smaller text
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('CHALLAN (Continued)', pageWidth / 2, 12, { align: 'center' });
+        doc.setFontSize(8);
+        doc.text(`Challan No: ${selectedChallan.challan_no}`, pageWidth - margin, 12, { align: 'right' });
+        
+        // No horizontal line for cleaner look
       }
       
-      // Page Number
+      // Page Number (for all pages)
       doc.setFontSize(8);
       doc.text(`Page ${pageNum}`, pageWidth - margin, pageHeight - 5, { align: 'right' });
-      
-      // Challan Number - Top Right
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Challan No: ${selectedChallan.challan_no}`, pageWidth - margin, 15, { align: 'right' });
-      doc.setFontSize(9);
-      doc.text(`Date: ${format(new Date(selectedChallan.date), 'dd-MM-yyyy')}`, pageWidth - margin, 22, { align: 'right' });
-      
-      // Transport Details - Top Left
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TRANSPORT DETAILS:', margin, 15);
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      let yPos = 22;
-      
-      if (selectedChallan.truck) {
-        doc.text(`Truck No: ${selectedChallan.truck.truck_number}`, margin, yPos);
-        yPos += 5;
-      }
-      
-      if (selectedChallan.driver) {
-        doc.text(`Driver: ${selectedChallan.driver.name}`, margin, yPos);
-        yPos += 5;
-      }
-      
-      if (selectedChallan.owner) {
-        doc.text(`Owner: ${selectedChallan.owner.name}`, margin, yPos);
-        yPos += 5;
-      }
-      
-      // Horizontal line
-      doc.setLineWidth(0.5);
-      doc.line(margin, 42, pageWidth - margin, 42);
-      
-      // Route Information
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`From: ${fromBranch?.branch_name || 'Unknown'} (${fromBranch?.city_code || ''})`, margin, 50);
-      doc.text(`To: ${toBranch?.branch_name || 'Unknown'} (${toBranch?.city_code || ''})`, pageWidth - margin - 80, 50);
     };
     
     // Add first page header
     addHeader(1);
-    
-    // Calculate totals
-    const totalPackages = transitBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
-    const totalWeight = transitBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
-    const toPaidAmount = transitBiltiesData.filter(b => b.payment_mode === 'to-pay').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
-    const paidAmount = transitBiltiesData.filter(b => b.payment_mode === 'paid').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
-    const totalEwayBills = transitBiltiesData.filter(bilty => bilty.e_way_bill && bilty.e_way_bill.trim() !== '').length;
-    
-    // Table data with serial numbers
-    const tableData = transitBiltiesData.map((bilty, index) => [
+      // Calculate totals
+    const totalPackages = sortedTransitBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
+    const totalWeight = sortedTransitBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
+    const toPaidAmount = sortedTransitBiltiesData.filter(b => b.payment_mode === 'to-pay').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
+    const paidAmount = sortedTransitBiltiesData.filter(b => b.payment_mode === 'paid').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
+    const totalEwayBills = sortedTransitBiltiesData.filter(bilty => bilty.e_way_bill && bilty.e_way_bill.trim() !== '').length;
+      // Table data with serial numbers - Convert text to CAPS
+    const tableData = sortedTransitBiltiesData.map((bilty, index) => [
       (index + 1).toString(), // S.No
-      bilty.gr_no,
-      bilty.consignor_name || '',
-      bilty.consignee_name || '',
-      bilty.contain || '',
+      (bilty.gr_no || '').toUpperCase(),
+      (bilty.consignor_name || '').toUpperCase(),
+      (bilty.consignee_name || '').toUpperCase(),
+      (bilty.contain || '').toUpperCase(),
       (bilty.no_of_pkg || 0).toString(),
       (bilty.wt || 0).toString(),
       bilty.payment_mode === 'to-pay' ? `${(bilty.total || 0).toFixed(2)}` : '',
       bilty.payment_mode === 'paid' ? `${(bilty.total || 0).toFixed(2)}` : '',
-      bilty.to_city_code || '',
-      bilty.pvt_marks ? `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}` : `/${bilty.no_of_pkg || 0}`,
-      bilty.e_way_bill || ''
+      (bilty.to_city_code || '').toUpperCase(),
+      bilty.pvt_marks ? `${(bilty.pvt_marks || '').toString().toUpperCase()}/${bilty.no_of_pkg || 0}` : `/${bilty.no_of_pkg || 0}`,
+      (bilty.e_way_bill || '').toUpperCase()
     ]);
-    
-    // Create main table with full width
+      // Create main table with full width
     autoTable(doc, {
-      startY: 58,
+      startY: 58, // Start after header for first page
       head: [['S.No', 'G.R. No.', 'Consignor', 'Consignee', 'Cont.', 'Pckg.', 'Weight (kg)', 'To-Pay', 'Paid', 'Station', 'Pvt.M', 'E-way Bill']],
       body: tableData,
       theme: 'grid',
@@ -449,22 +488,22 @@ const ChallanPDFPreview = ({
         cellPadding: 2,
         lineColor: [0, 0, 0],
         lineWidth: 0.3
-      },
-      styles: { 
+      },      styles: { 
         fontSize: 8.5, 
         cellPadding: 1.5,
-        overflow: 'linebreak',
+        overflow: 'linebreak', // Keep linebreak for text wrapping within cells
         valign: 'middle',
         textColor: [0, 0, 0],
         fillColor: [255, 255, 255], // White background
         lineColor: [0, 0, 0],
-        lineWidth: 0.2
-      },
-      columnStyles: {
+        lineWidth: 0.2,
+        minCellHeight: 8, // Minimum height to prevent cramped text
+        rowPageBreak: 'avoid' // Prevent rows from breaking across pages
+      },      columnStyles: {
         0: { halign: 'center', cellWidth: 15, fontStyle: 'bold' }, // S.No
         1: { halign: 'center', cellWidth: 28, fontStyle: 'bold' }, // GR No
-        2: { cellWidth: 35, overflow: 'linebreak' }, // Consignor
-        3: { cellWidth: 35, overflow: 'linebreak' }, // Consignee
+        2: { cellWidth: 35, overflow: 'linebreak', fontSize: 7.5 }, // Consignor - slightly smaller font
+        3: { cellWidth: 35, overflow: 'linebreak', fontSize: 7.5 }, // Consignee - slightly smaller font
         4: { cellWidth: 18, overflow: 'linebreak' }, // Cont
         5: { halign: 'center', cellWidth: 18 }, // Pckg
         6: { halign: 'center', cellWidth: 20 }, // Weight
@@ -477,9 +516,14 @@ const ChallanPDFPreview = ({
       margin: { left: margin, right: margin },
       tableWidth: 'wrap',
       didDrawPage: (data) => {
-        // Add header to subsequent pages (except first page)
+        // Add header to all pages
+        addHeader(data.pageNumber);        // For subsequent pages, adjust startY to account for smaller header
         if (data.pageNumber > 1) {
-          addHeader(data.pageNumber);
+          // Move table starting position up for subsequent pages with smaller header (no line now)
+          const tableStartY = 18; // Adjusted for no horizontal line
+          if (data.table.startPageY !== tableStartY) {
+            data.table.startPageY = tableStartY;
+          }
         }
       }
     });
@@ -533,13 +577,11 @@ const ChallanPDFPreview = ({
   const handleDownload = async () => {
     try {
       let doc;
-      let filename;
-
-      if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob();
+      let filename;      if (type === 'loading') {
+        doc = await generateLoadingChallanPDFBlob([...transitBilties, ...bilties]);
         filename = `Loading_Challan_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else if (type === 'challan') {
-        doc = await generateChallanBiltiesPDFBlob();
+        doc = await generateChallanBiltiesPDFBlob(transitBilties);
         filename = `Challan_${selectedChallan.challan_no}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else {
         throw new Error('Invalid PDF type');

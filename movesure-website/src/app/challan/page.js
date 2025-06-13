@@ -30,11 +30,11 @@ export default function TransitManagement() {
   const [staff, setStaff] = useState([]);
   const [branches, setBranches] = useState([]);
   const [permanentDetails, setPermanentDetails] = useState(null);
-  
-  // Selection states
+    // Selection states
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [selectedChallanBook, setSelectedChallanBook] = useState(null);
   const [selectedBilties, setSelectedBilties] = useState([]);
+  const [selectedTransitBilties, setSelectedTransitBilties] = useState([]);
 
   // PDF Preview states
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
@@ -560,9 +560,9 @@ export default function TransitManagement() {
       // Challan book is only for creating new challans, not for managing bilties
 
       alert(`Successfully added ${biltiesArray.length} bilty(s) to challan ${selectedChallan.challan_no}`);
-      
-      // Clear selections and refresh data
+        // Clear selections and refresh data
       setSelectedBilties([]);
+      setSelectedTransitBilties([]);
       await refreshData('bilties');
       await refreshData('transit');
       await refreshData('challans');
@@ -574,7 +574,6 @@ export default function TransitManagement() {
       setSaving(false);
     }
   };
-
   const handleRemoveBiltyFromTransit = async (bilty) => {
     if (!bilty.transit_id) return;
 
@@ -589,10 +588,10 @@ export default function TransitManagement() {
 
       setSaving(true);
 
-      // Remove from transit_details
+      // Delete the transit details record completely
       const { error } = await supabase
         .from('transit_details')
-        .update({ is_active: false })
+        .delete()
         .eq('id', bilty.transit_id);
 
       if (error) {
@@ -611,8 +610,69 @@ export default function TransitManagement() {
       }
 
       alert(`Successfully removed ${bilty.gr_no} from challan`);
+        // Refresh data efficiently
+      await refreshData('bilties');
+      await refreshData('transit');
+      await refreshData('challans');
+
+    } catch (error) {
+      console.error('Error removing bilty from transit:', error);
+      alert('Error removing bilty from transit');
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleBulkRemoveFromTransit = async () => {
+    if (selectedTransitBilties.length === 0) {
+      alert('No transit bilties selected for removal');
+      return;
+    }
+
+    if (selectedChallan?.is_dispatched) {
+      alert('Cannot remove bilties from a dispatched challan');
+      return;
+    }
+
+    try {
+      const confirmRemove = window.confirm(
+        `Remove ${selectedTransitBilties.length} selected bilty(s) from challan ${selectedChallan?.challan_no}?`
+      );
+      if (!confirmRemove) return;
+
+      setSaving(true);
+
+      // Delete all selected transit bilties completely
+      const transitIds = selectedTransitBilties.map(bilty => bilty.transit_id).filter(Boolean);
       
-      // Refresh data efficiently
+      if (transitIds.length === 0) {
+        alert('No valid transit IDs found');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('transit_details')
+        .delete()
+        .in('id', transitIds);
+
+      if (error) {
+        console.error('Error bulk removing bilties from transit:', error);
+        alert('Error removing bilties from transit');
+        return;
+      }
+
+      // Update challan bilty count
+      if (selectedChallan) {
+        const newBiltyCount = Math.max(0, selectedChallan.total_bilty_count - selectedTransitBilties.length);
+        await supabase
+          .from('challan_details')
+          .update({ total_bilty_count: newBiltyCount })
+          .eq('id', selectedChallan.id);
+      }
+
+      alert(`Successfully removed ${selectedTransitBilties.length} bilty(s) from challan`);
+      
+      // Clear selections and refresh data
+      setSelectedTransitBilties([]);
       await refreshData('bilties');
       await refreshData('transit');
       await refreshData('challans');
@@ -690,8 +750,7 @@ export default function TransitManagement() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="p-4 space-y-6">
-        {/* Header with PDF preview buttons */}        <TransitHeader 
+      <div className="p-4 space-y-6">        {/* Header with PDF preview buttons */}        <TransitHeader 
           userBranch={userBranch}
           user={user}
           bilties={[...bilties, ...stationBilties]}
@@ -701,12 +760,9 @@ export default function TransitManagement() {
           onRefresh={() => refreshData('all')}
           onPreviewLoadingChallan={handlePreviewLoadingChallan}
           onPreviewChallanBilties={handlePreviewChallanBilties}
-        />
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          {/* Left Panel - Challan Selection */}
-          <div className="xl:col-span-4 space-y-6">
+        />        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">          {/* Left Panel - Challan Selection - Smaller width */}
+          <div className="lg:col-span-3 xl:col-span-3 space-y-4 lg:space-y-6">
             <ChallanSelector 
               challans={challans}
               challanBooks={challanBooks}
@@ -720,19 +776,22 @@ export default function TransitManagement() {
               branches={branches}
               trucks={trucks}
               staff={staff}
+              transitBilties={transitBilties}
             />
-          </div>
-
-          {/* Right Panel - Bilty Lists with Table Structure */}
-          <div className="xl:col-span-8">            <BiltyList 
+          </div>{/* Right Panel - Bilty Lists with Table Structure - Larger width */}
+          <div className="lg:col-span-9 xl:col-span-9"><BiltyList 
               bilties={bilties}
               stationBilties={stationBilties}
               transitBilties={transitBilties}
               selectedBilties={selectedBilties}
               setSelectedBilties={setSelectedBilties}
+              selectedTransitBilties={selectedTransitBilties}
+              setSelectedTransitBilties={setSelectedTransitBilties}
               selectedChallan={selectedChallan}
               onAddBiltyToTransit={handleAddBiltyToTransit}
               onRemoveBiltyFromTransit={handleRemoveBiltyFromTransit}
+              onBulkRemoveFromTransit={handleBulkRemoveFromTransit}
+              saving={saving}
             />
           </div>
         </div>

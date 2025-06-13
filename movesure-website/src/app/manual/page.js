@@ -38,10 +38,12 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [inputValue, setInputValue] = useState(value || '');
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   useEffect(() => {
     setInputValue(value || '');
   }, [value]);
+  
   const filteredOptions = options.filter(option => {
     const displayValue = displayField ? option[displayField] : option;
     const cityName = option.city_name || '';
@@ -61,6 +63,7 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
     onChange(selectedValue);
     setIsOpen(false);
     setSearchTerm('');
+    setSelectedIndex(-1);
   };
 
   const handleInputChange = (e) => {
@@ -71,12 +74,49 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
       onChange(newValue);
     }
     setIsOpen(true);
+    setSelectedIndex(-1);
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && allowCustom) {
-      onChange(inputValue);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        setSelectedIndex(prev => 
+          prev < filteredOptions.length - 1 ? prev + 1 : 0
+        );
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (isOpen) {
+        setSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : filteredOptions.length - 1
+        );
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (isOpen && selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+        handleSelect(filteredOptions[selectedIndex]);
+      } else if (allowCustom) {
+        onChange(inputValue);
+        setIsOpen(false);
+        // Move to next input
+        const form = e.target.form;
+        if (form) {
+          const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+          const currentIndex = inputs.indexOf(e.target);
+          if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+            inputs[currentIndex + 1].focus();
+          }
+        }
+      }
+    } else if (e.key === 'Escape') {
       setIsOpen(false);
+      setSelectedIndex(-1);
+    } else if (e.key === 'Tab') {
+      setIsOpen(false);
+      setSelectedIndex(-1);
     }
   };
 
@@ -111,6 +151,7 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
               filteredOptions.map((option, index) => {
                 const displayValue = displayField ? option[displayField] : option;
                 const isSelected = displayValue === value;
+                const isHighlighted = index === selectedIndex;
                 
                 // For city options, show both name and code
                 const optionLabel = displayField === 'city_code' && option.city_name 
@@ -122,8 +163,12 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
                     key={index}
                     type="button"
                     onClick={() => handleSelect(option)}
-                    className={`w-full text-left px-3 py-2 hover:bg-purple-50 flex items-center justify-between ${
-                      isSelected ? 'bg-purple-100 text-purple-700' : 'text-gray-900'
+                    className={`w-full text-left px-3 py-2 flex items-center justify-between ${
+                      isHighlighted 
+                        ? 'bg-purple-200 text-purple-800' 
+                        : isSelected 
+                        ? 'bg-purple-100 text-purple-700' 
+                        : 'text-gray-900 hover:bg-purple-50'
                     }`}
                   >
                     <span className="truncate">{optionLabel}</span>
@@ -673,9 +718,7 @@ export default function StationBiltySummaryPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       You can search by city name or code, or enter manually
                     </p>
-                  </div>
-
-                  {/* GR Number */}
+                  </div>                  {/* GR Number */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       GR Number *
@@ -684,6 +727,19 @@ export default function StationBiltySummaryPage() {
                       type="text"
                       value={formData.gr_no}
                       onChange={(e) => setFormData({ ...formData, gr_no: e.target.value.toUpperCase() })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter GR number"
                       required
@@ -698,6 +754,19 @@ export default function StationBiltySummaryPage() {
                       type="text"
                       value={formData.consignor}
                       onChange={(e) => setFormData({ ...formData, consignor: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter consignor name"
                       required
@@ -711,13 +780,24 @@ export default function StationBiltySummaryPage() {
                       type="text"
                       value={formData.consignee}
                       onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter consignee name"
                       required
                     />
-                  </div>
-
-                  {/* Number of Packets */}
+                  </div>                  {/* Number of Packets */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Number of Packets
@@ -726,6 +806,19 @@ export default function StationBiltySummaryPage() {
                       type="number"
                       value={formData.no_of_packets}
                       onChange={(e) => setFormData({ ...formData, no_of_packets: parseInt(e.target.value) || 0 })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter number of packets"
                       min="0"
@@ -742,6 +835,19 @@ export default function StationBiltySummaryPage() {
                       step="0.001"
                       value={formData.weight}
                       onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter weight in kg"
                       min="0"
@@ -756,6 +862,19 @@ export default function StationBiltySummaryPage() {
                     <select
                       value={formData.payment_status}
                       onChange={(e) => setFormData({ ...formData, payment_status: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                     >
                       {PAYMENT_STATUS_OPTIONS.map(option => (
@@ -776,6 +895,19 @@ export default function StationBiltySummaryPage() {
                       step="0.01"
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter amount"
                       min="0"
@@ -784,16 +916,28 @@ export default function StationBiltySummaryPage() {
                 </div>
 
                 {/* Full width fields */}
-                <div className="grid grid-cols-1 gap-6">
-                  {/* Contents */}
+                <div className="grid grid-cols-1 gap-6">                  {/* Contents */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Contents/Description
                     </label>
-                    <textarea
+                    <input
+                      type="text"
                       value={formData.contents}
                       onChange={(e) => setFormData({ ...formData, contents: e.target.value })}
-                      rows={3}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter contents or description"
                     />
@@ -804,10 +948,23 @@ export default function StationBiltySummaryPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Private Marks
                     </label>
-                    <textarea
+                    <input
+                      type="text"
                       value={formData.pvt_marks}
                       onChange={(e) => setFormData({ ...formData, pvt_marks: e.target.value })}
-                      rows={2}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter private marks"
                     />

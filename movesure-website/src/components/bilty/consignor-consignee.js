@@ -8,6 +8,8 @@ import {
   addNewConsignee,
   updateConsignorNumber,
   updateConsigneeNumber,
+  updateConsignorGST,
+  updateConsigneeGST,
   checkDuplicateConsignor,
   checkDuplicateConsignee,
   getSimilarConsignors,
@@ -67,7 +69,6 @@ const ConsignorConsigneeSection = ({
       setConsigneeSearch(formData.consignee_name);
     }
   }, [formData.consignor_name, formData.consignee_name]);
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (consignorRef.current && !consignorRef.current.contains(event.target)) {
@@ -79,7 +80,7 @@ const ConsignorConsigneeSection = ({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [consignorSearch, consigneeSearch]);
 
   // Handle consignor search with optimized database query
   const handleConsignorSearchChange = (value) => {
@@ -136,7 +137,6 @@ const ConsignorConsigneeSection = ({
     setConsigneeSelectedIndex(-1);
     clearResults();
   };
-
   // Handle phone number updates for existing consignors/consignees
   const handleConsignorNumberChange = async (e) => {
     const newNumber = e.target.value;
@@ -168,6 +168,41 @@ const ConsignorConsigneeSection = ({
         }
       } catch (error) {
         console.error('Error updating consignee number:', error);
+      }
+    }
+  };
+
+  // Handle GST updates for existing consignors/consignees
+  const handleConsignorGSTChange = async (e) => {
+    const newGST = e.target.value;
+    setFormData(prev => ({ ...prev, consignor_gst: newGST }));
+    
+    // If consignor exists and GST is being updated, save to database
+    if (formData.consignor_name && newGST && newGST.length >= 15) {
+      try {
+        const result = await updateConsignorGST(formData.consignor_name, newGST);
+        if (result.success) {
+          console.log('Consignor GST updated successfully');
+        }
+      } catch (error) {
+        console.error('Error updating consignor GST:', error);
+      }
+    }
+  };
+
+  const handleConsigneeGSTChange = async (e) => {
+    const newGST = e.target.value;
+    setFormData(prev => ({ ...prev, consignee_gst: newGST }));
+    
+    // If consignee exists and GST is being updated, save to database
+    if (formData.consignee_name && newGST && newGST.length >= 15) {
+      try {
+        const result = await updateConsigneeGST(formData.consignee_name, newGST);
+        if (result.success) {
+          console.log('Consignee GST updated successfully');
+        }
+      } catch (error) {
+        console.error('Error updating consignee GST:', error);
       }
     }
   };
@@ -466,10 +501,9 @@ const ConsignorConsigneeSection = ({
                           {consignor.number && ` | Ph: ${consignor.number}`}
                         </div>
                       </button>
-                    ))
-                  ) : !isSearching && (
+                    ))                  ) : !isSearching && (
                     <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignors found for "{consignorSearch}"
+                      No consignors found for &quot;{consignorSearch}&quot;
                     </div>
                   )}
                 </div>
@@ -542,10 +576,9 @@ const ConsignorConsigneeSection = ({
                           {consignee.number && ` | Ph: ${consignee.number}`}
                         </div>
                       </button>
-                    ))
-                  ) : !isSearching && (
+                    ))                  ) : !isSearching && (
                     <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignees found for "{consigneeSearch}"
+                      No consignees found for &quot;{consigneeSearch}&quot;
                     </div>
                   )}
                 </div>
@@ -586,13 +619,12 @@ const ConsignorConsigneeSection = ({
                 <div className="flex items-center gap-3">
                   <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
                     GST NO
-                  </span>
-                  <input
+                  </span>                  <input
                     type="text"
                     value={formData.consignor_gst}
-                    onChange={(e) => setFormData(prev => ({ ...prev, consignor_gst: e.target.value }))}
+                    onChange={handleConsignorGSTChange}
                     className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignor GST"
+                    placeholder="Consignor GST (auto-saves)"
                     tabIndex={10}
                   />
                 </div>
@@ -623,13 +655,12 @@ const ConsignorConsigneeSection = ({
                 <div className="flex items-center gap-3">
                   <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
                     GST NO
-                  </span>
-                  <input
+                  </span>                  <input
                     type="text"
                     value={formData.consignee_gst}
-                    onChange={(e) => setFormData(prev => ({ ...prev, consignee_gst: e.target.value }))}
+                    onChange={handleConsigneeGSTChange}
                     className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 bg-white shadow-md placeholder-gray-500"
-                    placeholder="Consignee GST"
+                    placeholder="Consignee GST (auto-saves)"
                     tabIndex={12}
                   />
                 </div>

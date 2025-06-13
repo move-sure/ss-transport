@@ -177,6 +177,41 @@ export const updateConsigneeNumber = async (companyName, phoneNumber) => {
   }
 };
 
+// Update GST number for existing consignor/consignee
+export const updateConsignorGST = async (companyName, gstNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from('consignors')
+      .update({ gst_num: gstNumber?.trim() || null })
+      .eq('company_name', companyName)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error updating consignor GST:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const updateConsigneeGST = async (companyName, gstNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from('consignees')
+      .update({ gst_num: gstNumber?.trim() || null })
+      .eq('company_name', companyName)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error updating consignee GST:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Check for duplicates efficiently
 export const checkDuplicateConsignor = async (companyName) => {
   try {

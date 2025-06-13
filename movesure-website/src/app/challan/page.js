@@ -41,6 +41,34 @@ export default function TransitManagement() {
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewType, setPdfPreviewType] = useState(null); // 'loading' or 'challan'
 
+  // Sort function for GR numbers to handle alphanumeric sorting properly
+  const sortByGRNumber = (a, b) => {
+    const grA = a.gr_no || '';
+    const grB = b.gr_no || '';
+    
+    // Extract alphabetic prefix and numeric part
+    const matchA = grA.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    const matchB = grB.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    
+    if (!matchA && !matchB) return grA.localeCompare(grB);
+    if (!matchA) return 1;
+    if (!matchB) return -1;
+    
+    const [, prefixA, numberA, suffixA] = matchA;
+    const [, prefixB, numberB, suffixB] = matchB;
+    
+    // First compare prefixes
+    const prefixCompare = prefixA.localeCompare(prefixB);
+    if (prefixCompare !== 0) return prefixCompare;
+    
+    // Then compare numbers numerically
+    const numCompare = parseInt(numberA) - parseInt(numberB);
+    if (numCompare !== 0) return numCompare;
+    
+    // Finally compare suffixes
+    return suffixA.localeCompare(suffixB);
+  };
+
   // Load initial data
   useEffect(() => {
     if (user?.branch_id) {
@@ -188,9 +216,7 @@ export default function TransitManagement() {
       setPermanentDetails(permanentDetailsRes.data || null);
       
       console.log('Challans with details loaded:', challansRes.data?.length);
-      console.log('Permanent details loaded:', permanentDetailsRes.data);
-
-      // Filter out bilties that are already in transit
+      console.log('Permanent details loaded:', permanentDetailsRes.data);      // Filter out bilties that are already in transit
       const transitBiltyIds = new Set(transitRes.data?.map(t => t.bilty_id) || []);
       const processedBilties = (biltiesRes.data || [])
         .filter(b => !transitBiltyIds.has(b.id))
@@ -201,7 +227,8 @@ export default function TransitManagement() {
             to_city_name: city?.city_name || 'Unknown',
             to_city_code: city?.city_code || 'N/A'
           };
-        });
+        })
+        .sort(sortByGRNumber); // Sort by GR number
 
       setBilties(processedBilties);
       
@@ -255,9 +282,7 @@ export default function TransitManagement() {
         console.error('Error loading transit bilties:', error);
         setTransitBilties([]);
         return;
-      }
-
-      // Process transit bilties with city names
+      }      // Process transit bilties with city names
       const processedTransitBilties = (transitData || []).map(transit => {
         const bilty = transit.bilty;
         const city = cities.find(c => c.id === bilty?.to_city_id);
@@ -272,7 +297,7 @@ export default function TransitManagement() {
           is_delivered_at_branch2: transit.is_delivered_at_branch2,
           is_delivered_at_destination: transit.is_delivered_at_destination
         };
-      });
+      }).sort(sortByGRNumber); // Sort by GR number
 
       setTransitBilties(processedTransitBilties);
       console.log('Transit bilties loaded:', processedTransitBilties.length);
@@ -307,9 +332,7 @@ export default function TransitManagement() {
           .eq('is_active', true)
           .eq('saving_option', 'SAVE')
           .order('created_at', { ascending: false })
-          .limit(100);
-
-        const transitBiltyIds = new Set(transitRes?.map(t => t.bilty_id) || []);
+          .limit(100);        const transitBiltyIds = new Set(transitRes?.map(t => t.bilty_id) || []);
         const processedBilties = (biltiesRes || [])
           .filter(b => !transitBiltyIds.has(b.id))
           .map(bilty => {
@@ -319,7 +342,8 @@ export default function TransitManagement() {
               to_city_name: city?.city_name || 'Unknown',
               to_city_code: city?.city_code || 'N/A'
             };
-          });
+          })
+          .sort(sortByGRNumber); // Sort by GR number
 
         setBilties(processedBilties);
       }

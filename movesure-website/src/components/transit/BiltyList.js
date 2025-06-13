@@ -18,11 +18,38 @@ const BiltyList = ({
   const [filterDate, setFilterDate] = useState('');
   const [filteredBilties, setFilteredBilties] = useState([]);
   const [filteredTransitBilties, setFilteredTransitBilties] = useState([]);
+  // Sort function for GR numbers to handle alphanumeric sorting properly
+  const sortByGRNumber = (a, b) => {
+    const grA = a.gr_no || '';
+    const grB = b.gr_no || '';
+    
+    // Extract alphabetic prefix and numeric part
+    const matchA = grA.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    const matchB = grB.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    
+    if (!matchA && !matchB) return grA.localeCompare(grB);
+    if (!matchA) return 1;
+    if (!matchB) return -1;
+    
+    const [, prefixA, numberA, suffixA] = matchA;
+    const [, prefixB, numberB, suffixB] = matchB;
+    
+    // First compare prefixes
+    const prefixCompare = prefixA.localeCompare(prefixB);
+    if (prefixCompare !== 0) return prefixCompare;
+    
+    // Then compare numbers numerically
+    const numCompare = parseInt(numberA) - parseInt(numberB);
+    if (numCompare !== 0) return numCompare;
+    
+    // Finally compare suffixes
+    return suffixA.localeCompare(suffixB);
+  };
 
   // Filter bilties based on search and filters
   useEffect(() => {
     const applyFilters = (biltiesArray) => {
-      return biltiesArray.filter(bilty => {
+      const filtered = biltiesArray.filter(bilty => {
         const matchesSearch = !searchTerm || 
           bilty.gr_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bilty.consignor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -34,12 +61,14 @@ const BiltyList = ({
         
         return matchesSearch && matchesPayment && matchesDate;
       });
+      
+      // Sort by GR number in ascending order
+      return filtered.sort(sortByGRNumber);
     };
 
     setFilteredBilties(applyFilters(bilties));
     setFilteredTransitBilties(applyFilters(transitBilties));
   }, [bilties, transitBilties, searchTerm, filterPaymentMode, filterDate]);
-
   const handleBiltySelect = (bilty) => {
     // Only allow selection of regular bilties, not transit bilties, and not for dispatched challans
     if (bilty.in_transit || selectedChallan?.is_dispatched) return;
@@ -49,7 +78,9 @@ const BiltyList = ({
       if (isSelected) {
         return prev.filter(b => b.id !== bilty.id);
       } else {
-        return [...prev, bilty];
+        const newSelection = [...prev, bilty];
+        // Sort selected bilties by GR number too
+        return newSelection.sort(sortByGRNumber);
       }
     });
   };
@@ -58,13 +89,13 @@ const BiltyList = ({
     if (!selectedChallan || bilty.in_transit || selectedChallan?.is_dispatched) return;
     onAddBiltyToTransit?.(bilty);
   };
-
   const handleSelectAll = () => {
     if (selectedChallan?.is_dispatched) return;
     
     if (selectedBilties.length === filteredBilties.length && filteredBilties.length > 0) {
       setSelectedBilties([]);
     } else {
+      // Set selected bilties to all filtered bilties (already sorted)
       setSelectedBilties([...filteredBilties]);
     }
   };

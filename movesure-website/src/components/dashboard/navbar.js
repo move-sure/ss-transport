@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, BarChart3, Database, Wrench, Package, Receipt, Search } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search } from 'lucide-react';
 
 // Module configuration
 const MODULE_CONFIG = {
@@ -20,13 +20,7 @@ const MODULE_CONFIG = {
     path: '/ewb',
     icon: 'Receipt',
     shortcut: 'Alt+E'
-  },
-  'loading': {
-    name: 'Loading',
-    path: '/loading',
-    icon: 'Package',
-  },
-  'challan': {
+  },  'challan': {
     name: 'Challan',
     path: '/challan',
     icon: 'FileText',
@@ -46,16 +40,10 @@ const MODULE_CONFIG = {
     name: 'Search',
     path: '/search',
     icon: 'Search',
-  },
-  'master': {
+  },  'master': {
     name: 'Master',
     path: '/staff',
     icon: 'Database',
-  },
-  'report': {
-    name: 'Report',
-    path: '/report',
-    icon: 'BarChart3',
   },
   'setting': {
     name: 'Settings',
@@ -74,13 +62,11 @@ const ROUTE_MODULE_MAP = {
   '/bilty': 'bilty',
   '/ewb': 'e-way-bill',
   '/e-way-bill': 'e-way-bill',
-  '/loading': 'loading',
   '/challan': 'challan',
   '/challan-setting': 'challan-setting',
   '/truck-management': 'truck-management',
   '/search': 'search',
   '/staff': 'master',
-  '/report': 'report',
   '/bilty-setting': 'setting',
   '/test': 'staff',
   '/user-modules': 'staff',
@@ -183,18 +169,15 @@ export default function Navbar() {
 
     return navigationItems;
   };
-
   const getModuleIcon = (moduleName) => {
     const iconMap = {
       'bilty': <FileText className="h-4 w-4" />,
       'e-way-bill': <Receipt className="h-4 w-4" />,
-      'loading': <Package className="h-4 w-4" />,
       'challan': <FileText className="h-4 w-4" />,
       'challan-setting': <Settings className="h-4 w-4" />,
       'truck-management': <Truck className="h-4 w-4" />,
       'search': <Search className="h-4 w-4" />,
       'master': <Database className="h-4 w-4" />,
-      'report': <BarChart3 className="h-4 w-4" />,
       'setting': <Settings className="h-4 w-4" />,
       'staff': <Wrench className="h-4 w-4" />
     };

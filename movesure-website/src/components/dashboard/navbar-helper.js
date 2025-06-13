@@ -1,4 +1,4 @@
-import { FileText, Truck, BarChart3, Database, Settings, Wrench, Package, Receipt, Search } from 'lucide-react';
+import { FileText, Truck, Database, Settings, Wrench, Receipt, Search } from 'lucide-react';
 
 // Module configuration with their display names and paths
 export const MODULE_CONFIG = {
@@ -16,14 +16,7 @@ export const MODULE_CONFIG = {
     icon: 'Receipt',
     description: 'Generate and track e-way bills',
     shortcut: 'Alt+E'
-  },
-  'loading': {
-    name: 'Loading',
-    path: '/loading',
-    icon: 'Package',
-    description: 'Manage loading operations'
-  },
-  'challan': {
+  },  'challan': {
     name: 'Challan',
     path: '/challan',
     icon: 'FileText',
@@ -47,18 +40,11 @@ export const MODULE_CONFIG = {
     path: '/search',
     icon: 'Search',
     description: 'Search bilty and documents'
-  },
-  'master': {
+  },  'master': {
     name: 'Master',
     path: '/staff',
     icon: 'Database',
     description: 'Master data management'
-  },
-  'report': {
-    name: 'Report',
-    path: '/report',
-    icon: 'BarChart3',
-    description: 'View and generate reports'
   },
   'setting': {
     name: 'Settings',
@@ -112,13 +98,11 @@ export const getModuleIcon = (moduleName) => {
   const iconMap = {
     'bilty': <FileText className="h-4 w-4" />,
     'e-way-bill': <Receipt className="h-4 w-4" />,
-    'loading': <Package className="h-4 w-4" />,
     'challan': <FileText className="h-4 w-4" />,
     'challan-setting': <Settings className="h-4 w-4" />,
     'truck-management': <Truck className="h-4 w-4" />,
     'search': <Search className="h-4 w-4" />,
     'master': <Database className="h-4 w-4" />,
-    'report': <BarChart3 className="h-4 w-4" />,
     'setting': <Settings className="h-4 w-4" />,
     'staff': <Wrench className="h-4 w-4" />
   };

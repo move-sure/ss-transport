@@ -397,12 +397,20 @@ const PackageChargesSection = ({
                     tabIndex={29}
                   />
                 </div>
-                
-                {/* SAVE & PRINT Button */}
+                  {/* SAVE & PRINT Button */}
                 <div className="mt-4 flex justify-center">
                   <button
                     type="button"
                     onClick={() => onSave && onSave(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!saving && onSave) {
+                          onSave(false);
+                        }
+                      }
+                    }}
                     disabled={saving}
                     id="save-print-button-charges"                    className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
                     tabIndex={30}

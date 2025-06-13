@@ -442,7 +442,7 @@ export default function StationBiltySummaryPage() {
                 Station Bilty Records 
                 {searchTerm && (
                   <span className="text-sm font-normal text-gray-500 ml-2">
-                    (Showing search results for "{searchTerm}")
+                    (Showing search results for {searchTerm})
                   </span>
                 )}
               </h3>

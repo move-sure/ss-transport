@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, Truck } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
 
 const TruckForm = ({ truck, staff, onSave, onClose }) => {
   const [saving, setSaving] = useState(false);
@@ -44,7 +45,6 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
       });
     }
   }, [truck]);
-
   const validateForm = () => {
     const newErrors = {};
 
@@ -72,7 +72,6 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -83,29 +82,63 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
     try {
       setSaving(true);
 
-      // Prepare data for saving
+      // Prepare data for saving - match the database schema exactly
       const saveData = {
-        ...formData,
+        truck_number: formData.truck_number.trim().toUpperCase(),
+        truck_type: formData.truck_type || null,
         tyre_count: formData.tyre_count ? parseInt(formData.tyre_count) : null,
+        brand: formData.brand || null,
         year_of_manufacturing: formData.year_of_manufacturing ? parseInt(formData.year_of_manufacturing) : null,
+        rc_number: formData.rc_number || null,
+        insurance_number: formData.insurance_number || null,
+        permit_number: formData.permit_number || null,
+        owner_id: formData.owner_id || null,
+        fuel_type: formData.fuel_type || 'diesel',
         loading_capacity: formData.loading_capacity ? parseFloat(formData.loading_capacity) : null,
-        owner_id: formData.owner_id || null
+        current_location: formData.current_location || null,
+        is_active: formData.is_active,
+        is_available: formData.is_available
       };
 
-      // Simulate save operation
-      setTimeout(() => {
-        onSave(saveData);
-        alert(truck ? 'Truck updated successfully!' : 'Truck created successfully!');
-        setSaving(false);
-      }, 1000);
+      if (truck) {
+        // Update existing truck
+        const { data, error } = await supabase
+          .from('trucks')
+          .update(saveData)
+          .eq('id', truck.id)
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        
+        onSave(data);
+        alert('Truck updated successfully!');
+      } else {
+        // Create new truck
+        const { data, error } = await supabase
+          .from('trucks')
+          .insert([saveData])
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        
+        onSave(data);
+        alert('Truck created successfully!');
+      }
 
     } catch (error) {
       console.error('Error saving truck:', error);
+      
+      // Handle specific database errors
       if (error.code === '23505') {
         setErrors({ truck_number: 'Truck number already exists' });
+      } else if (error.code === '23503') {
+        setErrors({ owner_id: 'Selected owner does not exist' });
       } else {
-        alert('Error saving truck. Please try again.');
+        alert('Error saving truck: ' + (error.message || 'Please try again.'));
       }
+    } finally {
       setSaving(false);
     }
   };
@@ -137,13 +170,8 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
     'electric',
     'hybrid'
   ];
-
-  // Mock staff data for demo
-  const mockStaff = staff || [
-    { id: '1', name: 'John Doe', post: 'Driver' },
-    { id: '2', name: 'Jane Smith', post: 'Owner' },
-    { id: '3', name: 'Mike Johnson', post: 'Driver' }
-  ];
+  // Mock staff data for demo - use real staff data passed as props
+  const availableStaff = staff || [];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -215,12 +243,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                 {errors.truck_type && (
                   <p className="text-red-600 text-sm mt-1 font-medium">{errors.truck_type}</p>
                 )}
-              </div>
-
-              {/* Brand */}
+              </div>              {/* Brand */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Brand
+                  Brand (Optional)
                 </label>
                 <input
                   type="text"
@@ -229,12 +255,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                   className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
                   placeholder="Tata, Ashok Leyland, etc."
                 />
-              </div>
-
-              {/* Year of Manufacturing */}
+              </div>              {/* Year of Manufacturing */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Year of Manufacturing
+                  Year of Manufacturing (Optional)
                 </label>
                 <input
                   type="number"
@@ -250,12 +274,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                 {errors.year_of_manufacturing && (
                   <p className="text-red-600 text-sm mt-1 font-medium">{errors.year_of_manufacturing}</p>
                 )}
-              </div>
-
-              {/* Tyre Count */}
+              </div>              {/* Tyre Count */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Tyre Count
+                  Tyre Count (Optional)
                 </label>
                 <input
                   type="number"
@@ -289,12 +311,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Loading Capacity */}
+              </div>              {/* Loading Capacity */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Loading Capacity (tons)
+                  Loading Capacity (tons) - Optional
                 </label>
                 <input
                   type="number"
@@ -319,12 +339,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                 <h3 className="text-xl font-bold text-green-800 mb-4">
                   Documents & Details
                 </h3>
-              </div>
-
-              {/* RC Number */}
+              </div>              {/* RC Number */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  RC Number
+                  RC Number (Optional)
                 </label>
                 <input
                   type="text"
@@ -333,12 +351,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                   className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
                   placeholder="Registration Certificate Number"
                 />
-              </div>
-
-              {/* Insurance Number */}
+              </div>              {/* Insurance Number */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Insurance Number
+                  Insurance Number (Optional)
                 </label>
                 <input
                   type="text"
@@ -347,12 +363,10 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                   className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
                   placeholder="Insurance Policy Number"
                 />
-              </div>
-
-              {/* Permit Number */}
+              </div>              {/* Permit Number */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Permit Number
+                  Permit Number (Optional)
                 </label>
                 <input
                   type="text"
@@ -361,33 +375,28 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
                   className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
                   placeholder="Transport Permit Number"
                 />
-              </div>
-
-              {/* Owner */}
+              </div>              {/* Owner */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Owner
-                </label>
-                <select
+                  Owner (Optional)
+                </label><select
                   value={formData.owner_id}
                   onChange={(e) => handleChange('owner_id', e.target.value)}
                   className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
                 >
                   <option value="" className="text-gray-500">Select owner</option>
-                  {mockStaff
-                    .filter(s => s.post.toLowerCase().includes('owner') || s.post.toLowerCase().includes('driver'))
+                  {availableStaff
+                    .filter(s => s.post?.toLowerCase().includes('owner') || s.post?.toLowerCase().includes('driver'))
                     .map(member => (
                       <option key={member.id} value={member.id} className="text-black">
                         {member.name} ({member.post})
                       </option>
                     ))}
                 </select>
-              </div>
-
-              {/* Current Location */}
+              </div>              {/* Current Location */}
               <div>
                 <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Current Location
+                  Current Location (Optional)
                 </label>
                 <input
                   type="text"

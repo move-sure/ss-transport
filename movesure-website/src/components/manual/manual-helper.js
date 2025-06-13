@@ -12,11 +12,8 @@ export const useStationBiltySummary = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
-  
-  // Reference data states
+    // Reference data states
   const [cities, setCities] = useState([]);
-  const [consignors, setConsignors] = useState([]);
-  const [consignees, setConsignees] = useState([]);
   const [loadingReferenceData, setLoadingReferenceData] = useState(false);
   // Form data state
   const [formData, setFormData] = useState({
@@ -31,24 +28,18 @@ export const useStationBiltySummary = () => {
     amount: 0,
     pvt_marks: ''
   });
-
-  // Load reference data (cities, consignors, consignees)
+  // Load reference data (cities only)
   const loadReferenceData = useCallback(async () => {
     try {
       setLoadingReferenceData(true);
-      const [citiesRes, consignorsRes, consigneesRes] = await Promise.all([
-        supabase.from('cities').select('*').order('city_name'),
-        supabase.from('consignors').select('*').order('company_name'),
-        supabase.from('consignees').select('*').order('company_name')
-      ]);
+      const { data: citiesData, error: citiesError } = await supabase
+        .from('cities')
+        .select('*')
+        .order('city_name');
 
-      if (citiesRes.error) throw citiesRes.error;
-      if (consignorsRes.error) throw consignorsRes.error;
-      if (consigneesRes.error) throw consigneesRes.error;
+      if (citiesError) throw citiesError;
 
-      setCities(citiesRes.data || []);
-      setConsignors(consignorsRes.data || []);
-      setConsignees(consigneesRes.data || []);
+      setCities(citiesData || []);
     } catch (error) {
       console.error('Error loading reference data:', error);
       throw error;
@@ -376,12 +367,9 @@ export const useStationBiltySummary = () => {
     searching,
     summaryData,
     searchResults,
-    searchTerm,
-    editingId,
+    searchTerm,    editingId,
     formData,
     cities,
-    consignors,
-    consignees,
     loadingReferenceData,
 
     // Actions

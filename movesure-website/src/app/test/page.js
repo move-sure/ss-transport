@@ -9,6 +9,7 @@ const AVAILABLE_MODULES = [
   { name: 'bilty', label: 'Bilty', description: 'Create and manage bilty documents' },
   { name: 'e-way-bill', label: 'E-Way Bill', description: 'Generate and track e-way bills' },
   { name: 'challan', label: 'Challan', description: 'Create and manage challans' },
+  { name: 'manual', label: 'Manual', description: 'Access user manual and documentation' },
   { name: 'challan-setting', label: 'Challan Settings', description: 'Configure challan settings' },
   { name: 'truck-management', label: 'Truck Add', description: 'Add and manage trucks' },
   { name: 'search', label: 'Search', description: 'Search bilty and documents' },

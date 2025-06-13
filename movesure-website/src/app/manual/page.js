@@ -42,9 +42,16 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
   useEffect(() => {
     setInputValue(value || '');
   }, [value]);
-
   const filteredOptions = options.filter(option => {
     const displayValue = displayField ? option[displayField] : option;
+    const cityName = option.city_name || '';
+    
+    // For city searches, search both city name and city code
+    if (displayField === 'city_code') {
+      return displayValue.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             cityName.toLowerCase().includes(searchTerm.toLowerCase());
+    }
+    
     return displayValue.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -100,11 +107,16 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
             className="fixed inset-0 z-10" 
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-            {filteredOptions.length > 0 ? (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">            {filteredOptions.length > 0 ? (
               filteredOptions.map((option, index) => {
                 const displayValue = displayField ? option[displayField] : option;
                 const isSelected = displayValue === value;
+                
+                // For city options, show both name and code
+                const optionLabel = displayField === 'city_code' && option.city_name 
+                  ? `${option.city_name} (${displayValue})`
+                  : displayValue;
+                
                 return (
                   <button
                     key={index}
@@ -114,7 +126,7 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
                       isSelected ? 'bg-purple-100 text-purple-700' : 'text-gray-900'
                     }`}
                   >
-                    <span className="truncate">{displayValue}</span>
+                    <span className="truncate">{optionLabel}</span>
                     {isSelected && <Check className="w-4 h-4 text-purple-600" />}
                   </button>
                 );
@@ -134,7 +146,7 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
 export default function StationBiltySummaryPage() {
   const router = useRouter();
   const { user, loading: authLoading, isAuthenticated, initialized } = useAuth();
-    // Use the custom hook
+  // Use the custom hook
   const {
     loading,
     saving,
@@ -145,8 +157,6 @@ export default function StationBiltySummaryPage() {
     editingId,
     formData,
     cities,
-    consignors,
-    consignees,
     loadingReferenceData,
     setFormData,
     setSearchTerm,
@@ -639,33 +649,30 @@ export default function StationBiltySummaryPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {loadingReferenceData && (
+              <form onSubmit={handleSubmit} className="space-y-6">                {loadingReferenceData && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <div className="flex items-center gap-2 text-blue-700">
                       <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                      <span className="text-sm">Loading cities, consignors, and consignees...</span>
+                      <span className="text-sm">Loading cities...</span>
                     </div>
                   </div>
-                )}                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Station */}
+                )}<div className="grid grid-cols-1 md:grid-cols-2 gap-6">                  {/* Station */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Station Name *
+                      Station Code *
                     </label>
-                    <select
+                    <SearchableDropdown
+                      options={cities}
                       value={formData.station}
-                      onChange={(e) => setFormData({ ...formData, station: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                      required
-                    >
-                      <option value="">Select Station</option>
-                      {cities.map(city => (
-                        <option key={city.id} value={city.city_name}>
-                          {city.city_name} ({city.city_code})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setFormData({ ...formData, station: value })}
+                      placeholder="Enter or select station code"
+                      displayField="city_code"
+                      allowCustom={true}
+                      className=""
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      You can search by city name or code, or enter manually
+                    </p>
                   </div>
 
                   {/* GR Number */}
@@ -682,48 +689,32 @@ export default function StationBiltySummaryPage() {
                       required
                       maxLength={50}
                     />
-                  </div>
-
-                  {/* Consignor */}
+                  </div>                  {/* Consignor */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Consignor *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.consignor}
                       onChange={(e) => setFormData({ ...formData, consignor: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                      placeholder="Enter consignor name"
                       required
-                    >
-                      <option value="">Select Consignor</option>
-                      {consignors.map(consignor => (
-                        <option key={consignor.id} value={consignor.company_name}>
-                          {consignor.company_name}
-                          {consignor.gst_num && ` (GST: ${consignor.gst_num})`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Consignee */}
+                    />
+                  </div>                  {/* Consignee */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Consignee *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.consignee}
                       onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                      placeholder="Enter consignee name"
                       required
-                    >
-                      <option value="">Select Consignee</option>
-                      {consignees.map(consignee => (
-                        <option key={consignee.id} value={consignee.company_name}>
-                          {consignee.company_name}
-                          {consignee.gst_num && ` (GST: ${consignee.gst_num})`}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   {/* Number of Packets */}

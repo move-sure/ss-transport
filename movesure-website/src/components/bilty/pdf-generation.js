@@ -37,7 +37,7 @@ const PDFGenerator = ({
     },
 
     // 📱 QR CODE AND GR NUMBER SECTION
-    QR_SECTION: {
+    QR_SECTION: {                
       QR_CODE: { x: 180, y: 10, width: 25, height: 25 },  // QR code position and size
       GR_BOX: { x: 147, y: 45, width: 60, height: 10 },   // GR number box
       GR_LABEL: { x: 150, y: 51.4 },                         // "GR NO" text
@@ -587,7 +587,7 @@ const PDFGenerator = ({
     );
     addStyledText(
       pdf, 
-      `WEIGHT: ${biltyData.wt}`, 
+      `WEIGHT: ${biltyData.wt} kg`, 
       COORDINATES.TABLE_SECTION.WEIGHT.x, 
       y + COORDINATES.TABLE_SECTION.WEIGHT.y,
       STYLES.FONTS.LABELS
@@ -657,14 +657,9 @@ const PDFGenerator = ({
       y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y
     );
     
-    // Total amount - Large and bold
-    addStyledText(
-      pdf, 
-      `TOTAL: ${biltyData.total}`, 
-      COORDINATES.TABLE_SECTION.TOTAL.x, 
-      y + COORDINATES.TABLE_SECTION.TOTAL.y,
-      STYLES.FONTS.TOTAL
-    );
+    // Total amount - Aligned with charges section using same column structure
+    addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL);
+    addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL, { align: 'right' });
     
     // Payment Status - Large and bold
     addStyledText(

@@ -232,7 +232,6 @@ export default function StationBiltySummaryPage() {
       }
     }
   }, [initialized, authLoading, isAuthenticated, user, router]);
-
   // Load initial data
   useEffect(() => {
     if (user?.id) {
@@ -240,6 +239,22 @@ export default function StationBiltySummaryPage() {
       loadStats();
     }
   }, [user?.id, currentPage]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Alt + N for new entry
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        handleNewRecord();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Load data with pagination
   const handleLoadData = async () => {
@@ -295,11 +310,17 @@ export default function StationBiltySummaryPage() {
       alert('Error deleting record. Please try again.');
     }
   };
-
   // Handle new record
   const handleNewRecord = () => {
     resetForm();
     setShowForm(true);
+    // Focus on station code field after form opens
+    setTimeout(() => {
+      const stationInput = document.querySelector('input[placeholder="Enter or select station code"]');
+      if (stationInput) {
+        stationInput.focus();
+      }
+    }, 100);
   };
 
   // Handle export
@@ -364,10 +385,10 @@ export default function StationBiltySummaryPage() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
-                <button
+              <div className="flex items-center gap-3">                <button
                   onClick={handleNewRecord}
                   className="bg-white text-purple-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-50 transition-all shadow-lg"
+                  title="Alt + N"
                 >
                   <Plus className="w-4 h-4" />
                   New Entry

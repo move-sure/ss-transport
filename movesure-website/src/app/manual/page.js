@@ -7,6 +7,7 @@ import Navbar from '../../components/dashboard/navbar';
 import { 
   useStationBiltySummary, 
   PAYMENT_STATUS_OPTIONS,
+  DELIVERY_TYPE_OPTIONS,
   formatCurrency,
   formatWeight,
   getPaymentStatusColor
@@ -509,14 +510,14 @@ export default function StationBiltySummaryPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200">                <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station/GR No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery Type</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -551,8 +552,7 @@ export default function StationBiltySummaryPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{summary.no_of_packets} packages</div>
                         <div className="text-sm text-gray-500">{formatWeight(summary.weight)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </td>                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           getPaymentStatusColor(summary.payment_status) === 'green' 
                             ? 'bg-green-100 text-green-800'
@@ -561,6 +561,20 @@ export default function StationBiltySummaryPage() {
                             : 'bg-blue-100 text-blue-800'
                         }`}>
                           {PAYMENT_STATUS_OPTIONS.find(opt => opt.value === summary.payment_status)?.label || summary.payment_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          summary.delivery_type === 'door' 
+                            ? 'bg-purple-100 text-purple-800'
+                            : summary.delivery_type === 'godown'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-gray-50 text-gray-500'
+                        }`}>
+                          {summary.delivery_type 
+                            ? DELIVERY_TYPE_OPTIONS.find(opt => opt.value === summary.delivery_type)?.label || summary.delivery_type
+                            : 'Not Set'
+                          }
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -852,9 +866,7 @@ export default function StationBiltySummaryPage() {
                       placeholder="Enter weight in kg"
                       min="0"
                     />
-                  </div>
-
-                  {/* Payment Status */}
+                  </div>                  {/* Payment Status */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Payment Status
@@ -878,6 +890,38 @@ export default function StationBiltySummaryPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                     >
                       {PAYMENT_STATUS_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Delivery Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Delivery Type
+                    </label>
+                    <select
+                      value={formData.delivery_type || ''}
+                      onChange={(e) => setFormData({ ...formData, delivery_type: e.target.value || null })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                    >
+                      <option value="">Select Delivery Type</option>
+                      {DELIVERY_TYPE_OPTIONS.map(option => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>

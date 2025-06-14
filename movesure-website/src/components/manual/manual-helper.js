@@ -14,8 +14,7 @@ export const useStationBiltySummary = () => {
   const [editingId, setEditingId] = useState(null);
     // Reference data states
   const [cities, setCities] = useState([]);
-  const [loadingReferenceData, setLoadingReferenceData] = useState(false);
-  // Form data state
+  const [loadingReferenceData, setLoadingReferenceData] = useState(false);  // Form data state
   const [formData, setFormData] = useState({
     station: '',
     gr_no: '',
@@ -26,7 +25,8 @@ export const useStationBiltySummary = () => {
     weight: 0,
     payment_status: 'to-pay',
     amount: 0,
-    pvt_marks: ''
+    pvt_marks: '',
+    delivery_type: null
   });
   // Load reference data (cities only)
   const loadReferenceData = useCallback(async () => {
@@ -76,7 +76,6 @@ export const useStationBiltySummary = () => {
     
     return null;
   };
-
   // Reset form to initial state
   const resetForm = useCallback(() => {
     setFormData({
@@ -89,7 +88,8 @@ export const useStationBiltySummary = () => {
       weight: 0,
       payment_status: 'to-pay',
       amount: 0,
-      pvt_marks: ''
+      pvt_marks: '',
+      delivery_type: null
     });
     setEditingId(null);
   }, []);
@@ -165,9 +165,7 @@ export const useStationBiltySummary = () => {
       const validationError = validateForm();
       if (validationError) {
         throw new Error(validationError);
-      }
-
-      // Prepare data for saving
+      }      // Prepare data for saving
       const saveData = {
         station: formData.station.toString().trim(),
         gr_no: formData.gr_no.toString().trim().toUpperCase(),
@@ -179,6 +177,7 @@ export const useStationBiltySummary = () => {
         payment_status: formData.payment_status || 'to-pay',
         amount: parseFloat(formData.amount) || 0,
         pvt_marks: formData.pvt_marks?.toString().trim() || null,
+        delivery_type: formData.delivery_type || null,
         updated_at: new Date().toISOString()
       };
 
@@ -234,7 +233,6 @@ export const useStationBiltySummary = () => {
       setSaving(false);
     }
   }, [formData, editingId, resetForm, loadSummaryData]);
-
   // Load data for editing
   const loadForEdit = useCallback((summary) => {
     setFormData({
@@ -247,7 +245,8 @@ export const useStationBiltySummary = () => {
       weight: summary.weight || 0,
       payment_status: summary.payment_status || 'to-pay',
       amount: summary.amount || 0,
-      pvt_marks: summary.pvt_marks || ''
+      pvt_marks: summary.pvt_marks || '',
+      delivery_type: summary.delivery_type || null
     });
     setEditingId(summary.id);
   }, []);
@@ -393,6 +392,12 @@ export const PAYMENT_STATUS_OPTIONS = [
   { value: 'paid', label: 'Paid', color: 'green' },
   { value: 'to-pay', label: 'To Pay', color: 'orange' },
   { value: 'foc', label: 'FOC (Free of Charge)', color: 'blue' }
+];
+
+// Delivery type options
+export const DELIVERY_TYPE_OPTIONS = [
+  { value: 'godown', label: 'Godown' },
+  { value: 'door', label: 'Door' }
 ];
 
 // Utility function to format currency

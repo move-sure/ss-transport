@@ -202,8 +202,8 @@ const BiltyList = ({
                   <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">GR No</th>
                   <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">Date</th>
                   <th className="px-2 py-2 text-left font-medium text-yellow-800 w-32">Consignor</th>
-                  <th className="px-2 py-2 text-left font-medium text-yellow-800 w-32">Consignee</th>
-                  <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">Destination</th>
+                  <th className="px-2 py-2 text-left font-medium text-yellow-800 w-32">Consignee</th>                  <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">Destination</th>
+                  <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">PVT Marks</th>
                   <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Payment</th>
                   <th className="px-2 py-2 text-left font-medium text-yellow-800 w-12">Pkgs</th>
                   <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Weight</th>
@@ -253,9 +253,11 @@ const BiltyList = ({
                       </td>
                       <td className="px-2 py-2 text-gray-900 truncate max-w-32" title={bilty.consignee_name}>
                         {bilty.consignee_name}
-                      </td>
-                      <td className="px-2 py-2 text-gray-600 truncate">
+                      </td>                      <td className="px-2 py-2 text-gray-600 truncate">
                         {bilty.to_city_name}
+                      </td>
+                      <td className="px-2 py-2 text-gray-600 truncate max-w-24" title={bilty.pvt_marks}>
+                        {bilty.pvt_marks || '-'}
                       </td>
                       <td className="px-2 py-2">
                         <span className={`px-1 py-0.5 text-xs font-bold rounded ${getPaymentModeColor(bilty.payment_mode)}`}>
@@ -400,8 +402,8 @@ const BiltyList = ({
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">GR No</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">Date</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-32">Consignor</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-32">Consignee</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">Destination</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-32">Consignee</th>                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">Destination</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">PVT Marks</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Payment</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-12">Pkgs</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Weight</th>
@@ -457,9 +459,11 @@ const BiltyList = ({
                       </td>
                       <td className="px-3 py-2 text-gray-900 truncate max-w-32" title={bilty.consignee_name}>
                         {bilty.consignee_name}
-                      </td>
-                      <td className="px-3 py-2 text-gray-600 truncate">
+                      </td>                      <td className="px-3 py-2 text-gray-600 truncate">
                         {bilty.to_city_name}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 truncate max-w-24" title={bilty.pvt_marks}>
+                        {bilty.pvt_marks || '-'}
                       </td>
                       <td className="px-3 py-2">
                         <span className={`px-2 py-1 text-xs font-bold rounded ${getPaymentModeColor(bilty.payment_mode)}`}>

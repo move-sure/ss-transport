@@ -16,7 +16,7 @@ import {
 // Combined Payment and Delivery options
 const COMBINED_OPTIONS = [
   { value: 'to-pay', label: 'TO PAY', payment_status: 'to-pay', delivery_type: 'godown' },
-  { value: 'paid', label: 'PAID', payment_status: 'paid', delivery_type: 'door' },
+  { value: 'paid', label: 'PAID', payment_status: 'paid', delivery_type: 'godown' },
   { value: 'to-pay_door', label: 'TO PAY / DD', payment_status: 'to-pay', delivery_type: 'door' },
   { value: 'paid_door', label: 'PAID / DD', payment_status: 'paid', delivery_type: 'door' },
   { value: 'foc', label: 'FOC', payment_status: 'foc', delivery_type: 'godown' }
@@ -928,11 +928,12 @@ export default function StationBiltySummaryPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Payment & Delivery Type *
-                    </label>
-                    <select
+                    </label>                    <select
                       value={getCombinedValue(formData.payment_status, formData.delivery_type)}
                       onChange={(e) => {
-                        const selectedOption = COMBINED_OPTIONS.find(opt => opt.value === e.target.value);
+                        const selectedValue = e.target.value;
+                        const selectedOption = COMBINED_OPTIONS.find(opt => opt.value === selectedValue);
+                        console.log('Selected option:', selectedOption); // Debug log
                         if (selectedOption) {
                           setFormData({ 
                             ...formData, 

@@ -15,9 +15,9 @@ import {
 
 // Combined Payment and Delivery options
 const COMBINED_OPTIONS = [
-  { value: 'topay', label: 'TO PAY', payment_status: 'topay', delivery_type: 'godown' },
+  { value: 'to-pay', label: 'TO PAY', payment_status: 'to-pay', delivery_type: 'godown' },
   { value: 'paid', label: 'PAID', payment_status: 'paid', delivery_type: 'door' },
-  { value: 'topay_door', label: 'TO PAY / DD', payment_status: 'topay', delivery_type: 'door' },
+  { value: 'to-pay_door', label: 'TO PAY / DD', payment_status: 'to-pay', delivery_type: 'door' },
   { value: 'paid_door', label: 'PAID / DD', payment_status: 'paid', delivery_type: 'door' },
   { value: 'foc', label: 'FOC', payment_status: 'foc', delivery_type: 'godown' }
 ];
@@ -27,7 +27,7 @@ const getCombinedValue = (paymentStatus, deliveryType) => {
   const option = COMBINED_OPTIONS.find(opt => 
     opt.payment_status === paymentStatus && opt.delivery_type === deliveryType
   );
-  return option ? option.value : 'topay'; // default to topay
+  return option ? option.value : 'to-pay'; // default to to-pay
 };
 
 // Helper function to get combined option color
@@ -36,8 +36,8 @@ const getCombinedOptionColor = (value) => {
     case 'paid':
     case 'paid_door':
       return 'bg-green-100 text-green-800';
-    case 'topay':
-    case 'topay_door':
+    case 'to-pay':
+    case 'to-pay_door':
       return 'bg-orange-100 text-orange-800';
     case 'foc':
       return 'bg-blue-100 text-blue-800';

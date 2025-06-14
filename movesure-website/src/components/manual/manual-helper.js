@@ -23,7 +23,7 @@ export const useStationBiltySummary = () => {
     contents: '',
     no_of_packets: 0,
     weight: 0,
-    payment_status: 'topay',
+    payment_status: 'to-pay',
     amount: 0,
     pvt_marks: '',
     delivery_type: 'godown'
@@ -84,7 +84,7 @@ export const useStationBiltySummary = () => {
       contents: '',
       no_of_packets: 0,
       weight: 0,
-      payment_status: 'topay',
+      payment_status: 'to-pay',
       amount: 0,
       pvt_marks: '',
       delivery_type: 'godown'

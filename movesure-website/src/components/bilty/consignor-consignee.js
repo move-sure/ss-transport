@@ -503,42 +503,54 @@ const ConsignorConsigneeSection = ({
       setAddingConsignee(false);
     }
   };
-
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border-2 border-purple-200 shadow-lg">      {/* Main Consignor/Consignee Names */}
-      <div className="grid grid-cols-2 gap-4 items-center">
+    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border-2 border-purple-200 shadow-lg">
+      {/* Consignor Section */}
+      <div className="space-y-4">
         {/* Consignor Name */}
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
-              CONSIGNOR
-            </span>
-            <div className="relative flex-1" ref={consignorRef}>
-              <div className="relative">                <input
-                  type="text"
-                  ref={consignorInputRef}
-                  value={consignorSearch || ''}
-                  onChange={(e) => handleConsignorSearchChange(e.target.value)}
-                  onFocus={() => {
-                    if (consignorSearch && consignorSearch.length >= 2) {
-                      setShowConsignorDropdown(true);
+        <div className="flex items-center gap-3">
+          <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
+            CONSIGNOR
+          </span>
+          <div className="relative flex-1" ref={consignorRef}>
+            <div className="relative">
+              <input
+                type="text"
+                ref={consignorInputRef}
+                value={consignorSearch || ''}
+                onChange={(e) => handleConsignorSearchChange(e.target.value)}
+                onFocus={() => {
+                  // Auto-scroll to show consignor section properly
+                  setTimeout(() => {
+                    const element = consignorInputRef.current;
+                    if (element) {
+                      element.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                      });
                     }
-                  }}                  onKeyDown={handleConsignorKeyDown}
-                  placeholder="👤 Type to search consignor..."
-                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                  tabIndex={5}
-                />
-                {isSearching && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-                {!isSearching && consignorSearch && (
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
-                )}
-              </div>
-              
-              {showConsignorDropdown && (
+                  }, 100);
+                  
+                  if (consignorSearch && consignorSearch.length >= 2) {
+                    setShowConsignorDropdown(true);
+                  }
+                }}
+                onKeyDown={handleConsignorKeyDown}
+                placeholder="👤 Type to search consignor..."
+                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                tabIndex={5}
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              {!isSearching && consignorSearch && (
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
+              )}
+            </div>
+                {showConsignorDropdown && (
                 <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                   <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
                     CONSIGNOR SEARCH RESULTS ({searchResults.consignors.length})
@@ -570,7 +582,8 @@ const ConsignorConsigneeSection = ({
                           {consignor.number && ` | Ph: ${consignor.number}`}
                         </div>
                       </button>
-                    ))                  ) : !isSearching && (
+                    ))
+                  ) : !isSearching && (
                     <div className="px-4 py-3 text-xs text-gray-600">
                       No consignors found for &quot;{consignorSearch}&quot;
                     </div>
@@ -579,149 +592,150 @@ const ConsignorConsigneeSection = ({
               )}
             </div>
           </div>
-        </div>        {/* Consignee Name */}
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
-              CONSIGNEE
-            </span>
-            <div className="relative flex-1" ref={consigneeRef}>
-              <div className="relative">                <input
-                  type="text"
-                  ref={consigneeInputRef}
-                  value={consigneeSearch || ''}
-                  onChange={(e) => handleConsigneeSearchChange(e.target.value)}
-                  onFocus={() => {
-                    if (consigneeSearch && consigneeSearch.length >= 2) {
-                      setShowConsigneeDropdown(true);
-                    }
-                  }}                  onKeyDown={handleConsigneeKeyDown}
-                  placeholder="🏢 Type to search consignee..."
-                  className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                  tabIndex={6}
-                />
-                {isSearching && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-                {!isSearching && consigneeSearch && (
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
-                )}
-              </div>
-              
-              {showConsigneeDropdown && (
-                <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
-                  <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
-                    CONSIGNEE SEARCH RESULTS ({searchResults.consignees.length})
-                  </div>
-                  
-                  {/* Add New Consignee Button */}
-                  <button
-                    onClick={() => setShowAddConsignee(true)}
-                    className="w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-200 bg-purple-25"
-                  >
-                    <div className="flex items-center gap-2 font-medium text-purple-700">
-                      <Plus className="w-4 h-4" />
-                      Add New Consignee
-                    </div>
-                  </button>
 
-                  {searchResults.consignees.length > 0 ? (
-                    searchResults.consignees.map((consignee, index) => (
-                      <button
-                        key={consignee.id}
-                        onClick={() => handleConsigneeSelect(consignee)}
-                        className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
-                          index === consigneeSelectedIndex ? 'bg-purple-100' : ''
-                        }`}
-                      >
-                        <div className="font-medium text-black">{consignee.company_name}</div>
-                        <div className="text-xs text-gray-600">
-                          {consignee.gst_num && `GST: ${consignee.gst_num}`}
-                          {consignee.number && ` | Ph: ${consignee.number}`}
-                        </div>
-                      </button>
-                    ))                  ) : !isSearching && (
-                    <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignees found for &quot;{consigneeSearch}&quot;
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>        </div>
+        {/* Consignor GST and Phone */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-3">
+            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+              GST NO
+            </span>
+            <input
+              type="text"
+              ref={consignorGstRef}
+              value={formData.consignor_gst || ''}
+              onChange={handleConsignorGSTChange}
+              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 7)}
+              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              placeholder="📄 Consignor GST (auto-saves)"
+              tabIndex={7}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+              PHONE
+            </span>
+            <input
+              type="text"
+              ref={consignorPhoneRef}
+              value={formData.consignor_number || ''}
+              onChange={handleConsignorNumberChange}
+              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 8)}
+              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              placeholder="📞 Consignor Phone (auto-saves)"
+              tabIndex={8}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Additional Details - Always Visible */}
-      <div className="mt-6 space-y-4">
-        {/* Consignor Details */}
-        <div className="p-5 bg-white rounded-xl border-2 border-purple-200 shadow-lg">
-          <h4 className="text-sm font-bold text-black mb-4 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-3 rounded-xl text-center border border-purple-200">
-            CONSIGNOR ADDITIONAL DETAILS
-          </h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3">
-              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                GST NO
-              </span>              <input
+      {/* Consignee Section */}
+      <div className="mt-8 space-y-4">
+        {/* Consignee Name */}
+        <div className="flex items-center gap-3">
+          <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
+            CONSIGNEE
+          </span>
+          <div className="relative flex-1" ref={consigneeRef}>
+            <div className="relative">
+              <input
                 type="text"
-                ref={consignorGstRef}
-                value={formData.consignor_gst || ''}
-                onChange={handleConsignorGSTChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 7)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                placeholder="📄 Consignor GST (auto-saves)"
-                tabIndex={7}
+                ref={consigneeInputRef}
+                value={consigneeSearch || ''}
+                onChange={(e) => handleConsigneeSearchChange(e.target.value)}
+                onFocus={() => {
+                  if (consigneeSearch && consigneeSearch.length >= 2) {
+                    setShowConsigneeDropdown(true);
+                  }
+                }}
+                onKeyDown={handleConsigneeKeyDown}
+                placeholder="🏢 Type to search consignee..."
+                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                tabIndex={6}
               />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              {!isSearching && consigneeSearch && (
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
+              )}
             </div>
-            <div className="flex items-center gap-3">
-              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                PHONE
-              </span>              <input
-                type="text"
-                ref={consignorPhoneRef}
-                value={formData.consignor_number || ''}
-                onChange={handleConsignorNumberChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 8)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                placeholder="📞 Consignor Phone (auto-saves)"
-                tabIndex={8}
-              />
-            </div>
+            
+            {showConsigneeDropdown && (
+              <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
+                  CONSIGNEE SEARCH RESULTS ({searchResults.consignees.length})
+                </div>
+                
+                {/* Add New Consignee Button */}
+                <button
+                  onClick={() => setShowAddConsignee(true)}
+                  className="w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-200 bg-purple-25"
+                >
+                  <div className="flex items-center gap-2 font-medium text-purple-700">
+                    <Plus className="w-4 h-4" />
+                    Add New Consignee
+                  </div>
+                </button>
+
+                {searchResults.consignees.length > 0 ? (
+                  searchResults.consignees.map((consignee, index) => (
+                    <button
+                      key={consignee.id}
+                      onClick={() => handleConsigneeSelect(consignee)}
+                      className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
+                        index === consigneeSelectedIndex ? 'bg-purple-100' : ''
+                      }`}
+                    >
+                      <div className="font-medium text-black">{consignee.company_name}</div>
+                      <div className="text-xs text-gray-600">
+                        {consignee.gst_num && `GST: ${consignee.gst_num}`}
+                        {consignee.number && ` | Ph: ${consignee.number}`}
+                      </div>
+                    </button>
+                  ))
+                ) : !isSearching && (
+                  <div className="px-4 py-3 text-xs text-gray-600">
+                    No consignees found for &quot;{consigneeSearch}&quot;
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Consignee Details */}
-        <div className="p-5 bg-white rounded-xl border-2 border-purple-200 shadow-lg">
-          <h4 className="text-sm font-bold text-black mb-4 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-3 rounded-xl text-center border border-purple-200">
-            CONSIGNEE ADDITIONAL DETAILS
-          </h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3">
-              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                GST NO
-              </span>              <input
-                type="text"
-                ref={consigneeGstRef}
-                value={formData.consignee_gst || ''}
-                onChange={handleConsigneeGSTChange}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 9)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                placeholder="📄 Consignee GST (auto-saves)"
-                tabIndex={9}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
-                PHONE
-              </span>              <input
-                type="text"
-                ref={consigneePhoneRef}
-                value={formData.consignee_number || ''}
-                onChange={handleConsigneeNumberChange}                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                placeholder="📞 Consignee Phone (auto-saves)"
-                tabIndex={10}
-              />
-            </div>
+        {/* Consignee GST and Phone */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-3">
+            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+              GST NO
+            </span>
+            <input
+              type="text"
+              ref={consigneeGstRef}
+              value={formData.consignee_gst || ''}
+              onChange={handleConsigneeGSTChange}
+              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 9)}
+              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              placeholder="📄 Consignee GST (auto-saves)"
+              tabIndex={9}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+              PHONE
+            </span>
+            <input
+              type="text"
+              ref={consigneePhoneRef}
+              value={formData.consignee_number || ''}
+              onChange={handleConsigneeNumberChange}
+              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
+              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              placeholder="📞 Consignee Phone (auto-saves)"
+              tabIndex={10}
+            />
           </div>
         </div>
       </div>

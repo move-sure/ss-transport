@@ -267,7 +267,6 @@ const PackageChargesSection = ({
       setIsSavingRate(false);
     }
   };
-
   // Initialize labour rate and toll charge if not set
   useEffect(() => {
     const updates = {};
@@ -523,12 +522,16 @@ const PackageChargesSection = ({
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   TOLL
-                </span>                <input
+                </span>
+                <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={parseFloat(formData.toll_charge) || 20}
-                  onChange={(e) => setFormData(prev => ({ ...prev, toll_charge: parseFloat(e.target.value) || 0 }))}
+                  value={formData.toll_charge !== undefined && formData.toll_charge !== null ? formData.toll_charge : 20}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                    setFormData(prev => ({ ...prev, toll_charge: value }));
+                  }}
                   onKeyDown={(e) => {
                     e.stopPropagation();
                     handleEnterNavigation(e, 26);

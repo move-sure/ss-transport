@@ -12,9 +12,8 @@ const PackageChargesSection = ({
   onSave, 
   saving = false, 
   isEditMode = false, 
-  showShortcuts = false 
-}) => {
-  const { register, unregister, handleEnter } = useInputNavigation();
+  showShortcuts = false
+}) => {  const { register, unregister, handleEnter } = useInputNavigation();
   const inputRefs = useRef({});
   const labourChargeTimeoutRef = useRef(null);
   const [rateInfo, setRateInfo] = useState(null);
@@ -38,16 +37,22 @@ const PackageChargesSection = ({
     } else {
       unregister(tabIndex);
     }
-  };
-
-  // Cleanup on unmount
+  };  // Cleanup on unmount
   useEffect(() => {
     return () => {
       Object.keys(inputRefs.current).forEach(tabIndex => {
         unregister(parseInt(tabIndex));
       });
+      
+      // Cleanup timeouts
+      if (labourChargeTimeoutRef.current) {
+        clearTimeout(labourChargeTimeoutRef.current);
+      }
+      if (window.rateSaveTimeout) {
+        clearTimeout(window.rateSaveTimeout);
+      }
     };
-  }, [unregister]);  useEffect(() => {
+  }, [unregister]);useEffect(() => {
     // Calculate labour charge when packages or labour rate changes
     const labourRate = parseFloat(formData.labour_rate) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
@@ -262,24 +267,25 @@ const PackageChargesSection = ({
       setRateInfo({
         type: 'error',
         message: '❌ Failed to save rate - ' + (error.message || 'Please try again')
-      });
-    } finally {
+      });    } finally {
       setIsSavingRate(false);
     }
-  };
-  // Initialize labour rate and toll charge if not set
+  };  // Initialize labour rate and toll charge if not set (only for new bilty, not editing)
   useEffect(() => {
     const updates = {};
-    if (formData.labour_rate === undefined || formData.labour_rate === null) {
+    // Only set default values for new bilty (not edit mode) and only if value is undefined/null
+    if (!isEditMode && (formData.labour_rate === undefined || formData.labour_rate === null)) {
       updates.labour_rate = 20;
     }
-    if (formData.toll_charge === undefined || formData.toll_charge === null) {
+    if (!isEditMode && (formData.toll_charge === undefined || formData.toll_charge === null)) {
       updates.toll_charge = 20;
     }
     if (Object.keys(updates).length > 0) {
       setFormData(prev => ({ ...prev, ...updates }));
     }
-  }, [formData.labour_rate, formData.toll_charge, setFormData]);return (
+  }, [isEditMode]); // Remove formData dependencies to prevent overriding edit data
+
+return (
     <div className="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-lg">
       <div 
         className="grid grid-cols-12 gap-6"
@@ -403,9 +409,7 @@ const PackageChargesSection = ({
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Labour Rate - Fifth */}
+              </div>              {/* Labour Rate - Fifth */}
               <div className="flex items-center gap-3 col-span-2">
                 <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
                   LABOUR RATE
@@ -413,9 +417,20 @@ const PackageChargesSection = ({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 20}
+                  value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : ''}
                   onChange={(e) => {
-                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                    const inputValue = e.target.value;
+                    // Handle empty string, 0, and valid numbers properly
+                    let value;
+                    if (inputValue === '') {
+                      value = 0; // Empty input should be 0
+                    } else {
+                      value = parseFloat(inputValue);
+                      // If parseFloat returns NaN, default to 0
+                      if (isNaN(value)) {
+                        value = 0;
+                      }
+                    }
                     setFormData(prev => ({ ...prev, labour_rate: value }));
                   }}
                   onKeyDown={(e) => {
@@ -428,7 +443,7 @@ const PackageChargesSection = ({
                   tabIndex={22}
                 />
                 <span className="text-sm text-gray-600 font-medium">₹ per package</span>                <span className="text-xs text-gray-500 ml-auto">
-                  Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0)).toFixed(2)}
+                  Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -482,7 +497,7 @@ const PackageChargesSection = ({
                       setFormData(prev => ({ ...prev, labour_charge: value }));
                     }}                    onBlur={() => {
                       // Re-enable auto-calculation after manual input is complete
-                      const labourRate = formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0;
+                      const labourRate = formData.labour_rate || 0;
                       const packages = parseInt(formData.no_of_pkg) || 0;
                       const calculatedLabourCharge = packages * labourRate;
                       
@@ -497,9 +512,9 @@ const PackageChargesSection = ({
                     ref={(el) => setInputRef(24, el)}
                     className="w-24 px-2 py-2 text-black font-bold border-2 border-orange-300 rounded text-center bg-white hover:border-orange-400 number-input-focus transition-all duration-200"
                     tabIndex={24}
-                    title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0)).toFixed(2)}`}
+                    title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
                   />                  <span className="text-xs text-gray-500 mt-1">
-                    @₹{formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0}/pkg
+                    @₹{formData.labour_rate || 0}/pkg
                   </span>
                 </div>
               </div>              {/* Bill Charge */}
@@ -522,12 +537,11 @@ const PackageChargesSection = ({
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   TOLL
-                </span>
-                <input
+                </span>                <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.toll_charge !== undefined && formData.toll_charge !== null ? formData.toll_charge : 20}
+                  value={formData.toll_charge !== undefined && formData.toll_charge !== null ? formData.toll_charge : ''}
                   onChange={(e) => {
                     const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setFormData(prev => ({ ...prev, toll_charge: value }));
@@ -610,14 +624,13 @@ const PackageChargesSection = ({
                     className="w-24 px-2 py-3 text-black font-bold border-4 border-purple-400 rounded bg-purple-50 text-center text-lg shadow-lg bilty-input-focus transition-all duration-200"
                     tabIndex={29}
                   />
-                </div>
-                  {/* SAVE & PRINT Button */}
+                </div>                  {/* SAVE & PRINT Button */}
                 <div className="mt-4 flex justify-center">
                   <button
                     type="button"
                     onClick={() => onSave && onSave(false)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Tab') {
                         e.preventDefault();
                         e.stopPropagation();
                         if (!saving && onSave) {
@@ -626,12 +639,13 @@ const PackageChargesSection = ({
                       }
                     }}
                     disabled={saving}
-                    id="save-print-button-charges"                    className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
+                    id="save-print-button-charges"
+                    className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
                     tabIndex={30}
                   >
                     <Save className="w-5 h-5" />
                     {saving ? 'SAVING...' : isEditMode ? 'UPDATE & PRINT' : 'SAVE & PRINT'} 
-                    {showShortcuts && ' (Ctrl+S)'}
+                    {showShortcuts && ' (Ctrl+S or Tab)'}
                   </button>
                 </div>
               </div>

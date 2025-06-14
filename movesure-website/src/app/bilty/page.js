@@ -205,15 +205,15 @@ export default function BiltyForm() {
             localStorage.removeItem('editBiltyData');
             return;
           }
+            console.log('Loaded bilty data:', fullBilty);
           
-          console.log('Loaded bilty data:', fullBilty);
-            // Set form data with the existing bilty
+          // Set form data with the existing bilty
           setFormData({
             ...fullBilty,
             bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
             invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
             pf_charge: fullBilty.pf_charge || 0,
-            labour_rate: fullBilty.labour_rate || 20
+            labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20
           });
           
           // Set edit mode
@@ -323,13 +323,12 @@ export default function BiltyForm() {
         .eq('id', bilty.id)
         .single();
       
-      if (error) throw error;
-        setFormData({
+      if (error) throw error;      setFormData({
         ...fullBilty,
         bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
         invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : '',
         pf_charge: fullBilty.pf_charge || 0,
-        labour_rate: fullBilty.labour_rate || 20
+        labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20
       });
       
       setCurrentBiltyId(bilty.id);
@@ -407,16 +406,15 @@ export default function BiltyForm() {
         payment_mode: formData.payment_mode || 'to-pay',
         contain: formData.contain?.toString().trim() || null,
         invoice_no: formData.invoice_no?.toString().trim() || null,
-        invoice_value: parseFloat(formData.invoice_value) || 0,
-        invoice_date: formData.invoice_date || null,
+        invoice_value: parseFloat(formData.invoice_value) || 0,        invoice_date: formData.invoice_date || null,
         e_way_bill: formData.e_way_bill?.toString().trim() || null,
         document_number: formData.document_number?.toString().trim() || null,
         no_of_pkg: parseInt(formData.no_of_pkg) || 0,
         wt: parseFloat(formData.wt) || 0,
         rate: parseFloat(formData.rate) || 0,
-        labour_rate: parseFloat(formData.labour_rate) || 20,
+        labour_rate: formData.labour_rate !== undefined && formData.labour_rate !== null ? parseFloat(formData.labour_rate) : 20,
         pvt_marks: formData.pvt_marks?.toString().trim() || null,
-        freight_amount: parseFloat(formData.freight_amount) || 0,        labour_charge: parseFloat(formData.labour_charge) || 0,
+        freight_amount: parseFloat(formData.freight_amount) || 0,labour_charge: parseFloat(formData.labour_charge) || 0,
         bill_charge: parseFloat(formData.bill_charge) || 0,
         toll_charge: parseFloat(formData.toll_charge) >= 0 ? parseFloat(formData.toll_charge) : 0,
         dd_charge: parseFloat(formData.dd_charge) || 0,

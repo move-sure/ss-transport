@@ -844,7 +844,36 @@ export default function StationBiltySummaryPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter consignee name (optional)"
                     />
-                  </div>{/* Number of Packets */}
+                  </div>
+
+                  {/* Contents */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contents/Description
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contents}
+                      onChange={(e) => setFormData({ ...formData, contents: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                      placeholder="Enter contents or description"
+                    />
+                  </div>
+
+                  {/* Number of Packets */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Number of Packets
@@ -971,37 +1000,8 @@ export default function StationBiltySummaryPage() {
                       min="0"
                     />
                   </div>
-                </div>
-
-                {/* Full width fields */}
-                <div className="grid grid-cols-1 gap-6">                  {/* Contents */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Contents/Description
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.contents}
-                      onChange={(e) => setFormData({ ...formData, contents: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const form = e.target.form;
-                          if (form) {
-                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                            const currentIndex = inputs.indexOf(e.target);
-                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                              inputs[currentIndex + 1].focus();
-                            }
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                      placeholder="Enter contents or description"
-                    />
-                  </div>
-
-                  {/* Private Marks */}
+                </div>                {/* Full width fields */}
+                <div className="grid grid-cols-1 gap-6">                  {/* Private Marks */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Private Marks

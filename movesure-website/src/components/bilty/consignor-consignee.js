@@ -62,9 +62,40 @@ const ConsignorConsigneeSection = ({
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
-
   // Use the optimized search hook
   const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();
+  // Control dropdown visibility based on search results and exact matches
+  useEffect(() => {
+    if (searchResults.consignors && consignorSearch && consignorSearch.length >= 2) {
+      const exactMatch = searchResults.consignors.find(
+        c => c.company_name.toLowerCase() === consignorSearch.toLowerCase()
+      );
+      // Only show dropdown if no exact match, input is focused, and has results
+      if (!exactMatch && document.activeElement === consignorInputRef.current && searchResults.consignors.length > 0) {
+        setShowConsignorDropdown(true);
+      } else {
+        setShowConsignorDropdown(false);
+      }
+    } else {
+      setShowConsignorDropdown(false);
+    }
+  }, [searchResults.consignors, consignorSearch]);
+
+  useEffect(() => {
+    if (searchResults.consignees && consigneeSearch && consigneeSearch.length >= 2) {
+      const exactMatch = searchResults.consignees.find(
+        c => c.company_name.toLowerCase() === consigneeSearch.toLowerCase()
+      );
+      // Only show dropdown if no exact match, input is focused, and has results
+      if (!exactMatch && document.activeElement === consigneeInputRef.current && searchResults.consignees.length > 0) {
+        setShowConsigneeDropdown(true);
+      } else {
+        setShowConsigneeDropdown(false);
+      }
+    } else {
+      setShowConsigneeDropdown(false);
+    }
+  }, [searchResults.consignees, consigneeSearch]);
   // Initialize search values when formData changes (for edit mode)
   useEffect(() => {
     if (formData.consignor_name && consignorSearch !== formData.consignor_name) {
@@ -74,70 +105,45 @@ const ConsignorConsigneeSection = ({
       setConsigneeSearch(formData.consignee_name);
     }
   }, [formData.consignor_name, formData.consignee_name]);
-  // Register inputs for navigation
-  useEffect(() => {
-    if (consignorInputRef.current) {
-      register(5, consignorInputRef.current);
-    }
-    if (consigneeInputRef.current) {
-      register(6, consigneeInputRef.current);
-    }    if (consignorGstRef.current) {
-      register(7, consignorGstRef.current);
-    }
-    if (consignorPhoneRef.current) {
-      register(8, consignorPhoneRef.current);
-    }
-    if (consigneeGstRef.current) {
-      register(9, consigneeGstRef.current);
-    }
-    if (consigneePhoneRef.current) {
-      register(10, consigneePhoneRef.current);
-    }
-    
-    return () => {
-      unregister(5);
-      unregister(6);
-      unregister(7);
-      unregister(8);
-      unregister(9);
-      unregister(10);    };
-  }, [register, unregister]);
+
+  // Simple tab navigation using standard tabIndex
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (consignorRef.current && !consignorRef.current.contains(event.target)) {
         setShowConsignorDropdown(false);
+        setConsignorSelectedIndex(-1);
       }
       if (consigneeRef.current && !consigneeRef.current.contains(event.target)) {
         setShowConsigneeDropdown(false);
+        setConsigneeSelectedIndex(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [consignorSearch, consigneeSearch]);
-
-  // Handle consignor search with optimized database query
+  }, []);  // Handle consignor search with optimized database query
   const handleConsignorSearchChange = (value) => {
     setConsignorSearch(value);
     setFormData(prev => ({ ...prev, consignor_name: value }));
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignors');
-      setShowConsignorDropdown(true);
+      // Note: We'll check for exact match in the search results after they're updated
+      // The dropdown will be controlled by the onFocus handler and search results
     } else {
       setShowConsignorDropdown(false);
       clearResults();
     }
     setConsignorSelectedIndex(-1);
-  };
-
-  // Handle consignee search with optimized database query
+  };  // Handle consignee search with optimized database query
   const handleConsigneeSearchChange = (value) => {
     setConsigneeSearch(value);
     setFormData(prev => ({ ...prev, consignee_name: value }));
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignees');
-      setShowConsigneeDropdown(true);
+      // Note: We'll check for exact match in the search results after they're updated
+      // The dropdown will be controlled by the onFocus handler and search results
     } else {
       setShowConsigneeDropdown(false);
       clearResults();
@@ -179,10 +185,14 @@ const ConsignorConsigneeSection = ({
       
       return updatedData;
     });
-    
-    setShowConsignorDropdown(false);
+      setShowConsignorDropdown(false);
     setConsignorSelectedIndex(-1);
     clearResults();
+    
+    // Focus back to the input to maintain navigation flow
+    if (consignorInputRef.current) {
+      consignorInputRef.current.focus();
+    }
   };
 
   const handleConsigneeSelect = async (consignee) => {
@@ -192,10 +202,14 @@ const ConsignorConsigneeSection = ({
       consignee_name: consignee.company_name,
       consignee_gst: consignee.gst_num || '',
       consignee_number: consignee.number || ''
-    }));
-    setShowConsigneeDropdown(false);
+    }));    setShowConsigneeDropdown(false);
     setConsigneeSelectedIndex(-1);
     clearResults();
+    
+    // Focus back to the input to maintain navigation flow
+    if (consigneeInputRef.current) {
+      consigneeInputRef.current.focus();
+    }
   };
   // Handle phone number updates for existing consignors/consignees
   const handleConsignorNumberChange = async (e) => {
@@ -296,12 +310,8 @@ const ConsignorConsigneeSection = ({
           setShowConsignorDropdown(false);
           setConsignorSelectedIndex(-1);
           break;
-      }
-    } else {
-      // Handle Enter key for navigation when dropdown is not open
-      if (e.key === 'Enter') {
-        handleEnter(e, 5);
-      }
+      }    } else {
+      // No custom navigation - let browser handle Tab naturally
     }
   };
 
@@ -334,12 +344,8 @@ const ConsignorConsigneeSection = ({
           setShowConsigneeDropdown(false);
           setConsigneeSelectedIndex(-1);
           break;
-      }
-    } else {
-      // Handle Enter key for navigation when dropdown is not open
-      if (e.key === 'Enter') {
-        handleEnter(e, 6);
-      }
+      }    } else {
+      // No custom navigation - let browser handle Tab naturally
     }
   };
 
@@ -518,8 +524,7 @@ const ConsignorConsigneeSection = ({
                 type="text"
                 ref={consignorInputRef}
                 value={consignorSearch || ''}
-                onChange={(e) => handleConsignorSearchChange(e.target.value)}
-                onFocus={() => {
+                onChange={(e) => handleConsignorSearchChange(e.target.value)}                onFocus={() => {
                   // Auto-scroll to show consignor section properly
                   setTimeout(() => {
                     const element = consignorInputRef.current;
@@ -532,9 +537,17 @@ const ConsignorConsigneeSection = ({
                     }
                   }, 100);
                   
+                  // Only show dropdown if search is valid and we have results
                   if (consignorSearch && consignorSearch.length >= 2) {
-                    setShowConsignorDropdown(true);
+                    searchDatabase(consignorSearch, 'consignors');
                   }
+                }}
+                onBlur={() => {
+                  // Close dropdown when input loses focus
+                  setTimeout(() => {
+                    setShowConsignorDropdown(false);
+                    setConsignorSelectedIndex(-1);
+                  }, 150); // Small delay to allow dropdown clicks
                 }}
                 onKeyDown={handleConsignorKeyDown}
                 placeholder="👤 Type to search consignor..."
@@ -598,16 +611,12 @@ const ConsignorConsigneeSection = ({
           <div className="flex items-center gap-3">
             <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
               GST NO
-            </span>
-            <input
+            </span>            <input
               type="text"
               ref={consignorGstRef}
-              value={formData.consignor_gst || ''}
-              onChange={handleConsignorGSTChange}
-              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 7)}
-              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-              placeholder="📄 Consignor GST (auto-saves)"
-              tabIndex={7}
+              value={formData.consignor_gst || ''}              onChange={handleConsignorGSTChange}
+              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"              placeholder="📄 Consignor GST (auto-saves)"
+              tabIndex={6}
             />
           </div>
           <div className="flex items-center gap-3">
@@ -617,12 +626,10 @@ const ConsignorConsigneeSection = ({
             <input
               type="text"
               ref={consignorPhoneRef}
-              value={formData.consignor_number || ''}
-              onChange={handleConsignorNumberChange}
-              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 8)}
+              value={formData.consignor_number || ''}              onChange={handleConsignorNumberChange}
               className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
               placeholder="📞 Consignor Phone (auto-saves)"
-              tabIndex={8}
+              tabIndex={7}
             />
           </div>
         </div>
@@ -641,16 +648,21 @@ const ConsignorConsigneeSection = ({
                 type="text"
                 ref={consigneeInputRef}
                 value={consigneeSearch || ''}
-                onChange={(e) => handleConsigneeSearchChange(e.target.value)}
-                onFocus={() => {
+                onChange={(e) => handleConsigneeSearchChange(e.target.value)}                onFocus={() => {
+                  // Only show dropdown if search is valid and we have results
                   if (consigneeSearch && consigneeSearch.length >= 2) {
-                    setShowConsigneeDropdown(true);
+                    searchDatabase(consigneeSearch, 'consignees');
                   }
                 }}
-                onKeyDown={handleConsigneeKeyDown}
-                placeholder="🏢 Type to search consignee..."
+                onBlur={() => {
+                  // Close dropdown when input loses focus
+                  setTimeout(() => {
+                    setShowConsigneeDropdown(false);
+                    setConsigneeSelectedIndex(-1);
+                  }, 150); // Small delay to allow dropdown clicks
+                }}                onKeyDown={handleConsigneeKeyDown}                placeholder="🏢 Type to search consignee..."
                 className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-                tabIndex={6}
+                tabIndex={8}
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -714,11 +726,8 @@ const ConsignorConsigneeSection = ({
             <input
               type="text"
               ref={consigneeGstRef}
-              value={formData.consignee_gst || ''}
-              onChange={handleConsigneeGSTChange}
-              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 9)}
-              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
-              placeholder="📄 Consignee GST (auto-saves)"
+              value={formData.consignee_gst || ''}              onChange={handleConsigneeGSTChange}
+              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"              placeholder="📄 Consignee GST (auto-saves)"
               tabIndex={9}
             />
           </div>
@@ -729,9 +738,7 @@ const ConsignorConsigneeSection = ({
             <input
               type="text"
               ref={consigneePhoneRef}
-              value={formData.consignee_number || ''}
-              onChange={handleConsigneeNumberChange}
-              onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
+              value={formData.consignee_number || ''}              onChange={handleConsigneeNumberChange}
               className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
               placeholder="📞 Consignee Phone (auto-saves)"
               tabIndex={10}

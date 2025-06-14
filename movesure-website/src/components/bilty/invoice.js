@@ -32,18 +32,18 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   // Load content options on component mount
   useEffect(() => {
     loadContentOptions();
-  }, []);
-  // Handle click outside to close dropdown
+  }, []);  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (contentRef.current && !contentRef.current.contains(event.target)) {
         setShowContentDropdown(false);
         setIsAddingContent(false);
+        setSelectedContentIndex(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);  // Register inputs for navigation
+  }, []);// Register inputs for navigation
   useEffect(() => {
     if (deliveryTypeRef.current) {
       register(11, deliveryTypeRef.current);
@@ -84,12 +84,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       console.error('Error loading content options:', error);
     }
   };
-
   const handleContentSelect = (content) => {
     setContentSearch(content.content_name);
     setFormData(prev => ({ ...prev, contain: content.content_name }));
     setShowContentDropdown(false);
     setSelectedContentIndex(-1);
+    // Focus back to the input to maintain navigation flow
+    if (contentInputRef.current) {
+      contentInputRef.current.focus();
+    }
   };
   const handleKeyDown = (e) => {
     if (isAddingContent) {
@@ -144,12 +147,23 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       }
     }
   };
-
   const handleInputChange = (e) => {
     const value = e.target.value;
     setContentSearch(value);
     setFormData(prev => ({ ...prev, contain: value }));
-    setShowContentDropdown(true);
+    
+    // Check if there's an exact match
+    const exactMatch = contentOptions.find(
+      c => c.content_name.toLowerCase() === value.toLowerCase()
+    );
+    
+    // Only show dropdown if there's no exact match and value is not empty
+    if (!exactMatch && value.trim()) {
+      setShowContentDropdown(true);
+    } else {
+      setShowContentDropdown(false);
+    }
+    
     setSelectedContentIndex(-1);
     setIsAddingContent(false);
   };
@@ -285,9 +299,25 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 ref={contentInputRef}
                 value={contentSearch}
                 onChange={handleInputChange}
-                onFocus={() => setShowContentDropdown(true)}
+                onFocus={() => {
+                  // Only show dropdown if there's no exact match
+                  const exactMatch = contentOptions.find(
+                    c => c.content_name.toLowerCase() === contentSearch.toLowerCase()
+                  );
+                  if (!exactMatch && contentSearch.trim()) {
+                    setShowContentDropdown(true);
+                  }
+                }}
+                onBlur={() => {
+                  // Close dropdown when input loses focus
+                  setTimeout(() => {
+                    setShowContentDropdown(false);
+                    setSelectedContentIndex(-1);
+                  }, 150); // Small delay to allow dropdown clicks
+                }}
                 onKeyDown={handleKeyDown}
-                placeholder="📦 Search or type goods description..."                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
+                placeholder="📦 Search or type goods description..."
+                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
                 tabIndex={13}
               />
             )}

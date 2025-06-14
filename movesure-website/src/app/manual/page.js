@@ -69,7 +69,6 @@ import {
 
 // Searchable Dropdown Component
 const SearchableDropdown = ({ options, value, onChange, placeholder, displayField, allowCustom = true, className = "" }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [inputValue, setInputValue] = useState(value || '');
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -89,52 +88,53 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
     }
     
     return displayValue.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-
-  const handleSelect = (option) => {
+  });  const handleSelect = (option) => {
     const selectedValue = displayField ? option[displayField] : option;
     setInputValue(selectedValue);
+    setSearchTerm(''); // Clear search term first
     onChange(selectedValue);
-    setIsOpen(false);
-    setSearchTerm('');
     setSelectedIndex(-1);
-  };
-
-  const handleInputChange = (e) => {
+  };  const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInputValue(newValue);
     setSearchTerm(newValue);
     if (allowCustom) {
       onChange(newValue);
     }
-    setIsOpen(true);
     setSelectedIndex(-1);
-  };
-
-  const handleKeyDown = (e) => {
+    
+    // Auto-fill if exact match found with city code
+    if (displayField === 'city_code' && newValue.length >= 2) {
+      const exactMatch = filteredOptions.find(option => 
+        option.city_code.toLowerCase() === newValue.toLowerCase()
+      );
+      
+      if (exactMatch) {
+        setTimeout(() => {
+          handleSelect(exactMatch);
+        }, 100);
+      }
+    }
+  };  const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (!isOpen) {
-        setIsOpen(true);
-      } else {
-        setSelectedIndex(prev => 
-          prev < filteredOptions.length - 1 ? prev + 1 : 0
-        );
-      }
+      setSelectedIndex(prev => 
+        prev < filteredOptions.length - 1 ? prev + 1 : 0
+      );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (isOpen) {
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredOptions.length - 1
-        );
-      }
+      setSelectedIndex(prev => 
+        prev > 0 ? prev - 1 : filteredOptions.length - 1
+      );
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (isOpen && selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+      if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
         handleSelect(filteredOptions[selectedIndex]);
+      } else if (filteredOptions.length > 0) {
+        // If no selection but we have options, select the first one
+        handleSelect(filteredOptions[0]);
       } else if (allowCustom) {
         onChange(inputValue);
-        setIsOpen(false);
         // Move to next input
         const form = e.target.form;
         if (form) {
@@ -146,42 +146,38 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
         }
       }
     } else if (e.key === 'Escape') {
-      setIsOpen(false);
       setSelectedIndex(-1);
+      setSearchTerm('');
     } else if (e.key === 'Tab') {
-      setIsOpen(false);
       setSelectedIndex(-1);
+      setSearchTerm('');
+      // Don't prevent default - let Tab work normally for navigation
     }
   };
-
   return (
-    <div className={`relative ${className}`}>
-      <div className="relative">
+    <div className={`relative ${className}`}>      <div className="relative">
         <input
           type="text"
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsOpen(true)}
-          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+          onFocus={() => searchTerm && setSelectedIndex(-1)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
           placeholder={placeholder}
         />
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="absolute inset-y-0 right-0 flex items-center pr-3"
-        >
-          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-
-      {isOpen && (
+      </div>      {searchTerm && filteredOptions.length > 0 && (
         <>
           <div 
             className="fixed inset-0 z-10" 
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              setSelectedIndex(-1);
+              setSearchTerm('');
+              // Blur the input to hide dropdown
+              document.activeElement?.blur();
+            }}
           />
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">            {filteredOptions.length > 0 ? (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+            {filteredOptions.length > 0 ? (
               filteredOptions.map((option, index) => {
                 const displayValue = displayField ? option[displayField] : option;
                 const isSelected = displayValue === value;
@@ -1037,10 +1033,19 @@ export default function StationBiltySummaryPage() {
                     className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </button>                  <button
                     type="submit"
                     disabled={saving}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab') {
+                        e.preventDefault();
+                        // Trigger form submission
+                        const form = e.target.closest('form');
+                        if (form) {
+                          form.requestSubmit();
+                        }
+                      }
+                    }}
                     className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {saving ? (
@@ -1051,7 +1056,7 @@ export default function StationBiltySummaryPage() {
                     ) : (
                       <>
                         <Save className="w-4 h-4" />
-                        {editingId ? 'Update' : 'Save'}
+                        {editingId ? 'Update' : 'Save'} (Tab to Save)
                       </>
                     )}
                   </button>

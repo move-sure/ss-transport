@@ -23,10 +23,10 @@ export const useStationBiltySummary = () => {
     contents: '',
     no_of_packets: 0,
     weight: 0,
-    payment_status: 'to-pay',
+    payment_status: 'topay',
     amount: 0,
     pvt_marks: '',
-    delivery_type: null
+    delivery_type: 'godown'
   });
   // Load reference data (cities only)
   const loadReferenceData = useCallback(async () => {
@@ -74,8 +74,7 @@ export const useStationBiltySummary = () => {
     }
     
     return null;
-  };
-  // Reset form to initial state
+  };  // Reset form to initial state
   const resetForm = useCallback(() => {
     setFormData({
       station: '',
@@ -85,10 +84,10 @@ export const useStationBiltySummary = () => {
       contents: '',
       no_of_packets: 0,
       weight: 0,
-      payment_status: 'to-pay',
+      payment_status: 'topay',
       amount: 0,
       pvt_marks: '',
-      delivery_type: null
+      delivery_type: 'godown'
     });
     setEditingId(null);
   }, []);

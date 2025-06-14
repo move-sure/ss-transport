@@ -12,6 +12,39 @@ import {
   formatWeight,
   getPaymentStatusColor
 } from '../../components/manual/manual-helper';
+
+// Combined Payment and Delivery options
+const COMBINED_OPTIONS = [
+  { value: 'topay', label: 'TO PAY', payment_status: 'topay', delivery_type: 'godown' },
+  { value: 'paid', label: 'PAID', payment_status: 'paid', delivery_type: 'door' },
+  { value: 'topay_door', label: 'TO PAY / DD', payment_status: 'topay', delivery_type: 'door' },
+  { value: 'paid_door', label: 'PAID / DD', payment_status: 'paid', delivery_type: 'door' },
+  { value: 'foc', label: 'FOC', payment_status: 'foc', delivery_type: 'godown' }
+];
+
+// Helper function to get combined value from payment status and delivery type
+const getCombinedValue = (paymentStatus, deliveryType) => {
+  const option = COMBINED_OPTIONS.find(opt => 
+    opt.payment_status === paymentStatus && opt.delivery_type === deliveryType
+  );
+  return option ? option.value : 'topay'; // default to topay
+};
+
+// Helper function to get combined option color
+const getCombinedOptionColor = (value) => {
+  switch(value) {
+    case 'paid':
+    case 'paid_door':
+      return 'bg-green-100 text-green-800';
+    case 'topay':
+    case 'topay_door':
+      return 'bg-orange-100 text-orange-800';
+    case 'foc':
+      return 'bg-blue-100 text-blue-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
 import { 
   Plus, 
   Search, 
@@ -532,13 +565,11 @@ export default function StationBiltySummaryPage() {
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station/GR No</th>
+                  <tr>                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station/GR No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Delivery</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -574,27 +605,11 @@ export default function StationBiltySummaryPage() {
                         <div className="text-sm text-gray-500">{formatWeight(summary.weight)}</div>
                       </td>                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          getPaymentStatusColor(summary.payment_status) === 'green' 
-                            ? 'bg-green-100 text-green-800'
-                            : getPaymentStatusColor(summary.payment_status) === 'orange'
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-blue-100 text-blue-800'
+                          getCombinedOptionColor(getCombinedValue(summary.payment_status, summary.delivery_type))
                         }`}>
-                          {PAYMENT_STATUS_OPTIONS.find(opt => opt.value === summary.payment_status)?.label || summary.payment_status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          summary.delivery_type === 'door' 
-                            ? 'bg-purple-100 text-purple-800'
-                            : summary.delivery_type === 'godown'
-                            ? 'bg-gray-100 text-gray-800'
-                            : 'bg-gray-50 text-gray-500'
-                        }`}>
-                          {summary.delivery_type 
-                            ? DELIVERY_TYPE_OPTIONS.find(opt => opt.value === summary.delivery_type)?.label || summary.delivery_type
-                            : 'Not Set'
-                          }
+                          {COMBINED_OPTIONS.find(opt => 
+                            opt.payment_status === summary.payment_status && opt.delivery_type === summary.delivery_type
+                          )?.label || `${summary.payment_status || 'N/A'} / ${summary.delivery_type || 'N/A'}`}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -884,14 +899,23 @@ export default function StationBiltySummaryPage() {
                       placeholder="Enter weight in kg"
                       min="0"
                     />
-                  </div>                  {/* Payment Status */}
+                  </div>                  {/* Payment & Delivery Type Combined */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Payment Status
+                      Payment & Delivery Type *
                     </label>
                     <select
-                      value={formData.payment_status}
-                      onChange={(e) => setFormData({ ...formData, payment_status: e.target.value })}
+                      value={getCombinedValue(formData.payment_status, formData.delivery_type)}
+                      onChange={(e) => {
+                        const selectedOption = COMBINED_OPTIONS.find(opt => opt.value === e.target.value);
+                        if (selectedOption) {
+                          setFormData({ 
+                            ...formData, 
+                            payment_status: selectedOption.payment_status,
+                            delivery_type: selectedOption.delivery_type
+                          });
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -906,45 +930,17 @@ export default function StationBiltySummaryPage() {
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                      required
                     >
-                      {PAYMENT_STATUS_OPTIONS.map(option => (
+                      {COMBINED_OPTIONS.map(option => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
                       ))}
                     </select>
-                  </div>
-
-                  {/* Delivery Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Delivery Type
-                    </label>
-                    <select
-                      value={formData.delivery_type || ''}
-                      onChange={(e) => setFormData({ ...formData, delivery_type: e.target.value || null })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const form = e.target.form;
-                          if (form) {
-                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                            const currentIndex = inputs.indexOf(e.target);
-                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                              inputs[currentIndex + 1].focus();
-                            }
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                    >
-                      <option value="">Select Delivery Type</option>
-                      {DELIVERY_TYPE_OPTIONS.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Select payment method and delivery type combination
+                    </p>
                   </div>
 
                   {/* Amount */}

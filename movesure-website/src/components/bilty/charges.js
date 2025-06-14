@@ -45,7 +45,7 @@ const PackageChargesSection = ({
     };
   }, [unregister]);  useEffect(() => {
     // Calculate labour charge when packages or labour rate changes
-    const labourRate = parseFloat(formData.labour_rate) || 20;
+    const labourRate = parseFloat(formData.labour_rate) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
     const calculatedLabourCharge = packages * labourRate;
     
@@ -85,7 +85,7 @@ const PackageChargesSection = ({
       formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Initialize labour rate and toll charge if not set
   useEffect(() => {
     const updates = {};
-    if (formData.labour_rate === undefined || formData.labour_rate === null || formData.labour_rate === 0) {
+    if (formData.labour_rate === undefined || formData.labour_rate === null) {
       updates.labour_rate = 20;
     }
     if (formData.toll_charge === undefined || formData.toll_charge === null) {
@@ -202,9 +202,9 @@ const PackageChargesSection = ({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={parseFloat(formData.labour_rate) || 20}
+                  value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 20}
                   onChange={(e) => {
-                    const value = parseFloat(e.target.value) || 0;
+                    const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setFormData(prev => ({ ...prev, labour_rate: value }));
                   }}
                   onKeyDown={(e) => {
@@ -217,7 +217,7 @@ const PackageChargesSection = ({
                   tabIndex={22}
                 />
                 <span className="text-sm text-gray-600 font-medium">₹ per package</span>                <span className="text-xs text-gray-500 ml-auto">
-                  Total Labour: ₹{((formData.no_of_pkg || 0) * (parseFloat(formData.labour_rate) || 20)).toFixed(2)}
+                  Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0)).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -269,27 +269,26 @@ const PackageChargesSection = ({
                       }
                       
                       setFormData(prev => ({ ...prev, labour_charge: value }));
-                    }}
-                    onBlur={() => {
+                    }}                    onBlur={() => {
                       // Re-enable auto-calculation after manual input is complete
-                      const labourRate = parseFloat(formData.labour_rate) || 20;
+                      const labourRate = formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0;
                       const packages = parseInt(formData.no_of_pkg) || 0;
                       const calculatedLabourCharge = packages * labourRate;
                       
-                      // If the user cleared the field or set it to 0, use auto-calculation
-                      if (!formData.labour_charge || formData.labour_charge === 0) {
+                      // If the user cleared the field, use auto-calculation
+                      if (formData.labour_charge === undefined || formData.labour_charge === null || formData.labour_charge === '') {
                         setFormData(prev => ({ ...prev, labour_charge: calculatedLabourCharge }));
                       }
-                    }}                    onKeyDown={(e) => {
+                    }}onKeyDown={(e) => {
                       e.stopPropagation();
                       handleEnterNavigation(e, 24);
                     }}
                     ref={(el) => setInputRef(24, el)}
                     className="w-24 px-2 py-2 text-black font-bold border-2 border-orange-300 rounded text-center bg-white hover:border-orange-400 number-input-focus transition-all duration-200"
                     tabIndex={24}
-                    title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (parseFloat(formData.labour_rate) || 20)).toFixed(2)}`}
-                  /><span className="text-xs text-gray-500 mt-1">
-                    @₹{parseFloat(formData.labour_rate) || 20}/pkg
+                    title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0)).toFixed(2)}`}
+                  />                  <span className="text-xs text-gray-500 mt-1">
+                    @₹{formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : 0}/pkg
                   </span>
                 </div>
               </div>              {/* Bill Charge */}

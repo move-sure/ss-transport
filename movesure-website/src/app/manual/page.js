@@ -533,14 +533,13 @@ export default function StationBiltySummaryPage() {
                           </div>
                           <div className="text-sm text-gray-500">GR: {summary.gr_no}</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
+                      </td>                      <td className="px-6 py-4">
                         <div>
                           <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                             <Users className="w-4 h-4 text-gray-400" />
-                            {summary.consignor}
+                            {summary.consignor || '-'}
                           </div>
-                          <div className="text-sm text-gray-500">To: {summary.consignee}</div>
+                          <div className="text-sm text-gray-500">To: {summary.consignee || '-'}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -762,7 +761,7 @@ export default function StationBiltySummaryPage() {
                   </div>                  {/* Consignor */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Consignor *
+                      Consignor
                     </label>
                     <input
                       type="text"
@@ -782,13 +781,12 @@ export default function StationBiltySummaryPage() {
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                      placeholder="Enter consignor name"
-                      required
+                      placeholder="Enter consignor name (optional)"
                     />
                   </div>                  {/* Consignee */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Consignee *
+                      Consignee
                     </label>
                     <input
                       type="text"
@@ -808,10 +806,9 @@ export default function StationBiltySummaryPage() {
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                      placeholder="Enter consignee name"
-                      required
+                      placeholder="Enter consignee name (optional)"
                     />
-                  </div>                  {/* Number of Packets */}
+                  </div>{/* Number of Packets */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Number of Packets

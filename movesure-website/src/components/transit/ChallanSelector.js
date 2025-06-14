@@ -212,9 +212,8 @@ const ChallanSelector = ({
                 <Package className="w-4 h-4" />
                 Bilty Summary
               </h4>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
-                  <div className="text-xs text-gray-600 mb-1">Station Bilties (STN)</div>
+                <div className="grid grid-cols-2 gap-4 mb-4">                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
+                  <div className="text-xs text-gray-600 mb-1">Station Bilties (MNL)</div>
                   <div className="text-xl font-bold text-emerald-700">
                     {stnCount}
                   </div>

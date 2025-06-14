@@ -52,10 +52,9 @@ export const useStationBiltySummary = () => {
   useEffect(() => {
     loadReferenceData();
   }, [loadReferenceData]);
-
   // Validation function
   const validateForm = () => {
-    const requiredFields = ['station', 'gr_no', 'consignor', 'consignee'];
+    const requiredFields = ['station', 'gr_no'];
     for (const field of requiredFields) {
       if (!formData[field]?.toString().trim()) {
         return `${field.replace('_', ' ')} is required`;
@@ -169,8 +168,8 @@ export const useStationBiltySummary = () => {
       const saveData = {
         station: formData.station.toString().trim(),
         gr_no: formData.gr_no.toString().trim().toUpperCase(),
-        consignor: formData.consignor.toString().trim(),
-        consignee: formData.consignee.toString().trim(),
+        consignor: formData.consignor?.toString().trim() || null,
+        consignee: formData.consignee?.toString().trim() || null,
         contents: formData.contents?.toString().trim() || null,
         no_of_packets: parseInt(formData.no_of_packets) || 0,
         weight: parseFloat(formData.weight) || 0,

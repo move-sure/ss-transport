@@ -235,12 +235,11 @@ const BiltyList = ({
                           />
                         </td>
                       )}
-                      <td className="px-2 py-2 text-gray-900">{index + 1}</td>
-                      <td className="px-2 py-2">
+                      <td className="px-2 py-2 text-gray-900">{index + 1}</td>                      <td className="px-2 py-2">
                         <span className={`px-1 py-0.5 text-xs font-bold rounded ${
                           bilty.bilty_type === 'station' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {bilty.bilty_type === 'station' ? 'STN' : 'REG'}
+                          {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
                         </span>
                       </td>
                       <td className="px-2 py-2">
@@ -440,12 +439,11 @@ const BiltyList = ({
                           )}
                         </button>
                       </td>
-                      <td className="px-3 py-2 text-gray-900">{index + 1}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 text-gray-900">{index + 1}</td>                      <td className="px-3 py-2">
                         <span className={`px-2 py-1 text-xs font-bold rounded ${
                           bilty.bilty_type === 'station' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {bilty.bilty_type === 'station' ? 'STN' : 'REG'}
+                          {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
                         </span>
                       </td>
                       <td className="px-3 py-2">

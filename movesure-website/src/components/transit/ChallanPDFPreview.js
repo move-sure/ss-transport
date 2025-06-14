@@ -29,10 +29,8 @@ const ChallanPDFPreview = ({
       setLoading(true);
       setError(null);
 
-      let doc;
-
-      if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob([...transitBilties, ...bilties]);
+      let doc;      if (type === 'loading') {
+        doc = await generateLoadingChallanPDFBlob(transitBilties);
       } else if (type === 'challan') {
         doc = await generateChallanBiltiesPDFBlob(transitBilties);
       } else {
@@ -51,7 +49,7 @@ const ChallanPDFPreview = ({
       setLoading(false);
     }
   }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches]);  // Generate Loading Challan PDF Blob with Split Layout
-  const generateLoadingChallanPDFBlob = async (allBiltiesData) => {
+  const generateLoadingChallanPDFBlob = async (transitBiltiesData) => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = 210;
     const pageHeight = 297;
@@ -63,9 +61,8 @@ const ChallanPDFPreview = ({
     const rowHeight = 10; // Increased row height for better readability
     
     let currentPage = 1;
-    
-    // Sort bilties alphabetically by city code first, then by GR number within each city
-    const sortedBiltiesData = [...allBiltiesData].sort((a, b) => {
+      // Sort bilties alphabetically by city code first, then by GR number within each city
+    const sortedBiltiesData = [...transitBiltiesData].sort((a, b) => {
       // First sort by city code (to_city_code) alphabetically
       const cityA = (a.to_city_code || '').toUpperCase();
       const cityB = (b.to_city_code || '').toUpperCase();
@@ -578,7 +575,7 @@ const ChallanPDFPreview = ({
     try {
       let doc;
       let filename;      if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob([...transitBilties, ...bilties]);
+        doc = await generateLoadingChallanPDFBlob(transitBilties);
         filename = `Loading_Challan_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else if (type === 'challan') {
         doc = await generateChallanBiltiesPDFBlob(transitBilties);
@@ -692,11 +689,10 @@ const ChallanPDFPreview = ({
                   <div>
                     <span className="font-semibold text-black">Date:</span>
                     <p className="text-black">{format(new Date(), 'dd/MM/yyyy')}</p>
-                  </div>
-                  <div>
+                  </div>                  <div>
                     <span className="font-semibold text-black">Total Bilties:</span>
                     <p className="text-purple-800 font-bold">
-                      {type === 'loading' ? (bilties.length + transitBilties.length) : transitBilties.length}
+                      {type === 'loading' ? transitBilties.length : transitBilties.length}
                     </p>
                   </div>
                 </div>
@@ -765,25 +761,22 @@ const ChallanPDFPreview = ({
                     Try Again
                   </button>
                 </div>
-              )}
-
-              {/* Summary Statistics */}
-              {(type === 'loading' && (bilties.length > 0 || transitBilties.length > 0)) || 
+              )}              {/* Summary Statistics */}
+              {(type === 'loading' && transitBilties.length > 0) || 
                (type === 'challan' && transitBilties.length > 0) && (
                 <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 shadow-md">
                   <h4 className="text-lg font-bold text-black mb-4">Summary</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <div className="grid grid-cols-2 gap-4 text-sm">                    <div className="bg-white rounded-lg p-3 border border-purple-200">
                       <span className="font-semibold text-black">Total Packages:</span>
                       <p className="text-2xl font-bold text-purple-600">
-                        {(type === 'loading' ? [...bilties, ...transitBilties] : transitBilties)
+                        {(type === 'loading' ? transitBilties : transitBilties)
                           .reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}
                       </p>
                     </div>
                     <div className="bg-white rounded-lg p-3 border border-purple-200">
                       <span className="font-semibold text-black">Total Weight:</span>
                       <p className="text-2xl font-bold text-blue-600">
-                        {(type === 'loading' ? [...bilties, ...transitBilties] : transitBilties)
+                        {(type === 'loading' ? transitBilties : transitBilties)
                           .reduce((sum, bilty) => sum + (bilty.wt || 0), 0).toFixed(2)} kg
                       </p>
                     </div>
@@ -858,12 +851,11 @@ const ChallanPDFPreview = ({
 
         {/* Footer */}
         <div className="p-4 border-t-2 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 rounded-b-xl">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-6 text-black">
+          <div className="flex items-center justify-between text-sm">            <div className="flex items-center gap-6 text-black">
               {type === 'loading' && (
                 <span className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-purple-600" />
-                  Available Bilties: <span className="font-bold text-purple-600">{bilties.length + transitBilties.length}</span>
+                  Transit Bilties: <span className="font-bold text-purple-600">{transitBilties.length}</span>
                 </span>
               )}
               {type === 'challan' && (

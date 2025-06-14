@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useInputNavigation } from './input-navigation';
 import { Save } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
 
 const PackageChargesSection = ({ 
   formData, 
@@ -15,7 +16,10 @@ const PackageChargesSection = ({
 }) => {
   const { register, unregister, handleEnter } = useInputNavigation();
   const inputRefs = useRef({});
-  const labourChargeTimeoutRef = useRef(null);// Handle Enter key navigation
+  const labourChargeTimeoutRef = useRef(null);
+  const [rateInfo, setRateInfo] = useState(null);
+  const [isSavingRate, setIsSavingRate] = useState(false);
+  const rateRef = useRef(null);// Handle Enter key navigation
   const handleEnterNavigation = (e, tabIndex) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -82,7 +86,189 @@ const PackageChargesSection = ({
                   (formData.pf_charge || 0);
     setFormData(prev => ({ ...prev, total }));
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
-      formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Initialize labour rate and toll charge if not set
+      formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
+  useEffect(() => {
+    const checkRateInfo = async () => {
+      if (!formData.rate || !formData.to_city_id || !formData.branch_id) {
+        setRateInfo(null);
+        return;
+      }
+
+      try {
+        // Check if there's a consignor-specific rate
+        if (formData.consignor_name) {
+          // Find consignor ID
+          const { data: consignor } = await supabase
+            .from('consignors')
+            .select('id, company_name')
+            .ilike('company_name', formData.consignor_name.trim())
+            .single();
+
+          if (consignor) {
+            // Check for consignor-specific rate
+            const { data: consignorRate } = await supabase
+              .from('rates')
+              .select('rate')
+              .eq('branch_id', formData.branch_id)
+              .eq('city_id', formData.to_city_id)
+              .eq('consignor_id', consignor.id)
+              .single();
+
+            if (consignorRate && parseFloat(consignorRate.rate) === parseFloat(formData.rate)) {
+              setRateInfo({
+                type: 'consignor',
+                message: `✅ Consignor-specific rate for ${formData.consignor_name}`
+              });
+              return;
+            }
+          }
+        }
+
+        // Check for default rate
+        const { data: defaultRate } = await supabase
+          .from('rates')
+          .select('rate')
+          .eq('branch_id', formData.branch_id)
+          .eq('city_id', formData.to_city_id)
+          .is('consignor_id', null)
+          .single();
+
+        if (defaultRate && parseFloat(defaultRate.rate) === parseFloat(formData.rate)) {
+          setRateInfo({
+            type: 'default',
+            message: '✅ Default rate for this city'
+          });
+        } else {
+          setRateInfo({
+            type: 'custom',
+            message: '⚠️ Custom rate - will be saved if different from existing'
+          });
+        }
+
+      } catch (error) {
+        console.error('Error checking rate info:', error);
+        setRateInfo({
+          type: 'custom',
+          message: '⚠️ Custom rate - will be saved automatically'
+        });
+      }
+    };
+
+    checkRateInfo();
+  }, [formData.rate, formData.consignor_name, formData.to_city_id, formData.branch_id]);
+
+  // Handle rate change with auto-save functionality
+  const handleRateChange = async (e) => {
+    const newRate = parseFloat(e.target.value) || 0;
+    setFormData(prev => ({ ...prev, rate: newRate }));
+
+    // Don't save if no city or branch selected, or rate is 0
+    if (!formData.to_city_id || !formData.branch_id || newRate <= 0) {
+      return;
+    }
+
+    // Debounce the save operation
+    if (window.rateSaveTimeout) {
+      clearTimeout(window.rateSaveTimeout);
+    }
+
+    window.rateSaveTimeout = setTimeout(async () => {
+      await saveRateAutomatically(newRate);
+    }, 1000); // Save after 1 second of no typing
+  };
+
+  // Auto-save rate function
+  const saveRateAutomatically = async (rate) => {
+    if (!formData.to_city_id || !formData.branch_id || !rate || rate <= 0) {
+      return;
+    }
+
+    try {
+      setIsSavingRate(true);
+      console.log('🔄 Auto-saving rate:', rate);
+
+      let consignorId = null;
+
+      // If consignor is selected, get consignor ID
+      if (formData.consignor_name && formData.consignor_name.trim()) {
+        const { data: consignor } = await supabase
+          .from('consignors')
+          .select('id, company_name')
+          .ilike('company_name', formData.consignor_name.trim())
+          .single();
+
+        if (consignor) {
+          consignorId = consignor.id;
+          console.log('📋 Found consignor for rate:', consignor.company_name, 'ID:', consignorId);
+        }
+      }
+
+      // Check for existing rate
+      let duplicateQuery = supabase
+        .from('rates')
+        .select('id, rate')
+        .eq('branch_id', formData.branch_id)
+        .eq('city_id', formData.to_city_id);
+
+      if (consignorId) {
+        duplicateQuery = duplicateQuery.eq('consignor_id', consignorId);
+      } else {
+        duplicateQuery = duplicateQuery.is('consignor_id', null);
+      }
+
+      const { data: existingRate } = await duplicateQuery.single();
+
+      if (existingRate) {
+        // Update existing rate if different
+        if (parseFloat(existingRate.rate) !== parseFloat(rate)) {
+          const { error: updateError } = await supabase
+            .from('rates')
+            .update({ rate: parseFloat(rate) })
+            .eq('id', existingRate.id);
+
+          if (updateError) throw updateError;
+          
+          console.log('✅ Rate updated successfully!');
+          setRateInfo({
+            type: consignorId ? 'consignor' : 'default',
+            message: `✅ Rate updated ${consignorId ? `for ${formData.consignor_name}` : '(default)'}`
+          });
+        } else {
+          console.log('📌 Rate unchanged - no update needed');
+        }
+      } else {
+        // Insert new rate
+        const rateData = {
+          branch_id: formData.branch_id,
+          city_id: formData.to_city_id,
+          consignor_id: consignorId || null,
+          rate: parseFloat(rate),
+          is_default: !consignorId
+        };
+
+        const { error: insertError } = await supabase
+          .from('rates')
+          .insert([rateData]);
+
+        if (insertError) throw insertError;
+        
+        console.log('✅ New rate saved successfully!');
+        setRateInfo({
+          type: consignorId ? 'consignor' : 'default',
+          message: `✅ New rate saved ${consignorId ? `for ${formData.consignor_name}` : '(default)'}`
+        });
+      }    } catch (error) {
+      console.error('❌ Error auto-saving rate:', error);
+      setRateInfo({
+        type: 'error',
+        message: '❌ Failed to save rate - ' + (error.message || 'Please try again')
+      });
+    } finally {
+      setIsSavingRate(false);
+    }
+  };
+
+  // Initialize labour rate and toll charge if not set
   useEffect(() => {
     const updates = {};
     if (formData.labour_rate === undefined || formData.labour_rate === null) {
@@ -178,20 +364,46 @@ const PackageChargesSection = ({
               <div className="flex items-center gap-3">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                   RATE
-                </span>                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.rate || 0}
-                  onChange={(e) => setFormData(prev => ({ ...prev, rate: parseFloat(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 21);
-                  }}
-                  ref={(el) => setInputRef(21, el)}
-                  className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
-                  placeholder="0"
-                  tabIndex={21}
-                />
+                </span>
+                <div className="flex-1">
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.rate || ''}
+                        onChange={handleRateChange}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          handleEnterNavigation(e, 21);
+                        }}
+                        ref={(el) => setInputRef(21, el)}
+                        className="w-full px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus pr-8"
+                        placeholder="₹ Rate per kg"
+                        tabIndex={21}
+                      />
+                      {isSavingRate && (
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
+                    {rateInfo && (
+                      <div className={`text-xs px-3 py-2 rounded-lg ${
+                        rateInfo.type === 'consignor' 
+                          ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                          : rateInfo.type === 'default'
+                          ? 'bg-green-100 text-green-800 border border-green-200'
+                          : rateInfo.type === 'error'
+                          ? 'bg-red-100 text-red-800 border border-red-200'
+                          : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                      }`}>
+                        {rateInfo.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Labour Rate - Fifth */}

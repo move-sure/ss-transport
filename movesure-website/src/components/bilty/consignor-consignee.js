@@ -144,15 +144,42 @@ const ConsignorConsigneeSection = ({
     }
     setConsigneeSelectedIndex(-1);
   };
-
   const handleConsignorSelect = async (consignor) => {
     setConsignorSearch(consignor.company_name);
-    setFormData(prev => ({
-      ...prev,
-      consignor_name: consignor.company_name,
-      consignor_gst: consignor.gst_num || '',
-      consignor_number: consignor.number || ''
-    }));
+    
+    // Update consignor details
+    setFormData(prev => {
+      const updatedData = {
+        ...prev,
+        consignor_name: consignor.company_name,
+        consignor_gst: consignor.gst_num || '',
+        consignor_number: consignor.number || ''
+      };
+      
+      // If city is already selected, update rate to consignor-specific rate if available
+      if (prev.to_city_id) {
+        console.log('🔍 Consignor selected, looking for consignor-specific rate...');
+        console.log('Selected consignor:', consignor.company_name, 'ID:', consignor.id);
+        console.log('Current city ID:', prev.to_city_id);
+        
+        // Find consignor-specific rate for this consignor and city combination
+        // Note: We need to use external data since we don't have direct access to rates here
+        // The rate lookup will be handled by parent component or city-transport component
+        
+        // For now, we'll trigger a custom event that the parent can listen to
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('consignorSelected', {
+            detail: {
+              consignor: consignor,
+              cityId: prev.to_city_id
+            }
+          }));
+        }
+      }
+      
+      return updatedData;
+    });
+    
     setShowConsignorDropdown(false);
     setConsignorSelectedIndex(-1);
     clearResults();
@@ -490,10 +517,10 @@ const ConsignorConsigneeSection = ({
               <div className="relative">                <input
                   type="text"
                   ref={consignorInputRef}
-                  value={consignorSearch}
+                  value={consignorSearch || ''}
                   onChange={(e) => handleConsignorSearchChange(e.target.value)}
                   onFocus={() => {
-                    if (consignorSearch.length >= 2) {
+                    if (consignorSearch && consignorSearch.length >= 2) {
                       setShowConsignorDropdown(true);
                     }
                   }}                  onKeyDown={handleConsignorKeyDown}
@@ -562,10 +589,10 @@ const ConsignorConsigneeSection = ({
               <div className="relative">                <input
                   type="text"
                   ref={consigneeInputRef}
-                  value={consigneeSearch}
+                  value={consigneeSearch || ''}
                   onChange={(e) => handleConsigneeSearchChange(e.target.value)}
                   onFocus={() => {
-                    if (consigneeSearch.length >= 2) {
+                    if (consigneeSearch && consigneeSearch.length >= 2) {
                       setShowConsigneeDropdown(true);
                     }
                   }}                  onKeyDown={handleConsigneeKeyDown}
@@ -640,7 +667,7 @@ const ConsignorConsigneeSection = ({
               </span>              <input
                 type="text"
                 ref={consignorGstRef}
-                value={formData.consignor_gst}
+                value={formData.consignor_gst || ''}
                 onChange={handleConsignorGSTChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 7)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📄 Consignor GST (auto-saves)"
@@ -653,7 +680,7 @@ const ConsignorConsigneeSection = ({
               </span>              <input
                 type="text"
                 ref={consignorPhoneRef}
-                value={formData.consignor_number}
+                value={formData.consignor_number || ''}
                 onChange={handleConsignorNumberChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 8)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📞 Consignor Phone (auto-saves)"
@@ -675,7 +702,7 @@ const ConsignorConsigneeSection = ({
               </span>              <input
                 type="text"
                 ref={consigneeGstRef}
-                value={formData.consignee_gst}
+                value={formData.consignee_gst || ''}
                 onChange={handleConsigneeGSTChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 9)}                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📄 Consignee GST (auto-saves)"
@@ -688,7 +715,7 @@ const ConsignorConsigneeSection = ({
               </span>              <input
                 type="text"
                 ref={consigneePhoneRef}
-                value={formData.consignee_number}
+                value={formData.consignee_number || ''}
                 onChange={handleConsigneeNumberChange}                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 10)}
                 className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                 placeholder="📞 Consignee Phone (auto-saves)"
@@ -710,10 +737,9 @@ const ConsignorConsigneeSection = ({
               <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 mb-1">
                   Company Name <span className="text-red-500">*</span>
-                </label>
-                <input
+                </label>                <input
                   type="text"
-                  value={newConsignorData.company_name}
+                  value={newConsignorData.company_name || ''}
                   onChange={(e) => setNewConsignorData(prev => ({ ...prev, company_name: e.target.value }))}
                   className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none text-black font-medium ${
                     consignorExists 
@@ -756,20 +782,18 @@ const ConsignorConsigneeSection = ({
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">GST Number</label>
-                <input
+                <label className="block text-sm font-bold text-gray-700 mb-1">GST Number</label>                <input
                   type="text"
-                  value={newConsignorData.gst_num}
+                  value={newConsignorData.gst_num || ''}
                   onChange={(e) => setNewConsignorData(prev => ({ ...prev, gst_num: e.target.value }))}
                   className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
                   placeholder="Enter GST number"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
-                <input
+                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>                <input
                   type="text"
-                  value={newConsignorData.number}
+                  value={newConsignorData.number || ''}
                   onChange={(e) => setNewConsignorData(prev => ({ ...prev, number: e.target.value }))}
                   className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
                   placeholder="Enter phone number"
@@ -811,10 +835,9 @@ const ConsignorConsigneeSection = ({
               <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 mb-1">
                   Company Name <span className="text-red-500">*</span>
-                </label>
-                <input
+                </label>                <input
                   type="text"
-                  value={newConsigneeData.company_name}
+                  value={newConsigneeData.company_name || ''}
                   onChange={(e) => setNewConsigneeData(prev => ({ ...prev, company_name: e.target.value }))}
                   className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none text-black font-medium ${
                     consigneeExists 
@@ -857,20 +880,18 @@ const ConsignorConsigneeSection = ({
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">GST Number</label>
-                <input
+                <label className="block text-sm font-bold text-gray-700 mb-1">GST Number</label>                <input
                   type="text"
-                  value={newConsigneeData.gst_num}
+                  value={newConsigneeData.gst_num || ''}
                   onChange={(e) => setNewConsigneeData(prev => ({ ...prev, gst_num: e.target.value }))}
                   className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
                   placeholder="Enter GST number"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
-                <input
+                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>                <input
                   type="text"
-                  value={newConsigneeData.number}
+                  value={newConsigneeData.number || ''}
                   onChange={(e) => setNewConsigneeData(prev => ({ ...prev, number: e.target.value }))}
                   className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
                   placeholder="Enter phone number"

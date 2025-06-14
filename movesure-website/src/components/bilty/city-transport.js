@@ -64,7 +64,6 @@ const CityTransportSection = ({
       unregister(4);
     };
   }, [register, unregister]);
-
   const handleCitySelect = (city) => {
     setCitySearch(city.city_name);
     setShowCityDropdown(false);
@@ -74,9 +73,36 @@ const CityTransportSection = ({
     const cityTransports = transports.filter(t => t.city_id === city.id);
     const transport = cityTransports[0] || null;
     
-    // Find rate for this city
+    // Enhanced rate lookup for this city - prioritize consignor-specific rates
     const cityRates = rates.filter(r => r.city_id === city.id);
-    const defaultRate = cityRates.find(r => r.is_default) || cityRates[0];
+    let selectedRate = null;
+    
+    // If consignor is already selected, try to find consignor-specific rate first
+    if (formData.consignor_name) {
+      console.log('🔍 Looking for consignor-specific rate for:', formData.consignor_name);
+      
+      // Find consignor-specific rates (non-default rates)
+      const consignorSpecificRates = cityRates.filter(r => !r.is_default && r.consignor_id);
+      
+      if (consignorSpecificRates.length > 0) {
+        console.log('✅ Found consignor-specific rates for this city:', consignorSpecificRates.length);
+        selectedRate = consignorSpecificRates[0]; // Use the first consignor-specific rate
+      }
+    }
+    
+    // If no consignor-specific rate found, fall back to default rate
+    if (!selectedRate) {
+      console.log('🔍 Looking for default rate for city:', city.city_name);
+      selectedRate = cityRates.find(r => r.is_default) || cityRates[0];
+      
+      if (selectedRate) {
+        console.log('✅ Using default rate:', selectedRate.rate);
+      } else {
+        console.log('⚠️ No rate found for this city');
+      }
+    } else {
+      console.log('✅ Using consignor-specific rate:', selectedRate.rate);
+    }
     
     setFormData(prev => ({
       ...prev,
@@ -84,7 +110,7 @@ const CityTransportSection = ({
       transport_name: transport?.transport_name || '',
       transport_gst: transport?.gst_number || '',
       transport_number: transport?.mob_number || '',
-      rate: defaultRate?.rate || prev.rate
+      rate: selectedRate?.rate || prev.rate || 0
     }));
   };
   const handleKeyDown = (e) => {

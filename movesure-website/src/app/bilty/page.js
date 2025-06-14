@@ -26,8 +26,7 @@ export default function BiltyForm() {
   // Edit mode and print states
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentBiltyId, setCurrentBiltyId] = useState(null);
-  const [existingBilties, setExistingBilties] = useState([]);
-  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [existingBilties, setExistingBilties] = useState([]);  const [showPrintModal, setShowPrintModal] = useState(false);
   const [showPrintBilty, setShowPrintBilty] = useState(false);
   const [savedBiltyData, setSavedBiltyData] = useState(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -88,10 +87,14 @@ export default function BiltyForm() {
     remark: '',
     saving_option: 'SAVE'
   });
-
   // Load initial data
   useEffect(() => {
     if (user?.branch_id) {
+      // Set branch_id in formData immediately when user is available
+      setFormData(prev => ({ 
+        ...prev, 
+        branch_id: user.branch_id 
+      }));
       loadInitialData();
     }
   }, [user]);
@@ -129,16 +132,53 @@ export default function BiltyForm() {
       if (e.altKey && e.key === 'c') {
         e.preventDefault();
         router.push('/challan');
-      }
-    };const handleKeyUp = (e) => {
+      }    };const handleKeyUp = (e) => {
       if (e.key === 'Alt') setShowShortcuts(false);
     };
     
-    window.addEventListener('keydown', handleKeyDown);
+    // Handle consignor selection for rate updates
+    const handleConsignorSelection = (event) => {
+      const { consignor, cityId } = event.detail;
+      console.log('🎯 Handling consignor selection event:', consignor.company_name, 'for city:', cityId);
+      
+      // Find consignor-specific rate for this consignor and city combination
+      const consignorSpecificRate = rates.find(r => 
+        r.city_id === cityId && 
+        r.consignor_id === consignor.id && 
+        !r.is_default
+      );
+      
+      if (consignorSpecificRate) {
+        console.log('✅ Found consignor-specific rate:', consignorSpecificRate.rate);
+        setFormData(prev => ({
+          ...prev,
+          rate: consignorSpecificRate.rate
+        }));
+      } else {
+        console.log('⚠️ No consignor-specific rate found, keeping current rate');
+        
+        // Optionally, fall back to default rate for this city
+        const defaultRate = rates.find(r => 
+          r.city_id === cityId && 
+          r.is_default
+        );
+        
+        if (defaultRate) {
+          console.log('📋 Using default rate:', defaultRate.rate);
+          setFormData(prev => ({
+            ...prev,
+            rate: defaultRate.rate
+          }));
+        }
+      }
+    };    window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('consignorSelected', handleConsignorSelection);
+    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('consignorSelected', handleConsignorSelection);
     };
   }, [formData, selectedBillBook, isEditMode, currentBiltyId]);
 
@@ -384,11 +424,8 @@ export default function BiltyForm() {
         other_charge: parseFloat(formData.other_charge) || 0,
         pf_charge: parseFloat(formData.pf_charge) || 0,
         total: parseFloat(formData.total) || 0,
-        remark: formData.remark?.toString().trim() || null,
-        saving_option: isDraft ? 'DRAFT' : 'SAVE',
-        is_active: true,
-        created_at: isEditMode ? undefined : new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        remark: formData.remark?.toString().trim() || null,        saving_option: isDraft ? 'DRAFT' : 'SAVE',
+        is_active: true
       };
       
       console.log('Prepared save data:', saveData);
@@ -456,7 +493,271 @@ export default function BiltyForm() {
           throw error;
         }
           savedData = data;
-        console.log('New bilty created successfully:', savedData);
+        console.log('New bilty created successfully:', savedData);        // ⭐ AUTOMATIC RATE SAVING FUNCTIONALITY ⭐
+        // Only save rates for non-draft bilties and when rate is provided
+        if (!isDraft && formData.rate && parseFloat(formData.rate) > 0 && formData.consignor_name && formData.to_city_id) {
+          console.log('🔍 Starting automatic rate saving process...');
+          console.log('📊 Rate saving criteria check:', {
+            isDraft,
+            hasRate: !!formData.rate,
+            rateValue: formData.rate,
+            hasConsignor: !!formData.consignor_name,
+            consignorName: formData.consignor_name,
+            hasCityId: !!formData.to_city_id,
+            cityId: formData.to_city_id,
+            branchId: user.branch_id
+          });
+          
+          try {
+            // Enhanced consignor lookup with multiple search strategies
+            let consignorId = null;
+            let consignorData = null;
+            
+            // Strategy 1: Exact match (case-insensitive)
+            const { data: exactMatch, error: exactError } = await supabase
+              .from('consignors')
+              .select('id, company_name')
+              .ilike('company_name', formData.consignor_name.trim())
+              .single();
+            
+            if (exactMatch && !exactError) {
+              consignorData = exactMatch;
+              consignorId = exactMatch.id;
+              console.log('✅ Found consignor by exact match:', consignorData);
+            } else if (exactError && exactError.code !== 'PGRST116') {
+              console.warn('Error in exact consignor search:', exactError);
+            }
+            
+            // Strategy 2: If exact match failed, try partial match
+            if (!consignorId) {
+              const { data: partialMatches, error: partialError } = await supabase
+                .from('consignors')
+                .select('id, company_name')
+                .ilike('company_name', `%${formData.consignor_name.trim()}%`)
+                .limit(5);
+              
+              if (partialMatches && partialMatches.length > 0 && !partialError) {
+                // Look for closest match
+                const cleanConsignorName = formData.consignor_name.trim().toLowerCase();
+                const bestMatch = partialMatches.find(c => 
+                  c.company_name.toLowerCase() === cleanConsignorName
+                ) || partialMatches[0]; // Fall back to first match
+                
+                consignorData = bestMatch;
+                consignorId = bestMatch.id;
+                console.log('✅ Found consignor by partial match:', consignorData);
+              } else if (partialError) {
+                console.warn('Error in partial consignor search:', partialError);
+              }            }
+            
+            // Log the final consignor decision
+            if (consignorId) {
+              console.log(`📋 Using CONSIGNOR-SPECIFIC rate for: ${consignorData.company_name} (ID: ${consignorId})`);
+            } else {
+              console.log('📋 No matching consignor found, will create DEFAULT rate');
+              // Ensure consignorId is explicitly null for default rates
+              consignorId = null;
+            }
+            
+            // Check if rate already exists for this exact combination
+            let existingRateQuery = supabase
+              .from('rates')
+              .select('id, rate, is_default, consignor_id')
+              .eq('branch_id', user.branch_id)
+              .eq('city_id', formData.to_city_id);
+            
+            if (consignorId) {
+              // Check for consignor-specific rate
+              existingRateQuery = existingRateQuery.eq('consignor_id', consignorId);
+            } else {
+              // Check for default rate (no consignor)
+              existingRateQuery = existingRateQuery.is('consignor_id', null);
+            }
+            
+            const { data: existingRate, error: rateCheckError } = await existingRateQuery.single();
+            
+            if (rateCheckError && rateCheckError.code !== 'PGRST116') {
+              console.warn('Error checking existing rate:', rateCheckError);
+            }
+            
+            const newRate = parseFloat(formData.rate);
+            
+            if (existingRate) {
+              // Update existing rate if different
+              if (Math.abs(existingRate.rate - newRate) > 0.01) { // Use small tolerance for floating point comparison
+                console.log(`🔄 Updating existing ${consignorId ? 'consignor-specific' : 'default'} rate from ₹${existingRate.rate} to ₹${newRate}`);
+                  const { error: updateError } = await supabase
+                  .from('rates')
+                  .update({ 
+                    rate: newRate
+                  })
+                  .eq('id', existingRate.id);
+                
+                if (updateError) {
+                  console.error('❌ Error updating rate:', updateError);
+                } else {
+                  console.log('✅ Rate updated successfully');
+                }
+              } else {
+                console.log(`✅ Rate already exists with same value (₹${existingRate.rate}), no update needed`);
+              }
+            } else {              // Create new rate entry
+              console.log(`➕ Creating new ${consignorId ? 'consignor-specific' : 'default'} rate entry...`);
+                const rateData = {
+                branch_id: user.branch_id,
+                city_id: formData.to_city_id,                consignor_id: consignorId,
+                rate: newRate,
+                is_default: !consignorId // true if no consignor (default rate)
+              };
+              
+              console.log('Rate data to insert:', rateData);
+              
+              // Validate data types and format
+              if (typeof rateData.branch_id !== 'string' && typeof rateData.branch_id !== 'number') {
+                console.error('❌ Invalid branch_id type:', typeof rateData.branch_id, rateData.branch_id);
+                throw new Error('Invalid branch_id type');
+              }
+              
+              if (typeof rateData.city_id !== 'string' && typeof rateData.city_id !== 'number') {
+                console.error('❌ Invalid city_id type:', typeof rateData.city_id, rateData.city_id);
+                throw new Error('Invalid city_id type');
+              }
+              
+              if (typeof rateData.rate !== 'number' || isNaN(rateData.rate) || rateData.rate <= 0) {
+                console.error('❌ Invalid rate value:', typeof rateData.rate, rateData.rate);
+                throw new Error('Invalid rate value');
+              }
+              
+              if (rateData.consignor_id !== null && (typeof rateData.consignor_id !== 'string' && typeof rateData.consignor_id !== 'number')) {
+                console.error('❌ Invalid consignor_id type:', typeof rateData.consignor_id, rateData.consignor_id);
+                throw new Error('Invalid consignor_id type');
+              }
+              
+              console.log('✅ Rate data validation passed');
+                // Validate required fields before insertion
+              if (!rateData.branch_id || !rateData.city_id || !rateData.rate) {
+                console.error('❌ Missing required fields for rate insertion:', {
+                  branch_id: rateData.branch_id,
+                  city_id: rateData.city_id,
+                  rate: rateData.rate
+                });
+                throw new Error('Missing required fields for rate insertion');
+              }
+              
+              // Validate that branch and city exist
+              const [branchCheck, cityCheck] = await Promise.all([
+                supabase.from('branches').select('id').eq('id', rateData.branch_id).single(),
+                supabase.from('cities').select('id').eq('id', rateData.city_id).single()
+              ]);
+              
+              if (branchCheck.error) {
+                console.error('❌ Invalid branch_id:', rateData.branch_id, branchCheck.error);
+                throw new Error(`Invalid branch_id: ${rateData.branch_id}`);
+              }
+              
+              if (cityCheck.error) {
+                console.error('❌ Invalid city_id:', rateData.city_id, cityCheck.error);
+                throw new Error(`Invalid city_id: ${rateData.city_id}`);
+              }
+              
+              // If consignor_id is provided, validate it exists
+              if (rateData.consignor_id) {
+                const { error: consignorCheckError } = await supabase
+                  .from('consignors')
+                  .select('id')
+                  .eq('id', rateData.consignor_id)
+                  .single();
+                
+                if (consignorCheckError) {
+                  console.error('❌ Invalid consignor_id:', rateData.consignor_id, consignorCheckError);
+                  throw new Error(`Invalid consignor_id: ${rateData.consignor_id}`);
+                }
+              }
+              
+              console.log('✅ All foreign key references validated');
+              
+              // Check for duplicate rate entry to prevent constraint violations
+              const duplicateCheckQuery = supabase
+                .from('rates')
+                .select('id')
+                .eq('branch_id', rateData.branch_id)
+                .eq('city_id', rateData.city_id);
+              
+              if (rateData.consignor_id) {
+                duplicateCheckQuery.eq('consignor_id', rateData.consignor_id);
+              } else {
+                duplicateCheckQuery.is('consignor_id', null);
+              }
+              
+              const { data: duplicateRate, error: duplicateCheckError } = await duplicateCheckQuery.single();
+              
+              if (duplicateCheckError && duplicateCheckError.code !== 'PGRST116') {
+                console.warn('⚠️ Error checking for duplicate rate:', duplicateCheckError);
+              }
+              
+              if (duplicateRate) {
+                console.log('🔄 Rate entry already exists, skipping insertion to avoid duplicate');
+                return;
+              }
+              
+              const { error: insertRateError } = await supabase
+                .from('rates')
+                .insert([rateData]);
+                if (insertRateError) {
+                console.error('❌ Error saving new rate:', {
+                  error: insertRateError,
+                  code: insertRateError.code,
+                  message: insertRateError.message,
+                  details: insertRateError.details,
+                  hint: insertRateError.hint,
+                  // Stringify the full error for debugging
+                  fullError: JSON.stringify(insertRateError, null, 2)
+                });
+                // Also log the rate data that failed to insert
+                console.error('Failed rate data:', rateData);
+              } else {
+                console.log('✅ New rate saved successfully:', rateData);
+              }
+            }
+            
+            // Optional: Refresh rates in memory for immediate use
+            if (window.location.pathname === '/bilty') {
+              console.log('🔄 Refreshing rates data...');
+              const { data: updatedRates } = await supabase
+                .from('rates')
+                .select('*')
+                .eq('branch_id', user.branch_id);
+              
+              if (updatedRates) {
+                setRates(updatedRates);
+                console.log('✅ Rates data refreshed');
+              }
+            }
+              } catch (rateError) {
+            console.error('❌ Error in automatic rate saving:', {
+              error: rateError,
+              message: rateError.message,
+              code: rateError.code,
+              details: rateError.details,
+              stack: rateError.stack
+            });
+            
+            // Handle specific error types
+            if (rateError.code === '23505') {
+              console.log('🔄 Rate already exists (unique constraint violation) - this is expected behavior');
+            } else if (rateError.code === '23503') {
+              console.error('🔗 Foreign key constraint violation - invalid reference to branch, city, or consignor');
+            } else if (rateError.code === '23502') {
+              console.error('📝 Not null constraint violation - missing required field');
+            } else if (rateError.message?.includes('Invalid')) {
+              console.error('🔍 Validation error during rate saving');
+            } else {
+              console.error('🔧 Unexpected error during rate saving');
+            }
+            
+            // Don't fail the bilty save if rate saving fails
+          }
+        }
         
         // Update bill book current number for both draft and saved bilties
         if (selectedBillBook) {
@@ -628,12 +929,11 @@ export default function BiltyForm() {
 
   const handleSaveOnly = () => {
     setShowPrintModal(false);
-    resetForm();
-  };
+    resetForm();  };
 
   const handlePrintClose = () => {
     setShowPrintBilty(false);
-    // Always reset to new bilty after print, regardless of edit mode
+  // Always reset to new bilty after print, regardless of edit mode
     resetForm();
   };
 
@@ -666,7 +966,8 @@ export default function BiltyForm() {
           </div>
         </div>
       </div>
-    );  }
+    );
+  }
 
   return (
     <SimpleNavigationProvider>
@@ -867,16 +1168,15 @@ export default function BiltyForm() {
         biltyData={savedBiltyData}
         branchData={branchData}
         showShortcuts={showShortcuts}
-      />
-
-      {/* Print Component */}
+      />      {/* Print Component */}
       {showPrintBilty && savedBiltyData && (
         <PrintBilty
           biltyData={savedBiltyData}
           branchData={branchData}
           fromCityName={fromCityName}
           toCityName={toCityName}
-          onClose={handlePrintClose}        />
+          onClose={handlePrintClose}
+        />
       )}
     </div>
     </SimpleNavigationProvider>

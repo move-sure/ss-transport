@@ -520,7 +520,7 @@ export default function StationBiltySummaryPage() {
                     <Search className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    type="text"                    placeholder="Search by station, GR no, consignor, or consignee..."
+                    type="text"                    placeholder="Search by station, GR no, consignor, consignee, or PVT marks..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
@@ -563,7 +563,7 @@ export default function StationBiltySummaryPage() {
               <table className="min-w-full divide-y divide-gray-200">                <thead className="bg-gray-50">
                   <tr>                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station/GR No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents/PVT Marks</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Delivery</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -589,12 +589,15 @@ export default function StationBiltySummaryPage() {
                           </div>
                           <div className="text-sm text-gray-500">To: {summary.consignee || '-'}</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{summary.contents || '-'}</div>
-                        {summary.pvt_marks && (
-                          <div className="text-xs text-gray-500">Pvt: {summary.pvt_marks}</div>
-                        )}
+                      </td>                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm text-gray-900 font-medium">{summary.contents || '-'}</div>
+                          {summary.pvt_marks && (
+                            <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded mt-1 inline-block">
+                              <span className="font-medium">PVT:</span> {summary.pvt_marks}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{summary.no_of_packets} packages</div>

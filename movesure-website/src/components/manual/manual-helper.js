@@ -126,7 +126,7 @@ export const useStationBiltySummary = () => {
       const { data, error } = await supabase
         .from('station_bilty_summary')
         .select('*')
-        .or(`station.ilike.%${term}%,gr_no.ilike.%${term}%,consignor.ilike.%${term}%,consignee.ilike.%${term}%`)
+        .or(`station.ilike.%${term}%,gr_no.ilike.%${term}%,consignor.ilike.%${term}%,consignee.ilike.%${term}%,pvt_marks.ilike.%${term}%`)
         .order('created_at', { ascending: false })
         .limit(20);
 

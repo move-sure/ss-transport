@@ -239,26 +239,28 @@ export default function TransitManagement() {
             bilty_type: 'regular'
           };
         })
-        .sort(sortByGRNumber); // Sort by GR number
-
-      // Process station bilties
+        .sort(sortByGRNumber); // Sort by GR number      // Process station bilties
       const processedStationBilties = (stationBiltiesRes.data || [])
         .filter(sb => !transitStationBiltyIds.has(sb.id))
-        .map(stationBilty => ({
-          ...stationBilty,
-          // Map station bilty fields to regular bilty fields for consistency
-          bilty_date: stationBilty.created_at,
-          consignor_name: stationBilty.consignor,
-          consignee_name: stationBilty.consignee,
-          payment_mode: stationBilty.payment_status,
-          no_of_pkg: stationBilty.no_of_packets,
-          total: stationBilty.amount,
-          wt: stationBilty.weight,
-          contain: stationBilty.contents,
-          to_city_name: stationBilty.station,
-          to_city_code: stationBilty.station,
-          bilty_type: 'station'
-        }))
+        .map(stationBilty => {
+          // Find the city name for the station city code
+          const city = citiesRes.data?.find(c => c.city_code === stationBilty.station);
+          return {
+            ...stationBilty,
+            // Map station bilty fields to regular bilty fields for consistency
+            bilty_date: stationBilty.created_at,
+            consignor_name: stationBilty.consignor,
+            consignee_name: stationBilty.consignee,
+            payment_mode: stationBilty.payment_status,
+            no_of_pkg: stationBilty.no_of_packets,
+            total: stationBilty.amount,
+            wt: stationBilty.weight,
+            contain: stationBilty.contents,
+            to_city_name: city?.city_name || stationBilty.station, // Convert city_code to city_name
+            to_city_code: stationBilty.station, // Keep original city_code
+            bilty_type: 'station'
+          };
+        })
         .sort(sortByGRNumber); // Sort by GR number
 
       setBilties(processedBilties);
@@ -338,9 +340,9 @@ export default function TransitManagement() {
             is_out_of_delivery_from_branch1: transit.is_out_of_delivery_from_branch1,
             is_delivered_at_branch2: transit.is_delivered_at_branch2,
             is_delivered_at_destination: transit.is_delivered_at_destination
-          };
-        } else if (stationBilty) {
+          };        } else if (stationBilty) {
           // Station bilty - map fields to match regular bilty structure
+          const city = cities.find(c => c.city_code === stationBilty.station);
           return {
             ...stationBilty,
             transit_id: transit.id,
@@ -353,8 +355,8 @@ export default function TransitManagement() {
             total: stationBilty.amount,
             wt: stationBilty.weight,
             contain: stationBilty.contents,
-            to_city_name: stationBilty.station,
-            to_city_code: stationBilty.station,
+            to_city_name: city?.city_name || stationBilty.station, // Convert city_code to city_name
+            to_city_code: stationBilty.station, // Keep original city_code
             in_transit: true,
             bilty_type: 'station',
             is_out_of_delivery_from_branch1: transit.is_out_of_delivery_from_branch1,

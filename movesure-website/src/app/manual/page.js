@@ -870,9 +870,7 @@ export default function StationBiltySummaryPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                       placeholder="Enter contents or description"
                     />
-                  </div>
-
-                  {/* Number of Packets */}
+                  </div>                  {/* Number of Packets */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Number of Packets
@@ -881,6 +879,7 @@ export default function StationBiltySummaryPage() {
                       type="number"
                       value={formData.no_of_packets}
                       onChange={(e) => setFormData({ ...formData, no_of_packets: parseInt(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -910,6 +909,7 @@ export default function StationBiltySummaryPage() {
                       step="0.001"
                       value={formData.weight}
                       onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -927,7 +927,7 @@ export default function StationBiltySummaryPage() {
                       placeholder="Enter weight in kg"
                       min="0"
                     />
-                  </div>                  {/* Payment & Delivery Type Combined */}
+                  </div>{/* Payment & Delivery Type Combined */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Payment & Delivery Type *
@@ -970,9 +970,7 @@ export default function StationBiltySummaryPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Select payment method and delivery type combination
                     </p>
-                  </div>
-
-                  {/* Amount */}
+                  </div>                  {/* Amount */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Amount (₹)
@@ -982,6 +980,7 @@ export default function StationBiltySummaryPage() {
                       step="0.01"
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();

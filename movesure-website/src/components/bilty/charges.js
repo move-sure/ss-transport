@@ -367,11 +367,14 @@ return (
               <div className="flex items-center gap-3">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                   WEIGHT
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   step="0.001"
                   value={formData.wt || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, wt: parseFloat(e.target.value) || 0 }))}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(19, el)}
                   className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
                   placeholder="0"
@@ -381,10 +384,13 @@ return (
               <div className="flex items-center gap-3">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                   PACKAGES
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   value={formData.no_of_pkg || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(20, el)}
                   className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
                   placeholder="0"
@@ -397,12 +403,15 @@ return (
                 </span>
                 <div className="flex-1">
                   <div className="space-y-2">
-                    <div className="relative">                      <input
+                    <div className="relative">
+
+                      <input
                         type="number"
                         step="0.01"
                         min="0"
                         value={formData.rate || ''}
                         onChange={handleRateChange}
+                        onFocus={(e) => e.target.select()}
                         ref={(el) => setInputRef(21, el)}
                         className="w-full px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus pr-8"
                         placeholder="₹ Rate per kg"
@@ -433,7 +442,9 @@ return (
               <div className="flex items-center gap-3 col-span-2">
                 <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
                   LABOUR RATE
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   step="0.01"
                   min="0"
@@ -453,6 +464,7 @@ return (
                     }
                     setFormData(prev => ({ ...prev, labour_rate: value }));
                   }}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(22, el)}
                   className="w-32 px-3 py-2 text-black font-semibold border-2 border-orange-300 rounded-lg bg-white shadow-sm hover:border-orange-400 transition-all number-input-focus"
                   placeholder="20"
@@ -477,10 +489,13 @@ return (
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   FREIGHT
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   value={formData.freight_amount || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, freight_amount: parseFloat(e.target.value) || 0 }))}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(23, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={23}
@@ -492,7 +507,9 @@ return (
                 <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   LABOUR
                 </span>
-                <div className="flex flex-col items-end">                  <input
+                <div className="flex flex-col items-end">
+
+                  <input
                     type="number"
                     step="0.01"
                     min="0"
@@ -507,7 +524,9 @@ return (
                       }
                       
                       setFormData(prev => ({ ...prev, labour_charge: value }));
-                    }}                    onBlur={() => {
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={() => {
                       // Re-enable auto-calculation after manual input is complete
                       const labourRate = formData.labour_rate || 0;
                       const packages = parseInt(formData.no_of_pkg) || 0;
@@ -522,7 +541,8 @@ return (
                     className="w-24 px-2 py-2 text-black font-bold border-2 border-orange-300 rounded text-center bg-white hover:border-orange-400 number-input-focus transition-all duration-200"
                     tabIndex={24}
                     title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
-                  /><span className="text-xs text-gray-500 mt-1">
+                  />
+                  <span className="text-xs text-gray-500 mt-1">
                     @₹{formData.labour_rate || 0}/pkg
                   </span>
                 </div>
@@ -530,10 +550,13 @@ return (
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   BILL CHR
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   value={formData.bill_charge || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, bill_charge: parseFloat(e.target.value) || 0 }))}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(25, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={25}
@@ -542,7 +565,9 @@ return (
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   TOLL
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   step="0.01"
                   min="0"
@@ -551,6 +576,7 @@ return (
                     const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setFormData(prev => ({ ...prev, toll_charge: value }));
                   }}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(26, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-green-300 rounded text-center bg-white hover:border-green-400 number-input-focus transition-all duration-200"
                   placeholder="20"
@@ -562,10 +588,13 @@ return (
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   PF CHR
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   value={formData.pf_charge || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, pf_charge: parseFloat(e.target.value) || 0 }))}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(27, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={27}
@@ -574,10 +603,13 @@ return (
               <div className="flex items-center justify-between gap-2">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                   OTHER
-                </span>                <input
+                </span>
+
+                <input
                   type="number"
                   value={formData.other_charge || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
+                  onFocus={(e) => e.target.select()}
                   ref={(el) => setInputRef(28, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={28}

@@ -404,6 +404,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={invoiceValueRef}
             value={formData.invoice_value || 0}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
+            onFocus={(e) => e.target.select()}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 number-input-focus transition-all duration-200"
             placeholder="💰 Invoice value"
             tabIndex={15}

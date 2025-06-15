@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, AlertTriangle, Search } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
-import { customAlert } from '../common/alert-system';
 import { 
   useConsignorConsigneeSearch,
   addNewConsignor,
@@ -164,8 +163,17 @@ const ConsignorConsigneeSection = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);  // Handle consignor search with optimized database query
   const handleConsignorSearchChange = (value) => {
+    console.log('🎯 Consignor search changed:', value);
+    
+    // Update search state immediately
     setConsignorSearch(value);
-    setFormData(prev => ({ ...prev, consignor_name: value }));
+    
+    // Update form data immediately and synchronously
+    setFormData(prev => {
+      const updated = { ...prev, consignor_name: value };
+      console.log('🔄 Updated formData.consignor_name:', updated.consignor_name);
+      return updated;
+    });
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignors');
@@ -183,8 +191,17 @@ const ConsignorConsigneeSection = ({
     setConsignorSelectedIndex(-1);
   };  // Handle consignee search with optimized database query
   const handleConsigneeSearchChange = (value) => {
+    console.log('🎯 Consignee search changed:', value);
+    
+    // Update search state immediately
     setConsigneeSearch(value);
-    setFormData(prev => ({ ...prev, consignee_name: value }));
+    
+    // Update form data immediately and synchronously
+    setFormData(prev => {
+      const updated = { ...prev, consignee_name: value };
+      console.log('🔄 Updated formData.consignee_name:', updated.consignee_name);
+      return updated;
+    });
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignees');
@@ -200,8 +217,8 @@ const ConsignorConsigneeSection = ({
       clearResults();
     }
     setConsigneeSelectedIndex(-1);
-  };
-  const handleConsignorSelect = async (consignor) => {
+  };  const handleConsignorSelect = async (consignor) => {
+    console.log('🎯 Consignor selected:', consignor.company_name);
     setConsignorSearch(consignor.company_name);
     
     // Update consignor details
@@ -212,6 +229,12 @@ const ConsignorConsigneeSection = ({
         consignor_gst: consignor.gst_num || '',
         consignor_number: consignor.number || ''
       };
+      
+      console.log('🔄 Updated consignor formData:', {
+        consignor_name: updatedData.consignor_name,
+        consignor_gst: updatedData.consignor_gst,
+        consignor_number: updatedData.consignor_number
+      });
       
       // If city is already selected, update rate to consignor-specific rate if available
       if (prev.to_city_id) {
@@ -245,15 +268,26 @@ const ConsignorConsigneeSection = ({
       consignorInputRef.current.focus();
     }
   };
-
   const handleConsigneeSelect = async (consignee) => {
+    console.log('🎯 Consignee selected:', consignee.company_name);
     setConsigneeSearch(consignee.company_name);
-    setFormData(prev => ({
-      ...prev,
-      consignee_name: consignee.company_name,
-      consignee_gst: consignee.gst_num || '',
-      consignee_number: consignee.number || ''
-    }));    setShowConsigneeDropdown(false);
+    
+    setFormData(prev => {
+      const updatedData = {
+        ...prev,
+        consignee_name: consignee.company_name,
+        consignee_gst: consignee.gst_num || '',
+        consignee_number: consignee.number || ''
+      };
+      
+      console.log('🔄 Updated consignee formData:', {
+        consignee_name: updatedData.consignee_name,
+        consignee_gst: updatedData.consignee_gst,
+        consignee_number: updatedData.consignee_number
+      });
+      
+      return updatedData;
+    });setShowConsigneeDropdown(false);
     setConsigneeSelectedIndex(-1);
     clearResults();
     
@@ -261,11 +295,17 @@ const ConsignorConsigneeSection = ({
     if (consigneeInputRef.current) {
       consigneeInputRef.current.focus();
     }
-  };
-  // Handle phone number updates for existing consignors/consignees
+  };  // Handle phone number updates for existing consignors/consignees
   const handleConsignorNumberChange = async (e) => {
     const newNumber = e.target.value;
-    setFormData(prev => ({ ...prev, consignor_number: newNumber }));
+    console.log('🎯 Consignor number changed:', newNumber);
+    
+    // Update form data immediately
+    setFormData(prev => {
+      const updated = { ...prev, consignor_number: newNumber };
+      console.log('🔄 Updated formData.consignor_number:', updated.consignor_number);
+      return updated;
+    });
     
     // If consignor exists and number is being updated, save to database
     if (formData.consignor_name && newNumber && newNumber.length >= 10) {
@@ -282,7 +322,14 @@ const ConsignorConsigneeSection = ({
 
   const handleConsigneeNumberChange = async (e) => {
     const newNumber = e.target.value;
-    setFormData(prev => ({ ...prev, consignee_number: newNumber }));
+    console.log('🎯 Consignee number changed:', newNumber);
+    
+    // Update form data immediately
+    setFormData(prev => {
+      const updated = { ...prev, consignee_number: newNumber };
+      console.log('🔄 Updated formData.consignee_number:', updated.consignee_number);
+      return updated;
+    });
     
     // If consignee exists and number is being updated, save to database
     if (formData.consignee_name && newNumber && newNumber.length >= 10) {
@@ -296,11 +343,17 @@ const ConsignorConsigneeSection = ({
       }
     }
   };
-
   // Handle GST updates for existing consignors/consignees
   const handleConsignorGSTChange = async (e) => {
     const newGST = e.target.value;
-    setFormData(prev => ({ ...prev, consignor_gst: newGST }));
+    console.log('🎯 Consignor GST changed:', newGST);
+    
+    // Update form data immediately
+    setFormData(prev => {
+      const updated = { ...prev, consignor_gst: newGST };
+      console.log('🔄 Updated formData.consignor_gst:', updated.consignor_gst);
+      return updated;
+    });
     
     // If consignor exists and GST is being updated, save to database
     if (formData.consignor_name && newGST && newGST.length >= 15) {
@@ -317,7 +370,14 @@ const ConsignorConsigneeSection = ({
 
   const handleConsigneeGSTChange = async (e) => {
     const newGST = e.target.value;
-    setFormData(prev => ({ ...prev, consignee_gst: newGST }));
+    console.log('🎯 Consignee GST changed:', newGST);
+    
+    // Update form data immediately
+    setFormData(prev => {
+      const updated = { ...prev, consignee_gst: newGST };
+      console.log('🔄 Updated formData.consignee_gst:', updated.consignee_gst);
+      return updated;
+    });
     
     // If consignee exists and GST is being updated, save to database
     if (formData.consignee_name && newGST && newGST.length >= 15) {
@@ -453,15 +513,14 @@ const ConsignorConsigneeSection = ({
       number: consignee.number || ''
     });
     setConsigneeSuggestions([]);
-  };
-  const handleAddNewConsignor = async () => {
+  };  const handleAddNewConsignor = async () => {
     if (!newConsignorData.company_name.trim()) {
-      customAlert('Company name is required', 'error');
+      alert('Company name is required');
       return;
     }
 
     if (consignorExists) {
-      customAlert('This company name already exists! Please select from suggestions or use a different name.', 'error');
+      alert('This company name already exists! Please select from suggestions or use a different name.');
       return;
     }
 
@@ -495,11 +554,13 @@ const ConsignorConsigneeSection = ({
       // Refresh data in parent component
       if (onDataUpdate) {
         onDataUpdate();
-      }      customAlert('New consignor added successfully!', 'success');
+      }
+
+      alert('New consignor added successfully!');
 
     } catch (error) {
       console.error('Error adding consignor:', error);
-      customAlert('Error adding consignor: ' + error.message, 'error');
+      alert('Error adding consignor: ' + error.message);
     } finally {
       setAddingConsignor(false);
     }
@@ -571,7 +632,10 @@ const ConsignorConsigneeSection = ({
                 type="text"
                 ref={consignorInputRef}
                 value={consignorSearch || ''}
-                onChange={(e) => handleConsignorSearchChange(e.target.value)}                onFocus={() => {
+                onChange={(e) => {
+                  console.log('🎯 Consignor input onChange triggered with value:', e.target.value);
+                  handleConsignorSearchChange(e.target.value);
+                }}                onFocus={() => {
                   // Auto-scroll to show consignor section properly
                   setTimeout(() => {
                     const element = consignorInputRef.current;
@@ -695,7 +759,10 @@ const ConsignorConsigneeSection = ({
                 type="text"
                 ref={consigneeInputRef}
                 value={consigneeSearch || ''}
-                onChange={(e) => handleConsigneeSearchChange(e.target.value)}                onFocus={() => {
+                onChange={(e) => {
+                  console.log('🎯 Consignee input onChange triggered with value:', e.target.value);
+                  handleConsigneeSearchChange(e.target.value);
+                }}                onFocus={() => {
                   // Only show dropdown if search is valid and we have results
                   if (consigneeSearch && consigneeSearch.length >= 2) {
                     searchDatabase(consigneeSearch, 'consignees');

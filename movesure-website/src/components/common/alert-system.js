@@ -46,20 +46,86 @@ export const customAlert = (message, type = 'error') => {
 
 // Alert validation function - returns first error or null
 export const validateFormFields = (formData, user) => {
+  // Debug logging to see what we're validating
+  console.log('🔍 Validation Debug - Full FormData:', formData);
+  
+  // Enhanced field validation with proper null/undefined/empty handling
+  const isValidString = (value) => {
+    return value !== null && 
+           value !== undefined && 
+           value !== '' && 
+           typeof value === 'string' && 
+           value.trim().length > 0;
+  };
+  
+  const isValidNonEmptyValue = (value) => {
+    return value !== null && 
+           value !== undefined && 
+           value !== '' && 
+           String(value).trim().length > 0;
+  };
+  
+  console.log('🔍 Field Validation Results:', {
+    gr_no: {
+      value: formData.gr_no,
+      type: typeof formData.gr_no,
+      isValid: isValidNonEmptyValue(formData.gr_no)
+    },
+    consignor_name: {
+      value: formData.consignor_name,
+      type: typeof formData.consignor_name,
+      isValid: isValidString(formData.consignor_name)
+    },
+    consignee_name: {
+      value: formData.consignee_name,
+      type: typeof formData.consignee_name,
+      isValid: isValidString(formData.consignee_name)
+    },
+    to_city_id: {
+      value: formData.to_city_id,
+      type: typeof formData.to_city_id,
+      isValid: !!formData.to_city_id
+    }
+  });
+
   const validations = [
-    { condition: !formData.gr_no?.trim(), message: 'GR Number is required' },
-    { condition: !formData.consignor_name?.trim(), message: 'Consignor name is required' },
-    { condition: !formData.consignee_name?.trim(), message: 'Consignee name is required' },
-    { condition: !formData.to_city_id, message: 'Destination city is required' },
-    { condition: !user?.branch_id, message: 'Branch information is missing. Please login again.' }
+    { 
+      condition: !isValidNonEmptyValue(formData.gr_no), 
+      message: 'GR Number is required',
+      field: 'gr_no'
+    },
+    { 
+      condition: !isValidString(formData.consignor_name), 
+      message: 'Consignor name is required',
+      field: 'consignor_name'
+    },
+    { 
+      condition: !isValidString(formData.consignee_name), 
+      message: 'Consignee name is required',
+      field: 'consignee_name'
+    },
+    { 
+      condition: !formData.to_city_id, 
+      message: 'Destination city is required',
+      field: 'to_city_id'
+    },
+    { 
+      condition: !user?.branch_id, 
+      message: 'Branch information is missing. Please login again.',
+      field: 'user.branch_id'
+    }
   ];
   
   for (const validation of validations) {
     if (validation.condition) {
+      console.log('❌ Validation failed for field:', validation.field);
+      console.log('❌ Field value:', formData[validation.field.replace('user.', '')]);
+      console.log('❌ Error message:', validation.message);
       return validation.message;
     }
   }
   
+  console.log('✅ All validations passed');
   return null;
 };
 

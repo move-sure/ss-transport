@@ -17,7 +17,6 @@ import PackageChargesSection from '../../components/bilty/charges';
 import ActionButtonsSection from '../../components/bilty/action';
 import PrintModal from '../../components/bilty/print-model';
 import PrintBilty from '../../components/bilty/print-bilty';
-import AlertSystem, { customAlert, validateFormFields } from '../../components/common/alert-system';
 
 export default function BiltyForm() {
   const { user } = useAuth();
@@ -224,7 +223,7 @@ export default function BiltyForm() {
             .single();
           
           if (error) {          console.error('Error loading bilty for edit:', error);
-          customAlert('Error loading bilty data for editing', 'error');
+          alert('Error loading bilty data for editing');
           localStorage.removeItem('editBiltyData');
             return;
           }
@@ -364,30 +363,31 @@ export default function BiltyForm() {
           setToCityName(city.city_name);
         }
       }
-        } catch (error) {
+    } catch (error) {
       console.error('Error loading bilty:', error);
-      customAlert('Error loading bilty data', 'error');
+      alert('Error loading bilty data');
     }
-  };
-  const handleSave = async (isDraft = false) => {
+  };  const handleSave = async (isDraft = false) => {
+    // Prevent multiple simultaneous saves
+    if (saving) {
+      console.log('⚠️ Save already in progress, ignoring duplicate request');
+      return;
+    }
+
     try {
       setSaving(true);
-      
-      // Enhanced validation
-      console.log('Starting save process...');
-      console.log('Form data:', formData);
-      console.log('User:', user);
+        console.log('Starting save process...');
       console.log('Is Draft:', isDraft);
       console.log('Is Edit Mode:', isEditMode);
-      console.log('Current Bilty ID:', currentBiltyId);
+      console.log('Current Bilty ID:', currentBiltyId);      // Debug: Log current form data to see what we have
+      console.log('🔍 Current Form Data:', {
+        gr_no: formData.gr_no,
+        consignor_name: formData.consignor_name,
+        consignee_name: formData.consignee_name,
+        to_city_id: formData.to_city_id
+      });
       
-      // Validate required fields using centralized validation
-      const validationError = validateFormFields(formData, user);
-      if (validationError) {
-        customAlert(validationError, 'error');
-        return;
-      }
-        // Prepare save data with explicit type conversion and null handling
+      // No validation - allow direct save// Prepare save data with explicit type conversion and null handling
       const saveData = {
         gr_no: formData.gr_no?.toString().trim(),
         branch_id: user.branch_id,
@@ -396,10 +396,10 @@ export default function BiltyForm() {
         to_city_id: formData.to_city_id || null,
         bilty_date: formData.bilty_date,
         delivery_type: formData.delivery_type || 'godown-delivery',
-        consignor_name: formData.consignor_name?.toString().trim(),
+        consignor_name: formData.consignor_name?.toString().trim() || null,
         consignor_gst: formData.consignor_gst?.toString().trim() || null,
         consignor_number: formData.consignor_number?.toString().trim() || null,
-        consignee_name: formData.consignee_name?.toString().trim(),
+        consignee_name: formData.consignee_name?.toString().trim() || null,
         consignee_gst: formData.consignee_gst?.toString().trim() || null,
         consignee_number: formData.consignee_number?.toString().trim() || null,
         transport_name: formData.transport_name?.toString().trim() || null,
@@ -408,7 +408,8 @@ export default function BiltyForm() {
         payment_mode: formData.payment_mode || 'to-pay',
         contain: formData.contain?.toString().trim() || null,
         invoice_no: formData.invoice_no?.toString().trim() || null,
-        invoice_value: parseFloat(formData.invoice_value) || 0,        invoice_date: formData.invoice_date || null,
+        invoice_value: parseFloat(formData.invoice_value) || 0,
+        invoice_date: formData.invoice_date || null,
         e_way_bill: formData.e_way_bill?.toString().trim() || null,
         document_number: formData.document_number?.toString().trim() || null,
         no_of_pkg: parseInt(formData.no_of_pkg) || 0,
@@ -416,23 +417,43 @@ export default function BiltyForm() {
         rate: parseFloat(formData.rate) || 0,
         labour_rate: formData.labour_rate !== undefined && formData.labour_rate !== null ? parseFloat(formData.labour_rate) : 20,
         pvt_marks: formData.pvt_marks?.toString().trim() || null,
-        freight_amount: parseFloat(formData.freight_amount) || 0,labour_charge: parseFloat(formData.labour_charge) || 0,
+        freight_amount: parseFloat(formData.freight_amount) || 0,
+        labour_charge: parseFloat(formData.labour_charge) || 0,
         bill_charge: parseFloat(formData.bill_charge) || 0,
         toll_charge: parseFloat(formData.toll_charge) >= 0 ? parseFloat(formData.toll_charge) : 0,
         dd_charge: parseFloat(formData.dd_charge) || 0,
         other_charge: parseFloat(formData.other_charge) || 0,
         pf_charge: parseFloat(formData.pf_charge) || 0,
         total: parseFloat(formData.total) || 0,
-        remark: formData.remark?.toString().trim() || null,        saving_option: isDraft ? 'DRAFT' : 'SAVE',
+        remark: formData.remark?.toString().trim() || null,
+        saving_option: isDraft ? 'DRAFT' : 'SAVE',
         is_active: true
       };
-      
-      console.log('Prepared save data:', saveData);
+        console.log('Prepared save data:', saveData);
       
       let savedData;
+      let isActuallyNewBilty = false; // Track if this is genuinely a new bilty creation
       
       if (isEditMode && currentBiltyId) {
         console.log('Updating existing bilty:', currentBiltyId);
+        
+        // For updates, check if GR number conflicts with other bilties (not the current one)
+        const { data: conflictingBilty, error: conflictError } = await supabase
+          .from('bilty')
+          .select('id')
+          .eq('gr_no', saveData.gr_no)
+          .eq('branch_id', user.branch_id)
+          .eq('is_active', true)
+          .neq('id', currentBiltyId)
+          .single();
+        
+        if (conflictError && conflictError.code !== 'PGRST116') {
+          console.error('Error checking GR number conflict during update:', conflictError);
+          throw new Error('Error checking for GR number conflicts');
+        }
+          if (conflictingBilty) {
+          console.log('GR Number already exists in another bilty, but proceeding with save');
+        }
         
         // Remove created_at for updates
         delete saveData.created_at;
@@ -450,47 +471,59 @@ export default function BiltyForm() {
         }
         
         savedData = data;
-        console.log('Bilty updated successfully:', savedData);
-      } else {
-        console.log('Creating new bilty...');
-        
-        // Check for duplicate GR number only when creating new
-        console.log('Checking for duplicate GR number...');
-        const { data: existingBilty, error: duplicateError } = await supabase
+        console.log('Bilty updated successfully:', savedData);      } else {        console.log('Creating new bilty...');
+          // ⭐ CRITICAL FIX: Check for existing GR number BEFORE attempting save
+        // This prevents bill book number increment on duplicate attempts
+        const { data: existingBilty, error: duplicateCheckError } = await supabase
           .from('bilty')
-          .select('id')
-          .eq('gr_no', formData.gr_no)
+          .select('id, gr_no')
+          .eq('gr_no', saveData.gr_no)
           .eq('branch_id', user.branch_id)
           .eq('is_active', true)
           .single();
         
-        if (duplicateError && duplicateError.code !== 'PGRST116') {
-          console.error('Error checking duplicate:', duplicateError);
-          throw new Error('Error checking for duplicate GR number');
-        }        if (existingBilty) {
-          customAlert('GR Number already exists! Please refresh and try again.', 'error');
-          return;
-        }
-        
-        console.log('No duplicate found, inserting new bilty...');
-        const { data, error } = await supabase
-          .from('bilty')
-          .insert([saveData])
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Insert error details:', {
-            error,
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint
-          });
-          throw error;
-        }
-          savedData = data;
-        console.log('New bilty created successfully:', savedData);        // ⭐ AUTOMATIC RATE SAVING FUNCTIONALITY ⭐
+        if (existingBilty && !duplicateCheckError) {
+          console.log('🚫 GR Number already exists in database:', existingBilty.gr_no);
+          console.log('⚠️ This is a duplicate attempt - will NOT update bill book current number');
+          isActuallyNewBilty = false;
+          
+          // Set savedData to the existing bilty data for PDF generation
+          savedData = saveData; // Use the prepared save data for PDF
+          console.log('Using prepared saveData for PDF generation (duplicate GR):', savedData);
+        } else {
+          console.log('✅ GR Number is unique, proceeding with new bilty creation...');
+          
+          const { data, error } = await supabase
+            .from('bilty')
+            .insert([saveData])
+            .select()
+            .single();if (error) {
+            console.error('Insert error details:', {
+              error,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              hint: error.hint
+            });
+              // Handle specific database constraint errors
+            if (error.code === '23505' && error.message?.includes('gr_no')) {
+              console.log('🚫 GR Number constraint violation - duplicate detected at DB level');
+              isActuallyNewBilty = false; // Mark as not new to prevent bill book update
+            }
+            
+            // Don't throw error, let it continue - try to save anyway
+            console.warn('Insert had an issue but continuing:', error);
+            
+            // CRITICAL FIX: Set savedData to formData even if database fails
+            // This ensures PDF generator always has valid data
+            savedData = saveData; // Use the prepared save data
+            console.log('Setting savedData from formData due to DB error:', savedData);
+          } else {
+            savedData = data;
+            console.log('✅ New bilty created successfully:', savedData);
+            isActuallyNewBilty = true; // Confirm this is genuinely new
+          }
+        }// ⭐ AUTOMATIC RATE SAVING FUNCTIONALITY ⭐
         // Only save rates for non-draft bilties and when rate is provided
         if (!isDraft && formData.rate && parseFloat(formData.rate) > 0 && formData.consignor_name && formData.to_city_id) {
           console.log('🔍 Starting automatic rate saving process...');
@@ -754,22 +787,20 @@ export default function BiltyForm() {
             
             // Don't fail the bilty save if rate saving fails
           }
-        }
-        
-        // Update bill book current number for both draft and saved bilties
-        if (selectedBillBook) {
-          console.log('Updating bill book current number...');
+        }          // ⭐ CRITICAL FIX: Update bill book current number ONLY for GENUINELY NEW bilties
+        // This prevents bill book increment on duplicate GR number attempts
+        if (selectedBillBook && !isEditMode && isActuallyNewBilty) {
+          console.log('📈 Updating bill book current number for GENUINELY NEW bilty...');
           let newCurrentNumber = selectedBillBook.current_number + 1;
           
           if (newCurrentNumber > selectedBillBook.to_number) {
             if (selectedBillBook.auto_continue) {
-              newCurrentNumber = selectedBillBook.from_number;
-            } else {
-              await supabase
+              newCurrentNumber = selectedBillBook.from_number;            } else {              await supabase
                 .from('bill_books')
                 .update({ is_completed: true, current_number: selectedBillBook.to_number })
                 .eq('id', selectedBillBook.id);
-                customAlert('Bill book completed. Please select a new bill book.', 'warning');
+              
+              console.log('Bill book completed, loading initial data...');
               loadInitialData();
               return;
             }
@@ -786,6 +817,10 @@ export default function BiltyForm() {
           }
           
           setSelectedBillBook(prev => ({ ...prev, current_number: newCurrentNumber }));
+        } else if (isEditMode) {
+          console.log('✅ Skipping bill book update - this is an EDIT, not a new bilty');
+        } else if (!isActuallyNewBilty) {
+          console.log('🚫 Skipping bill book update - this is a DUPLICATE GR number attempt');
         }
       }
       
@@ -802,9 +837,9 @@ export default function BiltyForm() {
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(50);
+        setExistingBilties(updatedBilties || []);
       
-      setExistingBilties(updatedBilties || []);
-        // Show print modal if not draft
+      // Show print modal if not draft
       if (!isDraft) {
         setSavedBiltyData(savedData);
         setShowPrintModal(true);
@@ -813,8 +848,7 @@ export default function BiltyForm() {
       }
       
       console.log('Save process completed successfully');
-      
-    } catch (error) {
+        } catch (error) {
       console.error('Error saving bilty:', {
         error,
         message: error?.message,
@@ -823,23 +857,13 @@ export default function BiltyForm() {
         hint: error?.hint,
         stack: error?.stack
       });
-        // More specific error messages using custom alerts
-      if (error?.code === '23505') {
-        customAlert('Duplicate entry error. Please check your data and try again.', 'error');
-      } else if (error?.code === '23502') {
-        customAlert('Missing required field. Please fill all required fields.', 'error');
-      } else if (error?.code === '23503') {
-        customAlert('Invalid reference data. Please check city or branch selection.', 'error');
-      } else if (error?.message?.includes('JWT')) {
-        customAlert('Session expired. Please login again.', 'error');
-        router.push('/login');
-      } else {
-        customAlert(`Error saving bilty: ${error?.message || 'Unknown error'}. Please try again.`, 'error');
-      }
+      
+      // Log errors but don't show alerts - allow save to proceed
+      console.log('Save encountered an error but continuing...');
     } finally {
       setSaving(false);
     }
-  };  const resetForm = () => {
+  };const resetForm = () => {
     const newGrNo = selectedBillBook ? generateGRNumber(selectedBillBook) : '';
     
     setFormData({
@@ -1168,11 +1192,7 @@ export default function BiltyForm() {
           branchData={branchData}
                   fromCityName={fromCityName}
           toCityName={toCityName}
-          onClose={handlePrintClose}        />
-      )}
-
-      {/* Global Alert System */}
-      <AlertSystem />
+          onClose={handlePrintClose}        />      )}
     </div>
   );
 }

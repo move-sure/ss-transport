@@ -441,11 +441,10 @@ const PDFGenerator = ({
       );
     }
     
-    // 👥 PEOPLE SECTION - Enhanced styling
-    // Consignor
+    // 👥 PEOPLE SECTION - Enhanced styling    // Consignor
     addStyledText(
       pdf, 
-      `CONSIGNOR: ${biltyData.consignor_name.toUpperCase()}`, 
+      `CONSIGNOR: ${(biltyData.consignor_name || '').toUpperCase()}`, 
       COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.x, 
       y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.y,
       STYLES.FONTS.LABELS
@@ -466,11 +465,10 @@ const PDFGenerator = ({
         STYLES.FONTS.VALUES
       );
     }
-    
-    // Consignee
+      // Consignee
     addStyledText(
       pdf, 
-      `CONSIGNEE: ${biltyData.consignee_name.toUpperCase()}`, 
+      `CONSIGNEE: ${(biltyData.consignee_name || '').toUpperCase()}`, 
       COORDINATES.PEOPLE_SECTION.CONSIGNEE_NAME.x, 
       y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_NAME.y,
       STYLES.FONTS.LABELS

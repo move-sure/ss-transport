@@ -17,37 +17,57 @@ const PackageChargesSection = ({
   const inputRefs = useRef({});
   const labourChargeTimeoutRef = useRef(null);
   const [rateInfo, setRateInfo] = useState(null);
-  const [isSavingRate, setIsSavingRate] = useState(false);  const rateRef = useRef(null);  // Register input ref and with navigation manager
+  const [isSavingRate, setIsSavingRate] = useState(false);  const rateRef = useRef(null);
+  const saveDebounceRef = useRef(null); // Add debounce ref for save operations
+  const lastSaveTimeRef = useRef(0); // Track last save time  // Safe save function with debouncing and protection against multiple saves
+  const handleSafeSave = (isDraft = false) => {
+    const currentTime = Date.now();
+    const timeSinceLastSave = currentTime - lastSaveTimeRef.current;
+    
+    console.log('🔍 handleSafeSave called with:', { 
+      isDraft, 
+      saving, 
+      timeSinceLastSave,
+      hasOnSave: !!onSave,
+      formDataExists: !!formData,
+      grNo: formData?.gr_no
+    });
+    
+    // Prevent saves if already saving or too recent (within 500ms)
+    if (saving || timeSinceLastSave < 500) {
+      console.log('🚫 Save blocked - already saving or too recent:', { saving, timeSinceLastSave });
+      return;
+    }
+    
+    // Clear any pending debounced save
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current);
+    }
+    
+    // Update last save time
+    lastSaveTimeRef.current = currentTime;
+    
+    console.log('✅ Executing safe save:', { isDraft, currentTime });
+    
+    // Call the actual save function
+    if (onSave) {
+      onSave(isDraft);
+    } else {
+      console.error('❌ No onSave function provided!');
+    }
+  };
   const setInputRef = (tabIndex, element) => {
     inputRefs.current[tabIndex] = element;
     if (element) {
-      console.log(`📋 Charges: Registering input tabIndex ${tabIndex}`);
-        // Special handling for Save & Print button (tabIndex 30)
+      console.log(`📋 Charges: Registering input tabIndex ${tabIndex}`);      // Special handling for Save & Print button (tabIndex 30)
       if (tabIndex === 30) {
+        // Register normally but don't add extra handlers since button has onKeyDown
         register(tabIndex, element, {
           beforeFocus: () => {
             console.log(`🎯 Focusing on Save & Print button: ${tabIndex}`);
           }
         });
         
-        // Add custom keydown handler for Save button
-        const handleSaveKeyDown = (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('🖱️ Save button activated via keyboard');
-            if (onSave && !saving) {
-              onSave(false);
-            }
-          }
-        };
-        
-        element.addEventListener('keydown', handleSaveKeyDown);
-        
-        // Store cleanup for the save button
-        element._saveKeydownCleanup = () => {
-          element.removeEventListener('keydown', handleSaveKeyDown);
-        };
       } else {
         register(tabIndex, element, {
           beforeFocus: () => {
@@ -56,14 +76,9 @@ const PackageChargesSection = ({
         });
       }    } else {
       console.log(`📋 Charges: Unregistering input tabIndex ${tabIndex}`);
-      const existingElement = inputRefs.current[tabIndex];
-      if (existingElement && existingElement._saveKeydownCleanup) {
-        existingElement._saveKeydownCleanup();
-      }
       unregister(tabIndex);
     }
   };
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -77,6 +92,9 @@ const PackageChargesSection = ({
       }
       if (window.rateSaveTimeout) {
         clearTimeout(window.rateSaveTimeout);
+      }
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current);
       }
     };
   }, [unregister]);
@@ -631,7 +649,15 @@ return (
                 </div>                  {/* SAVE & PRINT Button */}
                 <div className="mt-4 flex justify-center">                  <button
                     type="button"
-                    onClick={() => onSave && onSave(false)}
+                    onClick={() => handleSafeSave(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🎯 Direct Enter handler on Save button');
+                        handleSafeSave(false);
+                      }
+                    }}
                     disabled={saving}
                     ref={(el) => setInputRef(30, el)}
                     className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"

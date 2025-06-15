@@ -46,12 +46,18 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   }, []);// Register inputs for navigation
   useEffect(() => {
     if (deliveryTypeRef.current) {
-      register(11, deliveryTypeRef.current);
+      register(11, deliveryTypeRef.current, {
+        beforeFocus: () => {
+          console.log('🎯 Focusing on Delivery Type');
+        }
+      });
     }
     if (paymentModeRef.current) {
       register(12, paymentModeRef.current);
     }    if (contentInputRef.current) {
-      register(13, contentInputRef.current);
+      register(13, contentInputRef.current, {
+        skipCondition: () => showContentDropdown && filteredContent.length > 0
+      });
     }    if (invoiceNoRef.current) {
       register(14, invoiceNoRef.current);
     }    if (invoiceValueRef.current) {
@@ -135,22 +141,30 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           setShowContentDropdown(false);
           setSelectedContentIndex(-1);
           break;
-      }
-    } else {      // Handle Enter key for navigation when dropdown is not open
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleEnter(e, 13);
-      }
+      }    } else {      // Let navigation manager handle Enter key automatically
       if (e.key === 'ArrowDown' && !showContentDropdown) {
         e.preventDefault();
         setShowContentDropdown(true);
       }
     }
-  };
-  const handleInputChange = (e) => {
+  };  const handleInputChange = (e) => {
     const value = e.target.value;
     setContentSearch(value);
     setFormData(prev => ({ ...prev, contain: value }));
+    
+    // Filter content based on input
+    const filtered = contentOptions.filter(content =>
+      content.content_name.toLowerCase().includes(value.toLowerCase())
+    );
+
+    // Auto-select if only one option remains and user has typed enough
+    if (filtered.length === 1 && value.length > 2) {
+      console.log('🎯 Auto-selecting single content option:', filtered[0].content_name);
+      setTimeout(() => {
+        handleContentSelect(filtered[0]);
+      }, 500);
+      return;
+    }
     
     // Check if there's an exact match
     const exactMatch = contentOptions.find(
@@ -233,7 +247,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={deliveryTypeRef}
             value={formData.delivery_type}
             onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 11)}
             onFocus={() => {
               // Auto-scroll to invoice section when delivery type is focused
               setTimeout(() => {
@@ -262,7 +275,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={paymentModeRef}
             value={formData.payment_mode}
             onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 12)}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200"
             tabIndex={12}
           >
@@ -314,16 +326,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                     setShowContentDropdown(false);
                     setSelectedContentIndex(-1);
                   }, 150); // Small delay to allow dropdown clicks
-                }}
-                onKeyDown={handleKeyDown}
+                }}                onKeyDown={handleKeyDown}
                 placeholder="📦 Search or type goods description..."
-                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
+                className="w-full px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 dropdown-input"
                 tabIndex={13}
+                aria-expanded={showContentDropdown}
+                role="combobox"
               />
-            )}
-
-            {showContentDropdown && !isAddingContent && (
-              <div className="absolute z-30 mt-1 w-full bg-white border-2 border-purple-300 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+            )}            {showContentDropdown && !isAddingContent && (
+              <div className="absolute z-30 mt-1 w-full bg-white border-2 border-purple-300 rounded-lg shadow-xl max-h-64 overflow-y-auto dropdown-open autocomplete-open">
                 <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 text-xs font-bold border-b border-purple-200 flex justify-between items-center">
                   <span className="text-black">CONTENT OPTIONS</span>
                   {contentSearch && !exactMatch && (
@@ -378,7 +389,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             type="text"
             ref={invoiceNoRef}
             value={formData.invoice_no || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 14)}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
             placeholder="📄 Invoice number"
             tabIndex={14}
@@ -392,7 +403,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             type="number"
             ref={invoiceValueRef}
             value={formData.invoice_value || 0}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 15)}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 number-input-focus transition-all duration-200"
             placeholder="💰 Invoice value"
             tabIndex={15}
@@ -406,7 +417,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             type="text"
             ref={eWayBillRef}
             value={formData.e_way_bill || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 16)}
+            onChange={(e) => setFormData(prev => ({ ...prev, e_way_bill: e.target.value }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
             placeholder="🚛 E-way bill number"
             tabIndex={16}
@@ -417,12 +428,11 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         <div className="flex items-center gap-3">
           <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-4 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
             INV DATE
-          </span>
-          <input
+          </span>          <input
             type="date"
             ref={invoiceDateRef}
             value={formData.invoice_date}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_date: e.target.value }))}            onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 17)}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_date: e.target.value }))}
             className="flex-1 px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200"
             tabIndex={17}
           />

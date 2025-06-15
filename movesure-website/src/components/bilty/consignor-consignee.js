@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, AlertTriangle, Search } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
+import { customAlert } from '../common/alert-system';
 import { 
   useConsignorConsigneeSearch,
   addNewConsignor,
@@ -105,8 +106,48 @@ const ConsignorConsigneeSection = ({
       setConsigneeSearch(formData.consignee_name);
     }
   }, [formData.consignor_name, formData.consignee_name]);
-
   // Simple tab navigation using standard tabIndex
+
+  // Register inputs for navigation
+  useEffect(() => {
+    if (consignorInputRef.current) {
+      register(5, consignorInputRef.current, {
+        beforeFocus: () => {
+          console.log('🎯 Focusing on Consignor input');
+        },
+        skipCondition: () => showConsignorDropdown && searchResults.consignors?.length > 0
+      });
+    }
+    if (consignorGstRef.current) {
+      register(6, consignorGstRef.current);
+    }
+    if (consignorPhoneRef.current) {
+      register(7, consignorPhoneRef.current);
+    }
+    if (consigneeInputRef.current) {
+      register(8, consigneeInputRef.current, {
+        beforeFocus: () => {
+          console.log('🎯 Focusing on Consignee input');
+        },
+        skipCondition: () => showConsigneeDropdown && searchResults.consignees?.length > 0
+      });
+    }
+    if (consigneeGstRef.current) {
+      register(9, consigneeGstRef.current);
+    }
+    if (consigneePhoneRef.current) {
+      register(10, consigneePhoneRef.current);
+    }
+    
+    return () => {
+      unregister(5);
+      unregister(6);
+      unregister(7);
+      unregister(8);
+      unregister(9);
+      unregister(10);
+    };
+  }, [register, unregister]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -128,8 +169,13 @@ const ConsignorConsigneeSection = ({
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignors');
-      // Note: We'll check for exact match in the search results after they're updated
-      // The dropdown will be controlled by the onFocus handler and search results
+      // Auto-select if only one option remains after search
+      setTimeout(() => {
+        if (searchResults.consignors?.length === 1 && value.length > 3) {
+          console.log('🎯 Auto-selecting single consignor option:', searchResults.consignors[0].company_name);
+          handleConsignorSelect(searchResults.consignors[0]);
+        }
+      }, 800);
     } else {
       setShowConsignorDropdown(false);
       clearResults();
@@ -142,8 +188,13 @@ const ConsignorConsigneeSection = ({
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignees');
-      // Note: We'll check for exact match in the search results after they're updated
-      // The dropdown will be controlled by the onFocus handler and search results
+      // Auto-select if only one option remains after search
+      setTimeout(() => {
+        if (searchResults.consignees?.length === 1 && value.length > 3) {
+          console.log('🎯 Auto-selecting single consignee option:', searchResults.consignees[0].company_name);
+          handleConsigneeSelect(searchResults.consignees[0]);
+        }
+      }, 800);
     } else {
       setShowConsigneeDropdown(false);
       clearResults();
@@ -403,15 +454,14 @@ const ConsignorConsigneeSection = ({
     });
     setConsigneeSuggestions([]);
   };
-
   const handleAddNewConsignor = async () => {
     if (!newConsignorData.company_name.trim()) {
-      alert('Company name is required');
+      customAlert('Company name is required', 'error');
       return;
     }
 
     if (consignorExists) {
-      alert('This company name already exists! Please select from suggestions or use a different name.');
+      customAlert('This company name already exists! Please select from suggestions or use a different name.', 'error');
       return;
     }
 
@@ -445,13 +495,11 @@ const ConsignorConsigneeSection = ({
       // Refresh data in parent component
       if (onDataUpdate) {
         onDataUpdate();
-      }
-
-      alert('New consignor added successfully!');
+      }      customAlert('New consignor added successfully!', 'success');
 
     } catch (error) {
       console.error('Error adding consignor:', error);
-      alert('Error adding consignor: ' + error.message);
+      customAlert('Error adding consignor: ' + error.message, 'error');
     } finally {
       setAddingConsignor(false);
     }
@@ -519,8 +567,7 @@ const ConsignorConsigneeSection = ({
             CONSIGNOR
           </span>
           <div className="relative flex-1" ref={consignorRef}>
-            <div className="relative">
-              <input
+            <div className="relative">              <input
                 type="text"
                 ref={consignorInputRef}
                 value={consignorSearch || ''}
@@ -548,11 +595,12 @@ const ConsignorConsigneeSection = ({
                     setShowConsignorDropdown(false);
                     setConsignorSelectedIndex(-1);
                   }, 150); // Small delay to allow dropdown clicks
-                }}
-                onKeyDown={handleConsignorKeyDown}
+                }}                onKeyDown={handleConsignorKeyDown}
                 placeholder="👤 Type to search consignor..."
-                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input"
                 tabIndex={5}
+                aria-expanded={showConsignorDropdown}
+                role="combobox"
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -562,9 +610,8 @@ const ConsignorConsigneeSection = ({
               {!isSearching && consignorSearch && (
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
               )}
-            </div>
-                {showConsignorDropdown && (
-                <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+            </div>                {showConsignorDropdown && (
+                <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dropdown-open autocomplete-open">
                   <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
                     CONSIGNOR SEARCH RESULTS ({searchResults.consignors.length})
                   </div>
@@ -661,8 +708,10 @@ const ConsignorConsigneeSection = ({
                     setConsigneeSelectedIndex(-1);
                   }, 150); // Small delay to allow dropdown clicks
                 }}                onKeyDown={handleConsigneeKeyDown}                placeholder="🏢 Type to search consignee..."
-                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input"
                 tabIndex={8}
+                aria-expanded={showConsigneeDropdown}
+                role="combobox"
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -673,9 +722,8 @@ const ConsignorConsigneeSection = ({
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
               )}
             </div>
-            
-            {showConsigneeDropdown && (
-              <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+              {showConsigneeDropdown && (
+              <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dropdown-open autocomplete-open">
                 <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
                   CONSIGNEE SEARCH RESULTS ({searchResults.consignees.length})
                 </div>

@@ -17,27 +17,54 @@ const PackageChargesSection = ({
   const inputRefs = useRef({});
   const labourChargeTimeoutRef = useRef(null);
   const [rateInfo, setRateInfo] = useState(null);
-  const [isSavingRate, setIsSavingRate] = useState(false);
-  const rateRef = useRef(null);// Handle Enter key navigation
-  const handleEnterNavigation = (e, tabIndex) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      handleEnter(e, tabIndex);
-      return false;
-    }
-  };
-
-  // Register input ref and with navigation manager
+  const [isSavingRate, setIsSavingRate] = useState(false);  const rateRef = useRef(null);  // Register input ref and with navigation manager
   const setInputRef = (tabIndex, element) => {
     inputRefs.current[tabIndex] = element;
     if (element) {
-      register(tabIndex, element);
-    } else {
+      console.log(`📋 Charges: Registering input tabIndex ${tabIndex}`);
+        // Special handling for Save & Print button (tabIndex 30)
+      if (tabIndex === 30) {
+        register(tabIndex, element, {
+          beforeFocus: () => {
+            console.log(`🎯 Focusing on Save & Print button: ${tabIndex}`);
+          }
+        });
+        
+        // Add custom keydown handler for Save button
+        const handleSaveKeyDown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🖱️ Save button activated via keyboard');
+            if (onSave && !saving) {
+              onSave(false);
+            }
+          }
+        };
+        
+        element.addEventListener('keydown', handleSaveKeyDown);
+        
+        // Store cleanup for the save button
+        element._saveKeydownCleanup = () => {
+          element.removeEventListener('keydown', handleSaveKeyDown);
+        };
+      } else {
+        register(tabIndex, element, {
+          beforeFocus: () => {
+            console.log(`🎯 Focusing on charges field: ${tabIndex}`);
+          }
+        });
+      }    } else {
+      console.log(`📋 Charges: Unregistering input tabIndex ${tabIndex}`);
+      const existingElement = inputRefs.current[tabIndex];
+      if (existingElement && existingElement._saveKeydownCleanup) {
+        existingElement._saveKeydownCleanup();
+      }
       unregister(tabIndex);
     }
-  };  // Cleanup on unmount
+  };
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       Object.keys(inputRefs.current).forEach(tabIndex => {
@@ -52,7 +79,29 @@ const PackageChargesSection = ({
         clearTimeout(window.rateSaveTimeout);
       }
     };
-  }, [unregister]);useEffect(() => {
+  }, [unregister]);
+
+  // Ensure all inputs are registered after component mounts
+  useEffect(() => {
+    console.log(`📋 Charges component mounted, checking input registrations...`);
+    
+    // Small delay to ensure all refs are set
+    const timer = setTimeout(() => {
+      Object.entries(inputRefs.current).forEach(([tabIndex, element]) => {
+        if (element) {
+          console.log(`📋 Charges: Re-registering input tabIndex ${tabIndex} after mount`);
+          register(parseInt(tabIndex), element, {
+            beforeFocus: () => {
+              console.log(`🎯 Focusing on charges field: ${tabIndex}`);
+            }
+          });
+        }
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);  }, [register]); // Run when register function is available
+
+  useEffect(() => {
     // Calculate labour charge when packages or labour rate changes
     const labourRate = parseFloat(formData.labour_rate) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
@@ -306,27 +355,9 @@ return (
               <div className="flex items-center gap-3">
                 <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                   PVT MARKS
-                </span>                <input
-                  type="text"
+                </span>                <input                  type="text"
                   value={formData.pvt_marks || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, pvt_marks: e.target.value }))}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 18);
-                  }}
-                  onFocus={() => {
-                    // Auto-scroll to charges section when PVT marks is focused
-                    setTimeout(() => {
-                      const element = inputRefs.current[18];
-                      if (element) {
-                        element.scrollIntoView({ 
-                          behavior: 'smooth', 
-                          block: 'center',
-                          inline: 'nearest'
-                        });
-                      }
-                    }, 100);
-                  }}
                   ref={(el) => setInputRef(18, el)}
                   className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all text-input-focus"
                   placeholder="Private marks"
@@ -341,9 +372,6 @@ return (
                   step="0.001"
                   value={formData.wt || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, wt: parseFloat(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {                  e.stopPropagation();
-                    handleEnterNavigation(e, 19);
-                  }}
                   ref={(el) => setInputRef(19, el)}
                   className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
                   placeholder="0"
@@ -356,10 +384,7 @@ return (
                 </span>                <input
                   type="number"
                   value={formData.no_of_pkg || 0}
-                  onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 20);
-                  }}
+                  onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
                   ref={(el) => setInputRef(20, el)}
                   className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
                   placeholder="0"
@@ -372,17 +397,12 @@ return (
                 </span>
                 <div className="flex-1">
                   <div className="space-y-2">
-                    <div className="relative">
-                      <input
+                    <div className="relative">                      <input
                         type="number"
                         step="0.01"
                         min="0"
                         value={formData.rate || ''}
                         onChange={handleRateChange}
-                        onKeyDown={(e) => {
-                          e.stopPropagation();
-                          handleEnterNavigation(e, 21);
-                        }}
                         ref={(el) => setInputRef(21, el)}
                         className="w-full px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus pr-8"
                         placeholder="₹ Rate per kg"
@@ -433,10 +453,6 @@ return (
                     }
                     setFormData(prev => ({ ...prev, labour_rate: value }));
                   }}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 22);
-                  }}
                   ref={(el) => setInputRef(22, el)}
                   className="w-32 px-3 py-2 text-black font-semibold border-2 border-orange-300 rounded-lg bg-white shadow-sm hover:border-orange-400 transition-all number-input-focus"
                   placeholder="20"
@@ -465,10 +481,6 @@ return (
                   type="number"
                   value={formData.freight_amount || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, freight_amount: parseFloat(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 23);
-                  }}
                   ref={(el) => setInputRef(23, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={23}
@@ -505,15 +517,12 @@ return (
                       if (formData.labour_charge === undefined || formData.labour_charge === null || formData.labour_charge === '') {
                         setFormData(prev => ({ ...prev, labour_charge: calculatedLabourCharge }));
                       }
-                    }}onKeyDown={(e) => {
-                      e.stopPropagation();
-                      handleEnterNavigation(e, 24);
                     }}
                     ref={(el) => setInputRef(24, el)}
                     className="w-24 px-2 py-2 text-black font-bold border-2 border-orange-300 rounded text-center bg-white hover:border-orange-400 number-input-focus transition-all duration-200"
                     tabIndex={24}
                     title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
-                  />                  <span className="text-xs text-gray-500 mt-1">
+                  /><span className="text-xs text-gray-500 mt-1">
                     @₹{formData.labour_rate || 0}/pkg
                   </span>
                 </div>
@@ -525,10 +534,6 @@ return (
                   type="number"
                   value={formData.bill_charge || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, bill_charge: parseFloat(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 25);
-                  }}
                   ref={(el) => setInputRef(25, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={25}
@@ -546,10 +551,6 @@ return (
                     const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                     setFormData(prev => ({ ...prev, toll_charge: value }));
                   }}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 26);
-                  }}
                   ref={(el) => setInputRef(26, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-green-300 rounded text-center bg-white hover:border-green-400 number-input-focus transition-all duration-200"
                   placeholder="20"
@@ -565,10 +566,6 @@ return (
                   type="number"
                   value={formData.pf_charge || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, pf_charge: parseFloat(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 27);
-                  }}
                   ref={(el) => setInputRef(27, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={27}
@@ -581,10 +578,6 @@ return (
                   type="number"
                   value={formData.other_charge || 0}
                   onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    handleEnterNavigation(e, 28);
-                  }}
                   ref={(el) => setInputRef(28, el)}
                   className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
                   tabIndex={28}
@@ -595,51 +588,20 @@ return (
                   <span className="bg-gradient-to-r from-purple-800 to-purple-600 text-white px-3 py-3 text-sm font-bold rounded shadow-lg whitespace-nowrap">
                     TOTAL
                   </span>
-                  
-                  <input
+                    <input
                     type="number"
                     value={formData.total || 0}
                     readOnly
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        
-                        // Focus on the Save & Print button
-                        const saveButton = document.getElementById('save-print-button-charges');
-                        if (saveButton) {
-                          setTimeout(() => {
-                            saveButton.focus();
-                            saveButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }, 50);
-                        }
-                        return false;
-                      }
-                    }}
-                    ref={(el) => {                      // Don't register with navigation manager since we handle navigation manually
-                      inputRefs.current[29] = el;
-                    }}
+                    ref={(el) => setInputRef(29, el)}
                     className="w-24 px-2 py-3 text-black font-bold border-4 border-purple-400 rounded bg-purple-50 text-center text-lg shadow-lg bilty-input-focus transition-all duration-200"
                     tabIndex={29}
                   />
                 </div>                  {/* SAVE & PRINT Button */}
-                <div className="mt-4 flex justify-center">
-                  <button
+                <div className="mt-4 flex justify-center">                  <button
                     type="button"
                     onClick={() => onSave && onSave(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Tab') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (!saving && onSave) {
-                          onSave(false);
-                        }
-                      }
-                    }}
                     disabled={saving}
-                    id="save-print-button-charges"
+                    ref={(el) => setInputRef(30, el)}
                     className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
                     tabIndex={30}
                   >

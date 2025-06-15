@@ -84,3 +84,117 @@ body {
 .focus-pulse:focus {
   animation: focusPulse 1.5s infinite;
 }
+
+/* Professional Alert System Styling */
+.alert-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  max-width: 28rem;
+  width: 100%;
+  pointer-events: none;
+}
+
+.alert-item {
+  pointer-events: auto;
+  margin-bottom: 0.75rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: slideInRight 0.3s ease-out;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%);
+  color: white;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.alert-error {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%);
+  color: white;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(217, 119, 6, 0.95) 100%);
+  color: white;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.alert-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95) 0%, rgba(37, 99, 235, 0.95) 100%);
+  color: white;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.alert-content {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+.alert-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+}
+
+.alert-message {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: break-words;
+}
+
+.alert-close {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  margin-top: 0.125rem;
+}
+
+.alert-close:hover {
+  opacity: 1;
+}
+
+.alert-progress {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+.alert-progress-bar {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  animation: progressShrink linear;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes progressShrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}

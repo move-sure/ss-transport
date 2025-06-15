@@ -41,20 +41,32 @@ const CityTransportSection = ({
       }
     };    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-  // Register inputs for navigation
+  }, []);  // Register inputs for navigation
   useEffect(() => {
     if (cityInputRef.current) {
-      register(1, cityInputRef.current);
+      register(1, cityInputRef.current, {
+        beforeFocus: () => {
+          console.log('🎯 Focusing on City input');
+        },
+        afterFocus: () => {
+          console.log('✅ City input focused');
+        }
+      });
     }
     if (transportNameRef.current) {
-      register(2, transportNameRef.current);
+      register(2, transportNameRef.current, {
+        skipCondition: () => !formData.transport_name, // Skip if no transport name
+      });
     }
     if (transportGstRef.current) {
-      register(3, transportGstRef.current);
+      register(3, transportGstRef.current, {
+        skipCondition: () => !formData.transport_gst,
+      });
     }
     if (transportNumberRef.current) {
-      register(4, transportNumberRef.current);
+      register(4, transportNumberRef.current, {
+        skipCondition: () => !formData.transport_number,
+      });
     }
     
     return () => {
@@ -149,26 +161,43 @@ const CityTransportSection = ({
       }
     }
   };
-
   const handleInputChange = (e) => {
-    setCitySearch(e.target.value);
+    const value = e.target.value;
+    setCitySearch(value);
     setShowCityDropdown(true);
     setSelectedIndex(-1);
     
     // Clear to_city_id if search is cleared
-    if (!e.target.value) {
+    if (!value) {
       setFormData(prev => ({ ...prev, to_city_id: '' }));
+      return;
+    }
+
+    // Filter cities based on input
+    const filtered = cities.filter(city => {
+      const matchesSearch = city.city_name.toLowerCase().includes(value.toLowerCase()) ||
+                           city.city_code.toLowerCase().includes(value.toLowerCase());
+      const isDifferentFromSource = city.city_name.toLowerCase() !== fromCityName.toLowerCase();
+      return matchesSearch && isDifferentFromSource;
+    });
+
+    // Auto-select if only one option remains and user has typed enough
+    if (filtered.length === 1 && value.length > 2) {
+      console.log('🎯 Auto-selecting single city option:', filtered[0].city_name);
+      setTimeout(() => {
+        handleCitySelect(filtered[0]);
+      }, 500);
     }
     
     // Auto-fill if exact match found with city code
-    const exactMatch = filteredCities.find(city => 
-      city.city_code.toLowerCase() === e.target.value.toLowerCase()
+    const exactMatch = filtered.find(city => 
+      city.city_code.toLowerCase() === value.toLowerCase()
     );
     
-    if (exactMatch && e.target.value.length >= 2) {
+    if (exactMatch && value.length >= 2) {
       setTimeout(() => {
-        if (e.target.value === exactMatch.city_code.toLowerCase() || 
-            e.target.value === exactMatch.city_code) {
+        if (value === exactMatch.city_code.toLowerCase() || 
+            value === exactMatch.city_code) {
           handleCitySelect(exactMatch);
         }
       }, 100);
@@ -219,12 +248,13 @@ const CityTransportSection = ({
                 onFocus={() => setShowCityDropdown(true)}
                 onKeyDown={handleKeyDown}
                 placeholder="🔍 Search city... (Start typing city name or code)"
-                className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm city-input-focus focus-pulse transition-all duration-200 hover:border-blue-400"
+                className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm city-input-focus focus-pulse transition-all duration-200 hover:border-blue-400 dropdown-input"
                 tabIndex={1}
+                aria-expanded={showCityDropdown}
+                role="combobox"
               />
-              
-              {showCityDropdown && (
-                <div className="absolute z-30 mt-2 w-96 bg-white border-2 border-blue-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                {showCityDropdown && (
+                <div className="absolute z-30 mt-2 w-96 bg-white border-2 border-blue-200 rounded-lg shadow-xl max-h-64 overflow-y-auto dropdown-open">
                   <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold">
                     CITY WISE AUTO FILL DETAILS HERE
                   </div>
@@ -269,10 +299,9 @@ const CityTransportSection = ({
                 ref={transportNameRef}
                 value={formData.transport_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 2)}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Transport name"
-                tabIndex={3}
+                tabIndex={2}
               />
             </div>
           </div>
@@ -287,10 +316,9 @@ const CityTransportSection = ({
                 ref={transportGstRef}
                 value={formData.transport_gst}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 3)}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="GST number"
-                tabIndex={4}
+                tabIndex={3}
               />
             </div>
           </div>
@@ -303,12 +331,11 @@ const CityTransportSection = ({
               </span>              <input
                 type="text"
                 ref={transportNumberRef}
-                value={formData.transport_number}
+                                value={formData.transport_number}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && handleEnter(e, 4)}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Phone number"
-                tabIndex={5}
+                tabIndex={4}
               />
             </div>
           </div>

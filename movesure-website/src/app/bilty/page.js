@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import supabase from '../utils/supabase';
 import { format } from 'date-fns';
 import { ChevronDown, ArrowLeft, Building2, User, MapPin, Calendar, FileText, Settings } from 'lucide-react';
-import { SimpleNavigationProvider } from '../../components/bilty/simple-navigation';
+import { navigationManager, useInputNavigation } from '../../components/bilty/input-navigation';
 
 // Import all components
 import GRNumberSection from '../../components/bilty/grnumber-manager';
@@ -17,19 +17,24 @@ import PackageChargesSection from '../../components/bilty/charges';
 import ActionButtonsSection from '../../components/bilty/action';
 import PrintModal from '../../components/bilty/print-model';
 import PrintBilty from '../../components/bilty/print-bilty';
+import AlertSystem, { customAlert, validateFormFields } from '../../components/common/alert-system';
 
 export default function BiltyForm() {
   const { user } = useAuth();
-  const router = useRouter();  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Navigation manager hook
+  const navigation = useInputNavigation();
+
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
   // Edit mode and print states
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentBiltyId, setCurrentBiltyId] = useState(null);
   const [existingBilties, setExistingBilties] = useState([]);  const [showPrintModal, setShowPrintModal] = useState(false);
-  const [showPrintBilty, setShowPrintBilty] = useState(false);
-  const [savedBiltyData, setSavedBiltyData] = useState(null);
-  const [showShortcuts, setShowShortcuts] = useState(false);
+    const [showPrintBilty, setShowPrintBilty] = useState(false);
+  const [savedBiltyData, setSavedBiltyData] = useState(null);  const [showShortcuts, setShowShortcuts] = useState(false);
   const [showBillBookDropdown, setShowBillBookDropdown] = useState(false);
   
   // Add reset key to force component re-renders
@@ -122,8 +127,7 @@ export default function BiltyForm() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
         e.preventDefault();
         toggleEditMode();
-      }
-      // Alt+N for new bill
+      }      // Alt+N for new bill
       if (e.altKey && e.key === 'n') {
         e.preventDefault();
         resetForm();
@@ -132,7 +136,10 @@ export default function BiltyForm() {
       if (e.altKey && e.key === 'c') {
         e.preventDefault();
         router.push('/challan');
-      }    };const handleKeyUp = (e) => {
+      }
+    };
+
+    const handleKeyUp = (e) => {
       if (e.key === 'Alt') setShowShortcuts(false);
     };
     
@@ -178,9 +185,26 @@ export default function BiltyForm() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('consignorSelected', handleConsignorSelection);
-    };
+      window.removeEventListener('consignorSelected', handleConsignorSelection);    };
   }, [formData, selectedBillBook, isEditMode, currentBiltyId]);
+
+  // Navigation manager lifecycle management
+  useEffect(() => {
+    // Activate navigation manager when component mounts
+    navigation.setActive(true);
+    
+    // Clear navigation manager when component unmounts or resets
+    return () => {
+      navigation.clear();
+    };
+  }, [navigation]);
+
+  // Clear navigation when form resets
+  useEffect(() => {
+    if (resetKey > 0) {
+      navigation.clear();
+    }
+  }, [resetKey, navigation]);
 
   const checkForEditData = async () => {
     try {
@@ -199,10 +223,9 @@ export default function BiltyForm() {
             .eq('id', biltyId)
             .single();
           
-          if (error) {
-            console.error('Error loading bilty for edit:', error);
-            alert('Error loading bilty data for editing');
-            localStorage.removeItem('editBiltyData');
+          if (error) {          console.error('Error loading bilty for edit:', error);
+          customAlert('Error loading bilty data for editing', 'error');
+          localStorage.removeItem('editBiltyData');
             return;
           }
             console.log('Loaded bilty data:', fullBilty);
@@ -341,13 +364,11 @@ export default function BiltyForm() {
           setToCityName(city.city_name);
         }
       }
-      
-    } catch (error) {
+        } catch (error) {
       console.error('Error loading bilty:', error);
-      alert('Error loading bilty data');
+      customAlert('Error loading bilty data', 'error');
     }
   };
-
   const handleSave = async (isDraft = false) => {
     try {
       setSaving(true);
@@ -360,29 +381,10 @@ export default function BiltyForm() {
       console.log('Is Edit Mode:', isEditMode);
       console.log('Current Bilty ID:', currentBiltyId);
       
-      // Validate required fields
-      if (!formData.gr_no?.trim()) {
-        alert('GR Number is required');
-        return;
-      }
-      
-      if (!formData.consignor_name?.trim()) {
-        alert('Consignor name is required');
-        return;
-      }
-      
-      if (!formData.consignee_name?.trim()) {
-        alert('Consignee name is required');
-        return;
-      }
-      
-      if (!formData.to_city_id) {
-        alert('Destination city is required');
-        return;
-      }
-      
-      if (!user?.branch_id) {
-        alert('Branch information is missing. Please login again.');
+      // Validate required fields using centralized validation
+      const validationError = validateFormFields(formData, user);
+      if (validationError) {
+        customAlert(validationError, 'error');
         return;
       }
         // Prepare save data with explicit type conversion and null handling
@@ -465,10 +467,8 @@ export default function BiltyForm() {
         if (duplicateError && duplicateError.code !== 'PGRST116') {
           console.error('Error checking duplicate:', duplicateError);
           throw new Error('Error checking for duplicate GR number');
-        }
-        
-        if (existingBilty) {
-          alert('GR Number already exists! Please refresh and try again.');
+        }        if (existingBilty) {
+          customAlert('GR Number already exists! Please refresh and try again.', 'error');
           return;
         }
         
@@ -769,8 +769,7 @@ export default function BiltyForm() {
                 .from('bill_books')
                 .update({ is_completed: true, current_number: selectedBillBook.to_number })
                 .eq('id', selectedBillBook.id);
-              
-              alert('Bill book completed. Please select a new bill book.');
+                customAlert('Bill book completed. Please select a new bill book.', 'warning');
               loadInitialData();
               return;
             }
@@ -824,19 +823,18 @@ export default function BiltyForm() {
         hint: error?.hint,
         stack: error?.stack
       });
-      
-      // More specific error messages
+        // More specific error messages using custom alerts
       if (error?.code === '23505') {
-        alert('Duplicate entry error. Please check your data and try again.');
+        customAlert('Duplicate entry error. Please check your data and try again.', 'error');
       } else if (error?.code === '23502') {
-        alert('Missing required field. Please fill all required fields.');
+        customAlert('Missing required field. Please fill all required fields.', 'error');
       } else if (error?.code === '23503') {
-        alert('Invalid reference data. Please check city or branch selection.');
+        customAlert('Invalid reference data. Please check city or branch selection.', 'error');
       } else if (error?.message?.includes('JWT')) {
-        alert('Session expired. Please login again.');
+        customAlert('Session expired. Please login again.', 'error');
         router.push('/login');
       } else {
-        alert(`Error saving bilty: ${error?.message || 'Unknown error'}. Please try again.`);
+        customAlert(`Error saving bilty: ${error?.message || 'Unknown error'}. Please try again.`, 'error');
       }
     } finally {
       setSaving(false);
@@ -965,10 +963,8 @@ export default function BiltyForm() {
       </div>
     );
   }
-
   return (
-    <SimpleNavigationProvider>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
       <div className="w-full px-6 py-6">
         {/* Enhanced Header with Back Button */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
@@ -1170,12 +1166,13 @@ export default function BiltyForm() {
         <PrintBilty
           biltyData={savedBiltyData}
           branchData={branchData}
-          fromCityName={fromCityName}
+                  fromCityName={fromCityName}
           toCityName={toCityName}
-          onClose={handlePrintClose}
-        />
+          onClose={handlePrintClose}        />
       )}
+
+      {/* Global Alert System */}
+      <AlertSystem />
     </div>
-    </SimpleNavigationProvider>
   );
 }

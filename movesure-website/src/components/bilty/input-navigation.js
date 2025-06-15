@@ -706,13 +706,16 @@ export function NavigableInput({
 
 // Utility function to create navigation-aware components
 export function createNavigableComponent(Component, defaultTabIndex = 1) {
-  return React.forwardRef(({ tabIndex = defaultTabIndex, ...props }, ref) => {
+  const NavigableComponent = React.forwardRef(({ tabIndex = defaultTabIndex, ...props }, ref) => {
     return (
       <NavigableInput tabIndex={tabIndex} ref={ref} {...props}>
         <Component {...props} />
       </NavigableInput>
     );
   });
+  
+  NavigableComponent.displayName = `NavigableComponent(${Component.displayName || Component.name || 'Component'})`;
+  return NavigableComponent;
 }
 
 // Debug component for development

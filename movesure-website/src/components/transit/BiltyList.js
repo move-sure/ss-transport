@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Search, Package, Calendar, CreditCard, Trash2, CheckSquare, Square, Truck, Plus, X, Eye } from 'lucide-react';
+import { Search, Package, Calendar, CreditCard, Trash2, CheckSquare, Square, Truck, Plus, X, Eye, RefreshCw } from 'lucide-react';
 
 const BiltyList = ({ 
   bilties, 
@@ -16,6 +16,7 @@ const BiltyList = ({
   onAddBiltyToTransit,
   onRemoveBiltyFromTransit,
   onBulkRemoveFromTransit,
+  onRefresh, // Add refresh function prop
   saving,
   cities = [] // Add cities prop for mapping
 }) => {
@@ -224,8 +225,16 @@ const BiltyList = ({
                     DISPATCHED
                   </span>
                 )}
-              </h3>
-              <div className="flex items-center gap-2">
+              </h3>              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onRefresh?.('transit')}
+                  disabled={saving}
+                  className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
+                  title="Refresh transit bilties"
+                >
+                  <RefreshCw className={`w-3 h-3 ${saving ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
                 {!selectedChallan.is_dispatched && filteredTransitBilties.length > 0 && (
                   <>
                     <button
@@ -433,12 +442,20 @@ const BiltyList = ({
       <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="flex items-center justify-between">            <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Package className="w-5 h-5" />
               Available Bilties ({filteredBilties.length})
             </h3>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => onRefresh?.('bilties')}
+                disabled={saving}
+                className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
+                title="Refresh available bilties"
+              >
+                <RefreshCw className={`w-3 h-3 ${saving ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
               <button
                 onClick={handleSelectAll}
                 disabled={selectedChallan?.is_dispatched}

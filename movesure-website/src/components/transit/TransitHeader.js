@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText, Home } from 'lucide-react';
+import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText, Home, Bug } from 'lucide-react';
 
 const TransitHeader = ({ 
   userBranch, 
@@ -13,7 +13,8 @@ const TransitHeader = ({
   selectedChallan,
   onRefresh,
   onPreviewLoadingChallan,
-  onPreviewChallanBilties
+  onPreviewChallanBilties,
+  onDebugBilty
 }) => {
   const getCityName = (cityCode) => {
     return cityCode || 'Unknown';
@@ -116,14 +117,23 @@ const TransitHeader = ({
               >
                 <Eye className="w-4 h-4" />
                 {selectedChallan ? `CHALLAN - ${selectedChallan.challan_no}` : 'CHALLAN'} Preview
-              </button>
-              <button
+              </button>              <button
                 onClick={onRefresh}
                 className="bg-white text-black border-2 border-purple-400 p-2 rounded-lg hover:bg-purple-50 hover:border-purple-600 transition-all shadow-lg"
                 title="Refresh Data"
               >
                 <RefreshCw className="w-5 h-5 text-purple-600" />
               </button>
+              {onDebugBilty && (
+                <button
+                  onClick={() => onDebugBilty('A00013')}
+                  className="bg-red-600 text-white border-2 border-red-700 px-3 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-red-700 transition-colors text-sm shadow-lg"
+                  title="Debug A00013 bilty"
+                >
+                  <Bug className="w-4 h-4" />
+                  Debug A00013
+                </button>
+              )}
             </div>
           </div>
         </div>

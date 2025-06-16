@@ -128,12 +128,10 @@ export default function TransitManagement() {
             transport_number, delivery_type, invoice_no, invoice_value,
             invoice_date, document_number, labour_charge, bill_charge,
             toll_charge, dd_charge, other_charge, remark
-          `)
-          .eq('branch_id', user.branch_id)
+          `)          .eq('branch_id', user.branch_id)
           .eq('is_active', true)
           .in('saving_option', ['SAVE', 'DRAFT'])
-          .order('created_at', { ascending: false })
-          .limit(100),
+          .order('created_at', { ascending: false }),
         
         // Station bilties that are not yet in transit
         supabase
@@ -142,9 +140,7 @@ export default function TransitManagement() {
             id, station, gr_no, consignor, consignee, contents,
             no_of_packets, weight, payment_status, amount, pvt_marks,
             created_at, updated_at
-          `)
-          .order('created_at', { ascending: false })
-          .limit(100),
+          `)          .order('created_at', { ascending: false }),
         
         // Challans with truck, driver, owner details
         supabase
@@ -183,13 +179,11 @@ export default function TransitManagement() {
           .from('staff')
           .select('*')
           .eq('is_active', true)
-          .order('name'),
-          // Transit bilties to filter out
+          .order('name'),          // Transit bilties to filter out - GET ALL RECORDS FOR PROPER FILTERING
         supabase
           .from('transit_details')
-          .select('bilty_id, station_bilty_id')
-          .eq('from_branch_id', user.branch_id)
-          .eq('is_active', true),
+          .select('bilty_id, station_bilty_id, gr_no')
+          .eq('is_active', true), // Remove branch filter to get ALL transit records
 
         // All branches for destination display
         supabase
@@ -221,15 +215,29 @@ export default function TransitManagement() {
       setChallanBooks(challanBooksRes.data || []);
       setBranches(branchesRes.data || []);
       setPermanentDetails(permanentDetailsRes.data || null);
+        console.log('Challans with details loaded:', challansRes.data?.length);
+      console.log('Permanent details loaded:', permanentDetailsRes.data);      
       
-      console.log('Challans with details loaded:', challansRes.data?.length);      console.log('Permanent details loaded:', permanentDetailsRes.data);      
+      // Enhanced filtering logic - get ALL transit bilties to ensure proper filtering
+      console.log('🔍 Processing bilties with enhanced filtering...');
       
-      // Filter out bilties that are already in transit
-      const transitBiltyIds = new Set(transitRes.data?.map(t => t.bilty_id) || []);
+      const transitBiltyIds = new Set(transitRes.data?.map(t => t.bilty_id).filter(Boolean) || []);
       const transitStationBiltyIds = new Set(transitRes.data?.map(t => t.station_bilty_id).filter(Boolean) || []);
       
+      console.log('📊 Transit filtering stats:', {
+        totalTransitRecords: transitRes.data?.length || 0,
+        biltyIdsToExclude: transitBiltyIds.size,
+        stationBiltyIdsToExclude: transitStationBiltyIds.size
+      });
+      
       const processedBilties = (biltiesRes.data || [])
-        .filter(b => !transitBiltyIds.has(b.id))
+        .filter(b => {
+          const isInTransit = transitBiltyIds.has(b.id);
+          if (isInTransit) {
+            console.log(`🚫 Excluding bilty ${b.gr_no} (ID: ${b.id}) from available list - already in transit`);
+          }
+          return !isInTransit;
+        })
         .map(bilty => {
           const city = citiesRes.data?.find(c => c.id === bilty.to_city_id);
           return {
@@ -239,9 +247,17 @@ export default function TransitManagement() {
             bilty_type: 'regular'
           };
         })
-        .sort(sortByGRNumber); // Sort by GR number      // Process station bilties
+        .sort(sortByGRNumber); // Sort by GR number      
+      
+      // Process station bilties with enhanced filtering
       const processedStationBilties = (stationBiltiesRes.data || [])
-        .filter(sb => !transitStationBiltyIds.has(sb.id))
+        .filter(sb => {
+          const isInTransit = transitStationBiltyIds.has(sb.id);
+          if (isInTransit) {
+            console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) from available list - already in transit`);
+          }
+          return !isInTransit;
+        })
         .map(stationBilty => {
           // Find the city name for the station city code
           const city = citiesRes.data?.find(c => c.city_code === stationBilty.station);
@@ -263,8 +279,28 @@ export default function TransitManagement() {
         })
         .sort(sortByGRNumber); // Sort by GR number
 
-      setBilties(processedBilties);
+      console.log('✅ Initial data processing completed:', {
+        availableBilties: processedBilties.length,
+        availableStationBilties: processedStationBilties.length
+      });
+      
+      // Check specifically for A00013 in initial load
+      const a00013Regular = processedBilties.find(b => b.gr_no === 'A00013');
+      const a00013Station = processedStationBilties.find(b => b.gr_no === 'A00013');
+      const a00013InTransit = transitRes.data?.find(t => t.gr_no === 'A00013');
+      
+      console.log('🔍 A00013 Initial Check:', {
+        foundInRegular: !!a00013Regular,
+        foundInStation: !!a00013Station,
+        foundInTransit: !!a00013InTransit,
+        transitRecord: a00013InTransit
+      });      setBilties(processedBilties);
       setStationBilties(processedStationBilties);
+      
+      // Auto-debug A00013 after initial load
+      setTimeout(() => {
+        debugBilty('A00013');
+      }, 2000);
       
       // Auto-select the most recent active challan
       const activeChallans = (challansRes.data || []).filter(c => !c.is_dispatched);
@@ -374,32 +410,44 @@ export default function TransitManagement() {
       console.error('Error loading transit bilties:', error);
       setTransitBilties([]);
     }
-  };
-
-  // Efficient refresh function
+  };  // Enhanced refresh function with better filtering logic
+  // FIXES IMPLEMENTED:
+  // 1. Removed branch filter from transit query to get ALL transit records 
+  // 2. Removed LIMIT 100 to get all available bilties
+  // 3. Added comprehensive logging for debugging
+  // 4. Enhanced filtering logic with better error handling
+  // 5. Added specific A00013 bilty tracking
+  // 6. Added refresh buttons to both available and transit sections
   const refreshData = useCallback(async (refreshType = 'all') => {
     try {
-      console.log('Refreshing data:', refreshType);
+      console.log('🔄 Refreshing data:', refreshType);
         if (refreshType === 'all' || refreshType === 'bilties') {
-        // Refresh available bilties
+        console.log('🔍 Refreshing available bilties...');
+        
+        // Get ALL transit bilties to ensure proper filtering
         const { data: transitRes } = await supabase
           .from('transit_details')
-          .select('bilty_id, station_bilty_id')
-          .eq('from_branch_id', user.branch_id)
+          .select('bilty_id, station_bilty_id, gr_no')
           .eq('is_active', true);
 
+        console.log('📊 Total transit records found:', transitRes?.length || 0);
+        
         const [{ data: biltiesRes }, { data: stationBiltiesRes }] = await Promise.all([          supabase
             .from('bilty')
             .select(`
               id, gr_no, bilty_date, consignor_name, consignee_name,
               payment_mode, no_of_pkg, total, to_city_id, wt, rate,
-              freight_amount, branch_id, saving_option, created_at
+              freight_amount, branch_id, saving_option, created_at,
+              contain, e_way_bill, pvt_marks, consignor_gst, consignor_number,
+              consignee_gst, consignee_number, transport_name, transport_gst,
+              transport_number, delivery_type, invoice_no, invoice_value,
+              invoice_date, document_number, labour_charge, bill_charge,
+              toll_charge, dd_charge, other_charge, remark
             `)
             .eq('branch_id', user.branch_id)
             .eq('is_active', true)
             .in('saving_option', ['SAVE', 'DRAFT'])
-            .order('created_at', { ascending: false })
-            .limit(100),
+            .order('created_at', { ascending: false }),
           
           supabase
             .from('station_bilty_summary')
@@ -409,14 +457,27 @@ export default function TransitManagement() {
               created_at, updated_at
             `)
             .order('created_at', { ascending: false })
-            .limit(100)
         ]);
 
-        const transitBiltyIds = new Set(transitRes?.map(t => t.bilty_id) || []);
+        console.log('📋 Total bilties found:', biltiesRes?.length || 0);
+        console.log('📋 Total station bilties found:', stationBiltiesRes?.length || 0);
+
+        // Create sets for filtering - include ALL transit bilties, not just from current branch
+        const transitBiltyIds = new Set(transitRes?.map(t => t.bilty_id).filter(Boolean) || []);
         const transitStationBiltyIds = new Set(transitRes?.map(t => t.station_bilty_id).filter(Boolean) || []);
         
+        console.log('🚫 Transit bilty IDs to exclude:', transitBiltyIds.size);
+        console.log('🚫 Transit station bilty IDs to exclude:', transitStationBiltyIds.size);
+        
+        // Process bilties with better filtering
         const processedBilties = (biltiesRes || [])
-          .filter(b => !transitBiltyIds.has(b.id))
+          .filter(b => {
+            const isInTransit = transitBiltyIds.has(b.id);
+            if (isInTransit) {
+              console.log(`🚫 Excluding bilty ${b.gr_no} (ID: ${b.id}) - already in transit`);
+            }
+            return !isInTransit;
+          })
           .map(bilty => {
             const city = cities.find(c => c.id === bilty.to_city_id);
             return {
@@ -426,25 +487,49 @@ export default function TransitManagement() {
               bilty_type: 'regular'
             };
           })
-          .sort(sortByGRNumber); // Sort by GR number
+          .sort(sortByGRNumber);
 
         const processedStationBilties = (stationBiltiesRes || [])
-          .filter(sb => !transitStationBiltyIds.has(sb.id))
-          .map(stationBilty => ({
-            ...stationBilty,
-            bilty_date: stationBilty.created_at,
-            consignor_name: stationBilty.consignor,
-            consignee_name: stationBilty.consignee,
-            payment_mode: stationBilty.payment_status,
-            no_of_pkg: stationBilty.no_of_packets,
-            total: stationBilty.amount,
-            wt: stationBilty.weight,
-            contain: stationBilty.contents,
-            to_city_name: stationBilty.station,
-            to_city_code: stationBilty.station,
-            bilty_type: 'station'
-          }))
+          .filter(sb => {
+            const isInTransit = transitStationBiltyIds.has(sb.id);
+            if (isInTransit) {
+              console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) - already in transit`);
+            }
+            return !isInTransit;
+          })
+          .map(stationBilty => {
+            const city = cities.find(c => c.city_code === stationBilty.station);
+            return {
+              ...stationBilty,
+              bilty_date: stationBilty.created_at,
+              consignor_name: stationBilty.consignor,
+              consignee_name: stationBilty.consignee,
+              payment_mode: stationBilty.payment_status,
+              no_of_pkg: stationBilty.no_of_packets,
+              total: stationBilty.amount,
+              wt: stationBilty.weight,
+              contain: stationBilty.contents,
+              to_city_name: city?.city_name || stationBilty.station,
+              to_city_code: stationBilty.station,
+              bilty_type: 'station'
+            };
+          })
           .sort(sortByGRNumber);
+
+        console.log('✅ Available bilties after filtering:', processedBilties.length);
+        console.log('✅ Available station bilties after filtering:', processedStationBilties.length);
+        
+        // Check specifically for A00013
+        const a00013Regular = processedBilties.find(b => b.gr_no === 'A00013');
+        const a00013Station = processedStationBilties.find(b => b.gr_no === 'A00013');
+        const a00013InTransit = transitRes?.find(t => t.gr_no === 'A00013');
+        
+        console.log('🔍 A00013 Check:', {
+          foundInRegular: !!a00013Regular,
+          foundInStation: !!a00013Station,
+          foundInTransit: !!a00013InTransit,
+          transitRecord: a00013InTransit
+        });
 
         setBilties(processedBilties);
         setStationBilties(processedStationBilties);
@@ -487,6 +572,67 @@ export default function TransitManagement() {
       console.error('Error refreshing data:', error);
     }
   }, [user.branch_id, cities, selectedChallan]);
+
+  // Debug function to find specific bilty
+  const debugBilty = useCallback(async (grNo = 'A00013') => {
+    console.log(`🔍 Debugging bilty: ${grNo}`);
+    
+    try {
+      // Check if bilty exists in bilty table
+      const { data: biltyData, error: biltyError } = await supabase
+        .from('bilty')
+        .select('*')
+        .eq('gr_no', grNo)
+        .eq('branch_id', user.branch_id)
+        .eq('is_active', true);
+      
+      // Check if bilty exists in station_bilty_summary
+      const { data: stationData, error: stationError } = await supabase
+        .from('station_bilty_summary')
+        .select('*')
+        .eq('gr_no', grNo);
+      
+      // Check if bilty exists in transit_details
+      const { data: transitData, error: transitError } = await supabase
+        .from('transit_details')
+        .select('*')
+        .eq('gr_no', grNo)
+        .eq('is_active', true);
+      
+      console.log(`📊 Debug results for ${grNo}:`, {
+        biltyTable: {
+          found: biltyData?.length > 0,
+          count: biltyData?.length || 0,
+          data: biltyData,
+          error: biltyError
+        },
+        stationTable: {
+          found: stationData?.length > 0,
+          count: stationData?.length || 0,
+          data: stationData,
+          error: stationError
+        },
+        transitTable: {
+          found: transitData?.length > 0,
+          count: transitData?.length || 0,
+          data: transitData,
+          error: transitError
+        }
+      });
+      
+      // Check current state
+      const currentBilties = [...bilties, ...stationBilties];
+      const foundInCurrent = currentBilties.find(b => b.gr_no === grNo);
+      
+      console.log(`📋 Current state for ${grNo}:`, {
+        foundInCurrentList: !!foundInCurrent,
+        currentData: foundInCurrent
+      });
+      
+    } catch (error) {
+      console.error(`❌ Error debugging bilty ${grNo}:`, error);
+    }
+  }, [user.branch_id, bilties, stationBilties]);
 
   const handleAddBiltyToTransit = async (biltyOrBilties) => {
     if (!selectedChallan || !selectedChallanBook) {
@@ -574,8 +720,7 @@ export default function TransitManagement() {
     } finally {
       setSaving(false);
     }
-  };
-  const handleRemoveBiltyFromTransit = async (bilty) => {
+  };  const handleRemoveBiltyFromTransit = async (bilty) => {
     if (!bilty.transit_id) return;
 
     if (selectedChallan?.is_dispatched) {
@@ -589,6 +734,13 @@ export default function TransitManagement() {
 
       setSaving(true);
 
+      console.log(`🗑️ Removing bilty ${bilty.gr_no} from transit:`, {
+        biltyId: bilty.id,
+        transitId: bilty.transit_id,
+        challanNo: bilty.challan_no,
+        biltyType: bilty.bilty_type
+      });
+
       // Delete the transit details record completely
       const { error } = await supabase
         .from('transit_details')
@@ -601,6 +753,8 @@ export default function TransitManagement() {
         return;
       }
 
+      console.log(`✅ Successfully removed ${bilty.gr_no} from transit table`);
+
       // Update challan bilty count
       if (selectedChallan) {
         const newBiltyCount = Math.max(0, selectedChallan.total_bilty_count - 1);
@@ -608,13 +762,22 @@ export default function TransitManagement() {
           .from('challan_details')
           .update({ total_bilty_count: newBiltyCount })
           .eq('id', selectedChallan.id);
+        
+        console.log(`📊 Updated challan bilty count to: ${newBiltyCount}`);
       }
 
       alert(`Successfully removed ${bilty.gr_no} from challan`);
-        // Refresh data efficiently
+      
+      // Refresh data efficiently with logging
+      console.log('🔄 Refreshing data after bilty removal...');
       await refreshData('bilties');
       await refreshData('transit');
       await refreshData('challans');
+      
+      // Debug the specific bilty after removal
+      setTimeout(() => {
+        debugBilty(bilty.gr_no);
+      }, 1000);
 
     } catch (error) {
       console.error('Error removing bilty from transit:', error);
@@ -622,8 +785,7 @@ export default function TransitManagement() {
     } finally {
       setSaving(false);
     }
-  };
-  const handleBulkRemoveFromTransit = async () => {
+  };  const handleBulkRemoveFromTransit = async () => {
     if (selectedTransitBilties.length === 0) {
       alert('No transit bilties selected for removal');
       return;
@@ -641,6 +803,10 @@ export default function TransitManagement() {
       if (!confirmRemove) return;
 
       setSaving(true);
+
+      console.log(`🗑️ Bulk removing ${selectedTransitBilties.length} bilties from transit:`, 
+        selectedTransitBilties.map(b => ({ grNo: b.gr_no, transitId: b.transit_id }))
+      );
 
       // Delete all selected transit bilties completely
       const transitIds = selectedTransitBilties.map(bilty => bilty.transit_id).filter(Boolean);
@@ -661,6 +827,8 @@ export default function TransitManagement() {
         return;
       }
 
+      console.log(`✅ Successfully bulk removed ${selectedTransitBilties.length} bilties from transit table`);
+
       // Update challan bilty count
       if (selectedChallan) {
         const newBiltyCount = Math.max(0, selectedChallan.total_bilty_count - selectedTransitBilties.length);
@@ -668,15 +836,28 @@ export default function TransitManagement() {
           .from('challan_details')
           .update({ total_bilty_count: newBiltyCount })
           .eq('id', selectedChallan.id);
+        
+        console.log(`📊 Updated challan bilty count to: ${newBiltyCount}`);
       }
 
       alert(`Successfully removed ${selectedTransitBilties.length} bilty(s) from challan`);
       
       // Clear selections and refresh data
       setSelectedTransitBilties([]);
+      
+      console.log('🔄 Refreshing data after bulk bilty removal...');
       await refreshData('bilties');
       await refreshData('transit');
       await refreshData('challans');
+
+      // Debug specific bilties after removal
+      setTimeout(() => {
+        selectedTransitBilties.forEach(bilty => {
+          if (bilty.gr_no === 'A00013') {
+            debugBilty(bilty.gr_no);
+          }
+        });
+      }, 1000);
 
     } catch (error) {
       console.error('Error removing bilty from transit:', error);
@@ -761,7 +942,8 @@ export default function TransitManagement() {
           onRefresh={() => refreshData('all')}
           onPreviewLoadingChallan={handlePreviewLoadingChallan}
           onPreviewChallanBilties={handlePreviewChallanBilties}
-        />        {/* Main Content */}
+          onDebugBilty={debugBilty}
+        />{/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">          {/* Left Panel - Challan Selection - Smaller width */}
           <div className="lg:col-span-3 xl:col-span-3 space-y-4 lg:space-y-6">
             <ChallanSelector 
@@ -780,7 +962,7 @@ export default function TransitManagement() {
               transitBilties={transitBilties}
             />
           </div>{/* Right Panel - Bilty Lists with Table Structure - Larger width */}
-          <div className="lg:col-span-9 xl:col-span-9"><BiltyList 
+          <div className="lg:col-span-9 xl:col-span-9">            <BiltyList 
               bilties={bilties}
               stationBilties={stationBilties}
               transitBilties={transitBilties}
@@ -792,6 +974,7 @@ export default function TransitManagement() {
               onAddBiltyToTransit={handleAddBiltyToTransit}
               onRemoveBiltyFromTransit={handleRemoveBiltyFromTransit}
               onBulkRemoveFromTransit={handleBulkRemoveFromTransit}
+              onRefresh={refreshData}
               saving={saving}
             />
           </div>

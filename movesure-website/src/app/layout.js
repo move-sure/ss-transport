@@ -6,7 +6,7 @@ import RouteProtection from './utils/routeprotection'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Dashboard - Transport Management System',
+  title: 'movesure.io - LEADING AI BILLING SOFTWARE',
   description: 'Comprehensive transport and logistics management system',
 }
 

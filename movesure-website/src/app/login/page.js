@@ -202,7 +202,7 @@ export default function LoginPage() {
             </h1>
             
             <p className="text-xl text-blue-100 mb-8">
-              Professional Transport Management System
+              Leading Transport Management System
             </p>
             
             <div className="space-y-4 text-left">

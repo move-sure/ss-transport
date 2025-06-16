@@ -86,7 +86,7 @@ export default function Home() {
       name: "Priya Sharma",
       company: "Delhi Logistics",
       rating: 5,
-      text: "Best transport management system in India. Customer support bhi excellent hai."
+      text: "Leading transport management system in India. Customer support bhi excellent hai."
     },
     {
       name: "Amit Singh",

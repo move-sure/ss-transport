@@ -390,26 +390,42 @@ const ConsignorConsigneeSection = ({
         console.error('Error updating consignee GST:', error);
       }
     }
-  };
-  // Keyboard navigation with Enter support
+  };  // Keyboard navigation with Enter and Tab support
   const handleConsignorKeyDown = (e) => {
     // Handle dropdown navigation
     if (showConsignorDropdown && searchResults.consignors.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setConsignorSelectedIndex(prev => 
-            prev < searchResults.consignors.length - 1 ? prev + 1 : 0
-          );
+          const newDownIndex = consignorSelectedIndex < searchResults.consignors.length - 1 ? consignorSelectedIndex + 1 : 0;
+          setConsignorSelectedIndex(newDownIndex);
+          // Auto-scroll to selected option
+          setTimeout(() => {
+            const dropdown = consignorRef.current?.querySelector('.dropdown-open');
+            const selectedOption = dropdown?.querySelector(`[data-index="${newDownIndex}"]`);
+            if (selectedOption && dropdown) {
+              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }, 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setConsignorSelectedIndex(prev => 
-            prev > 0 ? prev - 1 : searchResults.consignors.length - 1
-          );
+          const newUpIndex = consignorSelectedIndex > 0 ? consignorSelectedIndex - 1 : searchResults.consignors.length - 1;
+          setConsignorSelectedIndex(newUpIndex);
+          // Auto-scroll to selected option
+          setTimeout(() => {
+            const dropdown = consignorRef.current?.querySelector('.dropdown-open');
+            const selectedOption = dropdown?.querySelector(`[data-index="${newUpIndex}"]`);
+            if (selectedOption && dropdown) {
+              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }, 10);
           break;
         case 'Enter':
+        case 'Tab':
           e.preventDefault();
+          e.stopPropagation();
+          console.log(`🎯 ${e.key} key pressed on consignor dropdown - selecting option`);
           if (consignorSelectedIndex >= 0) {
             handleConsignorSelect(searchResults.consignors[consignorSelectedIndex]);
           } else if (searchResults.consignors.length > 0) {
@@ -425,25 +441,41 @@ const ConsignorConsigneeSection = ({
       // No custom navigation - let browser handle Tab naturally
     }
   };
-
   const handleConsigneeKeyDown = (e) => {
     // Handle dropdown navigation
     if (showConsigneeDropdown && searchResults.consignees.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setConsigneeSelectedIndex(prev => 
-            prev < searchResults.consignees.length - 1 ? prev + 1 : 0
-          );
+          const newDownIndex = consigneeSelectedIndex < searchResults.consignees.length - 1 ? consigneeSelectedIndex + 1 : 0;
+          setConsigneeSelectedIndex(newDownIndex);
+          // Auto-scroll to selected option
+          setTimeout(() => {
+            const dropdown = consigneeRef.current?.querySelector('.dropdown-open');
+            const selectedOption = dropdown?.querySelector(`[data-index="${newDownIndex}"]`);
+            if (selectedOption && dropdown) {
+              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }, 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setConsigneeSelectedIndex(prev => 
-            prev > 0 ? prev - 1 : searchResults.consignees.length - 1
-          );
+          const newUpIndex = consigneeSelectedIndex > 0 ? consigneeSelectedIndex - 1 : searchResults.consignees.length - 1;
+          setConsigneeSelectedIndex(newUpIndex);
+          // Auto-scroll to selected option
+          setTimeout(() => {
+            const dropdown = consigneeRef.current?.querySelector('.dropdown-open');
+            const selectedOption = dropdown?.querySelector(`[data-index="${newUpIndex}"]`);
+            if (selectedOption && dropdown) {
+              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }, 10);
           break;
         case 'Enter':
+        case 'Tab':
           e.preventDefault();
+          e.stopPropagation();
+          console.log(`🎯 ${e.key} key pressed on consignee dropdown - selecting option`);
           if (consigneeSelectedIndex >= 0) {
             handleConsigneeSelect(searchResults.consignees[consigneeSelectedIndex]);
           } else if (searchResults.consignees.length > 0) {
@@ -689,12 +721,11 @@ const ConsignorConsigneeSection = ({
                       <Plus className="w-4 h-4" />
                       Add New Consignor
                     </div>
-                  </button>
-
-                  {searchResults.consignors.length > 0 ? (
+                  </button>                  {searchResults.consignors.length > 0 ? (
                     searchResults.consignors.map((consignor, index) => (
                       <button
                         key={consignor.id}
+                        data-index={index}
                         onClick={() => handleConsignorSelect(consignor)}
                         className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
                           index === consignorSelectedIndex ? 'bg-purple-100' : ''
@@ -804,12 +835,11 @@ const ConsignorConsigneeSection = ({
                     <Plus className="w-4 h-4" />
                     Add New Consignee
                   </div>
-                </button>
-
-                {searchResults.consignees.length > 0 ? (
+                </button>                {searchResults.consignees.length > 0 ? (
                   searchResults.consignees.map((consignee, index) => (
                     <button
                       key={consignee.id}
+                      data-index={index}
                       onClick={() => handleConsigneeSelect(consignee)}
                       className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
                         index === consigneeSelectedIndex ? 'bg-purple-100' : ''

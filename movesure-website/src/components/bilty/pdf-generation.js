@@ -60,7 +60,7 @@ const PDFGenerator = ({
       DELIVERY_AT: { x: 12, y: 45 },              // Delivery at transport (without delivery type)
       GSTIN: { x: 12, y: 50 },                    // GSTIN number
       MOBILE: { x: 60, y: 50 },                  // Mobile number
-      DELIVERY_TYPE: { x: 190, y: 95 },          // NEW: Delivery type near payment mode
+      DELIVERY_TYPE: { x: 175, y: 95 },          // NEW: Delivery type near payment mode (moved closer)
     },
 
     // 👥 CONSIGNOR AND CONSIGNEE SECTION
@@ -432,20 +432,8 @@ const PDFGenerator = ({
       y + COORDINATES.DELIVERY_SECTION.MOBILE.y,
       STYLES.FONTS.LABELS
     );
-    
-    // NEW: Delivery Type near Payment Mode
-    const deliveryTypeFormatted = formatDeliveryType(biltyData.delivery_type);
-    if (deliveryTypeFormatted) {
-      addStyledText(
-        pdf, 
-        deliveryTypeFormatted, 
-        COORDINATES.DELIVERY_SECTION.DELIVERY_TYPE.x, 
-        y + COORDINATES.DELIVERY_SECTION.DELIVERY_TYPE.y,
-        STYLES.FONTS.LARGE_STATUS
-      );
-    }
-    
-    // 👥 PEOPLE SECTION - Enhanced styling    // Consignor
+      
+    // 👥 PEOPLE SECTION - Enhanced styling// Consignor
     addStyledText(
       pdf, 
       `CONSIGNOR: ${(biltyData.consignor_name || '').toUpperCase()}`, 
@@ -684,12 +672,14 @@ const PDFGenerator = ({
     
     // Total amount - Aligned with charges section using same column structure
     addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL);
-    addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL, { align: 'right' });
+    addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment
+    const paymentText = formatPaymentMode(biltyData.payment_mode);
+    const deliveryTypeText = formatDeliveryType(biltyData.delivery_type);
+    const combinedText = paymentText + (deliveryTypeText ? ` ${deliveryTypeText}` : '');
     
-    // Payment Status - Large and bold
     addStyledText(
       pdf, 
-      formatPaymentMode(biltyData.payment_mode), 
+      combinedText, 
       COORDINATES.TABLE_SECTION.PAYMENT_STATUS.x, 
       y + COORDINATES.TABLE_SECTION.PAYMENT_STATUS.y,
       STYLES.FONTS.LARGE_STATUS

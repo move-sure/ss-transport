@@ -160,8 +160,8 @@ const PDFGenerator = ({
       NOTICE: { size: 12, weight: 'bold' },        // Increased notice size
       COMPANY_NAME: { size: 20, weight: 'bold' },  // NEW: Special company name style
       GR_NUMBER: { size: 11, weight: 'bold' },     // NEW: Bold GR number
-      LABELS: { size: 9, weight: 'bold' },         // NEW: Bold labels
-      VALUES: { size: 9, weight: 'normal' },       // NEW: Normal values
+      LABELS: { size: 9.5, weight: 'bold' },         // NEW: Bold labels
+      VALUES: { size: 9.5, weight: 'normal' },       // NEW: Normal values
       TOTAL: { size: 14, weight: 'bold' },         // NEW: Large bold total
     },
     LINES: {
@@ -603,7 +603,7 @@ const PDFGenerator = ({
       `WEIGHT: ${biltyData.wt} kg`, 
       COORDINATES.TABLE_SECTION.WEIGHT.x, 
       y + COORDINATES.TABLE_SECTION.WEIGHT.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.NOTICE
     );
     
     // Main vertical divider line - Thicker

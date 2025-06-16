@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import supabase from '../../app/utils/supabase';
 
 export default function WorkingHoursTracker({ userId }) {
@@ -13,13 +13,7 @@ export default function WorkingHoursTracker({ userId }) {
   const [currentSession, setCurrentSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (userId) {
-      fetchWorkingHours();
-      checkCurrentSession();
-    }
-  }, [userId]);
-  const fetchWorkingHours = async () => {
+  const fetchWorkingHours = useCallback(async () => {
     if (!userId) {
       console.log('No userId provided to WorkingHoursTracker');
       setLoading(false);
@@ -90,17 +84,15 @@ export default function WorkingHoursTracker({ userId }) {
       });
 
       setWorkingHours(calculations);
-      setLoading(false);
-
-      console.log('Working hours calculated successfully:', calculations);
+      setLoading(false);      console.log('Working hours calculated successfully:', calculations);
 
     } catch (error) {
       console.error('Error fetching working hours:', error);
       setLoading(false);
     }
-  };
+  }, [userId]);
 
-  const checkCurrentSession = async () => {
+  const checkCurrentSession = useCallback(async () => {
     try {
       const { data: activeSessions, error } = await supabase
         .from('user_sessions')
@@ -114,11 +106,16 @@ export default function WorkingHoursTracker({ userId }) {
 
       if (activeSessions && activeSessions.length > 0) {
         setCurrentSession(activeSessions[0]);
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Error checking current session:', error);
+    }  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchWorkingHours();
+      checkCurrentSession();
     }
-  };
+  }, [userId, fetchWorkingHours, checkCurrentSession]);
 
   const getCurrentSessionDuration = () => {
     if (!currentSession) return { hours: 0, minutes: 0 };
@@ -218,10 +215,9 @@ export default function WorkingHoursTracker({ userId }) {
           </div>
         </div>
 
-        {/* Working Hours Progress */}
-        <div className="mt-6">
+        {/* Working Hours Progress */}        <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Today's Progress</span>
+            <span className="text-sm font-medium text-gray-700">Today&apos;s Progress</span>
             <span className="text-sm text-gray-500">
               {workingHours.today.totalMinutes} / 480 min (8h target)
             </span>

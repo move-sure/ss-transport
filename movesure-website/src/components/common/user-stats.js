@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import supabase from '../../app/utils/supabase';
 
 export default function UserStats({ userId }) {
@@ -12,12 +12,7 @@ export default function UserStats({ userId }) {
     loading: true
   });
 
-  useEffect(() => {
-    if (userId) {
-      fetchUserStats();
-    }
-  }, [userId]);
-  const fetchUserStats = async () => {
+  const fetchUserStats = useCallback(async () => {
     try {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -70,7 +65,12 @@ export default function UserStats({ userId }) {
         loading: false
       });
     }
-  };
+  }, [userId]);
+  useEffect(() => {
+    if (userId) {
+      fetchUserStats();
+    }
+  }, [userId, fetchUserStats]);
 
   if (stats.loading) {
     return (
@@ -156,9 +156,8 @@ export default function UserStats({ userId }) {
                 <span className="text-white text-sm">🎯</span>
               </div>
             </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">Today's Activity</dt>
+            <div className="ml-5 w-0 flex-1">              <dl>
+                <dt className="text-sm font-medium text-gray-500 truncate">Today&apos;s Activity</dt>
                 <dd className="text-lg font-medium text-gray-900">{stats.todayActivity}</dd>
               </dl>
             </div>

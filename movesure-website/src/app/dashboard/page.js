@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
 import UserStats from '../../components/common/user-stats';
@@ -59,16 +60,16 @@ export default function DashboardPage() {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     Welcome back, {user.name || user.username}!
-                  </h1>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Here's what's happening with your account today.
+                  </h1>                  <p className="mt-1 text-sm text-gray-600">
+                    Here&apos;s what&apos;s happening with your account today.
                   </p>
-                </div>
-                <div className="flex-shrink-0">
+                </div>                <div className="flex-shrink-0">
                   {user.image_url && (
-                    <img
+                    <Image
                       src={user.image_url}
                       alt="Profile"
+                      width={64}
+                      height={64}
                       className="h-16 w-16 rounded-full object-cover border-4 border-white shadow-lg"
                     />
                   )}
@@ -86,12 +87,13 @@ export default function DashboardPage() {
               <h2 className="text-lg font-medium text-gray-900 mb-4">Profile Information</h2>
               
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
-                <div className="flex items-center space-x-6">
-                  <div className="flex-shrink-0">
+                <div className="flex items-center space-x-6">                  <div className="flex-shrink-0">
                     {user.image_url ? (
-                      <img
+                      <Image
                         src={user.image_url}
                         alt="Profile"
+                        width={80}
+                        height={80}
                         className="h-20 w-20 rounded-full object-cover border-3 border-white shadow-md"
                       />
                     ) : (

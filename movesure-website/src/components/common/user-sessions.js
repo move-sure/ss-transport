@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import supabase from '../../app/utils/supabase';
 
 export default function UserSessions({ userId }) {
@@ -8,17 +8,10 @@ export default function UserSessions({ userId }) {
   const [totalWorkingTime, setTotalWorkingTime] = useState({
     hours: 0,
     minutes: 0,
-    totalMinutes: 0
-  });
+    totalMinutes: 0  });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (userId) {
-      fetchUserSessions();
-    }
-  }, [userId]);
-
-  const fetchUserSessions = async () => {
+  const fetchUserSessions = useCallback(async () => {
     try {
       const { data: sessionsData, error } = await supabase
         .from('user_sessions')
@@ -61,10 +54,15 @@ export default function UserSessions({ userId }) {
       setSessions(processedSessions);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching user sessions:', error);
-      setLoading(false);
+      console.error('Error fetching user sessions:', error);      setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchUserSessions();
+    }
+  }, [userId, fetchUserSessions]);
 
   const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString('en-IN', {

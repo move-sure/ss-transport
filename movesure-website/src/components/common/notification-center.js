@@ -109,9 +109,8 @@ export default function NotificationCenter({ userId }) {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🔔</span>
               </div>
-              <p className="text-gray-500">No notifications yet</p>
-              <p className="text-sm text-gray-400 mt-1">
-                You'll see important updates here
+              <p className="text-gray-500">No notifications yet</p>              <p className="text-sm text-gray-400 mt-1">
+                You&apos;ll see important updates here
               </p>
             </div>
           ) : (

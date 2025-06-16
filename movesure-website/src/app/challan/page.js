@@ -116,8 +116,7 @@ export default function TransitManagement() {
           .from('cities')
           .select('*')
           .order('city_name'),
-        
-        // Bilties that are not yet in transit - FETCH ALL REQUIRED FIELDS
+          // Bilties that are not yet in transit - FETCH ALL REQUIRED FIELDS
         supabase
           .from('bilty')
           .select(`
@@ -132,7 +131,8 @@ export default function TransitManagement() {
           `)
           .eq('branch_id', user.branch_id)
           .eq('is_active', true)
-          .eq('saving_option', 'SAVE')          .order('created_at', { ascending: false })
+          .in('saving_option', ['SAVE', 'DRAFT'])
+          .order('created_at', { ascending: false })
           .limit(100),
         
         // Station bilties that are not yet in transit
@@ -388,8 +388,7 @@ export default function TransitManagement() {
           .eq('from_branch_id', user.branch_id)
           .eq('is_active', true);
 
-        const [{ data: biltiesRes }, { data: stationBiltiesRes }] = await Promise.all([
-          supabase
+        const [{ data: biltiesRes }, { data: stationBiltiesRes }] = await Promise.all([          supabase
             .from('bilty')
             .select(`
               id, gr_no, bilty_date, consignor_name, consignee_name,
@@ -398,7 +397,7 @@ export default function TransitManagement() {
             `)
             .eq('branch_id', user.branch_id)
             .eq('is_active', true)
-            .eq('saving_option', 'SAVE')
+            .in('saving_option', ['SAVE', 'DRAFT'])
             .order('created_at', { ascending: false })
             .limit(100),
           

@@ -52,10 +52,9 @@ const ChallanPDFPreview = ({
   const generateLoadingChallanPDFBlob = async (transitBiltiesData) => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 6; // Reduced margin
-    const columnGap = 4; // Reduced gap between columns
-    const tableWidth = (pageWidth - (margin * 2) - columnGap) / 2; // Split page in half with smaller gap
+    const pageHeight = 297;    const margin = 2; // Minimal margin for maximum width
+    const columnGap = 0; // Remove gap between columns completely
+    const tableWidth = (pageWidth - (margin * 2) - columnGap) / 2; // Split page in half with no gap
     const itemsPerColumn = 20; // Max items per column (40 total per page)
     const itemsPerPage = itemsPerColumn * 2; // 2 columns per page
     const rowHeight = 10; // Increased row height for better readability
@@ -88,52 +87,50 @@ const ChallanPDFPreview = ({
         currentPage++;
       }
         const pageData = sortedBiltiesData.slice(pageStart, pageStart + itemsPerPage);
-      
-      // Add header details only on first page
+        // Add header details only on first page
       if (currentPage === 1) {
         // Get branch details
         const fromBranch = branches.find(b => b.id === userBranch?.id) || userBranch;
-        
-        // Title
-        doc.setFontSize(16);
+          // Title - Made even smaller
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('LOADING CHALLAN', pageWidth / 2, 15, { align: 'center' });
+        doc.text('LOADING CHALLAN', pageWidth / 2, 10, { align: 'center' });
         
-        // Company Details
+        // Company Details - Made smaller
         if (permanentDetails) {
-          doc.setFontSize(14);
+          doc.setFontSize(8);
           doc.setFont('helvetica', 'bold');
-          doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 23, { align: 'center' });
+          doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 15, { align: 'center' });
           
-          doc.setFontSize(9);
+          doc.setFontSize(7);
           doc.setFont('helvetica', 'normal');
           if (permanentDetails.transport_address) {
-            doc.text(permanentDetails.transport_address, pageWidth / 2, 28, { align: 'center' });
+            doc.text(permanentDetails.transport_address, pageWidth / 2, 19, { align: 'center' });
           }
         }
         
         // Date and Details (Top Right)
-        doc.setFontSize(10);
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.text(`CHALLAN NO: ${selectedChallan?.challan_no || 'N/A'}`, pageWidth - margin, 15, { align: 'right' });
-        doc.text(`DATE: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - margin, 20, { align: 'right' });
+        doc.text(`CHALLAN NO: ${selectedChallan?.challan_no || 'N/A'}`, pageWidth - margin, 10, { align: 'right' });
+        doc.text(`DATE: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - margin, 14, { align: 'right' });
         
         // Add totals below date
-        doc.setFontSize(9);
-        doc.text(`TOTAL PACKAGES: ${totalPackages}`, pageWidth - margin, 25, { align: 'right' });
-        doc.text(`TOTAL WEIGHT: ${totalWeight.toFixed(2)} KG`, pageWidth - margin, 30, { align: 'right' });
+        doc.setFontSize(7);
+        doc.text(`TOTAL PACKAGES: ${totalPackages}`, pageWidth - margin, 18, { align: 'right' });
+        doc.text(`TOTAL WEIGHT: ${totalWeight.toFixed(2)} KG`, pageWidth - margin, 22, { align: 'right' });
         
         // Driver & Truck Info (Top Left)
-        doc.setFontSize(9);
-        doc.text(`TRUCK NO: ${selectedChallan?.truck?.truck_number || 'N/A'}`, margin, 15);
-        doc.text(`DRIVER: ${selectedChallan?.driver?.name || 'N/A'}`, margin, 20);
-        doc.text(`OWNER: ${selectedChallan?.owner?.name || 'N/A'}`, margin, 25);
+        doc.setFontSize(7);
+        doc.text(`TRUCK NO: ${selectedChallan?.truck?.truck_number || 'N/A'}`, margin, 10);
+        doc.text(`DRIVER: ${selectedChallan?.driver?.name || 'N/A'}`, margin, 14);
+        doc.text(`OWNER: ${selectedChallan?.owner?.name || 'N/A'}`, margin, 18);
         
         // Line separator
         doc.setLineWidth(0.3);
-        doc.line(margin, 35, pageWidth - margin, 35);
+        doc.line(margin, 25, pageWidth - margin, 25);
         
-        var startY = 42; // Start position for first page
+        var startY = 30; // Start position for first page
       } else {
         // For subsequent pages, just add page number and start higher
         doc.setFontSize(8);
@@ -151,35 +148,33 @@ const ChallanPDFPreview = ({
       
         // LEFT COLUMN TABLE      // Draw table header background
       doc.setFillColor(245, 245, 245); // Light gray background
-      doc.rect(margin, startY - 6, tableWidth, 10, 'F'); // Increased header height
-      
-      // Left Column Header with bigger text and adjusted column widths
-      doc.setFontSize(10); // Increased font size for better visibility
+      doc.rect(margin, startY - 6, tableWidth, 10, 'F'); // Increased header height      // Left Column Header with adjusted column widths - bigger package and station columns
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('S.No', margin + 2, startY);
-      doc.text('G.R.No', margin + 15, startY);
-      doc.text('Pkg', margin + 40, startY);
-      doc.text('Station', margin + 48, startY);
+      doc.text('G.R.No', margin + 12, startY);
+      doc.text('Pkg', margin + 35, startY);
+      doc.text('Station', margin + 45, startY);
       doc.text('Pvt. Mark', margin + 62, startY);
-      doc.text('Remark', margin + 80, startY); // Adjusted for better spacing
+      doc.text('Remark', margin + 90, startY);
       
-      // Draw table borders and grid for left column with wider columns
+      // Draw table borders and grid for left column with adjusted widths
       doc.setLineWidth(0.3);
       doc.setDrawColor(0, 0, 0);
       
       // Header border
-      doc.rect(margin, startY - 6, tableWidth, 10); // Increased header height
+      doc.rect(margin, startY - 6, tableWidth, 10);
       
-      // Vertical lines in header - adjusted for wider columns
-      doc.line(margin + 12, startY - 6, margin + 12, startY + 4); // After S.No
-      doc.line(margin + 38, startY - 6, margin + 38, startY + 4); // After G.R.No (wider)
-      doc.line(margin + 45, startY - 6, margin + 45, startY + 4); // After Pkg
-      doc.line(margin + 60, startY - 6, margin + 60, startY + 4); // After Station
-      doc.line(margin + 78, startY - 6, margin + 78, startY + 4); // After Pvt. Mark
+      // Vertical lines in header - adjusted for bigger package and station columns
+      doc.line(margin + 10, startY - 6, margin + 10, startY + 4); // After S.No
+      doc.line(margin + 33, startY - 6, margin + 33, startY + 4); // After G.R.No
+      doc.line(margin + 43, startY - 6, margin + 43, startY + 4); // After Pkg (bigger)
+      doc.line(margin + 60, startY - 6, margin + 60, startY + 4); // After Station (bigger)
+      doc.line(margin + 88, startY - 6, margin + 88, startY + 4); // After Pvt. Mark
       
-      let currentY = startY + 10; // Adjusted for increased header height      // Left column data with borders and bigger text for better readability
-      doc.setFontSize(9); // Increased font size for better visibility
+      let currentY = startY + 10; // Adjusted for increased header height      // Left column data with borders and bigger, bold GR numbers
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       leftColumnData.forEach((bilty, index) => {
         const srNo = pageStart + index + 1;
@@ -187,15 +182,30 @@ const ChallanPDFPreview = ({
         // Draw row background (alternating)
         if (index % 2 === 1) {
           doc.setFillColor(250, 250, 250);
-          doc.rect(margin, currentY - 6, tableWidth, rowHeight, 'F'); // Adjusted for increased row height
+          doc.rect(margin, currentY - 6, tableWidth, rowHeight, 'F');
         }
         
-        // Row text with adjusted positions for wider columns
+        // Row text with adjusted positions for new column widths
         doc.setTextColor(0, 0, 0);
         doc.text(srNo.toString(), margin + 2, currentY);
-        doc.text(bilty.gr_no || '', margin + 15, currentY);
-        doc.text((bilty.no_of_pkg || 0).toString(), margin + 40, currentY);
-        doc.text(bilty.to_city_code || '', margin + 48, currentY);
+        
+        // Make GR number bigger and bold
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(bilty.gr_no || '', margin + 12, currentY);
+          // Reset to normal for other fields
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        
+        // Make Package column bigger font and bold
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text((bilty.no_of_pkg || 0).toString(), margin + 35, currentY);
+        
+        // Reset to normal for station (bigger width)
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(bilty.to_city_code || '', margin + 45, currentY);
         
         // Fix pvt_marks display - handle both string and number cases
         let pvtMarkText = '';
@@ -207,22 +217,22 @@ const ChallanPDFPreview = ({
         doc.text(pvtMarkText, margin + 62, currentY);
         
         // Add empty remark field
-        doc.text('', margin + 80, currentY);
+        doc.text('', margin + 90, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(margin, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
+        doc.rect(margin, currentY - 6, tableWidth, rowHeight);
         
-        // Vertical lines with adjusted positions for wider columns
-        doc.line(margin + 12, currentY - 6, margin + 12, currentY + 4);
-        doc.line(margin + 38, currentY - 6, margin + 38, currentY + 4);
-        doc.line(margin + 45, currentY - 6, margin + 45, currentY + 4);
+        // Vertical lines with adjusted positions for new column widths
+        doc.line(margin + 10, currentY - 6, margin + 10, currentY + 4);
+        doc.line(margin + 33, currentY - 6, margin + 33, currentY + 4);
+        doc.line(margin + 43, currentY - 6, margin + 43, currentY + 4);
         doc.line(margin + 60, currentY - 6, margin + 60, currentY + 4);
-        doc.line(margin + 78, currentY - 6, margin + 78, currentY + 4);
+        doc.line(margin + 88, currentY - 6, margin + 88, currentY + 4);
         
         currentY += rowHeight;
-      });      // Fill remaining rows in left column if less than itemsPerColumn
+      });// Fill remaining rows in left column if less than itemsPerColumn
       const remainingLeftRows = itemsPerColumn - leftColumnData.length;
       for (let i = 0; i < remainingLeftRows; i++) {
         if (i % 2 === (leftColumnData.length % 2)) {
@@ -232,49 +242,44 @@ const ChallanPDFPreview = ({
         
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(margin, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
-        
-        // Vertical lines with adjusted positions for wider columns
-        doc.line(margin + 12, currentY - 6, margin + 12, currentY + 4);
-        doc.line(margin + 38, currentY - 6, margin + 38, currentY + 4);
-        doc.line(margin + 45, currentY - 6, margin + 45, currentY + 4);
+        doc.rect(margin, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height        // Vertical lines with adjusted positions for new column widths
+        doc.line(margin + 10, currentY - 6, margin + 10, currentY + 4);
+        doc.line(margin + 33, currentY - 6, margin + 33, currentY + 4);
+        doc.line(margin + 43, currentY - 6, margin + 43, currentY + 4);
         doc.line(margin + 60, currentY - 6, margin + 60, currentY + 4);
-        doc.line(margin + 78, currentY - 6, margin + 78, currentY + 4);
+        doc.line(margin + 88, currentY - 6, margin + 88, currentY + 4);
         
         currentY += rowHeight;
       }
-      
-      // RIGHT COLUMN TABLE
-      const rightColumnX = margin + tableWidth + columnGap; // Using reduced gap
+        // RIGHT COLUMN TABLE
+      const rightColumnX = margin + tableWidth + columnGap; // No gap
       currentY = startY;
         // Draw table header background for right column
       doc.setFillColor(245, 245, 245);
-      doc.rect(rightColumnX, currentY - 6, tableWidth, 10, 'F'); // Increased header height
-      
-      // Right Column Header with bigger text and adjusted column widths
-      doc.setFontSize(10); // Increased font size for better visibility
+      doc.rect(rightColumnX, currentY - 6, tableWidth, 10, 'F');
+        // Right Column Header with adjusted column widths - bigger package and station columns
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('S.No', rightColumnX + 2, currentY);
-      doc.text('G.R.No', rightColumnX + 15, currentY);
-      doc.text('Pkg', rightColumnX + 40, currentY);
-      doc.text('Station', rightColumnX + 48, currentY);
+      doc.text('G.R.No', rightColumnX + 12, currentY);
+      doc.text('Pkg', rightColumnX + 35, currentY);
+      doc.text('Station', rightColumnX + 45, currentY);
       doc.text('Pvt. Mark', rightColumnX + 62, currentY);
-      doc.text('Remark', rightColumnX + 80, currentY); // Adjusted for better spacing
+      doc.text('Remark', rightColumnX + 90, currentY);
       
       // Header border for right column
       doc.setLineWidth(0.3);
-      doc.rect(rightColumnX, currentY - 6, tableWidth, 10); // Increased header height
+      doc.rect(rightColumnX, currentY - 6, tableWidth, 10);
       
-      // Vertical lines in header with wider columns
-      doc.line(rightColumnX + 12, currentY - 6, rightColumnX + 12, currentY + 4);
-      doc.line(rightColumnX + 38, currentY - 6, rightColumnX + 38, currentY + 4);
-      doc.line(rightColumnX + 45, currentY - 6, rightColumnX + 45, currentY + 4);
+      // Vertical lines in header with new column widths
+      doc.line(rightColumnX + 10, currentY - 6, rightColumnX + 10, currentY + 4);
+      doc.line(rightColumnX + 33, currentY - 6, rightColumnX + 33, currentY + 4);
+      doc.line(rightColumnX + 43, currentY - 6, rightColumnX + 43, currentY + 4);
       doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
-      doc.line(rightColumnX + 78, currentY - 6, rightColumnX + 78, currentY + 4);
-      
-      currentY += 10; // Adjusted for increased header height      // Right column data with borders and bigger text for better readability
-      doc.setFontSize(9); // Increased font size for better visibility
+      doc.line(rightColumnX + 88, currentY - 6, rightColumnX + 88, currentY + 4);
+        currentY += 10; // Adjusted for header height      // Right column data with borders and bigger, bold GR numbers
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       rightColumnData.forEach((bilty, index) => {
         const srNo = pageStart + itemsPerColumn + index + 1;
@@ -282,15 +287,30 @@ const ChallanPDFPreview = ({
         // Draw row background (alternating)
         if (index % 2 === 1) {
           doc.setFillColor(250, 250, 250);
-          doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight, 'F'); // Adjusted for increased row height
+          doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight, 'F');
         }
         
-        // Row text with adjusted positions for wider columns
+        // Row text with adjusted positions for new column widths
         doc.setTextColor(0, 0, 0);
         doc.text(srNo.toString(), rightColumnX + 2, currentY);
-        doc.text(bilty.gr_no || '', rightColumnX + 15, currentY);
-        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 40, currentY);
-        doc.text(bilty.to_city_code || '', rightColumnX + 48, currentY);
+        
+        // Make GR number bigger and bold
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(bilty.gr_no || '', rightColumnX + 12, currentY);
+          // Reset to normal for other fields
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        
+        // Make Package column bigger font and bold
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 35, currentY);
+        
+        // Reset to normal for station (bigger width)
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(bilty.to_city_code || '', rightColumnX + 45, currentY);
         
         // Fix pvt_marks display - handle both string and number cases
         let pvtMarkText = '';
@@ -302,22 +322,22 @@ const ChallanPDFPreview = ({
         doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
         // Add empty remark field
-        doc.text('', rightColumnX + 80, currentY);
+        doc.text('', rightColumnX + 90, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
+        doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight);
         
-        // Vertical lines with adjusted positions for wider columns
-        doc.line(rightColumnX + 12, currentY - 6, rightColumnX + 12, currentY + 4);
-        doc.line(rightColumnX + 38, currentY - 6, rightColumnX + 38, currentY + 4);
-        doc.line(rightColumnX + 45, currentY - 6, rightColumnX + 45, currentY + 4);
+        // Vertical lines with adjusted positions for new column widths
+        doc.line(rightColumnX + 10, currentY - 6, rightColumnX + 10, currentY + 4);
+        doc.line(rightColumnX + 33, currentY - 6, rightColumnX + 33, currentY + 4);
+        doc.line(rightColumnX + 43, currentY - 6, rightColumnX + 43, currentY + 4);
         doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
-        doc.line(rightColumnX + 78, currentY - 6, rightColumnX + 78, currentY + 4);
+        doc.line(rightColumnX + 88, currentY - 6, rightColumnX + 88, currentY + 4);
         
         currentY += rowHeight;
-      });      // Fill remaining rows in right column if less than itemsPerColumn
+      });// Fill remaining rows in right column if less than itemsPerColumn
       const remainingRightRows = itemsPerColumn - rightColumnData.length;
       for (let i = 0; i < remainingRightRows; i++) {
         if (i % 2 === (rightColumnData.length % 2)) {
@@ -327,18 +347,31 @@ const ChallanPDFPreview = ({
         
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
-        doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height
-        
-        // Vertical lines with adjusted positions for wider columns
-        doc.line(rightColumnX + 12, currentY - 6, rightColumnX + 12, currentY + 4);
-        doc.line(rightColumnX + 38, currentY - 6, rightColumnX + 38, currentY + 4);
-        doc.line(rightColumnX + 45, currentY - 6, rightColumnX + 45, currentY + 4);
+        doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height        // Vertical lines with adjusted positions for new column widths
+        doc.line(rightColumnX + 10, currentY - 6, rightColumnX + 10, currentY + 4);
+        doc.line(rightColumnX + 33, currentY - 6, rightColumnX + 33, currentY + 4);
+        doc.line(rightColumnX + 43, currentY - 6, rightColumnX + 43, currentY + 4);
         doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
-        doc.line(rightColumnX + 78, currentY - 6, rightColumnX + 78, currentY + 4);
-        
-        currentY += rowHeight;
+        doc.line(rightColumnX + 88, currentY - 6, rightColumnX + 88, currentY + 4);
+          currentY += rowHeight;
       }
     }
+    
+    // Add totals at the bottom of the last page
+    const lastPageBottomY = pageHeight - 40; // Position from bottom
+    
+    // Add totals section
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUMMARY:', margin, lastPageBottomY);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Packages: ${totalPackages}`, margin, lastPageBottomY + 6);
+    doc.text(`Total Weight: ${totalWeight.toFixed(2)} KG`, margin, lastPageBottomY + 12);
+    
+    // Add signature area
+    doc.text('Authorized Signatory: ____________________', pageWidth - margin - 80, lastPageBottomY + 6);
     
     return doc;
   };

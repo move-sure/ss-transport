@@ -4,6 +4,11 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
+import UserStats from '../../components/common/user-stats';
+import UserSessions from '../../components/common/user-sessions';
+import NotificationCenter from '../../components/common/notification-center';
+import WorkingHoursTracker from '../../components/common/working-hours-tracker';
+import LastLoginInfo from '../../components/common/last-login-info';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -45,20 +50,18 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
-
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <Navbar />      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Welcome Section */}
           <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
             <div className="px-4 py-5 sm:p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     Welcome back, {user.name || user.username}!
                   </h1>
                   <p className="mt-1 text-sm text-gray-600">
-                    Heres whats happening with your account today.
+                    Here's what's happening with your account today.
                   </p>
                 </div>
                 <div className="flex-shrink-0">
@@ -71,6 +74,9 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
+              
+              {/* Last Login Info */}
+              <LastLoginInfo userId={user.id} />
             </div>
           </div>
 
@@ -125,83 +131,21 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </div>            </div>
           </div>
 
           {/* Dashboard Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">📊</span>
-                    </div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Activities</dt>
-                      <dd className="text-lg font-medium text-gray-900">0</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <UserStats userId={user.id} />
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">✅</span>
-                    </div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Completed Tasks</dt>
-                      <dd className="text-lg font-medium text-gray-900">0</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Working Hours Tracker */}
+          <div className="mb-6">
+            <WorkingHoursTracker userId={user.id} />
+          </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">⏳</span>
-                    </div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Pending Tasks</dt>
-                      <dd className="text-lg font-medium text-gray-900">0</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">🎯</span>
-                    </div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Goals</dt>
-                      <dd className="text-lg font-medium text-gray-900">0</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Sessions and Notifications */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <UserSessions userId={user.id} />
+            <NotificationCenter userId={user.id} />
           </div>
 
           {/* Action Cards */}

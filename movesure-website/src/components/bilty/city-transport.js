@@ -124,8 +124,7 @@ const CityTransportSection = ({
       transport_number: transport?.mob_number || '',
       rate: selectedRate?.rate || prev.rate || 0
     }));
-  };
-  const handleKeyDown = (e) => {
+  };  const handleKeyDown = (e) => {
     // Handle dropdown navigation
     if (showCityDropdown && filteredCities.length > 0) {
       switch (e.key) {
@@ -141,7 +140,9 @@ const CityTransportSection = ({
             prev > 0 ? prev - 1 : filteredCities.length - 1
           );
           break;        case 'Enter':
+        case 'Tab':
           e.preventDefault();
+          e.stopPropagation();
           if (selectedIndex >= 0) {
             handleCitySelect(filteredCities[selectedIndex]);
           } else if (filteredCities.length > 0) {
@@ -159,6 +160,7 @@ const CityTransportSection = ({
         e.preventDefault();
         handleEnter(e, 1);
       }
+      // Let Tab work naturally for regular navigation
     }
   };
   const handleInputChange = (e) => {
@@ -299,6 +301,12 @@ const CityTransportSection = ({
                 ref={transportNameRef}
                 value={formData.transport_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleEnter(e, 2);
+                  }
+                }}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Transport name"
                 tabIndex={2}
@@ -316,6 +324,12 @@ const CityTransportSection = ({
                 ref={transportGstRef}
                 value={formData.transport_gst}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleEnter(e, 3);
+                  }
+                }}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="GST number"
                 tabIndex={3}
@@ -331,8 +345,14 @@ const CityTransportSection = ({
               </span>              <input
                 type="text"
                 ref={transportNumberRef}
-                                value={formData.transport_number}
+                value={formData.transport_number}
                 onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleEnter(e, 4);
+                  }
+                }}
                 className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
                 placeholder="Phone number"
                 tabIndex={4}

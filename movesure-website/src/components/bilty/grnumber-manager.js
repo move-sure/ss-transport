@@ -32,23 +32,40 @@ const GRNumberSection = ({
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
-  
   // Update currentEditingGR when switching between modes
   useEffect(() => {
     if (isEditMode && formData.gr_no && formData.consignor_name) {
       // Only set currentEditingGR if we have a fully loaded bilty
       setCurrentEditingGR(formData.gr_no);
       setGrSearch('');
-    } else if (isEditMode && !formData.consignor_name) {
-      // In edit mode but no bilty loaded - keep search available
+    } else if (isEditMode && !formData.consignor_name && !formData.consignee_name && formData.gr_no === '') {
+      // Only clear currentEditingGR if form is truly empty (not just consignor cleared during editing)
       setCurrentEditingGR('');
       setGrSearch('');
-    } else {
+    } else if (!isEditMode) {
       // New mode
       setCurrentEditingGR('');
       setGrSearch('');
     }
-  }, [isEditMode, formData.gr_no, formData.consignor_name]);
+  }, [isEditMode, formData.gr_no, formData.consignor_name, formData.consignee_name]);
+
+  // Listen for focus GR search event from edit button
+  useEffect(() => {
+    const handleFocusGRSearch = () => {
+      if (isEditMode && !currentEditingGR && grInputRef.current) {
+        setTimeout(() => {
+          grInputRef.current.focus();
+          console.log('🎯 GR search input focused via custom event');
+        }, 50);
+      }
+    };
+
+    window.addEventListener('focusGRSearch', handleFocusGRSearch);
+    
+    return () => {
+      window.removeEventListener('focusGRSearch', handleFocusGRSearch);
+    };
+  }, [isEditMode, currentEditingGR]);
     useEffect(() => {
     const handleClickOutside = (event) => {
       if (grRef.current && !grRef.current.contains(event.target)) {
@@ -84,7 +101,6 @@ const GRNumberSection = ({
     setCurrentEditingGR('');
     resetForm();
   };
-
   // Add function to clear current editing and allow new search
   const handleClearEditingGR = () => {
     setCurrentEditingGR('');
@@ -124,7 +140,15 @@ const GRNumberSection = ({
       total: 50,
       remark: ''
     }));
-  };  const handleKeyDown = (e) => {
+    
+    // Focus on GR search input after clearing
+    setTimeout(() => {
+      if (grInputRef.current) {
+        grInputRef.current.focus();
+        console.log('🎯 GR search input focused after clearing current GR');
+      }
+    }, 100);
+  };const handleKeyDown = (e) => {
     // Handle dropdown navigation
     if (showGRDropdown && displayedBilties.length > 0) {
       switch (e.key) {
@@ -264,7 +288,6 @@ const GRNumberSection = ({
                       className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                       placeholder="🔍 Search GR..."
                       tabIndex={-1}
-                      autoFocus
                     />
                   )}
                 </>

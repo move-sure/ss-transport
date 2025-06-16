@@ -949,12 +949,19 @@ export default function BiltyForm() {
     
     console.log('Form reset to new mode');
   };
-
   const toggleEditMode = () => {
     if (!isEditMode) {
       // Switching to edit mode - clear form and enable edit
       setIsEditMode(true);
       setCurrentBiltyId(null);
+      
+      // Trigger focus on GR search input via a custom event
+      // This will be picked up by the GRNumberSection component
+      setTimeout(() => {
+        const event = new CustomEvent('focusGRSearch');
+        window.dispatchEvent(event);
+        console.log('🎯 Edit mode activated - Focus event dispatched');
+      }, 100);
     } else {
       // Switching to new mode - reset form
       resetForm();

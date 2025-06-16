@@ -168,37 +168,40 @@ export class InputNavigationManager {
         }
       }
     }
-    
-    // Special handling for combobox inputs (city, consignor, consignee, content)
+      // Special handling for combobox inputs (city, consignor, consignee, content)
     if (target.getAttribute('role') === 'combobox' || 
         target.getAttribute('aria-expanded') === 'true' ||
         target.classList.contains('dropdown-input')) {
       
-      // Check if there are visible dropdown options
-      const nearbyDropdowns = document.querySelectorAll('.dropdown-open, .autocomplete-open, .absolute.z-30, .absolute.z-20');
+      // First check if aria-expanded is explicitly false - if so, no dropdown is active
+      if (target.getAttribute('aria-expanded') === 'false') {
+        console.log('🔽 Combobox has aria-expanded="false", allowing navigation');
+        return false;
+      }
       
-      for (let dropdown of nearbyDropdowns) {
-        const rect = dropdown.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
+      // Find the closest dropdown container for this specific input
+      const parentContainer = target.closest('.relative');
+      if (parentContainer) {
+        // Look for dropdown specifically within this input's container
+        const relatedDropdown = parentContainer.querySelector('.dropdown-open, .autocomplete-open, .absolute.z-30, .absolute.z-20');
         
-        // Check if dropdown is near the target input (within reasonable distance)
-        const isNearTarget = Math.abs(rect.top - targetRect.bottom) < 100 && 
-                           rect.left < targetRect.right && 
-                           rect.right > targetRect.left;
-        
-        if (isNearTarget) {
-          const dropdownStyle = window.getComputedStyle(dropdown);
+        if (relatedDropdown) {
+          const dropdownStyle = window.getComputedStyle(relatedDropdown);
           if (dropdownStyle.display !== 'none' && dropdownStyle.visibility !== 'hidden') {
             
             // Check for selectable options
-            const options = dropdown.querySelectorAll('button, [role="option"]');
+            const options = relatedDropdown.querySelectorAll('button, [role="option"]');
             if (options.length > 0) {
-              console.log('🔽 Dropdown near input with options, allowing Enter to select');
+              console.log('🔽 Related dropdown has options, allowing Enter to select');
               return true;
             }
           }
         }
       }
+      
+      // If no related dropdown found or no options available, allow navigation
+      console.log('🔽 No active dropdown for combobox, allowing navigation');
+      return false;
     }
     
     // Default: Allow navigation

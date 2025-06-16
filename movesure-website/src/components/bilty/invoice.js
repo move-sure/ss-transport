@@ -99,8 +99,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     if (contentInputRef.current) {
       contentInputRef.current.focus();
     }
-  };
-  const handleKeyDown = (e) => {
+  };  const handleKeyDown = (e) => {
     if (isAddingContent) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -118,18 +117,35 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedContentIndex(prev => 
-            prev < filteredContent.length - 1 ? prev + 1 : 0
-          );
+          const newDownIndex = selectedContentIndex < filteredContent.length - 1 ? selectedContentIndex + 1 : 0;
+          setSelectedContentIndex(newDownIndex);
+          // Auto-scroll to selected option
+          setTimeout(() => {
+            const dropdown = contentRef.current?.querySelector('.dropdown-open');
+            const selectedOption = dropdown?.querySelector(`[data-index="${newDownIndex}"]`);
+            if (selectedOption && dropdown) {
+              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }, 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedContentIndex(prev => 
-            prev > 0 ? prev - 1 : filteredContent.length - 1
-          );
+          const newUpIndex = selectedContentIndex > 0 ? selectedContentIndex - 1 : filteredContent.length - 1;
+          setSelectedContentIndex(newUpIndex);
+          // Auto-scroll to selected option
+          setTimeout(() => {
+            const dropdown = contentRef.current?.querySelector('.dropdown-open');
+            const selectedOption = dropdown?.querySelector(`[data-index="${newUpIndex}"]`);
+            if (selectedOption && dropdown) {
+              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          }, 10);
           break;
         case 'Enter':
+        case 'Tab':
           e.preventDefault();
+          e.stopPropagation();
+          console.log(`🎯 ${e.key} key pressed on content dropdown - selecting option`);
           if (selectedContentIndex >= 0) {
             handleContentSelect(filteredContent[selectedContentIndex]);
           } else if (filteredContent.length > 0) {
@@ -147,7 +163,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         setShowContentDropdown(true);
       }
     }
-  };  const handleInputChange = (e) => {
+  };const handleInputChange = (e) => {
     const value = e.target.value;
     setContentSearch(value);
     setFormData(prev => ({ ...prev, contain: value }));
@@ -347,11 +363,11 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                     </button>
                   )}
                 </div>
-                
-                {filteredContent.length > 0 ? (
+                  {filteredContent.length > 0 ? (
                   filteredContent.map((content, index) => (
                     <button
                       key={content.content_id}
+                      data-index={index}
                       onClick={() => handleContentSelect(content)}
                       className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
                         index === selectedContentIndex ? 'bg-purple-100' : ''

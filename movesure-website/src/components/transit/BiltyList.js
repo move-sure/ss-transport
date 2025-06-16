@@ -566,14 +566,15 @@ const BiltyList = ({
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">Amount</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBilties.map((bilty, index) => {
+              <tbody className="bg-white divide-y divide-gray-200">                {filteredBilties.map((bilty, index) => {
                   const isSelected = selectedBilties.find(b => b.id === bilty.id);
                   return (
                     <tr 
                       key={bilty.id} 
-                      className={`hover:bg-blue-50 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-blue-50' : ''
+                      className={`transition-colors cursor-pointer ${
+                        isSelected 
+                          ? 'bg-blue-100 border-l-4 border-blue-500' 
+                          : 'hover:bg-gray-50'
                       } ${selectedChallan?.is_dispatched ? 'opacity-50' : ''}`}
                       onClick={() => !selectedChallan?.is_dispatched && handleBiltySelect(bilty)}
                       onDoubleClick={() => handleBiltyDoubleClick(bilty)}

@@ -651,10 +651,10 @@ return (
                     type="button"
                     onClick={() => handleSafeSave(false)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === 'Enter' || e.key === 'Tab') {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🎯 Direct Enter handler on Save button');
+                        console.log(`🎯 ${e.key} key pressed on Save button - triggering save`);
                         handleSafeSave(false);
                       }
                     }}

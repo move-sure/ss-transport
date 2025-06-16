@@ -74,9 +74,7 @@ const PDFGenerator = ({
       CONSIGNEE_MOBILE: { x: 60, y: 80 },       // Consignee mobile
       
       EWAY_BILL: { x: 12, y: 90 },               // E-way bill
-    },
-
-    // 📋 MAIN TABLE SECTION
+    },    // 📋 MAIN TABLE SECTION
     TABLE_SECTION: {
       TOP_LINE: { x1: 0, y: 136, x2: 250 },      // Top horizontal line
       
@@ -89,12 +87,18 @@ const PDFGenerator = ({
       INVOICE_VALUE_VALUE: { x: 45, y: 110 },
       CONTENT: { x: 80, y: 110 },
       CONTENT_VALUE: { x: 100, y: 110 },
+        // Middle section - Package details with box
+      PVT_BOX: { x: 70, y: 85, width: 80, height: 14 },    // Box around PVT MARKS and CITY CODE (moved up)
+      PVT_BOX_DIVIDER: { x: 110, y1: 85, y2: 99 },       // Vertical divider in middle of box
+        // PVT MARKS section (left side of box) - Centered
+      PVT_LABEL: { x: 90, y: 90 },                      // "PVT MARKS:" label (centered in left section)
+      PVT_VALUE: { x: 90, y: 95 },                      // PVT MARKS value (centered in left section)
       
-      // Middle section - Package details
-      PVT_MARKS: { x: 80, y: 100 },
-      PACKAGE_COUNT: { x: 115, y: 100 },
-      CITY_CODE: { x: 130, y: 100 },
-      WEIGHT: { x: 80, y: 105 },
+      // CITY CODE section (right side of box) - Centered
+      CITY_LABEL: { x: 130, y: 90 },                    // "CITY:" label (centered in right section)  
+      CITY_VALUE: { x: 130, y: 95 },                    // City code value (centered in right section)
+      
+      WEIGHT: { x: 80, y: 105 },                          // Weight at original position
       
       // Right section - Charges (vertical line separates this)
       VERTICAL_LINE: { x: 150, y1: 95, y2: 136 }, // Vertical separator line
@@ -520,8 +524,7 @@ const PDFGenerator = ({
       y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
       STYLES.FONTS.LABELS
     );
-    
-    // 📋 TABLE SECTION WITH ENHANCED STYLING
+      // 📋 TABLE SECTION WITH ENHANCED STYLING
     // Top horizontal line - Thicker
     pdf.setLineWidth(STYLES.LINES.THICK);
     pdf.line(
@@ -568,21 +571,45 @@ const PDFGenerator = ({
       STYLES.FONTS.VALUES
     );
     
-    // MIDDLE SECTION - Package details with enhanced styling
+    // MIDDLE SECTION - Package details with enhanced styling and box
+    // Draw PVT MARKS and CITY CODE box (similar to GR box design)
+    pdf.setLineWidth(STYLES.LINES.THICK);
+    pdf.rect(
+      COORDINATES.TABLE_SECTION.PVT_BOX.x, 
+      y + COORDINATES.TABLE_SECTION.PVT_BOX.y, 
+      COORDINATES.TABLE_SECTION.PVT_BOX.width, 
+      COORDINATES.TABLE_SECTION.PVT_BOX.height
+    );
+    
+    // Vertical divider line in the middle of the box
+    pdf.setLineWidth(STYLES.LINES.NORMAL);
+    pdf.line(
+      COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.x, 
+      y + COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.y1,
+      COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.x, 
+      y + COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.y2
+    );    // PVT MARKS label and value (left side of box)
+    addStyledText(pdf, 'PVT MARKS:', COORDINATES.TABLE_SECTION.PVT_LABEL.x, y + COORDINATES.TABLE_SECTION.PVT_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
     addStyledText(
       pdf, 
-      `PVT MARKS: ${biltyData.pvt_marks || 'SS'} / ${biltyData.no_of_pkg}`, 
-      COORDINATES.TABLE_SECTION.PVT_MARKS.x, 
-      y + COORDINATES.TABLE_SECTION.PVT_MARKS.y,
-      STYLES.FONTS.LABELS
+      `${biltyData.pvt_marks || 'SS'} / ${biltyData.no_of_pkg}`, 
+      COORDINATES.TABLE_SECTION.PVT_VALUE.x, 
+      y + COORDINATES.TABLE_SECTION.PVT_VALUE.y,
+      STYLES.FONTS.LARGE_STATUS,
+      { align: 'center' }
     );
+    
+    // CITY CODE label and value (right side of box)
+    addStyledText(pdf, 'CITY:', COORDINATES.TABLE_SECTION.CITY_LABEL.x, y + COORDINATES.TABLE_SECTION.CITY_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
     addStyledText(
       pdf, 
       `${toCityCode}`, 
-      COORDINATES.TABLE_SECTION.CITY_CODE.x, 
-      y + COORDINATES.TABLE_SECTION.CITY_CODE.y,
-      STYLES.FONTS.NOTICE
+      COORDINATES.TABLE_SECTION.CITY_VALUE.x, 
+      y + COORDINATES.TABLE_SECTION.CITY_VALUE.y,
+      STYLES.FONTS.LARGE_STATUS,
+      { align: 'center' }
     );
+    
     addStyledText(
       pdf, 
       `WEIGHT: ${biltyData.wt} kg`, 

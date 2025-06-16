@@ -21,9 +21,14 @@ const GRNumberSection = ({
   const [showGRDropdown, setShowGRDropdown] = useState(false);
   const [grSearch, setGrSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [currentEditingGR, setCurrentEditingGR] = useState('');  const grRef = useRef(null);
+  const [currentEditingGR, setCurrentEditingGR] = useState('');
+  const [displayLimit, setDisplayLimit] = useState(50); // Start with 50 bilties
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  const grRef = useRef(null);
   const grInputRef = useRef(null);
   const biltyDateRef = useRef(null);
+  const dropdownRef = useRef(null);
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
@@ -119,29 +124,28 @@ const GRNumberSection = ({
       total: 50,
       remark: ''
     }));
-  };
-  const handleKeyDown = (e) => {
+  };  const handleKeyDown = (e) => {
     // Handle dropdown navigation
-    if (showGRDropdown && filteredBilties.length > 0) {
+    if (showGRDropdown && displayedBilties.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
           setSelectedIndex(prev => 
-            prev < filteredBilties.length - 1 ? prev + 1 : 0
+            prev < displayedBilties.length - 1 ? prev + 1 : 0
           );
           break;
         case 'ArrowUp':
           e.preventDefault();
           setSelectedIndex(prev => 
-            prev > 0 ? prev - 1 : filteredBilties.length - 1
+            prev > 0 ? prev - 1 : displayedBilties.length - 1
           );
           break;
         case 'Enter':
           e.preventDefault();
           if (selectedIndex >= 0) {
-            handleGRSelect(filteredBilties[selectedIndex]);
-          } else if (filteredBilties.length > 0) {
-            handleGRSelect(filteredBilties[0]);
+            handleGRSelect(displayedBilties[selectedIndex]);
+          } else if (displayedBilties.length > 0) {
+            handleGRSelect(displayedBilties[0]);
           }
           break;
         case 'Escape':
@@ -156,10 +160,30 @@ const GRNumberSection = ({
       }
     }
   };
-
   const filteredBilties = existingBilties.filter(b => 
     b.gr_no.toLowerCase().includes(grSearch.toLowerCase())
   );
+
+  // Implement pagination for display
+  const displayedBilties = filteredBilties.slice(0, displayLimit);
+  const hasMore = filteredBilties.length > displayLimit;
+
+  // Load more bilties when scrolling to bottom
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight + 5 && hasMore && !isLoadingMore) {
+      setIsLoadingMore(true);
+      setTimeout(() => {
+        setDisplayLimit(prev => prev + 50);
+        setIsLoadingMore(false);
+      }, 200); // Small delay for better UX
+    }
+  };
+
+  // Reset display limit when search changes
+  useEffect(() => {
+    setDisplayLimit(50);
+  }, [grSearch]);
 
   return (
     <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border-2 border-purple-200 shadow-lg">
@@ -233,7 +257,10 @@ const GRNumberSection = ({
                         setShowGRDropdown(true);
                         setSelectedIndex(-1);
                       }}
-                      onFocus={() => setShowGRDropdown(true)}                      onKeyDown={handleKeyDown}
+                      onFocus={() => {
+                        setShowGRDropdown(true);
+                        setDisplayLimit(50); // Reset display limit when opening dropdown
+                      }}                      onKeyDown={handleKeyDown}
                       className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
                       placeholder="🔍 Search GR..."
                       tabIndex={-1}
@@ -249,49 +276,66 @@ const GRNumberSection = ({
                   tabIndex={-1}
                 />
               )}
-              
-              {showGRDropdown && isEditMode && !currentEditingGR && (
-                <div className="absolute z-30 mt-2 w-full sm:w-96 bg-white border-2 border-purple-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
-                  <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-lg">
+                {showGRDropdown && isEditMode && !currentEditingGR && (
+                <div className="absolute z-30 mt-2 w-full sm:w-96 bg-white border-2 border-purple-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto"
+                     ref={dropdownRef}
+                     onScroll={handleScroll}>
+                  <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-lg sticky top-0 z-10">
                     <Search className="w-3 h-3 inline mr-1" />
-                    SELECT BILTY TO EDIT ({filteredBilties.length})
+                    SELECT BILTY TO EDIT ({filteredBilties.length} total, showing {displayedBilties.length})
                   </div>
-                  {filteredBilties.length > 0 ? (
-                    filteredBilties.map((bilty, index) => (
-                      <button
-                        key={bilty.id}
-                        onClick={() => handleGRSelect(bilty)}
-                        className={`w-full px-3 py-3 text-left hover:bg-purple-50 border-b border-purple-100 transition-colors text-xs ${
-                          index === selectedIndex ? 'bg-purple-100' : ''
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-bold text-purple-700 truncate">{bilty.gr_no}</div>
-                            <div className="text-xs text-black font-medium truncate">
-                              {bilty.consignor_name} → {bilty.consignee_name}
+                  {displayedBilties.length > 0 ? (
+                    <>
+                      {displayedBilties.map((bilty, index) => (
+                        <button
+                          key={bilty.id}
+                          onClick={() => handleGRSelect(bilty)}
+                          className={`w-full px-3 py-3 text-left hover:bg-purple-50 border-b border-purple-100 transition-colors text-xs ${
+                            index === selectedIndex ? 'bg-purple-100' : ''
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-purple-700 truncate">{bilty.gr_no}</div>
+                              <div className="text-xs text-black font-medium truncate">
+                                {bilty.consignor_name} → {bilty.consignee_name}
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {new Date(bilty.bilty_date).toLocaleDateString()} | ₹{bilty.total}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-600">
-                              {new Date(bilty.bilty_date).toLocaleDateString()} | ₹{bilty.total}
+                            <div className={`text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap ${
+                              bilty.saving_option === 'DRAFT' 
+                                ? 'bg-yellow-200 text-amber-800 border border-yellow-300' 
+                                : 'bg-green-200 text-green-800 border border-green-300'
+                            }`}>
+                              {bilty.saving_option}
                             </div>
                           </div>
-                          <div className={`text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap ${
-                            bilty.saving_option === 'DRAFT' 
-                              ? 'bg-yellow-200 text-amber-800 border border-yellow-300' 
-                              : 'bg-green-200 text-green-800 border border-green-300'
-                          }`}>
-                            {bilty.saving_option}
-                          </div>
+                        </button>
+                      ))}
+                      {hasMore && (
+                        <div className="px-3 py-3 text-xs text-gray-600 text-center border-b border-purple-100">
+                          {isLoadingMore ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                              Loading more bilties...
+                            </div>
+                          ) : (
+                            <div className="text-purple-600 font-medium">
+                              Scroll down to load more bilties...
+                            </div>
+                          )}
                         </div>
-                      </button>
-                    ))
+                      )}
+                    </>
                   ) : grSearch ? (
                     <div className="px-3 py-3 text-xs text-gray-600 text-center">
                       No bilties found matching &quot;{grSearch}&quot;
                     </div>
                   ) : (
                     <div className="px-3 py-3 text-xs text-gray-600 text-center">
-                      Start typing to search...
+                      Start typing to search bilties...
                     </div>
                   )}
                 </div>

@@ -228,14 +228,29 @@ export default function BiltyForm() {
             return;
           }
             console.log('Loaded bilty data:', fullBilty);
-          
-          // Set form data with the existing bilty
+            // Set form data with the existing bilty
           setFormData({
             ...fullBilty,
             bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
             invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
             pf_charge: fullBilty.pf_charge || 0,
-            labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20
+            labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20,
+            // Ensure all string fields are not null to prevent React errors
+            consignor_name: fullBilty.consignor_name || '',
+            consignor_gst: fullBilty.consignor_gst || '',
+            consignor_number: fullBilty.consignor_number || '',
+            consignee_name: fullBilty.consignee_name || '',
+            consignee_gst: fullBilty.consignee_gst || '',
+            consignee_number: fullBilty.consignee_number || '',
+            transport_name: fullBilty.transport_name || '',
+            transport_gst: fullBilty.transport_gst || '',
+            transport_number: fullBilty.transport_number || '',
+            contain: fullBilty.contain || '',
+            invoice_no: fullBilty.invoice_no || '',
+            e_way_bill: fullBilty.e_way_bill || '',
+            document_number: fullBilty.document_number || '',
+            pvt_marks: fullBilty.pvt_marks || '',
+            remark: fullBilty.remark || ''
           });
           
           // Set edit mode
@@ -271,8 +286,7 @@ export default function BiltyForm() {
         branch_id: user.branch_id,
         staff_id: user.id
       }));
-      
-      // Load all data in parallel
+        // Load all data in parallel
       const [branchRes, citiesRes, transportsRes, ratesRes, consignorsRes, consigneesRes, booksRes, biltiesRes] = await Promise.all([
         supabase.from('branches').select('*').eq('id', user.branch_id).single(),
         supabase.from('cities').select('*').order('city_name'),
@@ -281,7 +295,7 @@ export default function BiltyForm() {
         supabase.from('consignors').select('*').order('company_name'),
         supabase.from('consignees').select('*').order('company_name'),
         supabase.from('bill_books').select('*').eq('branch_id', user.branch_id).eq('is_active', true).eq('is_completed', false).order('created_at', { ascending: false }),
-        supabase.from('bilty').select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option').eq('branch_id', user.branch_id).eq('is_active', true).order('created_at', { ascending: false }).limit(50)
+        supabase.from('bilty').select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option').eq('branch_id', user.branch_id).eq('is_active', true).order('created_at', { ascending: false })
       ]);
       
       setBranchData(branchRes.data);
@@ -350,7 +364,23 @@ export default function BiltyForm() {
         bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
         invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : '',
         pf_charge: fullBilty.pf_charge || 0,
-        labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20
+        labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20,
+        // Ensure all string fields are not null to prevent React errors
+        consignor_name: fullBilty.consignor_name || '',
+        consignor_gst: fullBilty.consignor_gst || '',
+        consignor_number: fullBilty.consignor_number || '',
+        consignee_name: fullBilty.consignee_name || '',
+        consignee_gst: fullBilty.consignee_gst || '',
+        consignee_number: fullBilty.consignee_number || '',
+        transport_name: fullBilty.transport_name || '',
+        transport_gst: fullBilty.transport_gst || '',
+        transport_number: fullBilty.transport_number || '',
+        contain: fullBilty.contain || '',
+        invoice_no: fullBilty.invoice_no || '',
+        e_way_bill: fullBilty.e_way_bill || '',
+        document_number: fullBilty.document_number || '',
+        pvt_marks: fullBilty.pvt_marks || '',
+        remark: fullBilty.remark || ''
       });
       
       setCurrentBiltyId(bilty.id);
@@ -827,16 +857,14 @@ export default function BiltyForm() {
       // Get to city name
       const toCity = cities.find(c => c.id === savedData.to_city_id);
       setToCityName(toCity?.city_name || '');
-      
-      // Refresh existing bilties list
+        // Refresh existing bilties list
       console.log('Refreshing bilties list...');
       const { data: updatedBilties } = await supabase
         .from('bilty')
         .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
         .eq('branch_id', user.branch_id)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
         setExistingBilties(updatedBilties || []);
       
       // Show print modal if not draft

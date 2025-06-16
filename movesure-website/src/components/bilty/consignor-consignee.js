@@ -63,8 +63,7 @@ const ConsignorConsigneeSection = ({
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
   // Use the optimized search hook
-  const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();
-  // Control dropdown visibility based on search results and exact matches
+  const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();  // Control dropdown visibility based on search results and exact matches
   useEffect(() => {
     if (searchResults.consignors && consignorSearch && consignorSearch.length >= 2) {
       const exactMatch = searchResults.consignors.find(
@@ -73,6 +72,14 @@ const ConsignorConsigneeSection = ({
       // Only show dropdown if no exact match, input is focused, and has results
       if (!exactMatch && document.activeElement === consignorInputRef.current && searchResults.consignors.length > 0) {
         setShowConsignorDropdown(true);
+        
+        // Auto-select if only one option available
+        if (searchResults.consignors.length === 1) {
+          console.log('🚀 Fast auto-selecting single consignor option:', searchResults.consignors[0].company_name);
+          setTimeout(() => {
+            handleConsignorSelect(searchResults.consignors[0]);
+          }, 100);
+        }
       } else {
         setShowConsignorDropdown(false);
       }
@@ -89,6 +96,14 @@ const ConsignorConsigneeSection = ({
       // Only show dropdown if no exact match, input is focused, and has results
       if (!exactMatch && document.activeElement === consigneeInputRef.current && searchResults.consignees.length > 0) {
         setShowConsigneeDropdown(true);
+        
+        // Auto-select if only one option available
+        if (searchResults.consignees.length === 1) {
+          console.log('🚀 Fast auto-selecting single consignee option:', searchResults.consignees[0].company_name);
+          setTimeout(() => {
+            handleConsigneeSelect(searchResults.consignees[0]);
+          }, 100);
+        }
       } else {
         setShowConsigneeDropdown(false);
       }
@@ -177,13 +192,14 @@ const ConsignorConsigneeSection = ({
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignors');
-      // Auto-select if only one option remains after search
+      
+      // Enhanced auto-selection: check for single option after search results update
       setTimeout(() => {
-        if (searchResults.consignors?.length === 1 && value.length > 3) {
+        if (searchResults.consignors?.length === 1) {
           console.log('🎯 Auto-selecting single consignor option:', searchResults.consignors[0].company_name);
           handleConsignorSelect(searchResults.consignors[0]);
         }
-      }, 800);
+      }, 200); // Reduced timeout for faster response
     } else {
       setShowConsignorDropdown(false);
       clearResults();
@@ -205,19 +221,20 @@ const ConsignorConsigneeSection = ({
     
     if (value.length >= 2) {
       searchDatabase(value, 'consignees');
-      // Auto-select if only one option remains after search
+      
+      // Enhanced auto-selection: check for single option after search results update
       setTimeout(() => {
-        if (searchResults.consignees?.length === 1 && value.length > 3) {
+        if (searchResults.consignees?.length === 1) {
           console.log('🎯 Auto-selecting single consignee option:', searchResults.consignees[0].company_name);
           handleConsigneeSelect(searchResults.consignees[0]);
         }
-      }, 800);
+      }, 200); // Reduced timeout for faster response
     } else {
       setShowConsigneeDropdown(false);
       clearResults();
     }
     setConsigneeSelectedIndex(-1);
-  };  const handleConsignorSelect = async (consignor) => {
+  };const handleConsignorSelect = async (consignor) => {
     console.log('🎯 Consignor selected:', consignor.company_name);
     setConsignorSearch(consignor.company_name);
     

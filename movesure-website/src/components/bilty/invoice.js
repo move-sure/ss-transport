@@ -28,11 +28,31 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       setContentSearch(formData.contain);
     }
   }, [formData.contain]);
-
   // Load content options on component mount
   useEffect(() => {
     loadContentOptions();
-  }, []);  // Handle click outside to close dropdown
+  }, []);
+
+  // Enhanced auto-selection watcher for content dropdown
+  useEffect(() => {
+    if (contentSearch && contentSearch.length >= 2 && !isAddingContent) {
+      const filtered = contentOptions.filter(content =>
+        content.content_name.toLowerCase().includes(contentSearch.toLowerCase())
+      );
+      
+      const exactMatch = contentOptions.find(
+        c => c.content_name.toLowerCase() === contentSearch.toLowerCase()
+      );
+      
+      // Fast auto-select if only one option available and no exact match
+      if (filtered.length === 1 && !exactMatch && document.activeElement === contentInputRef.current) {
+        console.log('🚀 Fast auto-selecting single content option:', filtered[0].content_name);
+        setTimeout(() => {
+          handleContentSelect(filtered[0]);
+        }, 100); // Near-instant selection
+      }
+    }
+  }, [contentOptions, contentSearch, isAddingContent]);// Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (contentRef.current && !contentRef.current.contains(event.target)) {
@@ -173,12 +193,12 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       content.content_name.toLowerCase().includes(value.toLowerCase())
     );
 
-    // Auto-select if only one option remains and user has typed enough
-    if (filtered.length === 1 && value.length > 2) {
+    // Enhanced auto-selection: faster response for single options
+    if (filtered.length === 1) {
       console.log('🎯 Auto-selecting single content option:', filtered[0].content_name);
       setTimeout(() => {
         handleContentSelect(filtered[0]);
-      }, 500);
+      }, 200); // Reduced timeout for faster response
       return;
     }
     

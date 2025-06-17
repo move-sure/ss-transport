@@ -236,25 +236,26 @@ const BiltyList = ({
                   Refresh
                 </button>
                 {!selectedChallan.is_dispatched && filteredTransitBilties.length > 0 && (
-                  <>
-                    <button
+                  <>                    <button
                       onClick={handleSelectAllTransit}
-                      className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors"
+                      disabled={selectedChallan?.is_dispatched}
+                      className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={selectedChallan?.is_dispatched ? "Cannot select bilties in dispatched challan" : "Select/Deselect all"}
                     >
                       {selectedTransitBilties.length === filteredTransitBilties.length && filteredTransitBilties.length > 0 ? (
                         <CheckSquare className="w-3 h-3" />
                       ) : (
                         <Square className="w-3 h-3" />
                       )}
-                      All
-                    </button>
-                    <button
+                      {selectedChallan?.is_dispatched ? 'All (Locked)' : 'All'}
+                    </button><button
                       onClick={onBulkRemoveFromTransit}
-                      disabled={selectedTransitBilties.length === 0 || saving}
+                      disabled={selectedTransitBilties.length === 0 || saving || selectedChallan?.is_dispatched}
                       className="bg-red-600 text-white px-3 py-1 rounded text-sm font-bold border border-red-700 flex items-center gap-1 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={selectedChallan?.is_dispatched ? "Cannot remove from dispatched challan" : "Remove selected bilties"}
                     >
                       <Trash2 className="w-3 h-3" />
-                      Remove ({selectedTransitBilties.length})
+                      {selectedChallan?.is_dispatched ? 'Locked' : `Remove (${selectedTransitBilties.length})`}
                     </button>
                   </>
                 )}
@@ -337,25 +338,27 @@ const BiltyList = ({
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-32">Consignee</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">Destination</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">PVT Marks</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Payment</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-12">Pkgs</th>
+                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Payment</th>                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-12">Pkgs</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Weight</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">Amount</th>
-                    {!selectedChallan.is_dispatched && (
+                    {!selectedChallan?.is_dispatched && (
                       <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Action</th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-yellow-200">
-                  {filteredTransitBilties.map((bilty, index) => {
+                <tbody className="bg-white divide-y divide-yellow-200">                  {filteredTransitBilties.map((bilty, index) => {
                     const isSelected = selectedTransitBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
+                    const isDispatched = bilty.is_dispatched || selectedChallan?.is_dispatched;
+                    
                     return (
                       <tr 
                         key={`transit-${bilty.id}-${bilty.bilty_type}`} 
-                        className={`hover:bg-yellow-50 transition-colors cursor-pointer ${isSelected ? 'bg-yellow-100' : ''}`}
-                        onClick={() => !selectedChallan.is_dispatched && handleTransitBiltySelect(bilty)}
+                        className={`hover:bg-yellow-50 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-yellow-100' : ''
+                        } ${isDispatched ? 'bg-gray-50 opacity-75' : ''}`}
+                        onClick={() => !isDispatched && handleTransitBiltySelect(bilty)}
                       >
-                        {!selectedChallan.is_dispatched && (
+                        {!isDispatched && (
                           <td className="px-2 py-2">
                             <input
                               type="checkbox"
@@ -368,6 +371,11 @@ const BiltyList = ({
                             />
                           </td>
                         )}
+                        {isDispatched && (
+                          <td className="px-2 py-2">
+                            <span className="text-orange-600 text-xs font-bold">🔒</span>
+                          </td>
+                        )}
                         <td className="px-2 py-2 text-gray-900">{index + 1}</td>
                         <td className="px-2 py-2">
                           <span className={`px-1 py-0.5 text-xs font-bold rounded ${
@@ -375,7 +383,12 @@ const BiltyList = ({
                           }`}>
                             {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
                           </span>
-                        </td>                        <td className="px-2 py-2">
+                          {isDispatched && (
+                            <span className="ml-1 px-1 py-0.5 text-xs font-bold rounded bg-orange-100 text-orange-800">
+                              DISP
+                            </span>
+                          )}
+                        </td><td className="px-2 py-2">
                           <div className="font-bold text-yellow-800 truncate">{bilty.gr_no}</div>
                         </td>
                         <td className="px-2 py-2 text-gray-600">
@@ -399,11 +412,10 @@ const BiltyList = ({
                              (bilty.payment_mode || bilty.payment_status) === 'to-pay' ? 'TP' : 
                              (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc' ? 'FC' : 'N/A'}
                           </span>
-                        </td>
-                        <td className="px-2 py-2 text-gray-900">{bilty.no_of_pkg || bilty.no_of_packets}</td>
+                        </td>                        <td className="px-2 py-2 text-gray-900">{bilty.no_of_pkg || bilty.no_of_packets}</td>
                         <td className="px-2 py-2 text-gray-900">{bilty.wt || bilty.weight || 0}</td>
                         <td className="px-2 py-2 font-bold text-gray-900">₹{bilty.total || bilty.amount}</td>
-                        {!selectedChallan.is_dispatched && (
+                        {!isDispatched && (
                           <td className="px-2 py-2">
                             <button
                               onClick={(e) => {
@@ -411,7 +423,7 @@ const BiltyList = ({
                                 onRemoveBiltyFromTransit?.(bilty);
                               }}
                               className="bg-red-500 hover:bg-red-600 text-white rounded p-1 transition-colors"
-                              title="Remove"
+                              title="Remove from Transit"
                             >
                               <X className="w-3 h-3" />
                             </button>

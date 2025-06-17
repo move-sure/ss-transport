@@ -171,15 +171,15 @@ const ChallanSelector = ({
                               <AlertTriangle className="w-4 h-4" />
                               Dispatched Challans ({dispatchedChallans.length})
                             </div>
-                          </div>
-                          {dispatchedChallans.map((challan) => (
-                            <div
+                          </div>                          {dispatchedChallans.map((challan) => (
+                            <button
                               key={challan.id}
-                              className="w-full px-4 py-3 text-left bg-gray-50 border-b border-gray-100 opacity-60"
+                              onClick={() => handleChallanSelect(challan)}
+                              className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-orange-50 border-b border-gray-100 transition-colors group"
                             >
                               <div className="flex justify-between items-start">
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-bold text-gray-700 truncate">
+                                  <div className="font-bold text-gray-700 group-hover:text-orange-600 truncate">
                                     {challan.challan_no}
                                   </div>
                                   <div className="text-sm text-gray-500">
@@ -187,16 +187,17 @@ const ChallanSelector = ({
                                     {challan.dispatch_date && (
                                       <span> • Dispatched: {format(new Date(challan.dispatch_date), 'dd/MM/yyyy')}</span>
                                     )}
-                                  </div>                                  <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                  </div>
+                                  <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                                     <Package className="w-3 h-3" />
-                                    {challan.id === selectedChallan?.id ? totalCount : challan.total_bilty_count} bilties
+                                    {challan.id === selectedChallan?.id ? totalCount : challan.total_bilty_count} bilties • READ-ONLY
                                   </div>
                                 </div>
                                 <div className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-bold ml-2 flex-shrink-0">
                                   DISPATCHED
                                 </div>
                               </div>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -213,13 +214,13 @@ const ChallanSelector = ({
                 Bilty Summary
               </h4>
                 <div className="grid grid-cols-2 gap-4 mb-4">                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
-                  <div className="text-xs text-gray-600 mb-1">Station Bilties (MNL)</div>
+                  <div className="text-xs text-gray-600 mb-1">MANUAL BILTIES (MNL)</div>
                   <div className="text-xl font-bold text-emerald-700">
                     {stnCount}
                   </div>
                 </div>
                 <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
-                  <div className="text-xs text-gray-600 mb-1">Regular Bilties (REG)</div>
+                  <div className="text-xs text-gray-600 mb-1">REGULAR BILTIES (REG)</div>
                   <div className="text-xl font-bold text-emerald-700">
                     {regCount}
                   </div>

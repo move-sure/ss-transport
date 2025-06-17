@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText, Home, Bug } from 'lucide-react';
+import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText, Home } from 'lucide-react';
 
 const TransitHeader = ({ 
   userBranch, 
@@ -13,8 +13,7 @@ const TransitHeader = ({
   selectedChallan,
   onRefresh,
   onPreviewLoadingChallan,
-  onPreviewChallanBilties,
-  onDebugBilty
+  onPreviewChallanBilties
 }) => {
   const getCityName = (cityCode) => {
     return cityCode || 'Unknown';
@@ -75,10 +74,14 @@ const TransitHeader = ({
               <div className="bg-white border-2 border-green-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Package className="w-4 h-4 text-green-600" />
                 Available: <span className="text-green-700">{bilties.length}</span>
-              </div>
-              <div className="bg-white border-2 border-yellow-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
+              </div>              <div className="bg-white border-2 border-yellow-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Truck className="w-4 h-4 text-yellow-600" />
                 In Challan: <span className="text-yellow-700">{transitBilties.length}</span>
+                {selectedChallan?.is_dispatched && (
+                  <span className="ml-2 px-2 py-1 bg-orange-200 text-orange-800 text-xs rounded-full font-bold">
+                    DISPATCHED
+                  </span>
+                )}
               </div>
               <div className="bg-white border-2 border-orange-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Package className="w-4 h-4 text-orange-600" />
@@ -124,16 +127,6 @@ const TransitHeader = ({
               >
                 <RefreshCw className="w-5 h-5 text-purple-600" />
               </button>
-              {onDebugBilty && (
-                <button
-                  onClick={() => onDebugBilty('A00013')}
-                  className="bg-red-600 text-white border-2 border-red-700 px-3 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-red-700 transition-colors text-sm shadow-lg"
-                  title="Debug A00013 bilty"
-                >
-                  <Bug className="w-4 h-4" />
-                  Debug A00013
-                </button>
-              )}
             </div>
           </div>
         </div>

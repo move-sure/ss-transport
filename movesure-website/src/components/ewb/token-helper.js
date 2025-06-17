@@ -1,4 +1,4 @@
-import supabase from './supabase';
+import supabase from '../ewb/supabase';
 
 /**
  * Fetch authentication tokens from the auth_tokens table
@@ -270,5 +270,55 @@ export const getTokenStatistics = async () => {
   } catch (error) {
     console.error('Exception in getTokenStatistics:', error);
     return { success: false, error: error.message, data: null };
+  }
+};
+
+/**
+ * Get comprehensive token data for settings popup
+ * @returns {Promise<Object>} - Returns all token data and statistics
+ */
+export const getTokenSettingsData = async () => {
+  try {
+    // Clean up expired tokens first
+    await deactivateExpiredTokens('auth_tokens');
+    await deactivateExpiredTokens('ewb_tokens');
+
+    // Fetch all data in parallel
+    const [authResult, ewbResult, statsResult] = await Promise.all([
+      fetchAuthTokens(),
+      fetchEwbTokens(),
+      getTokenStatistics()
+    ]);
+
+    return {
+      success: true,
+      data: {
+        authTokens: authResult.success ? authResult.data : [],
+        ewbTokens: ewbResult.success ? ewbResult.data : [],
+        statistics: statsResult.success ? statsResult.data : null,
+        errors: {
+          auth: authResult.success ? null : authResult.error,
+          ewb: ewbResult.success ? null : ewbResult.error,
+          stats: statsResult.success ? null : statsResult.error
+        }
+      },
+      error: null
+    };
+  } catch (error) {
+    console.error('Exception in getTokenSettingsData:', error);
+    return { 
+      success: false, 
+      error: error.message, 
+      data: {
+        authTokens: [],
+        ewbTokens: [],
+        statistics: null,
+        errors: {
+          auth: error.message,
+          ewb: error.message,
+          stats: error.message
+        }
+      }
+    };
   }
 };

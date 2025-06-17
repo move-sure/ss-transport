@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
 import { 
+  FileText, Plus, Download, Search, RefreshCw, Edit2, Trash2, 
+  MapPin, Users, DollarSign, Package, Weight, Check, X, Save,
+  Building2, ChevronDown
+} from 'lucide-react';
+import { 
   useStationBiltySummary, 
   PAYMENT_STATUS_OPTIONS,
   DELIVERY_TYPE_OPTIONS,
@@ -45,27 +50,6 @@ const getCombinedOptionColor = (value) => {
       return 'bg-gray-100 text-gray-800';
   }
 };
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
-  Download, 
-  FileText, 
-  Package,
-  Weight,
-  DollarSign,
-  TrendingUp,
-  Users,
-  MapPin,
-  Clock,
-  X,
-  Save,
-  RefreshCw,
-  Eye,
-  ChevronDown,
-  Check
-} from 'lucide-react';
 
 // Searchable Dropdown Component
 const SearchableDropdown = ({ options, value, onChange, placeholder, displayField, allowCustom = true, className = "" }) => {
@@ -243,7 +227,6 @@ export default function StationBiltySummaryPage() {
     getSummaryStats,
     exportToCSV
   } = useStationBiltySummary();
-
   // Component state
   const [showForm, setShowForm] = useState(false);
   const [stats, setStats] = useState(null);
@@ -251,6 +234,12 @@ export default function StationBiltySummaryPage() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [recordsPerPage] = useState(20);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+  // Branch management state
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -268,7 +257,6 @@ export default function StationBiltySummaryPage() {
       loadStats();
     }
   }, [user?.id, currentPage]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -284,6 +272,118 @@ export default function StationBiltySummaryPage() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+  // Load branches and initialize default branch
+  useEffect(() => {
+    if (user?.id) {
+      loadBranches();
+    }
+  }, [user?.id]);
+
+  // Initialize default branch when branches are loaded
+  useEffect(() => {
+    if (branches.length > 0 && !selectedBranch) {
+      initializeDefaultBranch();
+    }
+  }, [branches, user?.user_metadata?.branch_id]);
+
+  // Load branches from database
+  const loadBranches = async () => {
+    try {
+      setLoadingBranches(true);
+      const supabase = (await import('../utils/supabase')).default;
+      
+      const { data: branchesData, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('is_active', true)
+        .order('branch_name');
+
+      if (error) {
+        console.error('Error loading branches:', error);
+        return;
+      }
+
+      setBranches(branchesData || []);
+    } catch (error) {
+      console.error('Error loading branches:', error);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+  // Initialize default branch from localStorage or user's branch
+  const initializeDefaultBranch = () => {
+    try {
+      const savedBranchId = localStorage.getItem('selectedBranchId');
+      if (savedBranchId) {
+        const branch = branches.find(b => b.id === savedBranchId);
+        if (branch) {
+          setSelectedBranch(branch);
+          return;
+        }
+      }
+      
+      // Fallback to user's branch
+      if (user?.user_metadata?.branch_id) {
+        const userBranch = branches.find(b => b.id === user.user_metadata.branch_id);
+        if (userBranch) {
+          setSelectedBranch(userBranch);
+          localStorage.setItem('selectedBranchId', userBranch.id);
+          return;
+        }
+      }
+
+      // If no match, select first available branch
+      if (branches.length > 0) {
+        setSelectedBranch(branches[0]);
+        localStorage.setItem('selectedBranchId', branches[0].id);
+      }
+    } catch (error) {
+      console.error('Error initializing default branch:', error);
+      // Fallback to first branch if localStorage fails
+      if (branches.length > 0) {
+        setSelectedBranch(branches[0]);
+      }
+    }
+  };
+  // Handle branch selection
+  const handleBranchSelect = (branch) => {
+    setSelectedBranch(branch);
+    setShowBranchDropdown(false);
+    localStorage.setItem('selectedBranchId', branch.id);
+    
+    // Update form data if form is open
+    if (showForm) {
+      setFormData(prev => ({
+        ...prev,
+        branch_id: branch.id
+      }));
+    }
+  };
+
+  // Format E-way bill number (1234-1234-1234 format)
+  const formatEwayBill = (value) => {
+    // Remove all non-digit characters
+    const digitsOnly = value.replace(/\D/g, '');
+    
+    // Limit to 12 digits
+    const limited = digitsOnly.slice(0, 12);
+    
+    // Add dashes every 4 digits
+    const formatted = limited.replace(/(\d{4})(\d{4})?(\d{4})?/g, (match, p1, p2, p3) => {
+      let result = p1;
+      if (p2) result += '-' + p2;
+      if (p3) result += '-' + p3;
+      return result;
+    });
+    
+    return formatted;
+  };
+
+  // Handle E-way bill input change
+  const handleEwayBillChange = (e) => {
+    const formatted = formatEwayBill(e.target.value);
+    setFormData({ ...formData, e_way_bill: formatted });
+  };
 
   // Load data with pagination
   const handleLoadData = async () => {
@@ -338,10 +438,15 @@ export default function StationBiltySummaryPage() {
       console.error('Error deleting:', error);
       alert('Error deleting record. Please try again.');
     }
-  };
-  // Handle new record
+  };  // Handle new record
   const handleNewRecord = () => {
     resetForm();
+    // Set staff_id and branch_id from selected branch or user data
+    setFormData(prev => ({
+      ...prev,
+      staff_id: user?.id || null,
+      branch_id: selectedBranch?.id || user?.user_metadata?.branch_id || null
+    }));
     setShowForm(true);
     // Focus on station code field after form opens
     setTimeout(() => {
@@ -413,19 +518,75 @@ export default function StationBiltySummaryPage() {
                   </div>
                 </div>
               </div>
-              
-              <div className="flex items-center gap-3">                <button
+                <div className="flex items-center gap-3">
+                {/* Branch Selector */}
+                <div className="relative">                  <button
+                    onClick={() => setShowBranchDropdown(!showBranchDropdown)}
+                    className="bg-white text-gray-900 px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-gray-100 transition-all border border-gray-300 shadow-sm"
+                    disabled={loadingBranches}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {selectedBranch ? selectedBranch.branch_name : 'Select Branch'}
+                    </span>
+                    <span className="sm:hidden">
+                      {selectedBranch ? selectedBranch.branch_code : 'Branch'}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Branch Dropdown */}
+                  {showBranchDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowBranchDropdown(false)}
+                      />
+                      <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-20 max-h-60 overflow-auto">
+                        {loadingBranches ? (
+                          <div className="px-4 py-3 text-center text-gray-500">
+                            <div className="animate-spin h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                            Loading branches...
+                          </div>
+                        ) : branches.length > 0 ? (
+                          branches.map((branch) => (
+                            <button
+                              key={branch.id}
+                              onClick={() => handleBranchSelect(branch)}
+                              className={`w-full text-left px-4 py-3 hover:bg-purple-50 flex items-center justify-between ${
+                                selectedBranch?.id === branch.id ? 'bg-purple-100 text-purple-700' : 'text-gray-900'
+                              }`}
+                            >
+                              <div>
+                                <div className="font-medium">{branch.branch_name}</div>
+                                <div className="text-sm text-gray-500">{branch.branch_code} - {branch.city_code}</div>
+                              </div>
+                              {selectedBranch?.id === branch.id && (
+                                <Check className="w-4 h-4 text-purple-600" />
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-center text-gray-500">
+                            No branches found
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <button
                   onClick={handleNewRecord}
                   className="bg-white text-purple-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-50 transition-all shadow-lg"
                   title="Alt + N"
                 >
                   <Plus className="w-4 h-4" />
                   New Entry
-                </button>
-                <button
+                </button>                <button
                   onClick={handleExport}
                   disabled={loading}
-                  className="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-white hover:bg-opacity-30 transition-all border border-white border-opacity-20"
+                  className="bg-white text-gray-900 px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-100 transition-all border border-gray-300 shadow-sm"
                 >
                   <Download className="w-4 h-4" />
                   Export CSV
@@ -564,6 +725,7 @@ export default function StationBiltySummaryPage() {
                   <tr>                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station/GR No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents/PVT Marks</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-way Bill</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Delivery</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -600,9 +762,20 @@ export default function StationBiltySummaryPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          {summary.e_way_bill ? (
+                            <div className="text-sm font-medium text-gray-900 bg-blue-50 px-2 py-1 rounded border">
+                              <span className="text-blue-600">EWB:</span> {summary.e_way_bill}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">No E-way Bill</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{summary.no_of_packets} packages</div>
                         <div className="text-sm text-gray-500">{formatWeight(summary.weight)}</div>
-                      </td>                      <td className="px-6 py-4 whitespace-nowrap">
+                      </td><td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           getCombinedOptionColor(getCombinedValue(summary.payment_status, summary.delivery_type))
                         }`}>
@@ -728,8 +901,7 @@ export default function StationBiltySummaryPage() {
       {showForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-xl bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-6">
+            <div className="mt-3">              <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <FileText className="w-6 h-6 text-purple-600" />
                   {editingId ? 'Edit Station Bilty Summary' : 'Add New Station Bilty Summary'}
@@ -741,6 +913,18 @@ export default function StationBiltySummaryPage() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
+
+              {/* Branch Indicator */}
+              {selectedBranch && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-6">
+                  <div className="flex items-center gap-2 text-purple-700">
+                    <Building2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      Recording for: {selectedBranch.branch_name} ({selectedBranch.branch_code})
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-6">                {loadingReferenceData && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -1000,7 +1184,38 @@ export default function StationBiltySummaryPage() {
                     />
                   </div>
                 </div>                {/* Full width fields */}
-                <div className="grid grid-cols-1 gap-6">                  {/* Private Marks */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">                  {/* E-way Bill */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      E-way Bill Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.e_way_bill}
+                      onChange={handleEwayBillChange}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const form = e.target.form;
+                          if (form) {
+                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                            const currentIndex = inputs.indexOf(e.target);
+                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                              inputs[currentIndex + 1].focus();
+                            }
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                      placeholder="1234-1234-1234 (optional)"
+                      maxLength={14}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      12-digit E-way bill number in format: 1234-1234-1234 (optional)
+                    </p>
+                  </div>
+
+                  {/* Private Marks */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Private Marks

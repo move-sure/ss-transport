@@ -97,7 +97,6 @@ export default function ConsolidatedEWBPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
-
   useEffect(() => {
     if (!authLoading && !requireAuth()) {
       return;
@@ -106,7 +105,7 @@ export default function ConsolidatedEWBPage() {
     if (user) {
       fetchActiveEwbToken();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, requireAuth, fetchActiveEwbToken]);
 
   const fetchActiveEwbToken = async () => {
     try {
@@ -773,14 +772,13 @@ export default function ConsolidatedEWBPage() {
                         <p className="text-sm text-red-700 font-medium mb-3">{error}</p>
                           {/* Common troubleshooting tips */}
                         {(error.includes('fetch') || error.includes('Network') || error.includes('Failed to fetch')) && (
-                          <div className="bg-white p-4 rounded-lg border border-red-200">
-                            <h4 className="text-sm font-bold text-red-800 mb-2">🔧 Troubleshooting Network Issues:</h4>
+                          <div className="bg-white p-4 rounded-lg border border-red-200">                            <h4 className="text-sm font-bold text-red-800 mb-2">🔧 Troubleshooting Network Issues:</h4>
                             <ul className="text-xs text-red-700 space-y-1">
                               <li>• Check your internet connection</li>
                               <li>• Disable any VPN or proxy temporarily</li>
                               <li>• Check if your firewall/antivirus is blocking the request</li>
                               <li>• Try refreshing the page and the EWB token</li>
-                              <li>• Use the "Test Network" button above to verify connectivity</li>
+                              <li>• Use the &quot;Test Network&quot; button above to verify connectivity</li>
                               <li>• Contact your IT support if the problem persists</li>
                             </ul>
                           </div>
@@ -789,8 +787,7 @@ export default function ConsolidatedEWBPage() {
                         {(error.includes('500') || error.includes('Internal Server Error') || error.includes('Server Error')) && (
                           <div className="bg-white p-4 rounded-lg border border-red-200">
                             <h4 className="text-sm font-bold text-red-800 mb-2">🚨 Server Error (HTTP 500):</h4>
-                            <ul className="text-xs text-red-700 space-y-1">
-                              <li>• This is a server-side issue, not a problem with your request</li>
+                            <ul className="text-xs text-red-700 space-y-1">                              <li>• This is a server-side issue, not a problem with your request</li>
                               <li>• The EWB API server is experiencing internal problems</li>
                               <li>• Wait 5-10 minutes and try again</li>
                               <li>• Check if the API service status page reports any outages</li>
@@ -813,10 +810,9 @@ export default function ConsolidatedEWBPage() {
                         )}
                         
                         {error.includes('token') && (
-                          <div className="bg-white p-4 rounded-lg border border-red-200">
-                            <h4 className="text-sm font-bold text-red-800 mb-2">🔑 Token Issues:</h4>
+                          <div className="bg-white p-4 rounded-lg border border-red-200">                            <h4 className="text-sm font-bold text-red-800 mb-2">🔑 Token Issues:</h4>
                             <ul className="text-xs text-red-700 space-y-1">
-                              <li>• Click "Refresh Token" to get a new EWB token</li>
+                              <li>• Click &quot;Refresh Token&quot; to get a new EWB token</li>
                               <li>• Ensure your GSTIN is correct in your profile</li>
                               <li>• Check if your EWB credentials are valid</li>
                             </ul>

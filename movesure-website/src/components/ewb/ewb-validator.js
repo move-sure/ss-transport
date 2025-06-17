@@ -731,9 +731,8 @@ const EwbValidator = ({ ewbNumber, isOpen, onClose, validationResult: preValidat
                       </div>
                     ) : (
                       <div className="text-center py-12">
-                        <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-600">No Items Found</h3>
-                        <p className="text-gray-500">This E-way bill doesn't contain item details.</p>
+                        <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />                        <h3 className="text-lg font-semibold text-gray-600">No Items Found</h3>
+                        <p className="text-gray-500">This E-way bill doesn&apos;t contain item details.</p>
                       </div>
                     )}
                   </div>

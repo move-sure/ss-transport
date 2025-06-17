@@ -26,7 +26,10 @@ export const useStationBiltySummary = () => {
     payment_status: 'to-pay',
     amount: 0,
     pvt_marks: '',
-    delivery_type: 'godown'
+    delivery_type: 'godown',
+    e_way_bill: '',
+    staff_id: null,
+    branch_id: null
   });
   // Load reference data (cities only)
   const loadReferenceData = useCallback(async () => {
@@ -87,7 +90,10 @@ export const useStationBiltySummary = () => {
       payment_status: 'to-pay',
       amount: 0,
       pvt_marks: '',
-      delivery_type: 'godown'
+      delivery_type: 'godown',
+      e_way_bill: '',
+      staff_id: null,
+      branch_id: null
     });
     setEditingId(null);
   }, []);
@@ -176,6 +182,9 @@ export const useStationBiltySummary = () => {
         amount: parseFloat(formData.amount) || 0,
         pvt_marks: formData.pvt_marks?.toString().trim() || null,
         delivery_type: formData.delivery_type || null,
+        e_way_bill: formData.e_way_bill?.toString().trim() || null,
+        staff_id: formData.staff_id || null,
+        branch_id: formData.branch_id || null,
         updated_at: new Date().toISOString()
       };
 
@@ -230,8 +239,7 @@ export const useStationBiltySummary = () => {
     } finally {
       setSaving(false);
     }
-  }, [formData, editingId, resetForm, loadSummaryData]);
-  // Load data for editing
+  }, [formData, editingId, resetForm, loadSummaryData]);  // Load data for editing
   const loadForEdit = useCallback((summary) => {
     setFormData({
       station: summary.station || '',
@@ -244,7 +252,10 @@ export const useStationBiltySummary = () => {
       payment_status: summary.payment_status || 'to-pay',
       amount: summary.amount || 0,
       pvt_marks: summary.pvt_marks || '',
-      delivery_type: summary.delivery_type || null
+      delivery_type: summary.delivery_type || 'godown',
+      e_way_bill: summary.e_way_bill || '',
+      staff_id: summary.staff_id || null,
+      branch_id: summary.branch_id || null
     });
     setEditingId(summary.id);
   }, []);

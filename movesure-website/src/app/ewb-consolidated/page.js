@@ -326,9 +326,8 @@ export default function ConsolidatedEWBPage() {
           setDebugInfo(prev => prev + '\n🚨 HTTP 500 - Internal Server Error detected');
           setDebugInfo(prev => prev + '\n💡 This is a server-side issue, not a problem with your request');
         } else if (response.status === 503) {
-          errorMessage = `Service Unavailable (503): The EWB API service is temporarily down for maintenance.`;
-        } else if (response.status === 502) {
-          errorMessage = `Bad Gateway (502): There's a problem with the API gateway or load balancer.`;
+          errorMessage = `Service Unavailable (503): The EWB API service is temporarily down for maintenance.`;        } else if (response.status === 502) {
+          errorMessage = `Bad Gateway (502): There&apos;s a problem with the API gateway or load balancer.`;
         } else if (response.status === 401) {
           errorMessage = `Unauthorized (401): Your EWB token may have expired or is invalid.`;
         } else if (response.status === 403) {
@@ -804,7 +803,7 @@ export default function ConsolidatedEWBPage() {
                               <li>• The EWB API service is temporarily down for maintenance</li>
                               <li>• This is usually scheduled maintenance</li>
                               <li>• Try again in 15-30 minutes</li>
-                              <li>• Check the service provider's status page</li>
+                              <li>• Check the service provider&apos;s status page</li>
                             </ul>
                           </div>
                         )}

@@ -15,11 +15,11 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   const [isAddingContent, setIsAddingContent] = useState(false);
   const [newContentName, setNewContentName] = useState('');
   const [showEwbValidator, setShowEwbValidator] = useState(false);
-  
-  // EWB Validation State
+    // EWB Validation State
   const [ewbValidationStatus, setEwbValidationStatus] = useState('idle'); // 'idle', 'validating', 'verified', 'failed'
   const [ewbValidationResult, setEwbValidationResult] = useState(null);
   const [ewbValidationError, setEwbValidationError] = useState(null);
+  const [validationTimeout, setValidationTimeout] = useState(null);
 
   const contentRef = useRef(null);
   const contentInputRef = useRef(null);
@@ -29,10 +29,10 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   const invoiceValueRef = useRef(null);
   const eWayBillRef = useRef(null);
   const invoiceDateRef = useRef(null);
-  
-  // Input navigation
+    // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
-    // Reset EWB validation when EWB number changes
+  
+  // Reset EWB validation when EWB number changes
   useEffect(() => {
     // Clean both values for proper comparison
     const cleanedCurrentEwb = formData.e_way_bill ? formData.e_way_bill.replace(/[-\s]/g, '').trim() : '';
@@ -47,7 +47,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       setEwbValidationError(null);
     }
   }, [formData.e_way_bill, ewbValidationResult]);
-  // EWB Validation Function
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (validationTimeout) {
+        clearTimeout(validationTimeout);
+      }
+    };
+  }, [validationTimeout]);  // EWB Validation Function
   const validateEwbInBackground = async () => {
     if (!formData.e_way_bill || formData.e_way_bill.trim() === '') {
       setEwbValidationError('Please enter an E-way bill number');
@@ -61,6 +69,12 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     if (cleanedEwbNumber === '') {
       setEwbValidationError('Please enter a valid E-way bill number');
       setEwbValidationStatus('failed');
+      return;
+    }
+
+    // Prevent duplicate API calls
+    if (ewbValidationStatus === 'validating') {
+      console.log('🚫 Validation already in progress, skipping duplicate call');
       return;
     }
 
@@ -148,13 +162,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         if (!validationData?.ewbNo && !validationData?.data?.ewbNo) {
           console.error('❌ No valid E-way bill data found');
           throw new Error('E-way bill number not found. Please verify the number.');
-        }
-        
-        // Store in localStorage as backup
-        if (validationData) {
-          localStorage.setItem(`ewb_${cleanedEwbNumber}`, JSON.stringify(validationData));
-        }
-        
+        }        
         setEwbValidationResult(validationData);
         setEwbValidationStatus('verified');
         console.log('🎉 Status set to verified, should trigger UI update');
@@ -163,7 +171,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         setTimeout(() => {
           console.log('🔄 Re-confirming verification status...');
           setEwbValidationStatus('verified');
-        }, 100);      } else {
+        }, 100);} else {
         console.error('❌ API error:', data);
         // Handle specific error responses from our API
         const errorMessage = data.error || data.details?.message || `API Error: ${response.status}`;
@@ -729,19 +737,59 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                   <input
                     type="text"
                     ref={eWayBillRef}
-                    value={formData.e_way_bill || ''}
-                    onChange={(e) => {
+                    value={formData.e_way_bill || ''}                    onChange={(e) => {
                       // Only allow numbers and hyphens
                       const value = e.target.value.replace(/[^0-9-]/g, '');
                       setFormData(prev => ({ ...prev, e_way_bill: value }));
                       
-                      // Auto-validate when format matches 4315-8135-2543 (4-4-4 pattern)
+                      // Clear any existing timeout
+                      if (validationTimeout) {
+                        clearTimeout(validationTimeout);
+                        setValidationTimeout(null);
+                      }
+                      
+                      // Auto-validate when format matches 12 digits
                       const cleanedValue = value.replace(/[-\s]/g, '');
                       if (cleanedValue.length === 12 && /^\d{12}$/.test(cleanedValue)) {
                         console.log('🚀 Auto-triggering validation for:', value);
-                        setTimeout(() => {
-                          validateEwbInBackground();
-                        }, 500);
+                        
+                        // Reset state first
+                        setEwbValidationStatus('idle');
+                        setEwbValidationError(null);
+                        setEwbValidationResult(null);
+                          // Trigger same validation function as retry button after 800ms
+                        const timeoutId = setTimeout(() => {
+                          // Double-check status before making API call
+                          if (ewbValidationStatus === 'idle') {
+                            console.log('⏰ Auto-validation timeout executed');
+                            validateEwbInBackground();
+                          } else {
+                            console.log('🚫 Auto-validation cancelled - status changed to:', ewbValidationStatus);
+                          }
+                        }, 800);
+                        
+                        setValidationTimeout(timeoutId);
+                      } else {
+                        // Reset validation state if EWB is incomplete
+                        setEwbValidationStatus('idle');
+                        setEwbValidationError(null);
+                        setEwbValidationResult(null);
+                      }
+                    }}                    onBlur={(e) => {
+                      // Only validate on blur if not already validating/verified and EWB is complete
+                      const cleanedValue = e.target.value.replace(/[-\s]/g, '');
+                      if (cleanedValue.length === 12 && /^\d{12}$/.test(cleanedValue) && 
+                          ewbValidationStatus === 'idle') {
+                        console.log('🎯 Blur validation triggered');
+                        
+                        // Clear any pending auto-validation timeout first
+                        if (validationTimeout) {
+                          clearTimeout(validationTimeout);
+                          setValidationTimeout(null);
+                          console.log('🚫 Cleared auto-validation timeout due to blur');
+                        }
+                        
+                        validateEwbInBackground();
                       }
                     }}
                     onKeyPress={(e) => {
@@ -783,19 +831,10 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                       <RefreshCw className="w-4 h-4 text-red-600" />
                     </button>
                   )}
-                  
-                  {/* Details button when verified */}
+                    {/* Details button when verified */}
                   {ewbValidationStatus === 'verified' && (
                     <button
                       onClick={() => {
-                        // Check localStorage if validation result is missing
-                        if (!ewbValidationResult && formData.e_way_bill) {
-                          const cleanedEwb = formData.e_way_bill.replace(/[-\s]/g, '').trim();
-                          const storedResult = localStorage.getItem(`ewb_${cleanedEwb}`);
-                          if (storedResult) {
-                            setEwbValidationResult(JSON.parse(storedResult));
-                          }
-                        }
                         setShowEwbValidator(true);
                       }}
                       className="flex items-center gap-1 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all duration-200 shadow-md text-xs font-semibold"

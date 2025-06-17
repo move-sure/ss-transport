@@ -90,10 +90,10 @@ export default function ConsolidatedEWBPage() {
   const [apiKey] = useState('key_live_ntAPuJY6MmlucPdCo2cwL7eIXZIAXO0j');
   const [showToken, setShowToken] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
-  
-  // UI state
+    // UI state
   const [loading, setLoading] = useState(false);
   const [fetchingToken, setFetchingToken] = useState(false);
+  const [testingNetwork, setTestingNetwork] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
@@ -180,14 +180,59 @@ export default function ConsolidatedEWBPage() {
     if (validEwbBills.length === 0) errors.push('At least one EWB Number is required');
     
     return errors;
+  };  const createTimeoutSignal = (timeout) => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), timeout);
+    return controller.signal;
+  };
+  const checkNetworkConnectivity = async () => {
+    try {
+      setTestingNetwork(true);
+      setDebugInfo(prev => prev + '\n🌐 Checking network connectivity...');
+      const response = await fetch('https://httpbin.org/get', {
+        method: 'GET',
+        signal: createTimeoutSignal(5000)
+      });
+      if (response.ok) {
+        setDebugInfo(prev => prev + '\n✅ Network connectivity confirmed');
+        
+        // Also test the actual API endpoint with a simple GET request
+        try {
+          setDebugInfo(prev => prev + '\n🔍 Testing API endpoint accessibility...');
+          const apiTest = await fetch('https://api.sandbox.co.in', {
+            method: 'GET',
+            signal: createTimeoutSignal(5000)
+          });
+          setDebugInfo(prev => prev + `\n📡 API endpoint response: ${apiTest.status}`);
+        } catch (apiError) {
+          setDebugInfo(prev => prev + `\n⚠️ API endpoint test failed: ${apiError.message}`);
+        }
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      setDebugInfo(prev => prev + `\n❌ Network connectivity check failed: ${error.message}`);
+      return false;
+    } finally {
+      setTestingNetwork(false);
+    }
   };
 
-  const createConsolidatedEWB = async () => {
+  const createConsolidatedEWB = async (retryCount = 0) => {
+    const maxRetries = 2;
+    
     try {
       setLoading(true);
       setError('');
       setResult(null);
       setDebugInfo('Starting consolidated EWB creation...');
+
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      if (!isConnected) {
+        throw new Error('No internet connection detected. Please check your network and try again.');
+      }
 
       // Validate form
       const validationErrors = validateForm();
@@ -213,9 +258,7 @@ export default function ConsolidatedEWBPage() {
         tripSheetEwbBills: ewbBills
           .filter(bill => bill.ewbNo.trim())
           .map(bill => ({ ewbNo: parseInt(bill.ewbNo) }))
-      };
-
-      setDebugInfo(`📋 Request Data: ${JSON.stringify(requestData, null, 2)}`);
+      };      setDebugInfo(`📋 Request Data: ${JSON.stringify(requestData, null, 2)}`);
 
       // Prepare headers
       const headers = {
@@ -226,26 +269,80 @@ export default function ConsolidatedEWBPage() {
         'content-type': 'application/json'
       };
 
-      setDebugInfo(prev => prev + '\n🔑 Headers prepared. Making API call...');
-
-      // Make API request
-      const response = await fetch(
-        'https://api.sandbox.co.in/gst/compliance/e-way-bill/consignor/consolidated-bill',
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(requestData)
-        }
-      );
-
-      setDebugInfo(prev => prev + `\n📡 API Response Status: ${response.status}`);
-
-      const responseData = await response.json();
+      setDebugInfo(prev => prev + `\n🔑 Headers: ${JSON.stringify({
+        'accept': headers.accept,
+        'authorization': `${ewbToken.token_type} [TOKEN_HIDDEN]`,
+        'x-api-key': '[API_KEY_HIDDEN]',
+        'x-api-version': headers['x-api-version'],
+        'content-type': headers['content-type']
+      }, null, 2)}`);
       
-      setDebugInfo(prev => prev + `\n📄 Raw Response: ${JSON.stringify(responseData, null, 2)}`);
+      setDebugInfo(prev => prev + '\n🌐 API Endpoint: https://api.sandbox.co.in/gst/compliance/e-way-bill/consignor/consolidated-bill');
+      setDebugInfo(prev => prev + '\n📤 Making API call...');
+      if (retryCount > 0) {
+        setDebugInfo(prev => prev + `\n🔄 Retry attempt ${retryCount}/${maxRetries}`);
+      }// Make API request with better error handling
+      let response;
+      let responseData;
+      
+      try {        response = await fetch(
+          'https://api.sandbox.co.in/gst/compliance/e-way-bill/consignor/consolidated-bill',
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(requestData),
+            // Add timeout and other fetch options
+            signal: createTimeoutSignal(30000), // 30 second timeout
+          }
+        );
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} - ${responseData.message || JSON.stringify(responseData)}`);
+        setDebugInfo(prev => prev + `\n📡 API Response Status: ${response.status}`);
+        setDebugInfo(prev => prev + `\n📡 Response Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+
+      } catch (fetchError) {
+        // Handle network errors specifically
+        if (fetchError.name === 'TimeoutError') {
+          throw new Error('API request timed out after 30 seconds. Please check your internet connection and try again.');
+        } else if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+          throw new Error('Network error: Unable to connect to the API. Please check your internet connection and try again.');
+        } else {
+          throw new Error(`Network error: ${fetchError.message}`);
+        }
+      }
+
+      // Parse response
+      try {
+        responseData = await response.json();
+        setDebugInfo(prev => prev + `\n📄 Raw Response: ${JSON.stringify(responseData, null, 2)}`);
+      } catch (parseError) {
+        setDebugInfo(prev => prev + `\n⚠️ Failed to parse response as JSON: ${parseError.message}`);
+        const textResponse = await response.text();
+        setDebugInfo(prev => prev + `\n📄 Raw Response Text: ${textResponse}`);
+        throw new Error(`Invalid JSON response from API: ${parseError.message}`);
+      }      if (!response.ok) {
+        let errorMessage = `API Error: ${response.status}`;
+        
+        if (response.status === 500) {
+          errorMessage = `Server Error (500): The EWB API server is experiencing internal issues. This is not your fault.`;
+          setDebugInfo(prev => prev + '\n🚨 HTTP 500 - Internal Server Error detected');
+          setDebugInfo(prev => prev + '\n💡 This is a server-side issue, not a problem with your request');
+        } else if (response.status === 503) {
+          errorMessage = `Service Unavailable (503): The EWB API service is temporarily down for maintenance.`;
+        } else if (response.status === 502) {
+          errorMessage = `Bad Gateway (502): There's a problem with the API gateway or load balancer.`;
+        } else if (response.status === 401) {
+          errorMessage = `Unauthorized (401): Your EWB token may have expired or is invalid.`;
+        } else if (response.status === 403) {
+          errorMessage = `Forbidden (403): You don't have permission to access this EWB service.`;
+        } else if (response.status === 429) {
+          errorMessage = `Rate Limited (429): Too many requests. Please wait before trying again.`;
+        }
+        
+        if (responseData.message) {
+          errorMessage += ` Server message: ${responseData.message}`;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // Update token usage
@@ -271,12 +368,30 @@ export default function ConsolidatedEWBPage() {
         success: true,
         data: processedResult,
         timestamp: new Date().toISOString()
-      });
-
-      setDebugInfo(prev => prev + '\n✅ Consolidated EWB created successfully!');
+      });      setDebugInfo(prev => prev + '\n✅ Consolidated EWB created successfully!');
 
     } catch (err) {
       console.error('Error creating consolidated EWB:', err);
+        // Check if this is a network error and we can retry
+      const isNetworkError = err.name === 'TypeError' || 
+                           err.message.includes('fetch') || 
+                           err.message.includes('Network error') ||
+                           err.message.includes('Failed to fetch');
+      
+      const isServerError = err.message.includes('500') || 
+                           err.message.includes('502') || 
+                           err.message.includes('503') ||
+                           err.message.includes('Internal Server Error') ||
+                           err.message.includes('Bad Gateway') ||
+                           err.message.includes('Service Unavailable');
+      
+      if ((isNetworkError || isServerError) && retryCount < maxRetries) {
+        const waitTime = isServerError ? 10000 : 3000; // Wait longer for server errors
+        setDebugInfo(prev => prev + `\n⚠️ ${isServerError ? 'Server' : 'Network'} error encountered, retrying in ${waitTime/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return createConsolidatedEWB(retryCount + 1);
+      }
+      
       setError(err.message);
       setResult({
         success: false,
@@ -284,6 +399,24 @@ export default function ConsolidatedEWBPage() {
         timestamp: new Date().toISOString()
       });
       setDebugInfo(prev => prev + `\n❌ Error: ${err.message}`);
+        // Add additional troubleshooting info for network errors
+      if (isNetworkError) {
+        setDebugInfo(prev => prev + '\n\n🔧 Troubleshooting Tips:');
+        setDebugInfo(prev => prev + '\n• Check your internet connection');
+        setDebugInfo(prev => prev + '\n• Verify the API endpoint is accessible');
+        setDebugInfo(prev => prev + '\n• Check if your firewall/antivirus is blocking the request');
+        setDebugInfo(prev => prev + '\n• Try refreshing the EWB token');
+        setDebugInfo(prev => prev + '\n• Contact your network administrator if the problem persists');
+      }
+      
+      if (isServerError) {
+        setDebugInfo(prev => prev + '\n\n🚨 Server Error Information:');
+        setDebugInfo(prev => prev + '\n• This is a server-side issue, not your fault');
+        setDebugInfo(prev => prev + '\n• The EWB API service is experiencing problems');
+        setDebugInfo(prev => prev + '\n• Your request data and credentials are likely correct');
+        setDebugInfo(prev => prev + '\n• Wait 10-15 minutes before trying again');
+        setDebugInfo(prev => prev + '\n• Contact the API service provider if issue persists');
+      }
     } finally {
       setLoading(false);
     }
@@ -410,11 +543,10 @@ export default function ConsolidatedEWBPage() {
                       </div>
                     </>
                   )}
-                  
-                  <button
+                    <button
                     onClick={fetchActiveEwbToken}
                     disabled={fetchingToken}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 shadow-lg font-semibold"
+                    className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 shadow-lg font-semibold mb-3"
                   >
                     {fetchingToken ? (
                       <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -422,6 +554,18 @@ export default function ConsolidatedEWBPage() {
                       <RefreshCw className="h-5 w-5 mr-2" />
                     )}
                     {fetchingToken ? 'Refreshing...' : 'Refresh Token'}
+                  </button>
+                    <button
+                    onClick={checkNetworkConnectivity}
+                    disabled={testingNetwork}
+                    className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50 shadow-lg font-semibold"
+                  >
+                    {testingNetwork ? (
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    ) : (
+                      <Shield className="h-5 w-5 mr-2" />
+                    )}
+                    {testingNetwork ? 'Testing Network...' : 'Test Network'}
                   </button>
                 </div>
               </div>
@@ -617,18 +761,67 @@ export default function ConsolidatedEWBPage() {
                       {loading ? 'Creating Consolidated EWB...' : 'Create Consolidated E-Way Bill'}
                     </button>
                   </div>
-                </form>
-
-                {/* Error Display */}
+                </form>                {/* Error Display */}
                 {error && (
                   <div className="mt-6 p-6 bg-gradient-to-r from-red-50 to-pink-50 border-l-4 border-red-500 rounded-xl shadow-lg">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center mr-4">
                         <AlertCircle className="h-6 w-6 text-white" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="text-sm font-bold text-red-800 mb-1">Error Occurred</h3>
-                        <p className="text-sm text-red-700 font-medium">{error}</p>
+                        <p className="text-sm text-red-700 font-medium mb-3">{error}</p>
+                          {/* Common troubleshooting tips */}
+                        {(error.includes('fetch') || error.includes('Network') || error.includes('Failed to fetch')) && (
+                          <div className="bg-white p-4 rounded-lg border border-red-200">
+                            <h4 className="text-sm font-bold text-red-800 mb-2">🔧 Troubleshooting Network Issues:</h4>
+                            <ul className="text-xs text-red-700 space-y-1">
+                              <li>• Check your internet connection</li>
+                              <li>• Disable any VPN or proxy temporarily</li>
+                              <li>• Check if your firewall/antivirus is blocking the request</li>
+                              <li>• Try refreshing the page and the EWB token</li>
+                              <li>• Use the "Test Network" button above to verify connectivity</li>
+                              <li>• Contact your IT support if the problem persists</li>
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {(error.includes('500') || error.includes('Internal Server Error') || error.includes('Server Error')) && (
+                          <div className="bg-white p-4 rounded-lg border border-red-200">
+                            <h4 className="text-sm font-bold text-red-800 mb-2">🚨 Server Error (HTTP 500):</h4>
+                            <ul className="text-xs text-red-700 space-y-1">
+                              <li>• This is a server-side issue, not a problem with your request</li>
+                              <li>• The EWB API server is experiencing internal problems</li>
+                              <li>• Wait 5-10 minutes and try again</li>
+                              <li>• Check if the API service status page reports any outages</li>
+                              <li>• Contact the API provider if the issue persists</li>
+                              <li>• Your data and token are likely correct</li>
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {(error.includes('503') || error.includes('Service Unavailable')) && (
+                          <div className="bg-white p-4 rounded-lg border border-red-200">
+                            <h4 className="text-sm font-bold text-red-800 mb-2">🔧 Service Unavailable (HTTP 503):</h4>
+                            <ul className="text-xs text-red-700 space-y-1">
+                              <li>• The EWB API service is temporarily down for maintenance</li>
+                              <li>• This is usually scheduled maintenance</li>
+                              <li>• Try again in 15-30 minutes</li>
+                              <li>• Check the service provider's status page</li>
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {error.includes('token') && (
+                          <div className="bg-white p-4 rounded-lg border border-red-200">
+                            <h4 className="text-sm font-bold text-red-800 mb-2">🔑 Token Issues:</h4>
+                            <ul className="text-xs text-red-700 space-y-1">
+                              <li>• Click "Refresh Token" to get a new EWB token</li>
+                              <li>• Ensure your GSTIN is correct in your profile</li>
+                              <li>• Check if your EWB credentials are valid</li>
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

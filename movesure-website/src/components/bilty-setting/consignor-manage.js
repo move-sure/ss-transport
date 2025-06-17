@@ -7,10 +7,13 @@ import supabase from '../../app/utils/supabase';
 const ConsignorComponent = () => {
   const { user } = useAuth();
   const [consignors, setConsignors] = useState([]);
-  const [filteredConsignors, setFilteredConsignors] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // all, with_gst, without_gst
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [formData, setFormData] = useState({
     company_name: '',
     company_add: '',
@@ -21,55 +24,85 @@ const ConsignorComponent = () => {
   });
   const [editingId, setEditingId] = useState(null);
 
+  const ITEMS_PER_PAGE = 50;
   useEffect(() => {
-    fetchConsignors();
+    fetchConsignors(true); // Reset on mount
   }, []);
 
   useEffect(() => {
-    filterConsignors();
-  }, [consignors, searchTerm, filterType]);
+    // Reset and fetch when search or filter changes
+    setConsignors([]);
+    setCurrentPage(0);
+    setHasMore(true);
+    fetchConsignors(true);
+  }, [searchTerm, filterType]);
 
-  const filterConsignors = () => {
-    let filtered = consignors;
+  const buildQuery = () => {
+    let query = supabase.from('consignors').select('*', { count: 'exact' });
 
     // Apply search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(consignor => 
-        consignor.company_name?.toLowerCase().includes(searchLower) ||
-        consignor.company_add?.toLowerCase().includes(searchLower) ||
-        consignor.number?.toLowerCase().includes(searchLower) ||
-        consignor.gst_num?.toLowerCase().includes(searchLower) ||
-        consignor.adhar?.toLowerCase().includes(searchLower) ||
-        consignor.pan?.toLowerCase().includes(searchLower)
+      query = query.or(
+        `company_name.ilike.%${searchLower}%,` +
+        `company_add.ilike.%${searchLower}%,` +
+        `number.ilike.%${searchLower}%,` +
+        `gst_num.ilike.%${searchLower}%,` +
+        `adhar.ilike.%${searchLower}%,` +
+        `pan.ilike.%${searchLower}%`
       );
     }
 
     // Apply type filter
     if (filterType === 'with_gst') {
-      filtered = filtered.filter(consignor => consignor.gst_num && consignor.gst_num.trim());
+      query = query.not('gst_num', 'is', null).neq('gst_num', '');
     } else if (filterType === 'without_gst') {
-      filtered = filtered.filter(consignor => !consignor.gst_num || !consignor.gst_num.trim());
+      query = query.or('gst_num.is.null,gst_num.eq.');
     }
 
-    setFilteredConsignors(filtered);
+    return query.order('company_name');
   };
 
-  const fetchConsignors = async () => {
+  const fetchConsignors = async (reset = false) => {
     try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('consignors')
-        .select('*')
-        .order('company_name');
+      if (reset) {
+        setLoading(true);
+        setCurrentPage(0);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const page = reset ? 0 : currentPage;
+      const query = buildQuery()
+        .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
-      setConsignors(data || []);
+
+      if (reset) {
+        setConsignors(data || []);
+        setTotalCount(count || 0);
+      } else {
+        setConsignors(prev => [...prev, ...(data || [])]);
+      }
+
+      // Check if there are more items to load
+      setHasMore((data || []).length === ITEMS_PER_PAGE);
+      setCurrentPage(page + 1);
+
     } catch (error) {
       console.error('Error fetching consignors:', error);
       alert('Error fetching consignors: ' + error.message);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchConsignors(false);
     }
   };
 
@@ -117,9 +150,8 @@ const ConsignorComponent = () => {
         gst_num: '',
         adhar: '',
         pan: ''
-      });
-      setEditingId(null);
-      fetchConsignors();
+      });      setEditingId(null);
+      fetchConsignors(true); // Reset and reload from beginning
     } catch (error) {
       console.error('Error saving consignor:', error);
       alert('Error saving consignor: ' + error.message);
@@ -148,11 +180,9 @@ const ConsignorComponent = () => {
       const { error } = await supabase
         .from('consignors')
         .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+        .eq('id', id);      if (error) throw error;
       alert('Consignor deleted successfully!');
-      fetchConsignors();
+      fetchConsignors(true); // Reset and reload from beginning
     } catch (error) {
       console.error('Error deleting consignor:', error);
       alert('Error deleting consignor: ' + error.message);
@@ -172,39 +202,51 @@ const ConsignorComponent = () => {
     });
     setEditingId(null);
   };
+  const downloadCSV = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all data for export (not just loaded data)
+      const query = buildQuery();
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        alert('No data to export');
+        return;
+      }
 
-  const downloadCSV = () => {
-    const dataToExport = searchTerm || filterType !== 'all' ? filteredConsignors : consignors;
-    
-    if (dataToExport.length === 0) {
-      alert('No data to export');
-      return;
+      const headers = ['Company Name', 'Address', 'Mobile', 'GST Number', 'Aadhar', 'PAN'];
+      const csvContent = [
+        headers.join(','),
+        ...data.map(consignor => [
+          `"${consignor.company_name || ''}"`,
+          `"${consignor.company_add || ''}"`,
+          `"${consignor.number || ''}"`,
+          `"${consignor.gst_num || ''}"`,
+          `"${consignor.adhar || ''}"`,
+          `"${consignor.pan || ''}"`
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `consignors_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      alert(`Exported ${data.length} consignors to CSV`);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('Error exporting CSV: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-
-    const headers = ['Company Name', 'Address', 'Mobile', 'GST Number', 'Aadhar', 'PAN'];
-    const csvContent = [
-      headers.join(','),
-      ...dataToExport.map(consignor => [
-        `"${consignor.company_name || ''}"`,
-        `"${consignor.company_add || ''}"`,
-        `"${consignor.number || ''}"`,
-        `"${consignor.gst_num || ''}"`,
-        `"${consignor.adhar || ''}"`,
-        `"${consignor.pan || ''}"`
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `consignors_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert(`Exported ${dataToExport.length} consignors to CSV`);
   };
 
   const clearFilters = () => {
@@ -213,15 +255,14 @@ const ConsignorComponent = () => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-white p-6 rounded-lg shadow-lg">      <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-black">Manage Consignors</h2>
         <button
           onClick={downloadCSV}
-          disabled={consignors.length === 0}
+          disabled={loading || totalCount === 0}
           className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          📥 Export CSV
+          📥 Export CSV ({totalCount} total)
         </button>
       </div>
 
@@ -388,18 +429,26 @@ const ConsignorComponent = () => {
             </button>
           )}
         </div>
-      </form>
-
-      {/* Statistics */}
+      </form>      {/* Statistics */}
       <div className="mb-4 flex justify-between items-center">
         <div className="text-sm text-black space-x-4">
-          <span className="font-medium">Total: {consignors.length}</span>
-          <span className="text-green-600">With GST: {consignors.filter(c => c.gst_num).length}</span>
-          <span className="text-orange-600">Without GST: {consignors.filter(c => !c.gst_num).length}</span>
-          {(searchTerm || filterType !== 'all') && (
-            <span className="text-blue-600">Filtered: {filteredConsignors.length}</span>
+          <span className="font-medium">
+            Total: {totalCount} 
+            {consignors.length < totalCount && ` (Showing ${consignors.length})`}
+          </span>
+          {(searchTerm || filterType !== 'all') && totalCount > 0 && (
+            <span className="text-blue-600">Filtered Results: {totalCount}</span>
           )}
         </div>
+        {consignors.length > 0 && hasMore && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50 text-sm"
+          >
+            {loadingMore ? '⏳ Loading...' : '📄 Load More'}
+          </button>
+        )}
       </div>
 
       {/* Consignors List */}
@@ -414,9 +463,8 @@ const ConsignorComponent = () => {
               <th className="border-r px-4 py-3 text-left font-bold text-black">PAN</th>
               <th className="px-4 py-3 text-left font-bold text-black">Actions</th>
             </tr>
-          </thead>
-          <tbody>
-            {filteredConsignors.length > 0 ? filteredConsignors.map((consignor, index) => (
+          </thead>          <tbody>
+            {consignors.length > 0 ? consignors.map((consignor, index) => (
               <tr key={consignor.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                 <td className="border-r px-4 py-3 text-black font-medium">{consignor.company_name}</td>
                 <td className="border-r px-4 py-3 text-black text-sm">
@@ -451,8 +499,7 @@ const ConsignorComponent = () => {
                       disabled={loading}
                     >
                       🗑️ Delete
-                    </button>
-                  </div>
+                    </button>                  </div>
                 </td>
               </tr>
             )) : (
@@ -479,6 +526,32 @@ const ConsignorComponent = () => {
                       <p className="text-sm">Add your first consignor using the form above</p>
                     </div>
                   )}
+                </td>
+              </tr>
+            )}
+            
+            {/* Loading More Row */}
+            {loadingMore && (
+              <tr>
+                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                    Loading more consignors...
+                  </div>
+                </td>
+              </tr>
+            )}
+            
+            {/* Load More Row */}
+            {!loading && !loadingMore && hasMore && consignors.length > 0 && (
+              <tr>
+                <td colSpan="6" className="px-6 py-4 text-center">
+                  <button
+                    onClick={loadMore}
+                    className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                  >
+                    📄 Load More Consignors
+                  </button>
                 </td>
               </tr>
             )}

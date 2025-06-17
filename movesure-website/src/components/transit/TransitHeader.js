@@ -116,7 +116,7 @@ const TransitHeader = ({
                 title={`Preview/Download challan ${selectedChallan?.challan_no || ''} bilties as PDF`}
               >
                 <Eye className="w-4 h-4" />
-                {selectedChallan ? `CHALLAN - ${selectedChallan.challan_no}` : 'CHALLAN'} Preview
+                {selectedChallan ? `CHALLAN - ${selectedChallan.challan_no}` : 'CHALLAN'} Print
               </button>              <button
                 onClick={onRefresh}
                 className="bg-white text-black border-2 border-purple-400 p-2 rounded-lg hover:bg-purple-50 hover:border-purple-600 transition-all shadow-lg"

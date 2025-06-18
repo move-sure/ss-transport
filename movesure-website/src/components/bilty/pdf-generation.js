@@ -110,7 +110,7 @@ const PDFGenerator = ({
       TOTAL_LINE: { x1: 150, y: 125, x2: 250 },    // Line above total
       TOTAL: { x: 155, y: 132 },                    // Total amount
       
-      PAYMENT_STATUS: { x: 165, y: 95 },           // PAID/TO PAY status
+      PAYMENT_STATUS: { x: 168, y: 90 },           // PAID/TO PAY status - below caution box
     },
 
     // 📢 NOTICE SECTION
@@ -125,7 +125,7 @@ const PDFGenerator = ({
       WEBSITE: { x: 12, y: 141 },                   // Website
       BOOKED_RISK: { x: 80, y: 140 },              // "BOOKED AT OWNER'S RISK"
       CUSTOMER_CARE: { x: 12, y: 145 },            // Customer care
-      SIGNATURE: { x: 155, y: 146 },               // Signature line
+      SIGNATURE: { x: 150, y: 146 },               // Signature line
     },    // 📏 NEW: EXTRA VERTICAL LINES SECTION
     EXTRA_LINES: {
       VERTICAL_LINE_1: { x: 70, y1: 95, y2: 118 },   // First extra vertical line
@@ -154,10 +154,12 @@ const PDFGenerator = ({
       NOTICE: { size: 12, weight: 'bold', family: 'times' },        // Times for notices
       COMPANY_NAME: { size: 20, weight: 'bold', family: 'helvetica' },  // Helvetica for company name
       GR_NUMBER: { size: 1, weight: 'bold', family: 'times' },     // Courier for tracking numbers
-      GR_LABEL: { size: 10, weight: 'bold', family: 'helvetica' },    // Enhanced GR NO label - bigger and bolder
-      LABELS: { size: 9.5, weight: 'bold', family: 'times' },         // Times for labels
+      GR_LABEL: { size: 10, weight: 'bold', family: 'helvetica' },    // Enhanced GR NO label - bigger and bolder      LABELS: { size: 9.5, weight: 'bold', family: 'times' },         // Times for labels
       VALUES: { size: 9.5, weight: 'normal', family: 'times' },       // Times for values
+      ENHANCED_LABELS: { size: 10.5, weight: 'bold', family: 'times' }, // Enhanced bold labels for delivery/consignor/consignee
+      ENHANCED_VALUES: { size: 10, weight: 'bold', family: 'times' },   // Enhanced bold values for delivery/consignor/consignee
       TOTAL: { size: 14, weight: 'bold', family: 'helvetica' },       // Helvetica for totals
+      ENHANCED_CHARGES: { size: 11, weight: 'bold', family: 'times' }, // Enhanced charges section
       MONOSPACE: { size: 9, weight: 'normal', family: 'courier' },    // Courier for codes/numbers
     },
     LINES: {
@@ -458,8 +460,7 @@ const PDFGenerator = ({
       y + COORDINATES.COPY_SECTION.ROUTE.y,
       STYLES.FONTS.NOTICE
     );
-    
-    // 🚚 DELIVERY SECTION - Transport name only (delivery type moved)
+      // 🚚 DELIVERY SECTION - Transport name only (delivery type moved) - ENHANCED DARK & BOLD
     const deliveryText = transport?.transport_name || biltyData.transport_name || 'SWASTIK TRANSPORT';
     
     addStyledText(
@@ -467,42 +468,42 @@ const PDFGenerator = ({
       `DELIVERY AT: ${deliveryText}`, 
       COORDINATES.DELIVERY_SECTION.DELIVERY_AT.x, 
       y + COORDINATES.DELIVERY_SECTION.DELIVERY_AT.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
     );
     
-    // GSTIN - Bold label
+    // GSTIN - Bold label - ENHANCED DARK & BOLD
     addStyledText(
       pdf, 
       `GSTIN: ${transport?.gst_number || '24503825250'}`, 
       COORDINATES.DELIVERY_SECTION.GSTIN.x, 
       y + COORDINATES.DELIVERY_SECTION.GSTIN.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
     );
     
-    // Mobile number - Bold label
+    // Mobile number - Bold label - ENHANCED DARK & BOLD
     const mobileNumber = transport?.mob_number || permDetails?.mobile_number || '7668291228';
     addStyledText(
       pdf, 
       `MOB: ${mobileNumber}`, 
       COORDINATES.DELIVERY_SECTION.MOBILE.x, 
       y + COORDINATES.DELIVERY_SECTION.MOBILE.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
     );
-      
-    // 👥 PEOPLE SECTION - Enhanced styling// Consignor
+        // 👥 PEOPLE SECTION - Enhanced styling - ENHANCED DARK & BOLD
+    // Consignor
     addStyledText(
       pdf, 
       `CONSIGNOR: ${(biltyData.consignor_name || '').toUpperCase()}`, 
       COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.x, 
       y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
     );
     addStyledText(
       pdf, 
       `GSTIN: ${biltyData.consignor_gst || 'N/A'}`, 
       COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.x, 
       y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.y,
-      STYLES.FONTS.VALUES
+      STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
     );
     if (biltyData.consignor_number) {
       addStyledText(
@@ -510,7 +511,7 @@ const PDFGenerator = ({
         `MOB: ${biltyData.consignor_number}`, 
         COORDINATES.PEOPLE_SECTION.CONSIGNOR_MOBILE.x, 
         y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_MOBILE.y,
-        STYLES.FONTS.VALUES
+        STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
       );
     }
       // Consignee
@@ -519,10 +520,9 @@ const PDFGenerator = ({
       `CONSIGNEE: ${(biltyData.consignee_name || '').toUpperCase()}`, 
       COORDINATES.PEOPLE_SECTION.CONSIGNEE_NAME.x, 
       y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_NAME.y,
-      STYLES.FONTS.LABELS
+      STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
     );
-    
-    // Handle different GST formats (GST/Aadhar/PAN)
+      // Handle different GST formats (GST/Aadhar/PAN) - ENHANCED DARK & BOLD
     let gstText = biltyData.consignee_gst || '';
     if (gstText.startsWith('AD-')) {
         addStyledText(
@@ -530,7 +530,7 @@ const PDFGenerator = ({
           `AADHAR NO: ${gstText.replace('AD-', '')}`, 
           COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
           y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
-          STYLES.FONTS.VALUES
+          STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
         );
     } else if (gstText.toLowerCase().startsWith('pan')) {
         addStyledText(
@@ -538,7 +538,7 @@ const PDFGenerator = ({
           `PAN NO: ${gstText.substring(3)}`, 
           COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
           y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
-          STYLES.FONTS.VALUES
+          STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
         );
     } else {
         addStyledText(
@@ -546,7 +546,7 @@ const PDFGenerator = ({
           `GSTIN: ${gstText || 'N/A'}`, 
           COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
           y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
-          STYLES.FONTS.VALUES
+          STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
         );
     }
     
@@ -556,11 +556,9 @@ const PDFGenerator = ({
         `MOB: ${biltyData.consignee_number}`, 
         COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.x, 
         y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.y,
-        STYLES.FONTS.VALUES
+        STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
       );
-    }
-    
-    // E-WAY BILL
+    }      // E-WAY BILL
     addStyledText(
       pdf, 
       `E-WAY BILL: ${biltyData.e_way_bill || 'N/A'}`, 
@@ -576,9 +574,7 @@ const PDFGenerator = ({
       y + COORDINATES.TABLE_SECTION.TOP_LINE.y,
       COORDINATES.TABLE_SECTION.TOP_LINE.x2, 
       y + COORDINATES.TABLE_SECTION.TOP_LINE.y
-    );
-    
-    // LEFT SECTION - Invoice details with enhanced styling
+    );    // LEFT SECTION - Invoice details with enhanced styling
     addStyledText(pdf, `INVOICE DATE:`, COORDINATES.TABLE_SECTION.INVOICE_DATE.x, y + COORDINATES.TABLE_SECTION.INVOICE_DATE.y, STYLES.FONTS.LABELS);
     addStyledText(
       pdf, 
@@ -689,32 +685,31 @@ const PDFGenerator = ({
       y + COORDINATES.EXTRA_LINES.VERTICAL_LINE_2.y2
     );
     
-    
-    // RIGHT SECTION - Charges with enhanced styling and proper alignment
+      // RIGHT SECTION - Charges with enhanced styling and proper alignment - BIGGER & ALL BOLD
     const amount = (parseFloat(biltyData.wt) * parseFloat(biltyData.rate)).toFixed(2);
     
     // Define column positions for proper alignment
     const labelX = COORDINATES.TABLE_SECTION.AMOUNT.x;     // Label column at x=155
     const valueX = labelX + 45;                            // Value column at x=200 (45mm offset)
     
-    // Charges section with aligned columns
-    addStyledText(pdf, `AMOUNT:`, labelX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `${amount}`, valueX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.VALUES, { align: 'right' });
+    // Charges section with aligned columns - ENHANCED BIGGER FONTS AND ALL BOLD VALUES
+    addStyledText(pdf, `AMOUNT:`, labelX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${amount}`, valueX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
     
-    addStyledText(pdf, `LABOUR CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `${biltyData.labour_charge}`, valueX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
+    addStyledText(pdf, `LABOUR CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${biltyData.labour_charge}`, valueX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
     
-    addStyledText(pdf, `BILTY CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `${biltyData.bill_charge}`, valueX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
+    addStyledText(pdf, `BILTY CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${biltyData.bill_charge}`, valueX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
     
-    addStyledText(pdf, `TOLL TAX:`, labelX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `${biltyData.toll_charge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.VALUES, { align: 'right' });
+    addStyledText(pdf, `TOLL TAX:`, labelX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${biltyData.toll_charge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
     
-    addStyledText(pdf, `PF:`, labelX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `${biltyData.pf_charge}`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.VALUES, { align: 'right' });
+    addStyledText(pdf, `PF:`, labelX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${biltyData.pf_charge}`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
     
-    addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.LABELS);
-    addStyledText(pdf, `${biltyData.other_charge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.VALUES, { align: 'right' });
+    addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${biltyData.other_charge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
     
     // Total section - Extra thick line
     pdf.setLineWidth(STYLES.LINES.NORMAL);
@@ -724,10 +719,9 @@ const PDFGenerator = ({
       COORDINATES.TABLE_SECTION.TOTAL_LINE.x2, 
       y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y
     );
-    
-    // Total amount - Aligned with charges section using same column structure
-    addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL);
-    addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.TOTAL, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment
+      // Total amount - Aligned with charges section using same column structure - ENHANCED
+    addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES);
+    addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment - POSITIONED BELOW CAUTION BOX
     const paymentText = formatPaymentMode(biltyData.payment_mode);
     const deliveryTypeText = formatDeliveryType(biltyData.delivery_type);
     const combinedText = paymentText + (deliveryTypeText ? ` ${deliveryTypeText}` : '');
@@ -737,7 +731,7 @@ const PDFGenerator = ({
       combinedText, 
       COORDINATES.TABLE_SECTION.PAYMENT_STATUS.x, 
       y + COORDINATES.TABLE_SECTION.PAYMENT_STATUS.y,
-      STYLES.FONTS.LARGE_STATUS
+      STYLES.FONTS.LARGE_STATUS  // Keep original styling for payment status
     );
     
     // 📢 NOTICE SECTION - Enhanced with additional important notices

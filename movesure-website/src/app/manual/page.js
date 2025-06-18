@@ -54,7 +54,7 @@ const getCombinedOptionColor = (value) => {
 };
 
 // Searchable Dropdown Component
-const SearchableDropdown = ({ options, value, onChange, placeholder, displayField, allowCustom = true, className = "" }) => {
+const SearchableDropdown = ({ options, value, onChange, placeholder, displayField, allowCustom = true, className = "", onTabPress, ...props }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [inputValue, setInputValue] = useState(value || '');
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -89,10 +89,11 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
     }
     setSelectedIndex(-1);
     
-    // Auto-fill if exact match found with city code
+    // Auto-fill if exact match found with city code or city name
     if (displayField === 'city_code' && newValue.length >= 2) {
       const exactMatch = filteredOptions.find(option => 
-        option.city_code.toLowerCase() === newValue.toLowerCase()
+        option.city_code?.toLowerCase() === newValue.toLowerCase() ||
+        option.city_name?.toLowerCase() === newValue.toLowerCase()
       );
       
       if (exactMatch) {
@@ -101,7 +102,7 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
         }, 100);
       }
     }
-  };  const handleKeyDown = (e) => {
+  };const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex(prev => 
@@ -121,23 +122,35 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
         handleSelect(filteredOptions[0]);
       } else if (allowCustom) {
         onChange(inputValue);
-        // Move to next input
-        const form = e.target.form;
-        if (form) {
-          const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-          const currentIndex = inputs.indexOf(e.target);
-          if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-            inputs[currentIndex + 1].focus();
-          }
+      }
+      // Move to next field
+      if (onTabPress) {
+        onTabPress();
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      setSelectedIndex(-1);
+      setSearchTerm('');
+      
+      // Auto-select first match if typing city name
+      if (displayField === 'city_code' && searchTerm && filteredOptions.length > 0) {
+        const bestMatch = filteredOptions.find(option => 
+          option.city_name?.toLowerCase() === searchTerm.toLowerCase() ||
+          option.city_code?.toLowerCase() === searchTerm.toLowerCase()
+        ) || filteredOptions[0];
+        
+        if (bestMatch) {
+          handleSelect(bestMatch);
         }
+      }
+      
+      // Handle tab navigation
+      if (onTabPress) {
+        onTabPress();
       }
     } else if (e.key === 'Escape') {
       setSelectedIndex(-1);
       setSearchTerm('');
-    } else if (e.key === 'Tab') {
-      setSelectedIndex(-1);
-      setSearchTerm('');
-      // Don't prevent default - let Tab work normally for navigation
     }
   };
   return (
@@ -673,11 +686,11 @@ export default function StationBiltySummaryPage() {
       branch_id: selectedBranch?.id || user?.user_metadata?.branch_id || null
     }));
     setShowForm(true);
-    // Focus on station code field after form opens
+    // Focus on GR number field after form opens
     setTimeout(() => {
-      const stationInput = document.querySelector('input[placeholder="Enter or select station code"]');
-      if (stationInput) {
-        stationInput.focus();
+      const grNumberInput = document.querySelector('[data-tab-target="gr_no"]');
+      if (grNumberInput) {
+        grNumberInput.focus();
       }
     }, 100);
   };
@@ -738,8 +751,8 @@ export default function StationBiltySummaryPage() {
                     <FileText className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-white">Station Bilty Summary</h1>
-                    <p className="text-purple-100">Manual entry and management of station bilty records</p>
+                    <h1 className="text-2xl font-bold text-white">Manual Bilty Summary</h1>
+                    <p className="text-purple-100">Manual entry and management of Manual bilty records</p>
                   </div>
                 </div>
               </div>
@@ -931,7 +944,7 @@ export default function StationBiltySummaryPage() {
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-6">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                Station Bilty Records 
+                Manual Bilty Records 
                 {searchTerm && (
                   <span className="text-sm font-normal text-gray-500 ml-2">
                     (Showing search results for {searchTerm})
@@ -947,7 +960,7 @@ export default function StationBiltySummaryPage() {
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">                <thead className="bg-gray-50">
-                  <tr>                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station/GR No</th>
+                  <tr>                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual/GR No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents/PVT Marks</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-way Bill</th>
@@ -1141,7 +1154,7 @@ export default function StationBiltySummaryPage() {
             <div className="mt-3">              <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <FileText className="w-6 h-6 text-purple-600" />
-                  {editingId ? 'Edit Station Bilty Summary' : 'Add New Station Bilty Summary'}
+                  {editingId ? 'Edit Manual Bilty Summary' : 'Add New Manual Bilty Summary'}
                 </h3>                <button
                   onClick={() => {
                     // Clear E-way bill validation state when closing form
@@ -1170,9 +1183,7 @@ export default function StationBiltySummaryPage() {
                     </span>
                   </div>
                 </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-8">
+              )}              <form onSubmit={handleSubmit} className="space-y-8">
                 {loadingReferenceData && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <div className="flex items-center gap-2 text-blue-700">
@@ -1182,15 +1193,156 @@ export default function StationBiltySummaryPage() {
                   </div>
                 )}
 
+                {/* E-way Bill Section - At Top */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    E-way Bill (Optional)
+                  </h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      E-way Bill Number
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={formData.e_way_bill}
+                          onChange={handleEwayBillChange}
+                          tabIndex={-1}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white transition-colors ${
+                            ewbValidationStatus === 'verified' 
+                              ? 'border-emerald-400 bg-emerald-50' 
+                              : ewbValidationStatus === 'failed'
+                              ? 'border-red-400 bg-red-50'
+                              : ewbValidationStatus === 'validating'
+                              ? 'border-blue-400 bg-blue-50'
+                              : 'border-gray-300'
+                          }`}
+                          placeholder="1234-1234-1234 (optional)"
+                          maxLength={14}
+                        />
+                        
+                        {/* Status Indicator Icon */}
+                        {ewbValidationStatus !== 'idle' && (
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                            {ewbValidationStatus === 'validating' && (
+                              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                            )}
+                            {ewbValidationStatus === 'verified' && (
+                              <CheckCircle className="w-5 h-5 text-emerald-600" />
+                            )}
+                            {ewbValidationStatus === 'failed' && (
+                              <XCircle className="w-5 h-5 text-red-600" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Validation Action Buttons */}
+                      <div className="flex items-center gap-2">
+                        {/* Manual Validation Button */}
+                        {formData.e_way_bill && formData.e_way_bill.length >= 10 && (
+                          <button
+                            type="button"
+                            onClick={() => validateEwbInBackground()}
+                            disabled={ewbValidationStatus === 'validating'}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 font-medium"
+                            title="Validate E-way Bill"
+                          >
+                            <Shield className="w-4 h-4" />
+                            {ewbValidationStatus === 'validating' ? 'Validating...' : 'Validate'}
+                          </button>
+                        )}
+
+                        {/* View Details Button */}
+                        {ewbValidationStatus === 'verified' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowEwbValidator(true)}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
+                            title="View full E-way bill details"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Details
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Validation Status Messages */}
+                    {ewbValidationStatus === 'validating' && (
+                      <div className="flex items-center gap-2 mt-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">Validating E-way Bill...</span>
+                      </div>
+                    )}
+
+                    {ewbValidationStatus === 'verified' && ewbValidationResult && (
+                      <div className="mt-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-5 h-5 text-emerald-600" />
+                          <span className="text-sm font-bold text-emerald-800">✅ E-way Bill Verified</span>
+                        </div>
+                        <div className="text-sm text-emerald-700 space-y-1">
+                          <p>Status: <span className="font-semibold">{ewbValidationResult.status === 'ACT' ? 'Active' : ewbValidationResult.status}</span></p>
+                          <p>From: <span className="font-semibold">{ewbValidationResult.fromTrdName}</span></p>
+                          <p>To: <span className="font-semibold">{ewbValidationResult.toTrdName}</span></p>
+                        </div>
+                      </div>
+                    )}
+
+                    {ewbValidationStatus === 'failed' && ewbValidationError && (
+                      <div className="mt-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <XCircle className="w-5 h-5 text-red-600" />
+                          <span className="text-sm font-bold text-red-800">❌ Validation Failed</span>
+                        </div>
+                        <p className="text-sm text-red-700">{ewbValidationError}</p>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-500 mt-2">
+                      12-digit E-way bill number in format: 1234-1234-1234 (optional - excluded from tab order)
+                    </p>
+                  </div>
+                </div>
+
                 {/* Basic Information Section */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <FileText className="w-5 h-5 text-purple-600" />
                     Basic Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Station */}
+                  </h4>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* GR Number - Tab Index 1 */}
                     <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        GR Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.gr_no}
+                        onChange={(e) => setFormData({ ...formData, gr_no: e.target.value.toUpperCase() })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' && !e.shiftKey) {
+                            e.preventDefault();
+                            const stationInput = document.querySelector('[data-tab-target="station"] input');
+                            if (stationInput) {
+                              stationInput.focus();
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                        placeholder="Enter GR number"
+                        required
+                        maxLength={50}
+                        autoFocus
+                        data-tab-target="gr_no"
+                      />
+                    </div>
+
+                    {/* Station - Tab Index 2 */}
+                    <div data-tab-target="station">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Station Code *
                       </label>
@@ -1202,42 +1354,19 @@ export default function StationBiltySummaryPage() {
                         displayField="city_code"
                         allowCustom={true}
                         className=""
+                        onTabPress={() => {
+                          const consignorInput = document.querySelector('[data-tab-target="consignor"]');
+                          if (consignorInput) {
+                            consignorInput.focus();
+                          }
+                        }}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         You can search by city name or code, or enter manually
                       </p>
                     </div>
 
-                    {/* GR Number */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        GR Number *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.gr_no}
-                        onChange={(e) => setFormData({ ...formData, gr_no: e.target.value.toUpperCase() })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
-                            }
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                        placeholder="Enter GR number"
-                        required
-                        maxLength={50}
-                      />
-                    </div>
-
-                    {/* Consignor */}
+                    {/* Consignor - Tab Index 3 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Consignor
@@ -1247,24 +1376,21 @@ export default function StationBiltySummaryPage() {
                         value={formData.consignor}
                         onChange={(e) => setFormData({ ...formData, consignor: e.target.value })}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Tab' && !e.shiftKey) {
                             e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
+                            const consigneeInput = document.querySelector('[data-tab-target="consignee"]');
+                            if (consigneeInput) {
+                              consigneeInput.focus();
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                         placeholder="Enter consignor name (optional)"
+                        data-tab-target="consignor"
                       />
                     </div>
 
-                    {/* Consignee */}
+                    {/* Consignee - Tab Index 4 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Consignee
@@ -1274,33 +1400,29 @@ export default function StationBiltySummaryPage() {
                         value={formData.consignee}
                         onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Tab' && !e.shiftKey) {
                             e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
+                            const contentsInput = document.querySelector('[data-tab-target="contents"]');
+                            if (contentsInput) {
+                              contentsInput.focus();
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                         placeholder="Enter consignee name (optional)"
+                        data-tab-target="consignee"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Content and Documentation Section */}
+                {/* Content Section */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <Package className="w-5 h-5 text-purple-600" />
-                    Content & Documentation
-                  </h4>
-                  <div className="space-y-6">
-                    {/* Contents - Full width */}
+                    Content Details
+                  </h4>                  <div>
+                    {/* Contents - Tab Index 5 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Contents/Description
@@ -1310,168 +1432,17 @@ export default function StationBiltySummaryPage() {
                         value={formData.contents}
                         onChange={(e) => setFormData({ ...formData, contents: e.target.value })}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Tab' && !e.shiftKey) {
                             e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
+                            const packetsInput = document.querySelector('[data-tab-target="no_of_packets"]');
+                            if (packetsInput) {
+                              packetsInput.focus();
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                         placeholder="Enter contents or description"
-                      />
-                    </div>
-
-                    {/* E-way Bill - Full width with enhanced styling */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        E-way Bill Number
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 relative">
-                          <input
-                            type="text"
-                            value={formData.e_way_bill}
-                            onChange={handleEwayBillChange}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const form = e.target.form;
-                                if (form) {
-                                  const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                                  const currentIndex = inputs.indexOf(e.target);
-                                  if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                    inputs[currentIndex + 1].focus();
-                                  }
-                                }
-                              }
-                            }}
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white transition-colors ${
-                              ewbValidationStatus === 'verified' 
-                                ? 'border-emerald-400 bg-emerald-50' 
-                                : ewbValidationStatus === 'failed'
-                                ? 'border-red-400 bg-red-50'
-                                : ewbValidationStatus === 'validating'
-                                ? 'border-blue-400 bg-blue-50'
-                                : 'border-gray-300'
-                            }`}
-                            placeholder="1234-1234-1234 (optional)"
-                            maxLength={14}
-                          />
-                          
-                          {/* Status Indicator Icon */}
-                          {ewbValidationStatus !== 'idle' && (
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                              {ewbValidationStatus === 'validating' && (
-                                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                              )}
-                              {ewbValidationStatus === 'verified' && (
-                                <CheckCircle className="w-5 h-5 text-emerald-600" />
-                              )}
-                              {ewbValidationStatus === 'failed' && (
-                                <XCircle className="w-5 h-5 text-red-600" />
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Validation Action Buttons */}
-                        <div className="flex items-center gap-2">
-                          {/* Manual Validation Button */}
-                          {formData.e_way_bill && formData.e_way_bill.length >= 10 && (
-                            <button
-                              type="button"
-                              onClick={() => validateEwbInBackground()}
-                              disabled={ewbValidationStatus === 'validating'}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 font-medium"
-                              title="Validate E-way Bill"
-                            >
-                              <Shield className="w-4 h-4" />
-                              {ewbValidationStatus === 'validating' ? 'Validating...' : 'Validate'}
-                            </button>
-                          )}
-
-                          {/* View Details Button */}
-                          {ewbValidationStatus === 'verified' && (
-                            <button
-                              type="button"
-                              onClick={() => setShowEwbValidator(true)}
-                              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
-                              title="View full E-way bill details"
-                            >
-                              <Eye className="w-4 h-4" />
-                              Details
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Validation Status Messages */}
-                      {ewbValidationStatus === 'validating' && (
-                        <div className="flex items-center gap-2 mt-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                          <span className="text-sm font-medium text-blue-800">Validating E-way Bill...</span>
-                        </div>
-                      )}
-
-                      {ewbValidationStatus === 'verified' && ewbValidationResult && (
-                        <div className="mt-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="w-5 h-5 text-emerald-600" />
-                            <span className="text-sm font-bold text-emerald-800">✅ E-way Bill Verified</span>
-                          </div>
-                          <div className="text-sm text-emerald-700 space-y-1">
-                            <p>Status: <span className="font-semibold">{ewbValidationResult.status === 'ACT' ? 'Active' : ewbValidationResult.status}</span></p>
-                            <p>From: <span className="font-semibold">{ewbValidationResult.fromTrdName}</span></p>
-                            <p>To: <span className="font-semibold">{ewbValidationResult.toTrdName}</span></p>
-                          </div>
-                        </div>
-                      )}
-
-                      {ewbValidationStatus === 'failed' && ewbValidationError && (
-                        <div className="mt-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <XCircle className="w-5 h-5 text-red-600" />
-                            <span className="text-sm font-bold text-red-800">❌ Validation Failed</span>
-                          </div>
-                          <p className="text-sm text-red-700">{ewbValidationError}</p>
-                        </div>
-                      )}
-
-                      <p className="text-xs text-gray-500 mt-2">
-                        12-digit E-way bill number in format: 1234-1234-1234 (optional)
-                      </p>
-                    </div>
-
-                    {/* Private Marks - Full width */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Private Marks
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.pvt_marks}
-                        onChange={(e) => setFormData({ ...formData, pvt_marks: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
-                            }
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                        placeholder="Enter private marks"
+                        data-tab-target="contents"
                       />
                     </div>
                   </div>
@@ -1482,12 +1453,11 @@ export default function StationBiltySummaryPage() {
                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <Weight className="w-5 h-5 text-purple-600" />
                     Shipment Details
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Number of Packets */}
+                  </h4>                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Number of Packets - Tab Index 6 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Number of Packets
+                        Number of Bags
                       </label>
                       <input
                         type="number"
@@ -1495,25 +1465,22 @@ export default function StationBiltySummaryPage() {
                         onChange={(e) => setFormData({ ...formData, no_of_packets: parseInt(e.target.value) || 0 })}
                         onFocus={(e) => e.target.select()}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Tab' && !e.shiftKey) {
                             e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
+                            const weightInput = document.querySelector('[data-tab-target="weight"]');
+                            if (weightInput) {
+                              weightInput.focus();
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                        placeholder="Enter number of packets"
+                        placeholder="Enter number of bags"
                         min="0"
+                        data-tab-target="no_of_packets"
                       />
                     </div>
 
-                    {/* Weight */}
+                    {/* Weight - Tab Index 7 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Weight (kg)
@@ -1525,28 +1492,71 @@ export default function StationBiltySummaryPage() {
                         onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 0 })}
                         onFocus={(e) => e.target.select()}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Tab' && !e.shiftKey) {
                             e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
+                            const paymentSelect = document.querySelector('[data-tab-target="payment_status"]');
+                            if (paymentSelect) {
+                              paymentSelect.focus();
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
                         placeholder="Enter weight in kg"
                         min="0"
+                        data-tab-target="weight"
                       />
                     </div>
 
-                    {/* Amount */}
+                    {/* Payment Status - Tab Index 8 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Amount (₹)
+                        Payment & Delivery Type *
+                      </label>
+                      <select
+                        value={getCombinedValue(formData.payment_status, formData.delivery_type)}
+                        onChange={(e) => {
+                          const selectedOption = COMBINED_OPTIONS.find(opt => opt.value === e.target.value);
+                          if (selectedOption) {
+                            setFormData({
+                              ...formData,
+                              payment_status: selectedOption.payment_status,
+                              delivery_type: selectedOption.delivery_type
+                            });
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' && !e.shiftKey) {
+                            e.preventDefault();
+                            const amountInput = document.querySelector('[data-tab-target="amount"]');
+                            if (amountInput) {
+                              amountInput.focus();
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                        required
+                        data-tab-target="payment_status"
+                      >
+                        {COMBINED_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Freight & Private Marks Section */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-purple-600" />
+                    Freight & Marks
+                  </h4>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Freight Amount - Tab Index 9 */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Freight Amount (₹)
                       </label>
                       <input
                         type="number"
@@ -1555,82 +1565,51 @@ export default function StationBiltySummaryPage() {
                         onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                         onFocus={(e) => e.target.select()}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Tab' && !e.shiftKey) {
                             e.preventDefault();
-                            const form = e.target.form;
-                            if (form) {
-                              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                              const currentIndex = inputs.indexOf(e.target);
-                              if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                                inputs[currentIndex + 1].focus();
-                              }
+                            const pvtMarksInput = document.querySelector('[data-tab-target="pvt_marks"]');
+                            if (pvtMarksInput) {
+                              pvtMarksInput.focus();
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                        placeholder="Enter amount"
+                        placeholder="Enter freight amount"
                         min="0"
+                        data-tab-target="amount"
+                      />
+                    </div>
+
+                    {/* Private Marks - Tab Index 10 */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Private Marks
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.pvt_marks}
+                        onChange={(e) => setFormData({ ...formData, pvt_marks: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' && !e.shiftKey) {
+                            e.preventDefault();
+                            const saveButton = document.querySelector('[data-tab-target="save"]');
+                            if (saveButton) {
+                              saveButton.focus();
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
+                        placeholder="Enter private marks"
+                        data-tab-target="pvt_marks"
                       />
                     </div>
                   </div>
-                </div>
-
-                {/* Payment and Delivery Section */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-purple-600" />
-                    Payment & Delivery
-                  </h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Payment & Delivery Type *
-                    </label>
-                    <select
-                      value={getCombinedValue(formData.payment_status, formData.delivery_type)}
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        const selectedOption = COMBINED_OPTIONS.find(opt => opt.value === selectedValue);
-                        if (selectedOption) {
-                          setFormData({ 
-                            ...formData, 
-                            payment_status: selectedOption.payment_status,
-                            delivery_type: selectedOption.delivery_type
-                          });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const form = e.target.form;
-                          if (form) {
-                            const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
-                            const currentIndex = inputs.indexOf(e.target);
-                            if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
-                              inputs[currentIndex + 1].focus();
-                            }
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
-                      required
-                    >
-                      {COMBINED_OPTIONS.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Select payment method and delivery type combination
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">                  <button
+                </div>                {/* Form Actions */}
+                <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
+                  <button
                     type="button"
                     onClick={() => {
-                      // Clear E-way bill validation state when canceling
+                      // Clear E-way bill validation state when closing form
                       setEwbValidationStatus('idle');
                       setEwbValidationResult(null);
                       setEwbValidationError(null);
@@ -1643,13 +1622,19 @@ export default function StationBiltySummaryPage() {
                     className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Cancel
-                  </button><button
+                  </button>                  <button
                     type="submit"
                     disabled={saving}
                     onKeyDown={(e) => {
-                      if (e.key === 'Tab') {
+                      if (e.key === 'Tab' && !e.shiftKey) {
                         e.preventDefault();
-                        // Trigger form submission
+                        // Submit the form when Tab is pressed on Save button
+                        const form = e.target.closest('form');
+                        if (form && !saving) {
+                          form.requestSubmit();
+                        }
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
                         const form = e.target.closest('form');
                         if (form) {
                           form.requestSubmit();
@@ -1657,6 +1642,7 @@ export default function StationBiltySummaryPage() {
                       }
                     }}
                     className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    data-tab-target="save"
                   >
                     {saving ? (
                       <>

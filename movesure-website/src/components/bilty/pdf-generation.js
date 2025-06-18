@@ -84,21 +84,19 @@ const PDFGenerator = ({
       INVOICE_NO: { x: 12, y: 105 },
       INVOICE_NO_VALUE: { x: 45, y: 105 },
       INVOICE_VALUE: { x: 12, y: 110 },
-      INVOICE_VALUE_VALUE: { x: 45, y: 110 },
-      CONTENT: { x: 80, y: 110 },
-      CONTENT_VALUE: { x: 100, y: 110 },
+      INVOICE_VALUE_VALUE: { x: 45, y: 110 },      CONTENT: { x: 80, y: 115 },                         // Content positioned a little down
+      CONTENT_VALUE: { x: 100, y: 115 },                  // Content value positioned a little down
         // Middle section - Package details with box
-      PVT_BOX: { x: 70, y: 85, width: 80, height: 14 },    // Box around PVT MARKS and CITY CODE (moved up)
-      PVT_BOX_DIVIDER: { x: 110, y1: 85, y2: 99 },       // Vertical divider in middle of box
+      PVT_BOX: { x: 70, y: 91, width: 80, height: 14 },    // Box around PVT MARKS and CITY CODE (moved down a little)
+      PVT_BOX_DIVIDER: { x: 110, y1: 91, y2: 105 },       // Vertical divider in middle of box
         // PVT MARKS section (left side of box) - Centered
-      PVT_LABEL: { x: 90, y: 90 },                      // "PVT MARKS:" label (centered in left section)
-      PVT_VALUE: { x: 90, y: 95 },                      // PVT MARKS value (centered in left section)
+      PVT_LABEL: { x: 90, y: 96 },                      // "PVT MARKS:" label
+      PVT_VALUE: { x: 90, y: 101 },                      // PVT MARKS value
+        // CITY CODE section (right side of box) - Centered
+      CITY_LABEL: { x: 130, y: 96 },                    // "CITY CODE:" label
+      CITY_VALUE: { x: 130, y: 101 },                    // City code value
       
-      // CITY CODE section (right side of box) - Centered
-      CITY_LABEL: { x: 130, y: 90 },                    // "CITY:" label (centered in right section)  
-      CITY_VALUE: { x: 130, y: 95 },                    // City code value (centered in right section)
-      
-      WEIGHT: { x: 80, y: 105 },                          // Weight at original position
+      WEIGHT: { x: 80, y: 111 },                          // Weight positioned a little down
       
       // Right section - Charges (vertical line separates this)
       VERTICAL_LINE: { x: 150, y1: 95, y2: 136 }, // Vertical separator line
@@ -586,13 +584,12 @@ const PDFGenerator = ({
       STYLES.FONTS.LARGE_STATUS,
       { align: 'center' }
     );
-    
-    // CITY CODE label and value (right side of box)
-    addStyledText(pdf, 'CITY:', COORDINATES.TABLE_SECTION.CITY_LABEL.x, y + COORDINATES.TABLE_SECTION.CITY_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
+      // CITY CODE label and value (right side of box)
+    addStyledText(pdf, 'CITY CODE:', COORDINATES.TABLE_SECTION.CITY_LABEL.x, y + COORDINATES.TABLE_SECTION.CITY_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
     addStyledText(
       pdf, 
       `${toCityCode}`, 
-      COORDINATES.TABLE_SECTION.CITY_VALUE.x, 
+      COORDINATES.TABLE_SECTION.CITY_VALUE.x,
       y + COORDINATES.TABLE_SECTION.CITY_VALUE.y,
       STYLES.FONTS.LARGE_STATUS,
       { align: 'center' }

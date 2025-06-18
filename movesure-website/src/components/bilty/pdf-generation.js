@@ -32,8 +32,8 @@ const PDFGenerator = ({
       COMPANY_NAME: { x: 105, y: 18 },             // Center company name
       BANK_DETAIL_1: { x: 12, y: 25 },             // First bank detail line
       BANK_DETAIL_2: { x: 12, y: 28 },             // Second bank detail line
-      BRANCH_ADDRESS_1: { x:130, y: 40 },         // Right side address line 1
-      BRANCH_ADDRESS_2: { x: 130, y: 40 },         // Right side address line 2
+      BRANCH_ADDRESS_1: { x:120, y: 43 },         // Right side address line 1
+      BRANCH_ADDRESS_2: { x: 120, y: 43 },         // Right side address line 2
     },    // 📱 QR CODE AND GR NUMBER SECTION
     QR_SECTION: {                
       QR_CODE: { x: 180, y: 10, width: 25, height: 25 },  // QR code position and size
@@ -399,8 +399,7 @@ const PDFGenerator = ({
       y + COORDINATES.HEADER.BANK_DETAIL_2.y,
       STYLES.FONTS.LABELS
     );
-    
-    // Branch Address (right side)
+      // Branch Address (right side) - ENHANCED DARK & BOLD
     const address = permDetails?.transport_address || 'GANDHI MARKET, G T ROAD, ALIGARH-202001\nSHIVA PETROL PUMP, G T ROAD, ALIGARH-202001';
     const addressLines = address.split('\n');
     addStyledText(
@@ -408,7 +407,7 @@ const PDFGenerator = ({
       addressLines[0], 
       COORDINATES.HEADER.BRANCH_ADDRESS_1.x, 
       y + COORDINATES.HEADER.BRANCH_ADDRESS_1.y,
-      STYLES.FONTS.SMALL
+      STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold for address section
     );
     if (addressLines[1]) {
       addStyledText(
@@ -416,7 +415,7 @@ const PDFGenerator = ({
         addressLines[1], 
         COORDINATES.HEADER.BRANCH_ADDRESS_2.x, 
         y + COORDINATES.HEADER.BRANCH_ADDRESS_2.y,
-        STYLES.FONTS.SMALL
+        STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold for address section
       );
     }
     

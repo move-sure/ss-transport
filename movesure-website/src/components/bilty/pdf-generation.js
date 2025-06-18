@@ -34,17 +34,15 @@ const PDFGenerator = ({
       BANK_DETAIL_2: { x: 12, y: 28 },             // Second bank detail line
       BRANCH_ADDRESS_1: { x:130, y: 40 },         // Right side address line 1
       BRANCH_ADDRESS_2: { x: 130, y: 40 },         // Right side address line 2
-    },
-
-    // 📱 QR CODE AND GR NUMBER SECTION
+    },    // 📱 QR CODE AND GR NUMBER SECTION
     QR_SECTION: {                
       QR_CODE: { x: 180, y: 10, width: 25, height: 25 },  // QR code position and size
-      GR_BOX: { x: 147, y: 45, width: 60, height: 10 },   // GR number box
-      GR_LABEL: { x: 150, y: 51.4 },                         // "GR NO" text
-      GR_NUMBER: { x: 163.5, y: 51.4 },                        // Actual GR number
-      CAUTION_BOX: { x: 147, y: 55, width: 60, height: 20 }, // Caution box
-      CAUTION_LABEL: { x: 177, y: 58.5 },                    // "CAUTION" text
-      CAUTION_TEXT_START: { x: 150, y: 61.5 },               // Caution description start
+      GR_BOX: { x: 140, y: 45, width: 65, height: 12 },   // GR number box - made bigger (width: 60→65, height: 10→12)
+      GR_LABEL: { x: 143, y: 52.5 },                      // "GR NO" text - centered in left half of box
+      GR_NUMBER: { x: 158.5, y: 52.5 },                     // Actual GR number - centered in right half of box
+      CAUTION_BOX: { x: 140, y: 57, width: 65, height: 22 }, // Caution box - matched GR box width and made taller
+      CAUTION_LABEL: { x: 172, y: 61 },                 // "CAUTION" text - centered horizontally
+      CAUTION_TEXT_START: { x: 142, y: 64 },              // Caution description start - with proper margins
     },
 
     // 🎯 COPY TYPE AND DATE SECTION
@@ -128,12 +126,10 @@ const PDFGenerator = ({
       BOOKED_RISK: { x: 80, y: 140 },              // "BOOKED AT OWNER'S RISK"
       CUSTOMER_CARE: { x: 12, y: 145 },            // Customer care
       SIGNATURE: { x: 155, y: 146 },               // Signature line
-    },
-
-    // 📏 NEW: EXTRA VERTICAL LINES SECTION
+    },    // 📏 NEW: EXTRA VERTICAL LINES SECTION
     EXTRA_LINES: {
       VERTICAL_LINE_1: { x: 70, y1: 95, y2: 118 },   // First extra vertical line
-      VERTICAL_LINE_2: { x: 162.5, y1: 45, y2: 55.5 },  // Second extra vertical line
+      VERTICAL_LINE_2: { x: 156, y1: 45, y2: 57 }, // Second extra vertical line - centered in GR box divider
     },
 
     // 📏 SPACING AND OFFSETS
@@ -144,23 +140,25 @@ const PDFGenerator = ({
       SECTION_SPACING: 10,                          // Space between sections
     }
   };
-
   // ==========================================
   // 🎨 ENHANCED STYLING CONFIGURATION
   // ==========================================
   const STYLES = {
     FONTS: {
-      HEADER: { size: 18, weight: 'bold' },        // Increased header size
-      NORMAL: { size: 10, weight: 'normal' },      // Increased normal size
-      SMALL: { size: 9, weight: 'normal' },        // Increased small size
-      TINY: { size: 7, weight: 'normal' },         // Increased tiny size
-      LARGE_STATUS: { size: 14, weight: 'bold' },  // Increased and bold status
-      NOTICE: { size: 12, weight: 'bold' },        // Increased notice size
-      COMPANY_NAME: { size: 20, weight: 'bold' },  // NEW: Special company name style
-      GR_NUMBER: { size: 11, weight: 'bold' },     // NEW: Bold GR number
-      LABELS: { size: 9.5, weight: 'bold' },         // NEW: Bold labels
-      VALUES: { size: 9.5, weight: 'normal' },       // NEW: Normal values
-      TOTAL: { size: 14, weight: 'bold' },         // NEW: Large bold total
+      // Professional fonts for better print quality
+      HEADER: { size: 18, weight: 'bold', family: 'times' },        // Times for professional headers
+      NORMAL: { size: 10, weight: 'normal', family: 'times' },      // Times for readability
+      SMALL: { size: 9, weight: 'normal', family: 'times' },        // Times for small text
+      TINY: { size: 7, weight: 'normal', family: 'times' },         // Times for fine print
+      LARGE_STATUS: { size: 14, weight: 'bold', family: 'helvetica' },  // Helvetica for status/emphasis
+      NOTICE: { size: 12, weight: 'bold', family: 'times' },        // Times for notices
+      COMPANY_NAME: { size: 20, weight: 'bold', family: 'helvetica' },  // Helvetica for company name
+      GR_NUMBER: { size: 1, weight: 'bold', family: 'times' },     // Courier for tracking numbers
+      GR_LABEL: { size: 10, weight: 'bold', family: 'helvetica' },    // Enhanced GR NO label - bigger and bolder
+      LABELS: { size: 9.5, weight: 'bold', family: 'times' },         // Times for labels
+      VALUES: { size: 9.5, weight: 'normal', family: 'times' },       // Times for values
+      TOTAL: { size: 14, weight: 'bold', family: 'helvetica' },       // Helvetica for totals
+      MONOSPACE: { size: 9, weight: 'normal', family: 'courier' },    // Courier for codes/numbers
     },
     LINES: {
       NORMAL: 0.5,      // Normal line width
@@ -175,12 +173,74 @@ const PDFGenerator = ({
   // ==========================================
   const setStyle = (pdf, style) => {
     pdf.setFontSize(style.size);
-    pdf.setFont('helvetica', style.weight);
+    // Use the specified font family or default to helvetica
+    const fontFamily = style.family || 'helvetica';
+    pdf.setFont(fontFamily, style.weight);
   };
 
   const addStyledText = (pdf, text, x, y, style = STYLES.FONTS.NORMAL, options = {}) => {
     setStyle(pdf, style);
     pdf.text(text, x, y, options);
+  };
+
+  // Helper function to add monospace text (for numbers, codes, etc.)
+  const addMonospaceText = (pdf, text, x, y, size = 9, weight = 'normal', options = {}) => {
+    pdf.setFontSize(size);
+    pdf.setFont('courier', weight); // Courier is ideal for numbers and codes
+    pdf.text(text, x, y, options);
+  };
+  // Helper function to add professional header text
+  const addHeaderText = (pdf, text, x, y, size = 16, options = {}) => {
+    pdf.setFontSize(size);
+    pdf.setFont('times', 'bold'); // Times Roman for professional headers
+    pdf.text(text, x, y, options);
+  };
+
+  // Helper function to add justified text
+  const addJustifiedText = (pdf, text, x, y, maxWidth, lineHeight = 3) => {
+    const words = text.split(' ');
+    let currentLine = '';
+    let currentY = y;
+    
+    for (let i = 0; i < words.length; i++) {
+      const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+      const testWidth = pdf.getTextWidth(testLine);
+      
+      if (testWidth > maxWidth && currentLine) {
+        // Justify current line (except if it's the last line)
+        const lineWords = currentLine.split(' ');
+        if (lineWords.length > 1) {
+          const totalTextWidth = lineWords.reduce((sum, word) => sum + pdf.getTextWidth(word), 0);
+          const totalSpaceWidth = maxWidth - totalTextWidth;
+          const spaceWidth = totalSpaceWidth / (lineWords.length - 1);
+          
+          let currentX = x;
+          for (let j = 0; j < lineWords.length; j++) {
+            pdf.text(lineWords[j], currentX, currentY);
+            if (j < lineWords.length - 1) {
+              currentX += pdf.getTextWidth(lineWords[j]) + spaceWidth;
+            }
+          }
+        } else {
+          pdf.text(currentLine, x, currentY);
+        }
+        
+        currentLine = words[i];
+        currentY += lineHeight;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    // Add the last line (centered if it contains "All Subject To Aligarh Jurisdiction")
+    if (currentLine) {
+      if (currentLine.includes('All Subject To Aligarh Jurisdiction')) {
+        const centerX = x + (maxWidth / 2);
+        pdf.text(currentLine, centerX, currentY, { align: 'center' });
+      } else {
+        pdf.text(currentLine, x, currentY);
+      }
+    }
   };
 
   useEffect(() => {
@@ -313,14 +373,13 @@ const PDFGenerator = ({
       y + COORDINATES.HEADER.GST_NO.y,
       STYLES.FONTS.NOTICE
     );
-    
-    // Company Name (center, large and bold)
-    addStyledText(
+      // Company Name (center, large and bold) - Using professional header
+    addHeaderText(
       pdf, 
       'S. S. TRANSPORT CORPORATION', 
       COORDINATES.HEADER.COMPANY_NAME.x, 
       y + COORDINATES.HEADER.COMPANY_NAME.y,
-      STYLES.FONTS.COMPANY_NAME,
+      20,
       { align: 'center' }
     );
     
@@ -597,7 +656,7 @@ const PDFGenerator = ({
     
     addStyledText(
       pdf, 
-      `WEIGHT: ${biltyData.wt} kg`, 
+      `WEIGHT: ${biltyData.wt} KG`, 
       COORDINATES.TABLE_SECTION.WEIGHT.x, 
       y + COORDINATES.TABLE_SECTION.WEIGHT.y,
       STYLES.FONTS.NOTICE
@@ -823,21 +882,25 @@ const PDFGenerator = ({
         COORDINATES.QR_SECTION.GR_BOX.y, 
         COORDINATES.QR_SECTION.GR_BOX.width, 
         COORDINATES.QR_SECTION.GR_BOX.height
-      );
-      
-      addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y, STYLES.FONTS.LABELS);
-      addStyledText(pdf, `SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y, STYLES.FONTS.GR_NUMBER);
-      
+      );      // GR number with enhanced styling for better visibility
+      addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y, STYLES.FONTS.GR_LABEL);
+      // Use Times font for GR number
+      pdf.setFontSize(12);
+      pdf.setFont('times', 'bold');
+      pdf.text(`SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y);
+
       // Second copy GR box (with Y offset)
       pdf.rect(
         COORDINATES.QR_SECTION.GR_BOX.x, 
         COORDINATES.QR_SECTION.GR_BOX.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, 
         COORDINATES.QR_SECTION.GR_BOX.width, 
         COORDINATES.QR_SECTION.GR_BOX.height
-      );
-      
-      addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.LABELS);
-      addStyledText(pdf, `SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_NUMBER);
+      );      // Second copy GR number with enhanced styling
+      addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_LABEL);
+      // Use Times font for GR number
+      pdf.setFontSize(12);
+      pdf.setFont('times', 'bold');
+      pdf.text(`SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET);
       
       // ⚠️ CAUTION BOXES WITH ENHANCED STYLING
       // First copy caution box
@@ -856,17 +919,25 @@ const PDFGenerator = ({
         COORDINATES.QR_SECTION.CAUTION_LABEL.y,
         STYLES.FONTS.LABELS,
         { align: 'center' }
-      );
-      
-      // Caution description text
+      );        // Caution description text
       setStyle(pdf, STYLES.FONTS.SMALL);
-      const cautionText = "The Consignment Will Not Be Declared Diverted Re-Routed or Re-Booked Without Consignee Bank's Written Permission Will Not Be Delivered, All Subject To Aligarh Jurisdiction.";
-      const lines = pdf.splitTextToSize(cautionText, 55);
-      let lineY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y;
-      lines.forEach(line => {
-        pdf.text(line, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, lineY);
-        lineY += 3; // Increased spacing from 2 to 2.5 for better readability
-      });
+      const cautionText ="The Consignment Will Not Be Diverted, Re-Routed or Re-Booked Without Consignee's Written Permission and Will Not Be Delivered Without Original Consignment Note.\nAll Subject To Aligarh Jurisdiction.";
+
+      // Split text into main text and jurisdiction line
+      const textParts = cautionText.split('\n');
+      const mainText = textParts[0];
+      const jurisdictionText = textParts[1];
+      
+      // Render main text as justified
+      addJustifiedText(pdf, mainText, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, COORDINATES.QR_SECTION.CAUTION_TEXT_START.y, 62, 3);
+      
+      // Calculate Y position for jurisdiction text (after main text)
+      const mainTextLines = pdf.splitTextToSize(mainText, 62);
+      const jurisdictionY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + (mainTextLines.length * 3) + 1.8;
+      
+      // Render jurisdiction text centered
+      const centerX = COORDINATES.QR_SECTION.CAUTION_TEXT_START.x + (62 / 2);
+      pdf.text(jurisdictionText, centerX, jurisdictionY, { align: 'center' });
       
       // Second copy caution box (with Y offset)
       pdf.rect(
@@ -884,14 +955,16 @@ const PDFGenerator = ({
         STYLES.FONTS.LABELS,
         { align: 'center' }
       );
-      
-      // Second copy caution text
+        // Second copy caution text
       setStyle(pdf, STYLES.FONTS.SMALL);
-      lineY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + COORDINATES.SPACING.SECOND_COPY_OFFSET;
-      lines.forEach(line => {
-        pdf.text(line, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, lineY);
-        lineY += 3; // Increased spacing from 2 to 2.5 for better readability
-      });
+      const offsetY = COORDINATES.SPACING.SECOND_COPY_OFFSET;
+      
+      // Render main text as justified for second copy
+      addJustifiedText(pdf, mainText, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + offsetY, 62, 3);
+      
+      // Render jurisdiction text centered for second copy
+      const secondCopyJurisdictionY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + offsetY + (mainTextLines.length * 3) + 2;
+      pdf.text(jurisdictionText, centerX, secondCopyJurisdictionY, { align: 'center' });
       
       // 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING
       // First copy (Consignee)
@@ -978,7 +1051,7 @@ const PDFGenerator = ({
             <RefreshCw className="animate-spin h-8 w-8 text-white" />
           </div>
           <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
-          <div className="w-16 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full mb-4"></div>
+          <div className="w-16 h-0.5 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full mb-4"></div>
           <p className="text-lg font-semibold text-black mb-2">Loading Bill Details...</p>
           <p className="text-sm text-gray-600">Please wait while we prepare your document</p>
         </div>

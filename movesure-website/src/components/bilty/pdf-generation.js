@@ -344,12 +344,11 @@ const PDFGenerator = ({
       default: return paymentMode.toUpperCase();
     }
   };
-
   const generateQRCode = async (text) => {
     try {
       const qrDataURL = await QRCode.toDataURL(text, { 
         width: 100, height: 100, margin: 1,
-        color: { dark: '#000000', light: '#FFFFFF' }
+        color: { dark: '#000000', light: '#fafad2' } // Light goldenrod background (RGB: 250, 250, 210)
       });
       return qrDataURL;
     } catch (error) {
@@ -847,9 +846,17 @@ const PDFGenerator = ({
 
       console.log('Generating QR code...');
       const qrDataURL = await generateQRCode(biltyData.gr_no);
-      
-      console.log('Creating PDF...');
+        console.log('Creating PDF...');
       const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      // 🟡 ADD LEMON/YELLOW BACKGROUND COLOR TO A4 SHEET
+      pdf.setFillColor(255, 255, 210); // Light lemon color (RGB: 255, 255, 224)
+      
+      // Fill the entire A4 page (210mm x 297mm) with the background color
+      pdf.rect(0, 0, 210, 297, 'F'); // 'F' means fill the rectangle
+      
+      // Reset fill color to white for other elements that need white background
+      pdf.setFillColor(255, 255, 255);
       
       // 📱 QR CODES AND BOXES
       // First copy QR code

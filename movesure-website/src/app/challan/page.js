@@ -131,15 +131,14 @@ export default function TransitManagement() {
           .eq('is_active', true)
           .eq('saving_option', 'SAVE')
           .order('created_at', { ascending: false }),
-        
-        // Station bilties that are not yet in transit
+          // Station bilties that are not yet in transit
         supabase
           .from('station_bilty_summary')
           .select(`
             id, station, gr_no, consignor, consignee, contents,
             no_of_packets, weight, payment_status, amount, pvt_marks,
-            created_at, updated_at
-          `)          .order('created_at', { ascending: false }),
+            e_way_bill, created_at, updated_at
+          `).order('created_at', { ascending: false }),
           // Challans with truck, driver, owner details (INCLUDING DISPATCHED CHALLANS)
         supabase
           .from('challan_details')
@@ -255,8 +254,7 @@ export default function TransitManagement() {
             console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) from available list - already in transit`);
           }
           return !isInTransit;
-        })
-        .map(stationBilty => {
+        })        .map(stationBilty => {
           // Find the city name for the station city code
           const city = citiesRes.data?.find(c => c.city_code === stationBilty.station);
           return {
@@ -273,7 +271,7 @@ export default function TransitManagement() {
             to_city_name: city?.city_name || stationBilty.station, // Convert city_code to city_name
             to_city_code: stationBilty.station, // Keep original city_code
             bilty_type: 'station'
-          };        })
+          };})
         .sort(sortByGRNumber); // Sort by GR number
         
       console.log('✅ Initial data processing completed:', {
@@ -327,11 +325,10 @@ export default function TransitManagement() {
             transport_name, transport_gst, transport_number, delivery_type,
             invoice_no, invoice_value, invoice_date, document_number,
             labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark
-          ),
-          station_bilty:station_bilty_summary(
+          ),          station_bilty:station_bilty_summary(
             id, station, gr_no, consignor, consignee, contents,
             no_of_packets, weight, payment_status, amount, pvt_marks,
-            created_at, updated_at
+            e_way_bill, created_at, updated_at
           )
         `)
         .eq('challan_no', challanNo)
@@ -369,8 +366,7 @@ export default function TransitManagement() {
             is_out_of_delivery_from_branch1: transit.is_out_of_delivery_from_branch1,
             is_delivered_at_branch2: transit.is_delivered_at_branch2,
             is_delivered_at_destination: transit.is_delivered_at_destination
-          };
-        } else if (stationBilty) {
+          };        } else if (stationBilty) {
           // Station bilty - map fields to match regular bilty structure
           const city = cities.find(c => c.city_code === stationBilty.station);
           return {
@@ -440,13 +436,12 @@ export default function TransitManagement() {
             .eq('is_active', true)
             .eq('saving_option', 'SAVE')
             .order('created_at', { ascending: false }),
-          
-          supabase
+            supabase
             .from('station_bilty_summary')
             .select(`
               id, station, gr_no, consignor, consignee, contents,
               no_of_packets, weight, payment_status, amount, pvt_marks,
-              created_at, updated_at
+              e_way_bill, created_at, updated_at
             `)
             .order('created_at', { ascending: false })
         ]);

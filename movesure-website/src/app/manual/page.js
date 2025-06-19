@@ -43,14 +43,14 @@ export default function StationBiltySummaryPage() {
     exportToCSV,
     advancedSearchSummaries
   } = useStationBiltySummary();
-  
-  // Component state
+    // Component state
   const [showForm, setShowForm] = useState(false);
   const [stats, setStats] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [recordsPerPage] = useState(20);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [isAdvancedSearch, setIsAdvancedSearch] = useState(false);
   
   // Branch management state
   const [branches, setBranches] = useState([]);
@@ -201,10 +201,10 @@ export default function StationBiltySummaryPage() {
       }
     }, 100);
   };
-
   // Load data with pagination
   const handleLoadData = async () => {
     try {
+      setIsAdvancedSearch(false); // Clear advanced search state
       const offset = (currentPage - 1) * recordsPerPage;
       const result = await loadSummaryData(recordsPerPage, offset);
       setTotalRecords(result.count);
@@ -266,20 +266,29 @@ export default function StationBiltySummaryPage() {
       console.error('Error exporting:', error);
       alert('Error exporting data. Please try again.');
     }
-  };
-
-  // Handle advanced search
+  };  // Handle advanced search
   const handleAdvancedSearch = async (filters) => {
     try {
+      console.log('handleAdvancedSearch called with filters:', filters);
+      
       // If no filters are provided, clear search results and reload regular data
       if (!filters || Object.values(filters).every(value => value === '')) {
+        console.log('Clearing advanced search - no active filters');
         setSearchTerm('');
+        setIsAdvancedSearch(false);
         await handleLoadData();
         return;
       }
       
+      console.log('Performing advanced search with filters:', filters);
       // Perform advanced search
-      await advancedSearchSummaries(filters);
+      const results = await advancedSearchSummaries(filters);
+      console.log('Advanced search completed, results:', results?.length || 0);
+      
+      // Clear the basic search term when using advanced search
+      setSearchTerm('');
+      setIsAdvancedSearch(true);
+      
     } catch (error) {
       console.error('Error in advanced search:', error);
       alert('Error performing advanced search. Please try again.');
@@ -335,22 +344,20 @@ export default function StationBiltySummaryPage() {
           />
 
           {/* Statistics Cards */}
-          <ManualBiltyStats stats={stats} />
-
-          {/* Search and Filter Section */}          <ManualBiltySearch
+          <ManualBiltyStats stats={stats} />          {/* Search and Filter Section */}          <ManualBiltySearch
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             handleLoadData={handleLoadData}
             loading={loading}
             onAdvancedSearch={handleAdvancedSearch}
             totalRecords={totalRecords}
-          />
-
-          {/* Data Table */}
+            branches={branches}
+          />          {/* Data Table */}
           <ManualBiltyTable
             summaryData={summaryData}
             searchResults={searchResults}
             searchTerm={searchTerm}
+            isAdvancedSearch={isAdvancedSearch}
             handleEdit={handleEdit}
             setShowDeleteConfirm={setShowDeleteConfirm}
             setFormData={setFormData}

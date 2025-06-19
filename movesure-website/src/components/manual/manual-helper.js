@@ -232,19 +232,18 @@ export const useStationBiltySummary = () => {
     } finally {
       setSearching(false);
     }
-  }, []);
-
-  // Advanced search function with comprehensive filters (searches ALL records)
+  }, []);  // Advanced search function with comprehensive filters (searches ALL records)
   const advancedSearchSummaries = useCallback(async (filters) => {
     try {
       setSearching(true);
+      
+      console.log('Advanced search filters received:', filters);
       
       let query = supabase
         .from('station_bilty_summary')
         .select('*'); // Remove join to avoid issues, enrich separately
 
-      // Build dynamic filters
-      const conditions = [];
+      // Build dynamic filters with proper AND logic
       
       // Date range filters
       if (filters.fromDate) {
@@ -259,28 +258,28 @@ export const useStationBiltySummary = () => {
       }
       
       // Text-based filters using ILIKE for case-insensitive search
-      if (filters.station) {
-        conditions.push(`station.ilike.%${filters.station}%`);
-      }
-      
       if (filters.grNumber) {
-        conditions.push(`gr_no.ilike.%${filters.grNumber}%`);
+        query = query.ilike('gr_no', `%${filters.grNumber}%`);
       }
       
       if (filters.consignor) {
-        conditions.push(`consignor.ilike.%${filters.consignor}%`);
+        query = query.ilike('consignor', `%${filters.consignor}%`);
       }
       
       if (filters.consignee) {
-        conditions.push(`consignee.ilike.%${filters.consignee}%`);
+        query = query.ilike('consignee', `%${filters.consignee}%`);
       }
       
       if (filters.pvtMarks) {
-        conditions.push(`pvt_marks.ilike.%${filters.pvtMarks}%`);
+        query = query.ilike('pvt_marks', `%${filters.pvtMarks}%`);
       }
       
       if (filters.contents) {
-        conditions.push(`contents.ilike.%${filters.contents}%`);
+        query = query.ilike('contents', `%${filters.contents}%`);
+      }
+      
+      if (filters.station) {
+        query = query.ilike('station', `%${filters.station}%`);
       }
       
       // Exact match filters
@@ -291,18 +290,23 @@ export const useStationBiltySummary = () => {
       if (filters.deliveryType) {
         query = query.eq('delivery_type', filters.deliveryType);
       }
-      
-      // Apply OR conditions if any exist
-      if (conditions.length > 0) {
-        query = query.or(conditions.join(','));
+
+      // Branch filter
+      if (filters.branchId) {
+        query = query.eq('branch_id', filters.branchId);
       }
       
       // Order by created_at descending - NO LIMIT for comprehensive search
       query = query.order('created_at', { ascending: false });
-      
+        console.log('Executing advanced search query...');
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error('Advanced search database error:', error);
+        throw error;
+      }
+
+      console.log('Advanced search raw results:', data?.length || 0, 'records');
 
       // Enrich with branch data
       let enrichedData = data || [];
@@ -322,6 +326,7 @@ export const useStationBiltySummary = () => {
                 ...item,
                 branch: item.branch_id ? branches.find(b => b.id === item.branch_id) : null
               }));
+              console.log('Advanced search enriched with branch data');
             }
           } catch (branchError) {
             console.warn('Error fetching branch data for advanced search:', branchError);
@@ -333,6 +338,7 @@ export const useStationBiltySummary = () => {
         }
       }
 
+      console.log('Advanced search final results:', enrichedData.length, 'records');
       setSearchResults(enrichedData);
       return enrichedData;
     } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
-import { Search, RefreshCw, Filter, X, Calendar, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { Search, RefreshCw, Filter, X, Calendar, FileText, Building2, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const ManualBiltySearch = ({
   searchTerm,
@@ -9,10 +9,10 @@ const ManualBiltySearch = ({
   handleLoadData,
   loading,
   onAdvancedSearch,
-  totalRecords = 0
+  totalRecords = 0,
+  branches = []
 }) => {
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [advancedFilters, setAdvancedFilters] = useState({
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);  const [advancedFilters, setAdvancedFilters] = useState({
     fromDate: '',
     toDate: '',
     grNumber: '',
@@ -20,6 +20,7 @@ const ManualBiltySearch = ({
     consignee: '',
     pvtMarks: '',
     paymentStatus: '',
+    branchId: '',
     station: ''
   });
 
@@ -34,9 +35,7 @@ const ManualBiltySearch = ({
     if (onAdvancedSearch) {
       onAdvancedSearch(advancedFilters);
     }
-  };
-
-  const handleClearAdvancedFilters = () => {
+  };  const handleClearAdvancedFilters = () => {
     setAdvancedFilters({
       fromDate: '',
       toDate: '',
@@ -45,6 +44,7 @@ const ManualBiltySearch = ({
       consignee: '',
       pvtMarks: '',
       paymentStatus: '',
+      branchId: '',
       station: ''
     });
     if (onAdvancedSearch) {
@@ -63,8 +63,7 @@ const ManualBiltySearch = ({
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+              </div>              <input
                 type="text"
                 placeholder="Quick search by station, GR no, consignor, consignee, or PVT marks..."
                 value={searchTerm}
@@ -151,23 +150,25 @@ const ManualBiltySearch = ({
                   onChange={(e) => handleAdvancedFilterChange('toDate', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white"
                 />
-              </div>
-
-              {/* Station */}
+              </div>              {/* Branch Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Station
+                  <Building2 className="w-4 h-4 inline mr-1" />
+                  Branch
                 </label>
-                <input
-                  type="text"
-                  value={advancedFilters.station}
-                  onChange={(e) => handleAdvancedFilterChange('station', e.target.value)}
-                  placeholder="Enter station name"
+                <select
+                  value={advancedFilters.branchId}
+                  onChange={(e) => handleAdvancedFilterChange('branchId', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white"
-                />
-              </div>
-
-              {/* GR Number */}
+                >
+                  <option value="">All Branches</option>
+                  {branches.map(branch => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.branch_name} ({branch.branch_code})
+                    </option>
+                  ))}
+                </select>
+              </div>              {/* GR Number */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <FileText className="w-4 h-4 inline mr-1" />
@@ -178,6 +179,21 @@ const ManualBiltySearch = ({
                   value={advancedFilters.grNumber}
                   onChange={(e) => handleAdvancedFilterChange('grNumber', e.target.value)}
                   placeholder="Enter GR number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white"
+                />
+              </div>
+
+              {/* Station */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <MapPin className="w-4 h-4 inline mr-1" />
+                  Station
+                </label>
+                <input
+                  type="text"
+                  value={advancedFilters.station}
+                  onChange={(e) => handleAdvancedFilterChange('station', e.target.value)}
+                  placeholder="Enter station name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white"
                 />
               </div>

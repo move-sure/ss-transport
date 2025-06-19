@@ -51,24 +51,31 @@ const ManualBiltyTable = ({
   setCurrentPage,
   startRecord,
   endRecord,
-  totalRecords
+  totalRecords,
+  isAdvancedSearch = false
 }) => {
-  const dataToShow = searchTerm ? searchResults : summaryData;
+  // Show search results if there's a search term OR if advanced search was performed
+  const dataToShow = (searchTerm || isAdvancedSearch) ? searchResults : summaryData;
+  const isShowingSearchResults = searchTerm || isAdvancedSearch;
 
   return (
-    <div className="w-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-6">
-      <div className="px-6 py-4 border-b border-gray-200">
+    <div className="w-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-6">      <div className="px-6 py-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">
           Manual Bilty Records 
-          {searchTerm && (
+          {isShowingSearchResults && (
             <span className="text-sm font-normal text-gray-500 ml-2">
-              (Showing search results for {searchTerm})
+              {searchTerm ? `(Showing search results for "${searchTerm}")` : '(Showing advanced search results)'}
             </span>
           )}
         </h3>
-        {!searchTerm && totalRecords > 0 && (
+        {!isShowingSearchResults && totalRecords > 0 && (
           <p className="text-sm text-gray-500 mt-1">
             Showing {startRecord} to {endRecord} of {totalRecords} records
+          </p>
+        )}
+        {isShowingSearchResults && (
+          <p className="text-sm text-gray-500 mt-1">
+            Found {dataToShow.length} record{dataToShow.length !== 1 ? 's' : ''}
           </p>
         )}
       </div>
@@ -227,9 +234,8 @@ const ManualBiltyTable = ({
               {searchTerm ? 'No records found matching your search.' : 'No records found. Add your first entry!'}
             </p>
           </div>
-        )}
-      </div>      {/* Pagination */}
-      {!searchTerm && totalPages > 1 && (
+        )}      </div>      {/* Pagination - only show when not displaying search results */}
+      {!isShowingSearchResults && totalPages > 1 && (
         <div className="bg-white px-4 py-3 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">

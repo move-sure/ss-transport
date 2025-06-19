@@ -20,8 +20,7 @@ import {
 export default function StationBiltySummaryPage() {
   const router = useRouter();
   const { user, loading: authLoading, isAuthenticated, initialized } = useAuth();
-  
-  // Use the custom hook
+    // Use the custom hook
   const {
     loading,
     saving,
@@ -41,7 +40,8 @@ export default function StationBiltySummaryPage() {
     deleteSummary,
     resetForm,
     getSummaryStats,
-    exportToCSV
+    exportToCSV,
+    advancedSearchSummaries
   } = useStationBiltySummary();
   
   // Component state
@@ -268,6 +268,24 @@ export default function StationBiltySummaryPage() {
     }
   };
 
+  // Handle advanced search
+  const handleAdvancedSearch = async (filters) => {
+    try {
+      // If no filters are provided, clear search results and reload regular data
+      if (!filters || Object.values(filters).every(value => value === '')) {
+        setSearchTerm('');
+        await handleLoadData();
+        return;
+      }
+      
+      // Perform advanced search
+      await advancedSearchSummaries(filters);
+    } catch (error) {
+      console.error('Error in advanced search:', error);
+      alert('Error performing advanced search. Please try again.');
+    }
+  };
+
   // Calculate pagination info
   const totalPages = Math.ceil(totalRecords / recordsPerPage);
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
@@ -296,13 +314,12 @@ export default function StationBiltySummaryPage() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
       <Navbar />
       
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <main className="w-full max-w-full mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="w-full">
           
           {/* Header Section */}
           <ManualBiltyHeader
@@ -320,12 +337,13 @@ export default function StationBiltySummaryPage() {
           {/* Statistics Cards */}
           <ManualBiltyStats stats={stats} />
 
-          {/* Search and Filter Section */}
-          <ManualBiltySearch
+          {/* Search and Filter Section */}          <ManualBiltySearch
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             handleLoadData={handleLoadData}
             loading={loading}
+            onAdvancedSearch={handleAdvancedSearch}
+            totalRecords={totalRecords}
           />
 
           {/* Data Table */}

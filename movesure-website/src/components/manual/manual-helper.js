@@ -12,9 +12,12 @@ export const useStationBiltySummary = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
-    // Reference data states
+  
+  // Reference data states
   const [cities, setCities] = useState([]);
-  const [loadingReferenceData, setLoadingReferenceData] = useState(false);  // Form data state
+  const [loadingReferenceData, setLoadingReferenceData] = useState(false);
+  
+  // Form data state
   const [formData, setFormData] = useState({
     station: '',
     gr_no: '',
@@ -31,6 +34,7 @@ export const useStationBiltySummary = () => {
     staff_id: null,
     branch_id: null
   });
+
   // Load reference data (cities only)
   const loadReferenceData = useCallback(async () => {
     try {
@@ -55,6 +59,7 @@ export const useStationBiltySummary = () => {
   useEffect(() => {
     loadReferenceData();
   }, [loadReferenceData]);
+
   // Validation function
   const validateForm = () => {
     const requiredFields = ['station', 'gr_no'];
@@ -77,7 +82,9 @@ export const useStationBiltySummary = () => {
     }
     
     return null;
-  };  // Reset form to initial state
+  };
+
+  // Reset form to initial state
   const resetForm = useCallback(() => {
     setFormData({
       station: '',
@@ -102,6 +109,9 @@ export const useStationBiltySummary = () => {
   const loadSummaryData = useCallback(async (limit = 50, offset = 0) => {
     try {
       setLoading(true);
+      
+      // Always use basic query and enrich with branch data separately
+      // This approach handles NULL branch_id values gracefully
       const { data, error, count } = await supabase
         .from('station_bilty_summary')
         .select('*', { count: 'exact' })
@@ -110,8 +120,52 @@ export const useStationBiltySummary = () => {
 
       if (error) throw error;
 
-      setSummaryData(data || []);
-      return { data: data || [], count: count || 0 };
+      // Enrich with branch data for records that have branch_id
+      let enrichedData = data || [];
+      
+      if (enrichedData.length > 0) {
+        // Get unique branch IDs, filtering out null/undefined values
+        const branchIds = [...new Set(enrichedData.map(item => item.branch_id).filter(Boolean))];
+        
+        if (branchIds.length > 0) {
+          try {
+            const { data: branches, error: branchError } = await supabase
+              .from('branches')
+              .select('id, branch_name, branch_code')
+              .in('id', branchIds);
+            
+            if (!branchError && branches) {
+              // Map branch data to records
+              enrichedData = enrichedData.map(item => ({
+                ...item,
+                branch: item.branch_id ? branches.find(b => b.id === item.branch_id) || null : null
+              }));
+            } else {
+              // If branch query fails, just set branch to null for all records
+              enrichedData = enrichedData.map(item => ({
+                ...item,
+                branch: null
+              }));
+            }
+          } catch (branchError) {
+            console.warn('Error fetching branch data:', branchError);
+            // Set branch to null for all records if branch query fails
+            enrichedData = enrichedData.map(item => ({
+              ...item,
+              branch: null
+            }));
+          }
+        } else {
+          // No records have branch_id, set branch to null for all
+          enrichedData = enrichedData.map(item => ({
+            ...item,
+            branch: null
+          }));
+        }
+      }
+
+      setSummaryData(enrichedData);
+      return { data: enrichedData, count: count || 0 };
     } catch (error) {
       console.error('Error loading summary data:', error);
       throw error;
@@ -120,7 +174,7 @@ export const useStationBiltySummary = () => {
     }
   }, []);
 
-  // Search function with debouncing
+  // Simple search function (searches ALL records, not just paginated ones)
   const searchSummaries = useCallback(async (term) => {
     if (!term || term.length < 2) {
       setSearchResults([]);
@@ -129,19 +183,162 @@ export const useStationBiltySummary = () => {
 
     try {
       setSearching(true);
+      
+      // Search ALL records without pagination limits
       const { data, error } = await supabase
         .from('station_bilty_summary')
         .select('*')
-        .or(`station.ilike.%${term}%,gr_no.ilike.%${term}%,consignor.ilike.%${term}%,consignee.ilike.%${term}%,pvt_marks.ilike.%${term}%`)
+        .or(`station.ilike.%${term}%,gr_no.ilike.%${term}%,consignor.ilike.%${term}%,consignee.ilike.%${term}%,pvt_marks.ilike.%${term}%,contents.ilike.%${term}%`)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(100); // Reasonable limit for search results
 
       if (error) throw error;
 
-      setSearchResults(data || []);
+      // Enrich with branch data if possible
+      let enrichedData = data || [];
+      
+      if (enrichedData.length > 0) {
+        const branchIds = [...new Set(enrichedData.map(item => item.branch_id).filter(Boolean))];
+        
+        if (branchIds.length > 0) {
+          try {
+            const { data: branches, error: branchError } = await supabase
+              .from('branches')
+              .select('id, branch_name, branch_code')
+              .in('id', branchIds);
+            
+            if (!branchError && branches) {
+              enrichedData = enrichedData.map(item => ({
+                ...item,
+                branch: item.branch_id ? branches.find(b => b.id === item.branch_id) : null
+              }));
+            }
+          } catch (branchError) {
+            console.warn('Error fetching branch data for search:', branchError);
+            enrichedData = enrichedData.map(item => ({
+              ...item,
+              branch: null
+            }));
+          }
+        }
+      }
+
+      setSearchResults(enrichedData);
+      return enrichedData;
     } catch (error) {
       console.error('Error searching summaries:', error);
       setSearchResults([]);
+      return [];
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  // Advanced search function with comprehensive filters (searches ALL records)
+  const advancedSearchSummaries = useCallback(async (filters) => {
+    try {
+      setSearching(true);
+      
+      let query = supabase
+        .from('station_bilty_summary')
+        .select('*'); // Remove join to avoid issues, enrich separately
+
+      // Build dynamic filters
+      const conditions = [];
+      
+      // Date range filters
+      if (filters.fromDate) {
+        query = query.gte('created_at', filters.fromDate);
+      }
+      
+      if (filters.toDate) {
+        // Add one day to include the entire end date
+        const toDate = new Date(filters.toDate);
+        toDate.setDate(toDate.getDate() + 1);
+        query = query.lt('created_at', toDate.toISOString().split('T')[0]);
+      }
+      
+      // Text-based filters using ILIKE for case-insensitive search
+      if (filters.station) {
+        conditions.push(`station.ilike.%${filters.station}%`);
+      }
+      
+      if (filters.grNumber) {
+        conditions.push(`gr_no.ilike.%${filters.grNumber}%`);
+      }
+      
+      if (filters.consignor) {
+        conditions.push(`consignor.ilike.%${filters.consignor}%`);
+      }
+      
+      if (filters.consignee) {
+        conditions.push(`consignee.ilike.%${filters.consignee}%`);
+      }
+      
+      if (filters.pvtMarks) {
+        conditions.push(`pvt_marks.ilike.%${filters.pvtMarks}%`);
+      }
+      
+      if (filters.contents) {
+        conditions.push(`contents.ilike.%${filters.contents}%`);
+      }
+      
+      // Exact match filters
+      if (filters.paymentStatus) {
+        query = query.eq('payment_status', filters.paymentStatus);
+      }
+      
+      if (filters.deliveryType) {
+        query = query.eq('delivery_type', filters.deliveryType);
+      }
+      
+      // Apply OR conditions if any exist
+      if (conditions.length > 0) {
+        query = query.or(conditions.join(','));
+      }
+      
+      // Order by created_at descending - NO LIMIT for comprehensive search
+      query = query.order('created_at', { ascending: false });
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+
+      // Enrich with branch data
+      let enrichedData = data || [];
+      
+      if (enrichedData.length > 0) {
+        const branchIds = [...new Set(enrichedData.map(item => item.branch_id).filter(Boolean))];
+        
+        if (branchIds.length > 0) {
+          try {
+            const { data: branches, error: branchError } = await supabase
+              .from('branches')
+              .select('id, branch_name, branch_code')
+              .in('id', branchIds);
+            
+            if (!branchError && branches) {
+              enrichedData = enrichedData.map(item => ({
+                ...item,
+                branch: item.branch_id ? branches.find(b => b.id === item.branch_id) : null
+              }));
+            }
+          } catch (branchError) {
+            console.warn('Error fetching branch data for advanced search:', branchError);
+            enrichedData = enrichedData.map(item => ({
+              ...item,
+              branch: null
+            }));
+          }
+        }
+      }
+
+      setSearchResults(enrichedData);
+      return enrichedData;
+    } catch (error) {
+      console.error('Error in advanced search:', error);
+      setSearchResults([]);
+      return [];
     } finally {
       setSearching(false);
     }
@@ -169,7 +366,9 @@ export const useStationBiltySummary = () => {
       const validationError = validateForm();
       if (validationError) {
         throw new Error(validationError);
-      }      // Prepare data for saving
+      }
+
+      // Prepare data for saving
       const saveData = {
         station: formData.station.toString().trim(),
         gr_no: formData.gr_no.toString().trim().toUpperCase(),
@@ -202,7 +401,7 @@ export const useStationBiltySummary = () => {
         if (error) throw error;
         result = data;
       } else {
-        // Check for duplicate GR number
+        // Check for duplicate GR number - search ALL records
         const { data: existing, error: duplicateError } = await supabase
           .from('station_bilty_summary')
           .select('id')
@@ -239,7 +438,9 @@ export const useStationBiltySummary = () => {
     } finally {
       setSaving(false);
     }
-  }, [formData, editingId, resetForm, loadSummaryData]);  // Load data for editing
+  }, [formData, editingId, resetForm, loadSummaryData, validateForm]);
+
+  // Load data for editing
   const loadForEdit = useCallback((summary) => {
     setFormData({
       station: summary.station || '',
@@ -281,12 +482,13 @@ export const useStationBiltySummary = () => {
     }
   }, [loadSummaryData]);
 
-  // Get summary statistics
+  // Get summary statistics (searches ALL records)
   const getSummaryStats = useCallback(async () => {
     try {
+      // Use basic query for stats to avoid join issues - get ALL records
       const { data, error } = await supabase
         .from('station_bilty_summary')
-        .select('payment_status, amount, no_of_packets, weight');
+        .select('payment_status, amount, no_of_packets, weight, branch_id');
 
       if (error) throw error;
 
@@ -318,9 +520,10 @@ export const useStationBiltySummary = () => {
     }
   }, []);
 
-  // Export data to CSV
+  // Export data to CSV (exports ALL records)
   const exportToCSV = useCallback(async () => {
     try {
+      // Export ALL records, not just paginated ones
       const { data, error } = await supabase
         .from('station_bilty_summary')
         .select('*')
@@ -332,7 +535,7 @@ export const useStationBiltySummary = () => {
       const headers = [
         'Station', 'GR No', 'Consignor', 'Consignee', 'Contents',
         'No of Packets', 'Weight', 'Payment Status', 'Amount', 'Pvt Marks',
-        'Created At', 'Updated At'
+        'Delivery Type', 'E-Way Bill', 'Created At', 'Updated At'
       ];
 
       const csvContent = [
@@ -348,6 +551,8 @@ export const useStationBiltySummary = () => {
           `"${row.payment_status || ''}"`,
           row.amount || 0,
           `"${row.pvt_marks || ''}"`,
+          `"${row.delivery_type || ''}"`,
+          `"${row.e_way_bill || ''}"`,
           `"${new Date(row.created_at).toLocaleString()}"`,
           `"${new Date(row.updated_at).toLocaleString()}"`
         ].join(','))
@@ -368,6 +573,13 @@ export const useStationBiltySummary = () => {
       throw error;
     }
   }, []);
+
+  // Clear search results and return to normal view
+  const clearSearch = useCallback(() => {
+    setSearchTerm('');
+    setSearchResults([]);
+  }, []);
+
   return {
     // State
     loading,
@@ -375,7 +587,8 @@ export const useStationBiltySummary = () => {
     searching,
     summaryData,
     searchResults,
-    searchTerm,    editingId,
+    searchTerm,
+    editingId,
     formData,
     cities,
     loadingReferenceData,
@@ -392,7 +605,9 @@ export const useStationBiltySummary = () => {
     getSummaryStats,
     exportToCSV,
     validateForm,
-    loadReferenceData
+    loadReferenceData,
+    advancedSearchSummaries,
+    clearSearch
   };
 };
 

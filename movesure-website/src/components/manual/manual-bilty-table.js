@@ -1,7 +1,7 @@
 'use client';
 
 import { 
-  FileText, Edit2, Trash2, MapPin, Users, Package, Weight, Shield
+  FileText, Edit2, Trash2, MapPin, Users, Package, Weight, Shield, Building2
 } from 'lucide-react';
 import { formatCurrency, formatWeight } from './manual-helper';
 
@@ -56,7 +56,7 @@ const ManualBiltyTable = ({
   const dataToShow = searchTerm ? searchResults : summaryData;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-6">
+    <div className="w-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-6">
       <div className="px-6 py-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">
           Manual Bilty Records 
@@ -73,24 +73,37 @@ const ManualBiltyTable = ({
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto w-full">
+        <table className="w-full min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual/GR No</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents/PVT Marks</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-way Bill</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Delivery</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <tr>              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual/GR No</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents/PVT Marks</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-way Bill</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Delivery</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          </thead>          <tbody className="bg-white divide-y divide-gray-200">
             {dataToShow.map((summary) => (
-              <tr key={summary.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+              <tr key={summary.id} className="hover:bg-gray-50">                {/* Branch Column */}
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-500" />
+                      {summary.branches?.branch_name || summary.branch?.branch_name || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Code: {summary.branches?.branch_code || summary.branch?.branch_code || 'N/A'}
+                    </div>
+                  </div>
+                </td>
+                
+                {/* Manual/GR No Column */}
+                <td className="px-4 py-4 whitespace-nowrap">
                   <div>
                     <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-gray-400" />
@@ -100,7 +113,8 @@ const ManualBiltyTable = ({
                   </div>
                 </td>
                 
-                <td className="px-6 py-4">
+                {/* Consignor/Consignee Column */}
+                <td className="px-4 py-4">
                   <div>
                     <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                       <Users className="w-4 h-4 text-gray-400" />
@@ -108,9 +122,9 @@ const ManualBiltyTable = ({
                     </div>
                     <div className="text-sm text-gray-500">To: {summary.consignee || '-'}</div>
                   </div>
-                </td>
-                
-                <td className="px-6 py-4">
+                </td>                
+                {/* Contents/PVT Marks Column */}
+                <td className="px-4 py-4">
                   <div>
                     <div className="text-sm text-gray-900 font-medium">{summary.contents || '-'}</div>
                     {summary.pvt_marks && (
@@ -121,7 +135,8 @@ const ManualBiltyTable = ({
                   </div>
                 </td>
                 
-                <td className="px-6 py-4 whitespace-nowrap">
+                {/* E-way Bill Column */}
+                <td className="px-4 py-4 whitespace-nowrap">
                   <div>
                     {summary.e_way_bill ? (
                       <div className="flex items-center gap-2">
@@ -145,12 +160,14 @@ const ManualBiltyTable = ({
                   </div>
                 </td>
                 
-                <td className="px-6 py-4 whitespace-nowrap">
+                {/* Packages/Weight Column */}
+                <td className="px-4 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{summary.no_of_packets} packages</div>
                   <div className="text-sm text-gray-500">{formatWeight(summary.weight)}</div>
                 </td>
                 
-                <td className="px-6 py-4 whitespace-nowrap">
+                {/* Payment & Delivery Column */}
+                <td className="px-4 py-4 whitespace-nowrap">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     getCombinedOptionColor(getCombinedValue(summary.payment_status, summary.delivery_type))
                   }`}>
@@ -159,12 +176,28 @@ const ManualBiltyTable = ({
                     )?.label || `${summary.payment_status || 'N/A'} / ${summary.delivery_type || 'N/A'}`}
                   </span>
                 </td>
-                
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {/* Amount Column */}
+                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {formatCurrency(summary.amount)}
                 </td>
                 
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                {/* Created Date Column */}
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {summary.created_at ? new Date(summary.created_at).toLocaleDateString('en-GB') : 'N/A'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {summary.created_at ? new Date(summary.created_at).toLocaleTimeString('en-GB', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      }) : ''}
+                    </span>
+                  </div>
+                </td>
+                
+                {/* Actions Column */}
+                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleEdit(summary)}
@@ -195,11 +228,9 @@ const ManualBiltyTable = ({
             </p>
           </div>
         )}
-      </div>
-
-      {/* Pagination */}
+      </div>      {/* Pagination */}
       {!searchTerm && totalPages > 1 && (
-        <div className="bg-white px-6 py-3 border-t border-gray-200">
+        <div className="bg-white px-4 py-3 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">
               <button

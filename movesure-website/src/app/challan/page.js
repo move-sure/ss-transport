@@ -39,13 +39,48 @@ export default function TransitManagement() {
   // PDF Preview states
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewType, setPdfPreviewType] = useState(null); // 'loading' or 'challan'
-
   // Sort function for GR numbers to handle alphanumeric sorting properly
   const sortByGRNumber = (a, b) => {
     const grA = a.gr_no || '';
     const grB = b.gr_no || '';
     
     // Extract alphabetic prefix and numeric part
+    const matchA = grA.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    const matchB = grB.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    
+    if (!matchA && !matchB) return grA.localeCompare(grB);
+    if (!matchA) return 1;
+    if (!matchB) return -1;
+    
+    const [, prefixA, numberA, suffixA] = matchA;
+    const [, prefixB, numberB, suffixB] = matchB;
+    
+    // First compare prefixes
+    const prefixCompare = prefixA.localeCompare(prefixB);
+    if (prefixCompare !== 0) return prefixCompare;
+    
+    // Then compare numbers numerically
+    const numCompare = parseInt(numberA) - parseInt(numberB);
+    if (numCompare !== 0) return numCompare;
+    
+    // Finally compare suffixes
+    return suffixA.localeCompare(suffixB);
+  };
+
+  // Sort function for destination city names alphabetically
+  const sortByDestinationCity = (a, b) => {
+    const cityA = (a.to_city_name || '').toUpperCase();
+    const cityB = (b.to_city_name || '').toUpperCase();
+    
+    // First sort by destination city alphabetically
+    const cityCompare = cityA.localeCompare(cityB);
+    if (cityCompare !== 0) return cityCompare;
+    
+    // If same city, then sort by GR number
+    const grA = a.gr_no || '';
+    const grB = b.gr_no || '';
+    
+    // Extract alphabetic prefix and numeric part for GR number sorting
     const matchA = grA.match(/^([A-Za-z]*)(\d+)(.*)$/);
     const matchB = grB.match(/^([A-Za-z]*)(\d+)(.*)$/);
     
@@ -389,13 +424,13 @@ export default function TransitManagement() {
             is_out_of_delivery_from_branch1: transit.is_out_of_delivery_from_branch1,
             is_delivered_at_branch2: transit.is_delivered_at_branch2,
             is_delivered_at_destination: transit.is_delivered_at_destination
-          };
-        }
+          };        }
         return null;
-      }).filter(Boolean).sort(sortByGRNumber);
+      }).filter(Boolean).sort(sortByDestinationCity);
 
       setTransitBilties(processedTransitBilties);
       console.log('Transit bilties loaded:', processedTransitBilties.length, `(Dispatched: ${processedTransitBilties.filter(b => b.is_dispatched).length})`);
+      console.log('Transit bilties sorted by destination city alphabetically');
       
     } catch (error) {
       console.error('Error loading transit bilties:', error);

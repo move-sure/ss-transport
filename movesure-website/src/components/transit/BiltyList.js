@@ -78,7 +78,6 @@ const BiltyList = ({
       setSelectedTransitBilties([...filteredTransitBilties]);
     }
   };
-
   // Sort function for GR numbers to handle alphanumeric sorting properly
   const sortByGRNumber = (a, b) => {
     const grA = a.gr_no || '';
@@ -106,9 +105,44 @@ const BiltyList = ({
     // Finally compare suffixes
     return suffixA.localeCompare(suffixB);
   };
-  // Filter bilties based on search and filters
+
+  // Sort function for destination city names alphabetically
+  const sortByDestinationCity = (a, b) => {
+    const cityA = (a.to_city_name || '').toUpperCase();
+    const cityB = (b.to_city_name || '').toUpperCase();
+    
+    // First sort by destination city alphabetically
+    const cityCompare = cityA.localeCompare(cityB);
+    if (cityCompare !== 0) return cityCompare;
+    
+    // If same city, then sort by GR number
+    const grA = a.gr_no || '';
+    const grB = b.gr_no || '';
+    
+    // Extract alphabetic prefix and numeric part for GR number sorting
+    const matchA = grA.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    const matchB = grB.match(/^([A-Za-z]*)(\d+)(.*)$/);
+    
+    if (!matchA && !matchB) return grA.localeCompare(grB);
+    if (!matchA) return 1;
+    if (!matchB) return -1;
+    
+    const [, prefixA, numberA, suffixA] = matchA;
+    const [, prefixB, numberB, suffixB] = matchB;
+    
+    // First compare prefixes
+    const prefixCompare = prefixA.localeCompare(prefixB);
+    if (prefixCompare !== 0) return prefixCompare;
+    
+    // Then compare numbers numerically
+    const numCompare = parseInt(numberA) - parseInt(numberB);
+    if (numCompare !== 0) return numCompare;
+    
+    // Finally compare suffixes
+    return suffixA.localeCompare(suffixB);
+  };  // Filter bilties based on search and filters
   useEffect(() => {
-    const applyFilters = (biltiesArray, searchTerm, paymentMode, date, city, biltyType) => {
+    const applyFilters = (biltiesArray, searchTerm, paymentMode, date, city, biltyType, isTransitBilties = false) => {
       if (!biltiesArray || biltiesArray.length === 0) return [];
       
       const filtered = biltiesArray.filter(bilty => {
@@ -136,14 +170,14 @@ const BiltyList = ({
         return matchesSearch && matchesPayment && matchesDate && matchesCity && matchesBiltyType;
       });
       
-      // Sort by GR number in ascending order
-      return filtered.sort(sortByGRNumber);
+      // Use destination city sorting for transit bilties, GR number sorting for available bilties
+      return filtered.sort(isTransitBilties ? sortByDestinationCity : sortByGRNumber);
     };
 
     // Combine both regular bilties and station bilties
     const allAvailableBilties = [...(bilties || []), ...(stationBilties || [])];
-    setFilteredBilties(applyFilters(allAvailableBilties, searchTerm, filterPaymentMode, filterDate, filterCity, filterBiltyType));
-    setFilteredTransitBilties(applyFilters(transitBilties || [], transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType));
+    setFilteredBilties(applyFilters(allAvailableBilties, searchTerm, filterPaymentMode, filterDate, filterCity, filterBiltyType, false));
+    setFilteredTransitBilties(applyFilters(transitBilties || [], transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType, true));
   }, [bilties, stationBilties, transitBilties, searchTerm, filterPaymentMode, filterDate, filterCity, filterBiltyType, transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType]);
 
   const handleBiltySelect = (bilty) => {

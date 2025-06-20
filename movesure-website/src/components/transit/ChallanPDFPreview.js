@@ -59,12 +59,11 @@ const ChallanPDFPreview = ({
     const itemsPerPage = itemsPerColumn * 2; // 2 columns per page
     const rowHeight = 10; // Increased row height for better readability
     
-    let currentPage = 1;
-      // Sort bilties alphabetically by city code first, then by GR number within each city
+    let currentPage = 1;    // Sort bilties alphabetically by city name first, then by GR number within each city
     const sortedBiltiesData = [...transitBiltiesData].sort((a, b) => {
-      // First sort by city code (to_city_code) alphabetically
-      const cityA = (a.to_city_code || '').toUpperCase();
-      const cityB = (b.to_city_code || '').toUpperCase();
+      // First sort by city name (to_city_name) alphabetically
+      const cityA = (a.to_city_name || '').toUpperCase();
+      const cityB = (b.to_city_name || '').toUpperCase();
       
       if (cityA !== cityB) {
         return cityA.localeCompare(cityB);
@@ -76,7 +75,7 @@ const ChallanPDFPreview = ({
       
       // Handle mixed alphanumeric GR numbers properly
       return grA.localeCompare(grB, undefined, { numeric: true, sensitivity: 'base' });
-    });    // Calculate totals once
+    });// Calculate totals once
     const totalPackages = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
     const totalWeight = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
     

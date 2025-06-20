@@ -25,12 +25,27 @@ const ChallanDetailsTab = ({
   useEffect(() => {
     onLoadChallans(filters);
   }, [filters]);
-
   const handleDeleteChallan = async (challanId, challanNo) => {
     if (!confirm(`Are you sure you want to delete challan ${challanNo}?`)) return;
 
     try {
-      // Mark the challan as inactive
+      // Step 1: Delete all transit records associated with this challan
+      console.log(`🗑️ Deleting transit records for challan: ${challanNo}`);
+      const { error: transitError } = await supabase
+        .from('transit_details')
+        .delete()
+        .eq('challan_no', challanNo)
+        .eq('is_active', true);
+
+      if (transitError) {
+        console.error('Error deleting transit records:', transitError);
+        alert('Error deleting transit records: ' + transitError.message);
+        return;
+      }
+
+      console.log(`✅ Successfully deleted transit records for challan: ${challanNo}`);
+
+      // Step 2: Mark the challan as inactive
       const { error: challanError } = await supabase
         .from('challan_details')
         .update({ is_active: false })
@@ -38,7 +53,7 @@ const ChallanDetailsTab = ({
 
       if (challanError) throw challanError;
 
-      // Find the challan book and decrease current number if needed
+      // Step 3: Find the challan book and decrease current number if needed
       const challanPrefix = challanNo.match(/^[A-Za-z]*/)?.[0] || '';
       const challanNumber = parseInt(challanNo.replace(/[A-Za-z]/g, '').replace(/[^0-9]/g, ''));
       
@@ -59,7 +74,7 @@ const ChallanDetailsTab = ({
         }
       }
 
-      alert('Challan deleted successfully');
+      alert('Challan and all associated transit records deleted successfully');
       onLoadChallans(filters);
     } catch (error) {
       console.error('Error deleting challan:', error);

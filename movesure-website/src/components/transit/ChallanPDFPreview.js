@@ -845,7 +845,7 @@ const ChallanPDFPreview = ({
                       <FileText className="w-8 h-8 text-gray-600" />
                     </div>
                     <div className="text-lg font-semibold text-gray-800 mb-2">No Preview Available</div>
-                    <div className="text-gray-600 mb-4">Click "Generate Preview" to view the PDF</div>
+                    <div className="text-gray-600 mb-4">Click Generate Preview to view the PDF</div>
                     <button
                       onClick={generatePDFBlob}
                       className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-semibold"

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   FileText, Package, Weight, DollarSign, X, Save, Building2,
-  Shield, CheckCircle, XCircle, Loader2, Eye
+  Shield, CheckCircle, XCircle, Loader2, Eye, Plus, AlertTriangle
 } from 'lucide-react';
 import EwbValidatorManual from './ewb-validator-manual';
 import { getActiveEwbToken } from '../ewb/token-helper';
@@ -201,10 +201,11 @@ const ManualBiltyForm = ({
 }) => {
   // E-way bill validation state
   const [showEwbValidator, setShowEwbValidator] = useState(false);
-  const [ewbValidationStatus, setEwbValidationStatus] = useState('idle');
-  const [ewbValidationResult, setEwbValidationResult] = useState(null);
-  const [ewbValidationError, setEwbValidationError] = useState(null);
-  const [validationTimeout, setValidationTimeout] = useState(null);
+  const [selectedEwbForDetails, setSelectedEwbForDetails] = useState(null);
+  
+  // Multi-EWB state
+  const [ewbList, setEwbList] = useState([]);
+  const [validatingEwbId, setValidatingEwbId] = useState(null);
 
   // Format E-way bill number (1234-1234-1234 format)
   const formatEwayBill = (value) => {
@@ -219,55 +220,87 @@ const ManualBiltyForm = ({
     return formatted;
   };
 
-  // Handle E-way bill input change
-  const handleEwayBillChange = (e) => {
-    const formatted = formatEwayBill(e.target.value);
-    setFormData({ ...formData, e_way_bill: formatted });
-    
-    if (validationTimeout) {
-      clearTimeout(validationTimeout);
-      setValidationTimeout(null);
+  // Initialize EWB list from formData whenever it changes (for edit mode)
+  useEffect(() => {
+    if (formData.e_way_bill && formData.e_way_bill.trim() !== '') {
+      const existingEwbs = formData.e_way_bill.split(',').map(ewb => ewb.trim()).filter(ewb => ewb);
+      const newEwbList = existingEwbs.map((ewb, index) => ({
+        id: Date.now() + index,
+        number: ewb,
+        status: 'idle',
+        result: null,
+        error: null
+      }));
+      setEwbList(newEwbList);
+    } else {
+      setEwbList([]);
+    }
+  }, [formData.e_way_bill]);
+
+  // Update formData whenever ewbList changes
+  useEffect(() => {
+    const ewbString = ewbList.map(ewb => ewb.number).join(', ');
+    if (formData.e_way_bill !== ewbString) {
+      setFormData(prev => ({ ...prev, e_way_bill: ewbString }));
+    }
+  }, [ewbList]);
+
+  // Multi-EWB Functions
+  const addEwbToList = (ewbNumber) => {
+    const cleanedEwbNumber = ewbNumber.replace(/[-\s]/g, '').trim();
+    if (cleanedEwbNumber === '' || cleanedEwbNumber.length !== 12) {
+      return false;
     }
     
-    setEwbValidationStatus('idle');
-    setEwbValidationResult(null);
-    setEwbValidationError(null);
+    // Check for duplicates
+    const isDuplicate = ewbList.some(ewb => 
+      ewb.number.replace(/[-\s]/g, '').trim() === cleanedEwbNumber
+    );
     
-    const cleanedValue = formatted.replace(/[-\s]/g, '');
-    if (cleanedValue.length === 12 && /^\d{12}$/.test(cleanedValue)) {
-      const timeoutId = setTimeout(() => {
-        validateEwbInBackground(formatted);
-      }, 800);
-      setValidationTimeout(timeoutId);
+    if (isDuplicate) {
+      return false;
     }
+    
+    const newEwb = {
+      id: Date.now(),
+      number: ewbNumber.trim(),
+      status: 'idle',
+      result: null,
+      error: null
+    };
+    
+    setEwbList(prev => [...prev, newEwb]);
+    return true;
   };
-
-  // EWB Validation Function
-  const validateEwbInBackground = async (ewbNumber = null) => {
-    const ewbToValidate = ewbNumber || formData.e_way_bill;
+  
+  const removeEwbFromList = (ewbId) => {
+    setEwbList(prev => prev.filter(ewb => ewb.id !== ewbId));
+  };
+  
+  const validateSingleEwb = async (ewbId) => {
+    const ewbItem = ewbList.find(ewb => ewb.id === ewbId);
+    if (!ewbItem) return;
     
-    if (!ewbToValidate || ewbToValidate.trim() === '') {
-      setEwbValidationError('Please enter an E-way bill number');
-      setEwbValidationStatus('failed');
-      return;
-    }
-
-    const cleanedEwbNumber = ewbToValidate.replace(/[-\s]/g, '').trim();
+    const cleanedEwbNumber = ewbItem.number.replace(/[-\s]/g, '').trim();
     
-    if (cleanedEwbNumber === '') {
-      setEwbValidationError('Please enter a valid E-way bill number');
-      setEwbValidationStatus('failed');
+    if (cleanedEwbNumber === '' || cleanedEwbNumber.length !== 12) {
+      setEwbList(prev => prev.map(ewb => 
+        ewb.id === ewbId 
+          ? { ...ewb, status: 'failed', error: 'Invalid E-way bill format' }
+          : ewb
+      ));
       return;
     }
-
-    if (ewbValidationStatus === 'validating') {
-      return;
-    }
-
-    setEwbValidationStatus('validating');
-    setEwbValidationError(null);
-    setEwbValidationResult(null);
-
+    
+    // Update status to validating
+    setEwbList(prev => prev.map(ewb => 
+      ewb.id === ewbId 
+        ? { ...ewb, status: 'validating', error: null }
+        : ewb
+    ));
+    
+    setValidatingEwbId(ewbId);
+    
     try {
       const defaultGstin = '09COVPS5556J1ZT';
       const tokenResult = await getActiveEwbToken(defaultGstin);
@@ -299,84 +332,347 @@ const ManualBiltyForm = ({
           
           switch (errorCode) {
             case '325':
-              errorMessage = 'E-way bill number not found. Please verify the number is correct.';
+              errorMessage = 'E-way bill not found';
               break;
-            case '102':
-              errorMessage = 'E-way bill number is invalid or expired.';
+            case '326':
+              errorMessage = 'E-way bill expired';
               break;
-            case '101':
-              errorMessage = 'E-way bill number format is incorrect.';
+            case '327':
+              errorMessage = 'E-way bill cancelled';
               break;
             default:
-              errorMessage = `E-way bill validation failed (Error: ${errorCode})`;
+              errorMessage = `Validation error: ${errorCode}`;
           }
-          throw new Error(errorMessage);
+          
+          setEwbList(prev => prev.map(ewb => 
+            ewb.id === ewbId 
+              ? { ...ewb, status: 'failed', error: errorMessage }
+              : ewb
+          ));
+        } else if (validationData) {
+          setEwbList(prev => prev.map(ewb => 
+            ewb.id === ewbId 
+              ? { ...ewb, status: 'verified', result: validationData, error: null }
+              : ewb
+          ));
+        } else {
+          setEwbList(prev => prev.map(ewb => 
+            ewb.id === ewbId 
+              ? { ...ewb, status: 'failed', error: 'No validation data received' }
+              : ewb
+          ));
         }
-        
-        if (validationData?.status === '0') {
-          throw new Error('E-way bill number not found or is invalid.');
-        }
-        
-        if (!validationData?.ewbNo && !validationData?.data?.ewbNo) {
-          throw new Error('E-way bill number not found. Please verify the number.');
-        }
-        
-        setEwbValidationResult(validationData);
-        setEwbValidationStatus('verified');
-        
-        setTimeout(() => {
-          setEwbValidationStatus('verified');
-        }, 100);
       } else {
-        const errorMessage = data.error || data.details?.message || `API Error: ${response.status}`;
-        throw new Error(errorMessage);
+        setEwbList(prev => prev.map(ewb => 
+          ewb.id === ewbId 
+            ? { ...ewb, status: 'failed', error: data.message || 'Validation failed' }
+            : ewb
+        ));
       }
     } catch (err) {
-      let errorMessage = err.message || 'Failed to validate E-way bill';
-      
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        errorMessage = 'Network error: Unable to connect to the validation service.';
-      } else if (err.message.includes('CORS')) {
-        errorMessage = 'CORS error: The validation service does not allow cross-origin requests.';
-      } else if (err.message.includes('Failed to fetch')) {
-        errorMessage = 'Connection failed: Please check your internet connection and try again.';
-      } else if (err.message.includes('401')) {
-        errorMessage = 'Authentication failed: Invalid or expired token.';
-      } else if (err.message.includes('404')) {
-        errorMessage = 'E-way bill not found: Please verify the EWB number.';
-      } else if (err.message.includes('400')) {
-        errorMessage = 'Invalid E-way bill number format.';
-      }
-      
-      setEwbValidationError(errorMessage);
-      setEwbValidationStatus('failed');
+      console.error('EWB validation error:', err);
+      setEwbList(prev => prev.map(ewb => 
+        ewb.id === ewbId 
+          ? { ...ewb, status: 'failed', error: err.message || 'Network error during validation' }
+          : ewb
+      ));
+    } finally {
+      setValidatingEwbId(null);
     }
   };
 
-  // Handle EWB validation complete callback
-  const handleEwbValidationComplete = (validationData) => {
-    setEwbValidationResult(validationData);
-    setEwbValidationStatus('verified');
-    setEwbValidationError(null);
-  };
+  // Multi-EWB Input Component
+  const MultipleEwbSection = () => {
+    const [localInputValue, setLocalInputValue] = useState('');
+    const [inputRefs] = useState(() => ({ current: null }));
 
-  // Cleanup validation timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (validationTimeout) {
-        clearTimeout(validationTimeout);
+    const formatEwbWithHyphens = (value) => {
+      const digitsOnly = value.replace(/\D/g, '');
+      const limited = digitsOnly.slice(0, 12);
+      return limited.replace(/(\d{4})(\d{4})?(\d{4})?/g, (match, p1, p2, p3) => {
+        let result = p1;
+        if (p2) result += '-' + p2;
+        if (p3) result += '-' + p3;
+        return result;
+      });
+    };
+
+    const addToListAndClear = () => {
+      const digits = localInputValue.replace(/\D/g, '');
+      
+      if (digits.length !== 12 || !localInputValue.trim()) {
+        console.log('❌ Invalid EWB - need exactly 12 digits, got:', digits.length);
+        return;
+      }
+      
+      // Check for duplicates
+      const isDuplicate = ewbList.some(ewb => 
+        ewb.number.replace(/[-\s]/g, '').trim() === digits
+      );
+      
+      if (isDuplicate) {
+        console.log('❌ Duplicate EWB detected');
+        return;
+      }
+      
+      const newEwb = {
+        id: Date.now(),
+        number: localInputValue.trim(),
+        status: 'idle',
+        result: null,
+        error: null
+      };
+      
+      console.log('✅ Adding EWB to list:', newEwb.number);
+      setEwbList(prev => [...prev, newEwb]);
+      setLocalInputValue('');
+      
+      // Robust focus management
+      const focusInput = () => {
+        if (inputRefs.current) {
+          inputRefs.current.focus();
+          inputRefs.current.setSelectionRange(0, 0);
+        }
+      };
+      
+      // Multiple focus attempts to ensure success
+      setTimeout(focusInput, 5);
+      setTimeout(focusInput, 15);
+      setTimeout(focusInput, 30);
+    };
+
+    const handleInputChange = (e) => {
+      const rawValue = e.target.value;
+      
+      // Check for comma or + - this triggers adding the EWB
+      if (rawValue.includes(',') || rawValue.includes('+')) {
+        const beforeTrigger = rawValue.split(/[,+]/)[0].trim();
+        console.log('🔤 Trigger detected, processing:', beforeTrigger);
+        
+        if (beforeTrigger) {
+          const formattedValue = formatEwbWithHyphens(beforeTrigger);
+          const digits = beforeTrigger.replace(/\D/g, '');
+          
+          if (digits.length === 12) {
+            setLocalInputValue(formattedValue);
+            setTimeout(() => {
+              addToListAndClear();
+            }, 5);
+          } else {
+            setLocalInputValue(formattedValue);
+          }
+        } else {
+          setLocalInputValue('');
+        }
+        return;
+      }
+
+      // Normal typing - format with hyphens
+      const formattedValue = formatEwbWithHyphens(rawValue);
+      setLocalInputValue(formattedValue);
+    };
+
+    const handleKeyDown = (e) => {
+      // Handle Enter key
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const digits = localInputValue.replace(/\D/g, '');
+        
+        if (digits.length === 12 && localInputValue.trim()) {
+          console.log('⏎ Enter pressed, adding EWB:', localInputValue);
+          addToListAndClear();
+        }
+      }
+      
+      // Handle comma key (keyCode 188 or key ',')
+      if (e.key === ',' || e.keyCode === 188) {
+        e.preventDefault();
+        const digits = localInputValue.replace(/\D/g, '');
+        
+        if (digits.length === 12 && localInputValue.trim()) {
+          console.log('🔤 Comma key pressed, adding EWB:', localInputValue);
+          addToListAndClear();
+        }
+      }
+      
+      // Handle + key (keyCode 107 or key '+')
+      if (e.key === '+' || e.keyCode === 107 || e.keyCode === 61) {
+        e.preventDefault();
+        const digits = localInputValue.replace(/\D/g, '');
+        
+        if (digits.length === 12 && localInputValue.trim()) {
+          console.log('➕ Plus key pressed, adding EWB:', localInputValue);
+          addToListAndClear();
+        }
       }
     };
-  }, [validationTimeout]);
+
+    const handleAddClick = () => {
+      const digits = localInputValue.replace(/\D/g, '');
+      
+      if (digits.length === 12 && localInputValue.trim()) {
+        console.log('➕ Add button clicked, adding EWB:', localInputValue);
+        addToListAndClear();
+      }
+    };
+
+    return (
+      <div className="w-full">
+        {/* Single EWB Input */}
+        <div className="mb-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              ref={(el) => {
+                if (el) {
+                  inputRefs.current = el;
+                }
+              }}
+              value={localInputValue}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              className="ewb-input flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 text-sm lg:text-base"
+              placeholder="🚛 Type E-way bill (e.g., 4521-1235-5451) - Press comma/+ or click + to add"
+              tabIndex={-1}
+              maxLength={14}
+              autoComplete="off"
+            />
+            
+            {/* Add Button - shows when there's exactly 12 digits */}
+            {localInputValue.trim() && localInputValue.replace(/\D/g, '').length === 12 && (
+              <button
+                onClick={handleAddClick}
+                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md text-sm font-semibold"
+                title="Add E-way bill"
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          
+          {/* Helper text */}
+          <div className="mt-1 text-xs text-gray-600">
+            💡 Type 12-digit E-way bill number and press <kbd className="bg-gray-100 px-1 rounded">comma</kbd>, <kbd className="bg-gray-100 px-1 rounded">+</kbd>, <kbd className="bg-gray-100 px-1 rounded">Enter</kbd> or click <kbd className="bg-gray-100 px-1 rounded">+</kbd> button to add
+          </div>
+        </div>
+
+        {/* EWB List Display */}
+        {ewbList.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-purple-700 mb-2">
+              E-way Bills ({ewbList.length})
+            </div>
+            {ewbList.map((ewb) => (
+              <div key={ewb.id} className="bg-white border-2 border-purple-200 rounded-lg p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-gray-800">{ewb.number}</div>
+                      {ewb.status === 'verified' && ewb.result && (
+                        <div className="text-xs text-emerald-600 mt-1">
+                          {ewb.result.fromTrdName} → {ewb.result.toTrdName}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Status Icons */}
+                    <div className="flex items-center gap-2">
+                      {ewb.status === 'validating' && (
+                        <div className="flex items-center gap-1 text-blue-600">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-xs">Validating...</span>
+                        </div>
+                      )}
+                      {ewb.status === 'verified' && (
+                        <div className="flex items-center gap-1 text-emerald-600">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs font-semibold">Verified</span>
+                        </div>
+                      )}
+                      {ewb.status === 'failed' && (
+                        <div className="flex items-center gap-1 text-red-600">
+                          <XCircle className="w-4 h-4" />
+                          <span className="text-xs">Failed</span>
+                        </div>
+                      )}
+                      {ewb.status === 'idle' && (
+                        <div className="flex items-center gap-1 text-gray-500">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="text-xs">Not verified</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-1">
+                    {/* Validate Button */}
+                    {(ewb.status === 'idle' || ewb.status === 'failed') && (
+                      <button
+                        onClick={() => validateSingleEwb(ewb.id)}
+                        disabled={validatingEwbId === ewb.id}
+                        className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-all text-xs font-semibold"
+                        title="Validate E-way bill"
+                      >
+                        <Shield className="w-3 h-3" />
+                      </button>
+                    )}
+                    
+                    {/* View Details Button */}
+                    {ewb.status === 'verified' && ewb.result && (
+                      <button
+                        onClick={() => {
+                          setSelectedEwbForDetails(ewb.result);
+                          setShowEwbValidator(true);
+                        }}
+                        className="px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-all text-xs font-semibold"
+                        title="View details"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </button>
+                    )}
+                    
+                    {/* Remove Button */}
+                    <button
+                      onClick={() => removeEwbFromList(ewb.id)}
+                      className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-all text-xs font-semibold"
+                      title="Remove E-way bill"
+                    >
+                      <XCircle className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error Display */}
+                {ewb.status === 'failed' && ewb.error && (
+                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    {ewb.error}
+                  </div>
+                )}
+                
+                {/* Success Details */}
+                {ewb.status === 'verified' && ewb.result && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
+                      <div className="text-xs text-emerald-600 font-semibold">Value</div>
+                      <div className="text-xs font-bold text-gray-800">₹{ewb.result.totInvValue?.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
+                      <div className="text-xs text-emerald-600 font-semibold">Distance</div>
+                      <div className="text-xs font-bold text-gray-800">{ewb.result.actualDist} km</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleFormClose = () => {
-    setEwbValidationStatus('idle');
-    setEwbValidationResult(null);
-    setEwbValidationError(null);
-    if (validationTimeout) {
-      clearTimeout(validationTimeout);
-      setValidationTimeout(null);
-    }
     setShowForm(false);
   };
 
@@ -422,115 +718,16 @@ const ManualBiltyForm = ({
                 </div>
               )}
 
-              {/* E-way Bill Section */}
+              {/* Multiple E-way Bill Section */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-blue-600" />
-                  E-way Bill (Optional)
+                  E-way Bills (Optional)
                 </h4>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    E-way Bill Number
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={formData.e_way_bill}
-                        onChange={handleEwayBillChange}
-                        tabIndex={-1}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black bg-white transition-colors ${
-                          ewbValidationStatus === 'verified' 
-                            ? 'border-emerald-400 bg-emerald-50' 
-                            : ewbValidationStatus === 'failed'
-                            ? 'border-red-400 bg-red-50'
-                            : ewbValidationStatus === 'validating'
-                            ? 'border-blue-400 bg-blue-50'
-                            : 'border-gray-300'
-                        }`}
-                        placeholder="1234-1234-1234 (optional)"
-                        maxLength={14}
-                      />
-                      
-                      {ewbValidationStatus !== 'idle' && (
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                          {ewbValidationStatus === 'validating' && (
-                            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                          )}
-                          {ewbValidationStatus === 'verified' && (
-                            <CheckCircle className="w-5 h-5 text-emerald-600" />
-                          )}
-                          {ewbValidationStatus === 'failed' && (
-                            <XCircle className="w-5 h-5 text-red-600" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {formData.e_way_bill && formData.e_way_bill.length >= 10 && (
-                        <button
-                          type="button"
-                          onClick={() => validateEwbInBackground()}
-                          disabled={ewbValidationStatus === 'validating'}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 font-medium"
-                          title="Validate E-way Bill"
-                        >
-                          <Shield className="w-4 h-4" />
-                          {ewbValidationStatus === 'validating' ? 'Validating...' : 'Validate'}
-                        </button>
-                      )}
-
-                      {ewbValidationStatus === 'verified' && (
-                        <button
-                          type="button"
-                          onClick={() => setShowEwbValidator(true)}
-                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
-                          title="View full E-way bill details"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Details
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Validation Status Messages */}
-                  {ewbValidationStatus === 'validating' && (
-                    <div className="flex items-center gap-2 mt-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Validating E-way Bill...</span>
-                    </div>
-                  )}
-
-                  {ewbValidationStatus === 'verified' && ewbValidationResult && (
-                    <div className="mt-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle className="w-5 h-5 text-emerald-600" />
-                        <span className="text-sm font-bold text-emerald-800">✅ E-way Bill Verified</span>
-                      </div>
-                      <div className="text-sm text-emerald-700 space-y-1">
-                        <p>Status: <span className="font-semibold">{ewbValidationResult.status === 'ACT' ? 'Active' : ewbValidationResult.status}</span></p>
-                        <p>From: <span className="font-semibold">{ewbValidationResult.fromTrdName}</span></p>
-                        <p>To: <span className="font-semibold">{ewbValidationResult.toTrdName}</span></p>
-                      </div>
-                    </div>
-                  )}
-
-                  {ewbValidationStatus === 'failed' && ewbValidationError && (
-                    <div className="mt-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <XCircle className="w-5 h-5 text-red-600" />
-                        <span className="text-sm font-bold text-red-800">❌ Validation Failed</span>
-                      </div>
-                      <p className="text-sm text-red-700">{ewbValidationError}</p>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-gray-500 mt-2">
-                    12-digit E-way bill number in format: 1234-1234-1234 (optional - excluded from tab order)
-                  </p>
-                </div>
+                <MultipleEwbSection />
+                <p className="text-xs text-gray-500 mt-2">
+                  Multiple E-way bills supported. Format: 1234-1234-1234 (excluded from tab order)
+                </p>
               </div>
 
               {/* Basic Information Section */}
@@ -885,11 +1082,13 @@ const ManualBiltyForm = ({
       {/* E-way Bill Validator Modal */}
       {showEwbValidator && (
         <EwbValidatorManual
-          ewbNumber={formData.e_way_bill}
+          ewbNumber={selectedEwbForDetails?.ewbNo || ''}
           isOpen={showEwbValidator}
-          onClose={() => setShowEwbValidator(false)}
-          validationResult={ewbValidationResult}
-          onValidationComplete={handleEwbValidationComplete}
+          onClose={() => {
+            setShowEwbValidator(false);
+            setSelectedEwbForDetails(null);
+          }}
+          validationResult={selectedEwbForDetails}
         />
       )}
     </>

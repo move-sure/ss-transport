@@ -1,7 +1,7 @@
 'use client';
 
 import { 
-  FileText, Edit2, Trash2, MapPin, Users, Package, Weight, Shield, Building2
+  FileText, Edit2, Trash2, Shield
 } from 'lucide-react';
 import { formatCurrency, formatWeight } from './manual-helper';
 
@@ -78,147 +78,169 @@ const ManualBiltyTable = ({
             Found {dataToShow.length} record{dataToShow.length !== 1 ? 's' : ''}
           </p>
         )}
-      </div>
-
-      <div className="overflow-x-auto w-full">
-        <table className="w-full min-w-full divide-y divide-gray-200">
+      </div>      <div className="overflow-x-auto w-full">
+        <table className="w-full min-w-full divide-y divide-gray-200 text-xs">
           <thead className="bg-gray-50">
-            <tr>              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manual/GR No</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consignor/Consignee</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contents/PVT Marks</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-way Bill</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packages/Weight</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Delivery</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <tr>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Branch</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Station/GR</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Consignor/Consignee</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Contents/E-way Bill</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Pkgs/Wt</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Payment</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Amount</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Created</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Updated</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Actions</th>
             </tr>
           </thead>          <tbody className="bg-white divide-y divide-gray-200">
             {dataToShow.map((summary) => (
-              <tr key={summary.id} className="hover:bg-gray-50">                {/* Branch Column */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-blue-500" />
-                      {summary.branches?.branch_name || summary.branch?.branch_name || 'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Code: {summary.branches?.branch_code || summary.branch?.branch_code || 'N/A'}
-                    </div>
+              <tr key={summary.id} className="hover:bg-gray-50">
+                {/* Branch Column */}
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <div className="text-xs font-medium text-gray-900">
+                    {summary.branch?.branch_name || 'N/A'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {summary.branch?.branch_code || 'N/A'}
                   </div>
                 </td>
                 
-                {/* Manual/GR No Column */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      {summary.station}
-                    </div>
-                    <div className="text-sm text-gray-500">GR: {summary.gr_no}</div>
+                {/* Station/GR No Column */}
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <div className="text-xs font-medium text-gray-900">
+                    {summary.station}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    GR: {summary.gr_no}
                   </div>
                 </td>
                 
                 {/* Consignor/Consignee Column */}
-                <td className="px-4 py-4">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-gray-400" />
-                      {summary.consignor || '-'}
-                    </div>
-                    <div className="text-sm text-gray-500">To: {summary.consignee || '-'}</div>
+                <td className="px-2 py-2">
+                  <div className="text-xs font-medium text-gray-900 truncate">
+                    {summary.consignor || '-'}
                   </div>
-                </td>                
-                {/* Contents/PVT Marks Column */}
-                <td className="px-4 py-4">
-                  <div>
-                    <div className="text-sm text-gray-900 font-medium">{summary.contents || '-'}</div>
-                    {summary.pvt_marks && (
-                      <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded mt-1 inline-block">
-                        <span className="font-medium">PVT:</span> {summary.pvt_marks}
-                      </div>
-                    )}
+                  <div className="text-xs text-gray-500 truncate">
+                    To: {summary.consignee || '-'}
                   </div>
                 </td>
                 
-                {/* E-way Bill Column */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <div>
-                    {summary.e_way_bill ? (
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-gray-900 bg-blue-50 px-2 py-1 rounded border">
-                          <span className="text-blue-600">EWB:</span> {summary.e_way_bill}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, e_way_bill: summary.e_way_bill }));
-                            setShowEwbValidator(true);
-                          }}
-                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                          title="Validate E-way Bill"
-                        >
-                          <Shield className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">No E-way Bill</span>
-                    )}
+                {/* Contents/E-way Bill Column */}
+                <td className="px-2 py-2">
+                  <div className="text-xs text-gray-900 font-medium truncate">
+                    {summary.contents || '-'}
                   </div>
+                  {summary.pvt_marks && (
+                    <div className="text-xs text-purple-600 bg-purple-50 px-1 py-0.5 rounded mt-0.5 inline-block">
+                      PVT: {summary.pvt_marks}
+                    </div>
+                  )}
+                  {summary.e_way_bill ? (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <div className="text-xs text-blue-600 bg-blue-50 px-1 py-0.5 rounded border">
+                        EWB: {summary.e_way_bill}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, e_way_bill: summary.e_way_bill }));
+                          setShowEwbValidator(true);
+                        }}
+                        className="p-0.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                        title="Validate E-way Bill"
+                      >
+                        <Shield className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400 mt-0.5">No E-way Bill</div>
+                  )}
                 </td>
                 
                 {/* Packages/Weight Column */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{summary.no_of_packets} packages</div>
-                  <div className="text-sm text-gray-500">{formatWeight(summary.weight)}</div>
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <div className="text-xs text-gray-900">{summary.no_of_packets} pkgs</div>
+                  <div className="text-xs text-gray-500">{formatWeight(summary.weight)}</div>
                 </td>
                 
-                {/* Payment & Delivery Column */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                {/* Payment Column */}
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                     getCombinedOptionColor(getCombinedValue(summary.payment_status, summary.delivery_type))
                   }`}>
                     {COMBINED_OPTIONS.find(opt => 
                       opt.payment_status === summary.payment_status && opt.delivery_type === summary.delivery_type
-                    )?.label || `${summary.payment_status || 'N/A'} / ${summary.delivery_type || 'N/A'}`}
+                    )?.label || `${summary.payment_status || 'N/A'}`}
                   </span>
                 </td>
-                  {/* Amount Column */}
-                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                
+                {/* Amount Column */}
+                <td className="px-2 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
                   {formatCurrency(summary.amount)}
                 </td>
                 
-                {/* Created Date Column */}
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {summary.created_at ? new Date(summary.created_at).toLocaleDateString('en-GB') : 'N/A'}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {summary.created_at ? new Date(summary.created_at).toLocaleTimeString('en-GB', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      }) : ''}
-                    </span>
+                {/* Created Column */}
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <div className="text-xs font-medium text-gray-900">
+                    {summary.creator?.name || summary.creator?.username || 'Unknown'}
                   </div>
+                  <div className="text-xs text-gray-500">
+                    {summary.created_at ? new Date(summary.created_at).toLocaleDateString('en-GB', { 
+                      day: '2-digit', 
+                      month: '2-digit', 
+                      year: '2-digit' 
+                    }) : 'N/A'}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {summary.created_at ? new Date(summary.created_at).toLocaleTimeString('en-GB', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    }) : ''}
+                  </div>
+                </td>
+
+                {/* Updated Column */}
+                <td className="px-2 py-2 whitespace-nowrap">
+                  {summary.updated_at && summary.updated_at !== summary.created_at ? (
+                    <div>
+                      <div className="text-xs font-medium text-blue-600">
+                        {summary.updater?.name || summary.updater?.username || 'Unknown'}
+                      </div>
+                      <div className="text-xs text-blue-500">
+                        {new Date(summary.updated_at).toLocaleDateString('en-GB', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          year: '2-digit' 
+                        })}
+                      </div>
+                      <div className="text-xs text-blue-400">
+                        {new Date(summary.updated_at).toLocaleTimeString('en-GB', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400">null</div>
+                  )}
                 </td>
                 
                 {/* Actions Column */}
-                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex items-center gap-2">
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleEdit(summary)}
                       className="text-purple-600 hover:text-purple-900 p-1 hover:bg-purple-50 rounded"
                       title="Edit"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(summary.id)}
                       className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded"
                       title="Delete"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 </td>

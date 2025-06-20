@@ -101,13 +101,34 @@ export default function StationBiltySummaryPage() {
       loadBranches();
     }
   }, [user?.id]);
-
   // Initialize default branch when branches are loaded
   useEffect(() => {
     if (branches.length > 0 && !selectedBranch) {
       initializeDefaultBranch();
     }
-  }, [branches, user?.user_metadata?.branch_id]);
+  }, [branches, user?.branch_id, user?.user_metadata?.branch_id]);
+  // Update form branch_id when selected branch changes (if form is open)
+  useEffect(() => {
+    if (showForm && selectedBranch) {
+      setFormData(prev => ({
+        ...prev,
+        branch_id: selectedBranch.id
+      }));
+    }
+  }, [selectedBranch, showForm, setFormData]);
+
+  // Debug user data structure
+  useEffect(() => {
+    if (user) {
+      console.log('Manual Page - User data structure:', {
+        id: user.id,
+        branch_id: user.branch_id,
+        user_metadata: user.user_metadata,
+        full_user: user
+      });
+    }
+  }, [user]);
+
   // Load branches from database
   const loadBranches = async () => {
     try {
@@ -132,8 +153,7 @@ export default function StationBiltySummaryPage() {
       setLoadingBranches(false);
     }
   };
-  
-  // Initialize default branch from localStorage or user's branch
+    // Initialize default branch from localStorage or user's branch
   const initializeDefaultBranch = () => {
     try {
       const savedBranchId = localStorage.getItem('selectedBranchId');
@@ -145,9 +165,10 @@ export default function StationBiltySummaryPage() {
         }
       }
       
-      // Fallback to user's branch
-      if (user?.user_metadata?.branch_id) {
-        const userBranch = branches.find(b => b.id === user.user_metadata.branch_id);
+      // Fallback to user's branch - check both possible locations
+      const userBranchId = user?.branch_id || user?.user_metadata?.branch_id;
+      if (userBranchId) {
+        const userBranch = branches.find(b => b.id === userBranchId);
         if (userBranch) {
           setSelectedBranch(userBranch);
           localStorage.setItem('selectedBranchId', userBranch.id);
@@ -186,13 +207,20 @@ export default function StationBiltySummaryPage() {
   const handleNewRecord = () => {
     resetForm();
     
-    // Set staff_id and branch_id from selected branch or user data
+    // Set staff_id and branch_id from user data - ensure proper assignment
+    console.log('Setting up new record with user:', {
+      userId: user?.id,
+      userBranchId: user?.branch_id,
+      selectedBranchId: selectedBranch?.id
+    });
+    
     setFormData(prev => ({
       ...prev,
       staff_id: user?.id || null,
-      branch_id: selectedBranch?.id || user?.user_metadata?.branch_id || null
+      branch_id: selectedBranch?.id || user?.branch_id || null
     }));
     setShowForm(true);
+    
     // Focus on GR number field after form opens
     setTimeout(() => {
       const grNumberInput = document.querySelector('[data-tab-target="gr_no"]');
@@ -223,12 +251,12 @@ export default function StationBiltySummaryPage() {
       console.error('Error loading stats:', error);
     }
   };
-  
-  // Handle form submission
+    // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await saveSummary();
+      // Pass user data to saveSummary for proper staff_id and branch_id handling
+      await saveSummary(user);
       setShowForm(false);
       await loadStats();
       alert(editingId ? 'Record updated successfully!' : 'Record added successfully!');
@@ -237,10 +265,18 @@ export default function StationBiltySummaryPage() {
       alert(`Error saving record: ${error.message}`);
     }
   };
-
   // Handle edit
   const handleEdit = (summary) => {
     loadForEdit(summary);
+    
+    // Ensure branch selection matches the record's branch
+    if (summary.branch_id && branches.length > 0) {
+      const recordBranch = branches.find(b => b.id === summary.branch_id);
+      if (recordBranch && recordBranch.id !== selectedBranch?.id) {
+        setSelectedBranch(recordBranch);
+      }
+    }
+    
     setShowForm(true);
   };
 
@@ -392,9 +428,7 @@ export default function StationBiltySummaryPage() {
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleDelete={handleDelete}
-      />
-
-      {/* E-way Bill Validator Modal */}
+      />      {/* E-way Bill Validator Modal */}
       {showEwbValidator && (
         <EwbValidatorManual
           ewbNumber={formData.e_way_bill}
@@ -402,8 +436,7 @@ export default function StationBiltySummaryPage() {
           onClose={() => setShowEwbValidator(false)}
           validationResult={null}
           onValidationComplete={() => {}}
-        />
-      )}
+        />      )}
     </div>
   );
 }

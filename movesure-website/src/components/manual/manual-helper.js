@@ -103,15 +103,12 @@ export const useStationBiltySummary = () => {
       branch_id: null
     });
     setEditingId(null);
-  }, []);
-
-  // Load all summary data with pagination support
+  }, []);  // Load all summary data with pagination support
   const loadSummaryData = useCallback(async (limit = 50, offset = 0) => {
     try {
       setLoading(true);
       
-      // Always use basic query and enrich with branch data separately
-      // This approach handles NULL branch_id values gracefully
+      // Use basic query first, then enrich with related data
       const { data, error, count } = await supabase
         .from('station_bilty_summary')
         .select('*', { count: 'exact' })
@@ -120,48 +117,63 @@ export const useStationBiltySummary = () => {
 
       if (error) throw error;
 
-      // Enrich with branch data for records that have branch_id
+      // Enrich with branch and user data if records exist
       let enrichedData = data || [];
       
       if (enrichedData.length > 0) {
-        // Get unique branch IDs, filtering out null/undefined values
+        // Get unique IDs for joins
         const branchIds = [...new Set(enrichedData.map(item => item.branch_id).filter(Boolean))];
+        const staffIds = [...new Set(enrichedData.map(item => item.staff_id).filter(Boolean))];
+        const updaterIds = [...new Set(enrichedData.map(item => item.updated_by).filter(Boolean))];
         
+        // Fetch branch data
+        let branchesMap = {};
         if (branchIds.length > 0) {
           try {
-            const { data: branches, error: branchError } = await supabase
+            const { data: branches } = await supabase
               .from('branches')
               .select('id, branch_name, branch_code')
               .in('id', branchIds);
             
-            if (!branchError && branches) {
-              // Map branch data to records
-              enrichedData = enrichedData.map(item => ({
-                ...item,
-                branch: item.branch_id ? branches.find(b => b.id === item.branch_id) || null : null
-              }));
-            } else {
-              // If branch query fails, just set branch to null for all records
-              enrichedData = enrichedData.map(item => ({
-                ...item,
-                branch: null
-              }));
+            if (branches) {
+              branchesMap = branches.reduce((acc, branch) => {
+                acc[branch.id] = branch;
+                return acc;
+              }, {});
             }
           } catch (branchError) {
-            console.warn('Error fetching branch data:', branchError);
-            // Set branch to null for all records if branch query fails
-            enrichedData = enrichedData.map(item => ({
-              ...item,
-              branch: null
-            }));
+            console.warn('Error fetching branches:', branchError);
           }
-        } else {
-          // No records have branch_id, set branch to null for all
-          enrichedData = enrichedData.map(item => ({
-            ...item,
-            branch: null
-          }));
         }
+        
+        // Fetch user data (creators and updaters)
+        let usersMap = {};
+        const allUserIds = [...new Set([...staffIds, ...updaterIds])];
+        if (allUserIds.length > 0) {
+          try {
+            const { data: users } = await supabase
+              .from('users')
+              .select('id, name, username')
+              .in('id', allUserIds);
+            
+            if (users) {
+              usersMap = users.reduce((acc, user) => {
+                acc[user.id] = user;
+                return acc;
+              }, {});
+            }
+          } catch (userError) {
+            console.warn('Error fetching users:', userError);
+          }
+        }
+        
+        // Enrich the data
+        enrichedData = enrichedData.map(item => ({
+          ...item,
+          branch: item.branch_id ? branchesMap[item.branch_id] || null : null,
+          creator: item.staff_id ? usersMap[item.staff_id] || null : null,
+          updater: item.updated_by ? usersMap[item.updated_by] || null : null
+        }));
       }
 
       setSummaryData(enrichedData);
@@ -173,7 +185,6 @@ export const useStationBiltySummary = () => {
       setLoading(false);
     }
   }, []);
-
   // Simple search function (searches ALL records, not just paginated ones)
   const searchSummaries = useCallback(async (term) => {
     if (!term || term.length < 2) {
@@ -194,33 +205,59 @@ export const useStationBiltySummary = () => {
 
       if (error) throw error;
 
-      // Enrich with branch data if possible
+      // Enhance with branch and user data similar to loadSummaryData
       let enrichedData = data || [];
       
       if (enrichedData.length > 0) {
         const branchIds = [...new Set(enrichedData.map(item => item.branch_id).filter(Boolean))];
+        const staffIds = [...new Set(enrichedData.map(item => item.staff_id).filter(Boolean))];
+        const updatedByIds = [...new Set(enrichedData.map(item => item.updated_by).filter(Boolean))];
+        const allUserIds = [...new Set([...staffIds, ...updatedByIds])];
         
+        let branchMap = {};
         if (branchIds.length > 0) {
           try {
-            const { data: branches, error: branchError } = await supabase
+            const { data: branches } = await supabase
               .from('branches')
               .select('id, branch_name, branch_code')
               .in('id', branchIds);
             
-            if (!branchError && branches) {
-              enrichedData = enrichedData.map(item => ({
-                ...item,
-                branch: item.branch_id ? branches.find(b => b.id === item.branch_id) : null
-              }));
+            if (branches) {
+              branchMap = branches.reduce((acc, branch) => {
+                acc[branch.id] = branch;
+                return acc;
+              }, {});
             }
-          } catch (branchError) {
-            console.warn('Error fetching branch data for search:', branchError);
-            enrichedData = enrichedData.map(item => ({
-              ...item,
-              branch: null
-            }));
+          } catch (error) {
+            console.warn('Could not load branch data for search:', error);
           }
         }
+        
+        let userMap = {};
+        if (allUserIds.length > 0) {
+          try {
+            const { data: users } = await supabase
+              .from('users')
+              .select('id, name, username')
+              .in('id', allUserIds);
+            
+            if (users) {
+              userMap = users.reduce((acc, user) => {
+                acc[user.id] = user;
+                return acc;
+              }, {});
+            }
+          } catch (error) {
+            console.warn('Could not load user data for search:', error);
+          }
+        }
+        
+        enrichedData = enrichedData.map(item => ({
+          ...item,
+          branch: item.branch_id ? branchMap[item.branch_id] || null : null,
+          creator: item.staff_id ? userMap[item.staff_id] || null : null,
+          updater: item.updated_by ? userMap[item.updated_by] || null : null
+        }));
       }
 
       setSearchResults(enrichedData);
@@ -241,7 +278,7 @@ export const useStationBiltySummary = () => {
       
       let query = supabase
         .from('station_bilty_summary')
-        .select('*'); // Remove join to avoid issues, enrich separately
+        .select('*');
 
       // Build dynamic filters with proper AND logic
       
@@ -296,9 +333,10 @@ export const useStationBiltySummary = () => {
         query = query.eq('branch_id', filters.branchId);
       }
       
-      // Order by created_at descending - NO LIMIT for comprehensive search
+      // Order by created_at descending
       query = query.order('created_at', { ascending: false });
-        console.log('Executing advanced search query...');
+      
+      console.log('Executing advanced search query...');
       const { data, error } = await query;
       
       if (error) {
@@ -306,39 +344,63 @@ export const useStationBiltySummary = () => {
         throw error;
       }
 
-      console.log('Advanced search raw results:', data?.length || 0, 'records');
-
-      // Enrich with branch data
+      console.log('Advanced search results:', data?.length || 0, 'records');
+      
+      // Enhance with branch and user data similar to other functions
       let enrichedData = data || [];
       
       if (enrichedData.length > 0) {
         const branchIds = [...new Set(enrichedData.map(item => item.branch_id).filter(Boolean))];
+        const staffIds = [...new Set(enrichedData.map(item => item.staff_id).filter(Boolean))];
+        const updatedByIds = [...new Set(enrichedData.map(item => item.updated_by).filter(Boolean))];
+        const allUserIds = [...new Set([...staffIds, ...updatedByIds])];
         
+        let branchMap = {};
         if (branchIds.length > 0) {
           try {
-            const { data: branches, error: branchError } = await supabase
+            const { data: branches } = await supabase
               .from('branches')
               .select('id, branch_name, branch_code')
               .in('id', branchIds);
             
-            if (!branchError && branches) {
-              enrichedData = enrichedData.map(item => ({
-                ...item,
-                branch: item.branch_id ? branches.find(b => b.id === item.branch_id) : null
-              }));
-              console.log('Advanced search enriched with branch data');
+            if (branches) {
+              branchMap = branches.reduce((acc, branch) => {
+                acc[branch.id] = branch;
+                return acc;
+              }, {});
             }
-          } catch (branchError) {
-            console.warn('Error fetching branch data for advanced search:', branchError);
-            enrichedData = enrichedData.map(item => ({
-              ...item,
-              branch: null
-            }));
+          } catch (error) {
+            console.warn('Could not load branch data for advanced search:', error);
           }
         }
+        
+        let userMap = {};
+        if (allUserIds.length > 0) {
+          try {
+            const { data: users } = await supabase
+              .from('users')
+              .select('id, name, username')
+              .in('id', allUserIds);
+            
+            if (users) {
+              userMap = users.reduce((acc, user) => {
+                acc[user.id] = user;
+                return acc;
+              }, {});
+            }
+          } catch (error) {
+            console.warn('Could not load user data for advanced search:', error);
+          }
+        }
+        
+        enrichedData = enrichedData.map(item => ({
+          ...item,
+          branch: item.branch_id ? branchMap[item.branch_id] || null : null,
+          creator: item.staff_id ? userMap[item.staff_id] || null : null,
+          updater: item.updated_by ? userMap[item.updated_by] || null : null
+        }));
       }
-
-      console.log('Advanced search final results:', enrichedData.length, 'records');
+      
       setSearchResults(enrichedData);
       return enrichedData;
     } catch (error) {
@@ -362,9 +424,8 @@ export const useStationBiltySummary = () => {
 
     return () => clearTimeout(timer);
   }, [searchTerm, searchSummaries]);
-
   // Save or update summary data
-  const saveSummary = useCallback(async () => {
+  const saveSummary = useCallback(async (currentUser = null) => {
     try {
       setSaving(true);
 
@@ -372,7 +433,18 @@ export const useStationBiltySummary = () => {
       const validationError = validateForm();
       if (validationError) {
         throw new Error(validationError);
-      }
+      }      // Ensure we have proper user and branch IDs
+      const actualStaffId = formData.staff_id || currentUser?.id || null;
+      const actualBranchId = formData.branch_id || currentUser?.branch_id || null;
+      
+      // Get the current user ID for updates (this should be the person making the change)
+      const currentUserId = currentUser?.id || null;      console.log('Saving manual bilty with:', {
+        staff_id: actualStaffId, // Original creator ID
+        branch_id: actualBranchId,
+        current_user_id: currentUserId, // User performing current action
+        editing: !!editingId,
+        will_set_updated_by: editingId ? currentUserId : 'N/A (new record)'
+      });
 
       // Prepare data for saving
       const saveData = {
@@ -388,15 +460,17 @@ export const useStationBiltySummary = () => {
         pvt_marks: formData.pvt_marks?.toString().trim() || null,
         delivery_type: formData.delivery_type || null,
         e_way_bill: formData.e_way_bill?.toString().trim() || null,
-        staff_id: formData.staff_id || null,
-        branch_id: formData.branch_id || null,
+        staff_id: actualStaffId, // This remains the creator's ID
+        branch_id: actualBranchId,
         updated_at: new Date().toISOString()
       };
 
-      let result;
-
-      if (editingId) {
-        // Update existing record
+      let result;      if (editingId) {
+        // Update existing record - set updated_by to current user performing the update
+        saveData.updated_by = currentUserId; // Use current user's ID, not creator's ID
+        
+        console.log('Updating record with updated_by:', currentUserId);
+        
         const { data, error } = await supabase
           .from('station_bilty_summary')
           .update(saveData)

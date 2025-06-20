@@ -162,7 +162,7 @@ const BiltySearchTable = ({
             </button>
             
             {selectedBilties.size > 0 && (
-              <span className="text-xs text-slate-600 bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                 {selectedBilties.size} selected
               </span>
             )}
@@ -196,9 +196,14 @@ const BiltySearchTable = ({
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
                 Amount
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-24">
+              </th>              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-24">
                 Status
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-28">
+                Challan Details
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
+                Created By & Date
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-20">
                 Actions
@@ -297,9 +302,7 @@ const BiltySearchTable = ({
                       </div>
                       <div>{getPaymentBadge(bilty.payment_mode)}</div>
                     </div>
-                  </td>
-
-                  {/* Status */}
+                  </td>                  {/* Status */}
                   <td className="px-3 py-2">
                     <div className="space-y-1">
                       <div>{getStatusBadge(bilty.saving_option)}</div>
@@ -308,6 +311,33 @@ const BiltySearchTable = ({
                           {bilty.no_of_pkg} pkgs
                         </div>
                       )}
+                    </div>
+                  </td>
+
+                  {/* Challan Details */}
+                  <td className="px-3 py-2">
+                    <div className="space-y-1">
+                      {bilty.transit_details && bilty.transit_details.length > 0 ? (
+                        <span className="text-sm font-medium text-blue-600">
+                          {bilty.transit_details[0].challan_no}
+                        </span>
+                      ) : (
+                        <span className="text-sm font-medium text-green-600">
+                          AVL
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Created By & Date */}
+                  <td className="px-3 py-2">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-slate-900">
+                        {bilty.created_by_user ? (bilty.created_by_user.name || bilty.created_by_user.username) : 'N/A'}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        {formatDate(bilty.created_at)}
+                      </div>
                     </div>
                   </td>
 

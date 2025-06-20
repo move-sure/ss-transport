@@ -159,11 +159,16 @@ export default function BiltySearch() {
 
       // Load all bilties (last 6 months by default)
       const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      
-      const { data, error } = await supabase
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);      const { data, error } = await supabase
         .from('bilty')
-        .select('*')
+        .select(`
+          *,
+          transit_details(
+            id,
+            challan_no,
+            gr_no
+          )
+        `)
         .eq('branch_id', user.branch_id)
         .eq('is_active', true)
         .gte('bilty_date', format(sixMonthsAgo, 'yyyy-MM-dd'))
@@ -174,7 +179,28 @@ export default function BiltySearch() {
         throw error;
       }
 
-      setAllBilties(data || []);
+      // Get unique staff IDs to fetch user data
+      const staffIds = [...new Set(data?.map(bilty => bilty.staff_id).filter(Boolean))];
+      
+      let usersData = [];
+      if (staffIds.length > 0) {
+        const { data: users, error: usersError } = await supabase
+          .from('users')
+          .select('id, username, name')
+          .in('id', staffIds);
+          
+        if (!usersError) {
+          usersData = users || [];
+        }
+      }
+
+      // Combine bilty data with user data
+      const biltiesWithUsers = data?.map(bilty => ({
+        ...bilty,
+        created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
+      })) || [];
+
+      setAllBilties(biltiesWithUsers);
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -242,12 +268,11 @@ export default function BiltySearch() {
     const selectedData = filteredBilties.filter(b => selectedBilties.has(b.id));
     exportToCSV(selectedData);
   }, [selectedBilties, filteredBilties]);
-
   const exportToCSV = (data) => {
     const headers = [
       'GR Number', 'Date', 'Consignor', 'Consignee', 'From City', 'To City',
       'Transport', 'Payment Mode', 'Packages', 'Weight', 'Rate', 'Amount',
-      'E-Way Bill', 'Invoice No', 'Status', 'Created At'
+      'E-Way Bill', 'Invoice No', 'Status', 'Challan Details', 'Created By', 'Created Date'
     ];
     
     const csvContent = [
@@ -268,6 +293,8 @@ export default function BiltySearch() {
         bilty.e_way_bill || 'N/A',
         bilty.invoice_no || 'N/A',
         bilty.saving_option,
+        bilty.transit_details && bilty.transit_details.length > 0 ? bilty.transit_details[0].challan_no : 'AVL',
+        bilty.created_by_user ? (bilty.created_by_user.name || bilty.created_by_user.username) : 'N/A',
         format(new Date(bilty.created_at), 'dd/MM/yyyy HH:mm')
       ].join(','))
     ].join('\n');

@@ -153,10 +153,25 @@ const BiltyDetailsModal = ({
                 <div className="flex justify-between">
                   <span className="text-slate-600">Delivery Type:</span>
                   <span className="font-semibold text-slate-900 capitalize">{bilty.delivery_type?.replace('-', ' ')}</span>
-                </div>
-                <div className="flex justify-between">
+                </div>                <div className="flex justify-between">
                   <span className="text-slate-600">Status:</span>
                   {getStatusBadge(bilty.saving_option)}
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Challan:</span>
+                  <span className="font-semibold text-slate-900">
+                    {bilty.transit_details && bilty.transit_details.length > 0 ? (
+                      <span className="text-blue-600">{bilty.transit_details[0].challan_no}</span>
+                    ) : (
+                      <span className="text-green-600">AVL</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Created By:</span>
+                  <span className="font-semibold text-slate-900">
+                    {bilty.created_by_user ? (bilty.created_by_user.name || bilty.created_by_user.username) : 'N/A'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Created:</span>

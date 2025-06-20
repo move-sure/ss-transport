@@ -76,8 +76,7 @@ const ChallanPDFPreview = ({
       
       // Handle mixed alphanumeric GR numbers properly
       return grA.localeCompare(grB, undefined, { numeric: true, sensitivity: 'base' });
-    });
-      // Calculate totals once
+    });    // Calculate totals once
     const totalPackages = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
     const totalWeight = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
     
@@ -114,11 +113,10 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text(`CHALLAN NO: ${selectedChallan?.challan_no || 'N/A'}`, pageWidth - margin, 10, { align: 'right' });
         doc.text(`DATE: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - margin, 14, { align: 'right' });
-        
-        // Add totals below date
+          // Add totals below date
         doc.setFontSize(7);
         doc.text(`TOTAL PACKAGES: ${totalPackages}`, pageWidth - margin, 18, { align: 'right' });
-        doc.text(`TOTAL WEIGHT: ${totalWeight.toFixed(2)} KG`, pageWidth - margin, 22, { align: 'right' });
+        doc.text(`TOTAL WEIGHT: ${Math.round(totalWeight)} KG`, pageWidth - margin, 22, { align: 'right' });
         
         // Driver & Truck Info (Top Left)
         doc.setFontSize(7);
@@ -187,10 +185,14 @@ const ChallanPDFPreview = ({
         
         // Row text with adjusted positions for new column widths
         doc.setTextColor(0, 0, 0);
+        
+        // Make S.No bigger and bold
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
         doc.text(srNo.toString(), margin + 2, currentY);
         
         // Make GR number bigger and bold
-        doc.setFontSize(9);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(bilty.gr_no || '', margin + 12, currentY);
           // Reset to normal for other fields
@@ -200,11 +202,9 @@ const ChallanPDFPreview = ({
         // Make Package column bigger font and bold
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text((bilty.no_of_pkg || 0).toString(), margin + 35, currentY);
-        
-        // Reset to normal for station (bigger width)
+        doc.text((bilty.no_of_pkg || 0).toString(), margin + 35, currentY);        // Reset to normal for station (bigger width)
         doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.text(bilty.to_city_code || '', margin + 45, currentY);
         
         // Fix pvt_marks display - handle both string and number cases
@@ -214,6 +214,7 @@ const ChallanPDFPreview = ({
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
+        doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, margin + 62, currentY);
         
         // Add empty remark field
@@ -292,10 +293,14 @@ const ChallanPDFPreview = ({
         
         // Row text with adjusted positions for new column widths
         doc.setTextColor(0, 0, 0);
+        
+        // Make S.No bigger and bold
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
         doc.text(srNo.toString(), rightColumnX + 2, currentY);
         
         // Make GR number bigger and bold
-        doc.setFontSize(9);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(bilty.gr_no || '', rightColumnX + 12, currentY);
           // Reset to normal for other fields
@@ -306,10 +311,9 @@ const ChallanPDFPreview = ({
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 35, currentY);
-        
-        // Reset to normal for station (bigger width)
+          // Reset to normal for station (bigger width)
         doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.text(bilty.to_city_code || '', rightColumnX + 45, currentY);
         
         // Fix pvt_marks display - handle both string and number cases
@@ -319,6 +323,7 @@ const ChallanPDFPreview = ({
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
+        doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
         // Add empty remark field
@@ -364,11 +369,10 @@ const ChallanPDFPreview = ({
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('SUMMARY:', margin, lastPageBottomY);
-    
-    doc.setFontSize(9);
+      doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Total Packages: ${totalPackages}`, margin, lastPageBottomY + 6);
-    doc.text(`Total Weight: ${totalWeight.toFixed(2)} KG`, margin, lastPageBottomY + 12);
+    doc.text(`Total Weight: ${Math.round(totalWeight)} KG`, margin, lastPageBottomY + 12);
     
     // Add signature area
     doc.text('Authorized Signatory: ____________________', pageWidth - margin - 80, lastPageBottomY + 6);
@@ -487,8 +491,7 @@ const ChallanPDFPreview = ({
     const totalWeight = sortedTransitBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
     const toPaidAmount = sortedTransitBiltiesData.filter(b => b.payment_mode === 'to-pay').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
     const paidAmount = sortedTransitBiltiesData.filter(b => b.payment_mode === 'paid').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
-    const totalEwayBills = sortedTransitBiltiesData.filter(bilty => bilty.e_way_bill && bilty.e_way_bill.trim() !== '').length;
-      // Table data with serial numbers - Convert text to CAPS
+    const totalEwayBills = sortedTransitBiltiesData.filter(bilty => bilty.e_way_bill && bilty.e_way_bill.trim() !== '').length;    // Table data with serial numbers - Convert text to CAPS
     const tableData = sortedTransitBiltiesData.map((bilty, index) => [
       (index + 1).toString(), // S.No
       (bilty.gr_no || '').toUpperCase(),
@@ -496,7 +499,7 @@ const ChallanPDFPreview = ({
       (bilty.consignee_name || '').toUpperCase(),
       (bilty.contain || '').toUpperCase(),
       (bilty.no_of_pkg || 0).toString(),
-      (bilty.wt || 0).toString(),
+      Math.round(bilty.wt || 0).toString(),
       bilty.payment_mode === 'to-pay' ? `${(bilty.total || 0).toFixed(2)}` : '',
       bilty.payment_mode === 'paid' ? `${(bilty.total || 0).toFixed(2)}` : '',
       (bilty.to_city_code || '').toUpperCase(),
@@ -531,7 +534,7 @@ const ChallanPDFPreview = ({
         rowPageBreak: 'avoid' // Prevent rows from breaking across pages
       },      columnStyles: {
         0: { halign: 'center', cellWidth: 15, fontStyle: 'bold' }, // S.No
-        1: { halign: 'center', cellWidth: 28, fontStyle: 'bold' }, // GR No
+        1: { halign: 'center', cellWidth: 28, fontStyle: 'bold', fontSize: 10 }, // GR No - bigger font
         2: { cellWidth: 35, overflow: 'linebreak', fontSize: 7.5 }, // Consignor - slightly smaller font
         3: { cellWidth: 35, overflow: 'linebreak', fontSize: 7.5 }, // Consignee - slightly smaller font
         4: { cellWidth: 18, overflow: 'linebreak' }, // Cont
@@ -560,11 +563,10 @@ const ChallanPDFPreview = ({
     
     // Add TOTAL row after table
     const tableEndY = doc.lastAutoTable.finalY + 5;
-    
-    // Add totals row
+      // Add totals row
     autoTable(doc, {
       startY: tableEndY,
-      body: [['', '', '', '', 'TOTAL', totalPackages.toString(), totalWeight.toFixed(2), toPaidAmount.toFixed(2), paidAmount.toFixed(2), '', '', totalEwayBills.toString()]],
+      body: [['', '', '', '', 'TOTAL', totalPackages.toString(), Math.round(totalWeight).toString(), toPaidAmount.toFixed(2), paidAmount.toFixed(2), '', '', totalEwayBills.toString()]],
       theme: 'grid',
       styles: { 
         fontSize: 9,
@@ -695,122 +697,119 @@ const ChallanPDFPreview = ({
           >
             <X className="w-6 h-6" />
           </button>
-        </div>
-
-        {/* Main Content - Split Layout */}
+        </div>        {/* Main Content - Split Layout */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Controls */}
-          <div className="w-1/2 p-6 border-r-2 border-purple-200 bg-white overflow-y-auto">
-            <div className="space-y-6">
+          <div className="w-1/4 p-4 border-r-2 border-purple-200 bg-white overflow-y-auto">
+            <div className="space-y-4">
               {/* Document Info Card */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 shadow-md">
-                <h4 className="text-lg font-bold text-black mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-purple-600" />
-                  Document Information
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-bold text-black mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-600" />
+                  Document Info
                 </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2 text-xs">
                   <div>
-                    <span className="font-semibold text-black">Type:</span>
-                    <p className="text-purple-800 font-bold">{type === 'loading' ? 'Loading Challan' : 'Transit Challan'}</p>
+                    <span className="font-semibold text-gray-600">Type:</span>
+                    <p className="text-purple-700 font-bold">{type === 'loading' ? 'Loading Challan' : 'Transit Challan'}</p>
                   </div>
                   {type === 'challan' && (
                     <div>
-                      <span className="font-semibold text-black">Challan No:</span>
-                      <p className="text-purple-800 font-bold">{selectedChallan?.challan_no}</p>
+                      <span className="font-semibold text-gray-600">Challan No:</span>
+                      <p className="text-purple-700 font-bold">{selectedChallan?.challan_no}</p>
                     </div>
                   )}
                   <div>
-                    <span className="font-semibold text-black">Date:</span>
-                    <p className="text-black">{format(new Date(), 'dd/MM/yyyy')}</p>
-                  </div>                  <div>
-                    <span className="font-semibold text-black">Total Bilties:</span>
-                    <p className="text-purple-800 font-bold">
-                      {type === 'loading' ? transitBilties.length : transitBilties.length}
-                    </p>
+                    <span className="font-semibold text-gray-600">Date:</span>
+                    <p className="text-gray-800">{format(new Date(), 'dd/MM/yyyy')}</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-600">Total Bilties:</span>
+                    <p className="text-purple-700 font-bold">{transitBilties.length}</p>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-4">
-                <h4 className="text-lg font-bold text-black mb-4">Actions</h4>
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-black">Actions</h4>
                 
                 <button
                   onClick={generatePDFBlob}
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
                 >
-                  <Eye className="w-5 h-5" />
-                  {loading ? 'Generating Preview...' : 'Generate Preview'}
+                  <Eye className="w-4 h-4" />
+                  {loading ? 'Generating...' : 'Generate Preview'}
                 </button>
 
                 <button
                   onClick={handleDownload}
                   disabled={loading || error || !pdfUrl}
-                  className="w-full bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-800 hover:to-purple-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
                 >
-                  <Download className="w-5 h-5" />
+                  <Download className="w-4 h-4" />
                   Download PDF
                 </button>
                 
                 <button
                   onClick={handlePrint}
                   disabled={loading || error || !pdfUrl}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
                 >
-                  <Printer className="w-5 h-5" />
-                  Print Document
+                  <Printer className="w-4 h-4" />
+                  Print
                 </button>
               </div>
 
               {/* Status Display */}
               {loading && (
-                <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                     <div>
-                      <div className="text-lg font-bold text-black">Generating PDF...</div>
-                      <div className="text-sm text-purple-600">This may take a moment</div>
+                      <div className="text-sm font-semibold text-blue-800">Generating PDF...</div>
+                      <div className="text-xs text-blue-600">Please wait</div>
                     </div>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="bg-red-100 p-2 rounded-lg">
-                      <FileText className="w-6 h-6 text-red-600" />
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-red-100 p-1 rounded">
+                      <FileText className="w-4 h-4 text-red-600" />
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-red-800">Error Generating PDF</div>
-                      <div className="text-red-600 text-sm">{error}</div>
+                      <div className="text-sm font-semibold text-red-800">Error</div>
+                      <div className="text-xs text-red-600">{error}</div>
                     </div>
                   </div>
                   <button
                     onClick={generatePDFBlob}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg transition-colors font-bold"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-semibold transition-colors"
                   >
                     Try Again
                   </button>
                 </div>
-              )}              {/* Summary Statistics */}
-              {(type === 'loading' && transitBilties.length > 0) || 
-               (type === 'challan' && transitBilties.length > 0) && (
-                <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 shadow-md">
-                  <h4 className="text-lg font-bold text-black mb-4">Summary</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">                    <div className="bg-white rounded-lg p-3 border border-purple-200">
-                      <span className="font-semibold text-black">Total Packages:</span>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {(type === 'loading' ? transitBilties : transitBilties)
-                          .reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}
+              )}
+
+              {/* Summary Statistics */}
+              {transitBilties.length > 0 && (
+                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-3">
+                  <h4 className="text-sm font-bold text-black mb-3">Summary</h4>
+                  <div className="space-y-2">
+                    <div className="bg-white rounded p-2 border border-gray-100">
+                      <span className="text-xs font-semibold text-gray-600">Total Packages:</span>
+                      <p className="text-lg font-bold text-purple-600">
+                        {transitBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}
                       </p>
                     </div>
-                    <div className="bg-white rounded-lg p-3 border border-purple-200">
-                      <span className="font-semibold text-black">Total Weight:</span>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {(type === 'loading' ? transitBilties : transitBilties)
-                          .reduce((sum, bilty) => sum + (bilty.wt || 0), 0).toFixed(2)} kg
+                    <div className="bg-white rounded p-2 border border-gray-100">
+                      <span className="text-xs font-semibold text-gray-600">Total Weight:</span>
+                      <p className="text-lg font-bold text-blue-600">
+                        {Math.round(transitBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg
                       </p>
                     </div>
                   </div>
@@ -820,16 +819,16 @@ const ChallanPDFPreview = ({
           </div>
 
           {/* Right Panel - PDF Preview */}
-          <div className="w-1/2 p-6 bg-gray-50 overflow-hidden flex flex-col">
-            <div className="mb-4">
+          <div className="w-3/4 p-4 bg-gray-50 overflow-hidden flex flex-col">
+            <div className="mb-3">
               <h4 className="text-lg font-bold text-black flex items-center gap-2">
                 <Eye className="w-5 h-5 text-purple-600" />
-                Document Preview
+                PDF Preview
               </h4>
-              <p className="text-sm text-gray-600">Real-time preview of your PDF document</p>
+              <p className="text-sm text-gray-600">Live preview of your document</p>
             </div>
 
-            <div className="flex-1 border-2 border-purple-300 rounded-xl overflow-hidden bg-white shadow-lg">
+            <div className="flex-1 border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-lg">
               {!loading && !error && pdfUrl && (
                 <iframe
                   ref={pdfViewerRef}
@@ -842,14 +841,14 @@ const ChallanPDFPreview = ({
               {!loading && !error && !pdfUrl && (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center p-8">
-                    <div className="bg-purple-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-10 h-10 text-purple-600" />
+                    <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-8 h-8 text-gray-600" />
                     </div>
-                    <div className="text-lg font-bold text-black mb-2">No Preview Available</div>
-                    <div className="text-gray-600 mb-4">Click &quot;Generate Preview&quot; to view the PDF</div>
+                    <div className="text-lg font-semibold text-gray-800 mb-2">No Preview Available</div>
+                    <div className="text-gray-600 mb-4">Click "Generate Preview" to view the PDF</div>
                     <button
                       onClick={generatePDFBlob}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-bold"
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-semibold"
                     >
                       Generate Preview
                     </button>
@@ -860,8 +859,8 @@ const ChallanPDFPreview = ({
               {loading && (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center p-8">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-                    <div className="text-lg font-bold text-black mb-2">Generating Preview...</div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                    <div className="text-lg font-semibold text-gray-800 mb-2">Generating Preview...</div>
                     <div className="text-purple-600">Please wait while we create your document</div>
                   </div>
                 </div>
@@ -870,41 +869,46 @@ const ChallanPDFPreview = ({
               {error && (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center p-8">
-                    <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-10 h-10 text-red-600" />
+                    <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-8 h-8 text-red-600" />
                     </div>
-                    <div className="text-lg font-bold text-red-800 mb-2">Preview Error</div>
-                    <div className="text-red-600 mb-4">{error}</div>
+                    <div className="text-lg font-semibold text-red-800 mb-2">Preview Error</div>
+                    <div className="text-red-600 mb-4 text-sm">{error}</div>
+                    <button
+                      onClick={generatePDFBlob}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold transition-colors"
+                    >
+                      Try Again
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t-2 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 rounded-b-xl">
-          <div className="flex items-center justify-between text-sm">            <div className="flex items-center gap-6 text-black">
+        </div>        {/* Footer */}
+        <div className="p-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-4 text-gray-700">
               {type === 'loading' && (
-                <span className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-purple-600" />
-                  Transit Bilties: <span className="font-bold text-purple-600">{transitBilties.length}</span>
+                <span className="flex items-center gap-1">
+                  <Package className="w-3 h-3 text-purple-600" />
+                  Bilties: <span className="font-bold text-purple-600">{transitBilties.length}</span>
                 </span>
               )}
               {type === 'challan' && (
                 <>
-                  <span className="flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-purple-600" />
+                  <span className="flex items-center gap-1">
+                    <Truck className="w-3 h-3 text-purple-600" />
                     Challan: <span className="font-bold text-purple-600">{selectedChallan?.challan_no}</span>
                   </span>
-                  <span className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-blue-600" />
+                  <span className="flex items-center gap-1">
+                    <Package className="w-3 h-3 text-blue-600" />
                     Bilties: <span className="font-bold text-blue-600">{transitBilties.length}</span>
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                     selectedChallan?.is_dispatched 
-                      ? 'bg-red-100 text-red-800 border border-red-200' 
-                      : 'bg-green-100 text-green-800 border border-green-200'
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-green-100 text-green-800'
                   }`}>
                     {selectedChallan?.is_dispatched ? 'DISPATCHED' : 'PENDING'}
                   </span>
@@ -912,8 +916,8 @@ const ChallanPDFPreview = ({
               )}
             </div>
             
-            <div className="text-xs text-gray-600 bg-white px-3 py-1 rounded-full border border-purple-200">
-              Generated: {format(new Date(), 'dd/MM/yyyy HH:mm:ss')}
+            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+              Generated: {format(new Date(), 'dd/MM/yyyy HH:mm')}
             </div>
           </div>
         </div>

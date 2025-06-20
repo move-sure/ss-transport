@@ -1057,176 +1057,215 @@ const PDFGenerator = ({
         </div>
       </div>
     );
-  }
-
-  return (
-    <div className="fixed inset-0 bg-gradient-to-br from-purple-50 to-blue-50 z-50 flex flex-col">
-      {/* Modern Header with movesure.io branding - Made smaller */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-500 shadow-2xl">
-        <div className="px-6 py-4">
-          {/* Updated navbar layout */}
-          <div className="flex justify-between items-center">
-            {/* Left side - movesure.io branding */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white">movesure.io</div>
-                <div className="w-16 h-0.5 bg-white bg-opacity-40 rounded-full"></div>
-              </div>
+  }  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full m-4 flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
+        {/* Minimal Header */}
+        <div className="flex items-center justify-between p-4 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-lg">
+              <FileText className="w-5 h-5" />
             </div>
+            <div>
+              <h3 className="text-lg font-bold">Bilty PDF - GR: {biltyData.gr_no}</h3>
+              <p className="text-purple-100 text-xs">Route: {fromCityData?.city_name || 'N/A'} → {toCityData?.city_name || 'N/A'} | ₹{biltyData.total}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => loadAllDataAndGeneratePreview()}
+              disabled={isGenerating}
+              className="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+              {isGenerating ? 'Generating...' : 'Refresh'}
+            </button>
+            
+            <button
+              onClick={printPDF}
+              disabled={!pdfUrl}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Print
+            </button>
+            
+            <button
+              onClick={downloadPDF}
+              disabled={!pdfUrl}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-            {/* Right side - Document info and action buttons */}
-            <div className="flex items-center gap-6">
-              {/* Document info */}
-              <div className="flex items-center gap-4 text-white text-opacity-90 text-sm">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  GR: <span className="font-semibold">SSTC-2025-26-{biltyData.gr_no}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  Route: {fromCityData?.city_name || 'N/A'} → {toCityData?.city_name || 'N/A'}
-                </span>
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  Amount: ₹{biltyData.total}
-                </span>
+        {/* Main Content - Split Layout */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Panel - Compact Controls (1/4 width) */}
+          <div className="w-1/4 p-4 bg-white border-r border-gray-200 overflow-y-auto">
+            <div className="space-y-4">
+              {/* Quick Document Info */}
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-3 border border-purple-200">
+                <div className="text-center mb-3">
+                  <div className="text-sm font-bold text-purple-600">GR: {biltyData.gr_no}</div>
+                  <div className="text-xs text-gray-600">{new Date(biltyData.bilty_date).toLocaleDateString('en-GB')}</div>
+                </div>
+                
+                <div className="text-xs space-y-2">
+                  <div>
+                    <span className="text-gray-600">From:</span>
+                    <p className="font-semibold text-black truncate">{biltyData.consignor_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">To:</span>
+                    <p className="font-semibold text-black truncate">{biltyData.consignee_name || 'N/A'}</p>
+                  </div>
+                  <div className="border-t pt-2">
+                    <span className="text-gray-600">Total:</span>
+                    <p className="font-bold text-purple-600 text-lg">₹{biltyData.total}</p>
+                  </div>
+                </div>
               </div>
 
-              {/* Action buttons with fixed colors */}
-              <div className="flex items-center gap-3">
+              {/* Quick Action Buttons */}
+              <div className="space-y-2">
                 <button
                   onClick={() => loadAllDataAndGeneratePreview()}
                   disabled={isGenerating}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-lg font-medium transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2 border border-gray-600"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-500 text-white px-3 py-3 rounded-lg hover:from-purple-700 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-semibold"
                 >
                   <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-                  {isGenerating ? 'Generating...' : 'Refresh'}
+                  {isGenerating ? 'Generating...' : 'Generate PDF'}
                 </button>
-                
+
                 <button
                   onClick={printPDF}
                   disabled={!pdfUrl}
-                  className="bg-white text-purple-600 px-5 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2 shadow-lg"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-3 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-semibold"
                 >
                   <Printer className="w-4 h-4" />
                   Print PDF
                 </button>
-                
+
                 <button
                   onClick={downloadPDF}
                   disabled={!pdfUrl}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-2.5 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2 shadow-lg"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-3 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-semibold"
                 >
                   <Download className="w-4 h-4" />
-                  Download
-                </button>
-                
-                <button
-                  onClick={onClose}
-                  className="bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-lg transition-all transform hover:scale-105 border border-gray-600"
-                >
-                  <X className="w-4 h-4" />
+                  Download PDF
                 </button>
               </div>
+
+              {/* Compact Summary */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h5 className="text-xs font-bold text-black mb-2">Summary</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Packages:</span>
+                    <span className="font-bold text-purple-600">{biltyData.no_of_pkg || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Weight:</span>
+                    <span className="font-bold text-blue-600">{biltyData.wt || 0} kg</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Content:</span>
+                    <span className="font-semibold truncate">{biltyData.contain || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              {loading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <div className="text-xs">
+                      <div className="font-semibold text-blue-800">Loading...</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel - PDF Preview (3/4 width) */}
+          <div className="w-3/4 bg-gray-50 overflow-hidden flex flex-col">            {/* PDF Preview Area - Maximum space for PDF */}
+            <div className="flex-1 border-2 border-gray-300 rounded-lg m-2 overflow-hidden bg-white shadow-lg">
+              {pdfUrl ? (
+                <iframe
+                  src={`${pdfUrl}#zoom=125`}
+                  className="w-full h-full border-0"
+                  title="PDF Preview"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-8">
+                    <div className="bg-gradient-to-r from-purple-600 to-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="text-lg font-bold text-gray-800 mb-2">PDF Preview</div>
+                    <div className="text-gray-600 mb-4">
+                      {isGenerating 
+                        ? "Generating your bilty document..." 
+                        : "Click 'Generate PDF' to create and view your document."
+                      }
+                    </div>
+                    {isGenerating && (
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="w-5 h-5 animate-spin text-purple-600" />
+                        <span className="text-purple-600 font-medium">Generating...</span>
+                      </div>
+                    )}
+                    {!isGenerating && !pdfUrl && (
+                      <button
+                        onClick={() => loadAllDataAndGeneratePreview()}
+                        className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-600 transition-all font-semibold flex items-center gap-2 mx-auto"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Generate PDF
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* PDF Preview Area with modern design */}
-      <div className="flex-1 p-6">
-        <div className="h-full bg-white rounded-2xl shadow-2xl border border-purple-200 overflow-hidden">
-          {pdfUrl ? (
-            <>
-              {/* Preview header */}
-              <div className="bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                    <Eye className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold">Document Preview</h3>
-                    <p className="text-white text-opacity-80 text-sm">Bilty Document - Ready for print</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-white text-sm font-medium">Live Preview</span>
-                </div>
+        {/* Minimal Status Bar */}
+        <div className="bg-white border-t border-gray-200 px-4 py-2">
+          <div className="flex justify-between items-center text-xs">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${pdfUrl ? 'bg-green-500' : 'bg-orange-500'} animate-pulse`}></div>
+                <span className="font-medium text-black">
+                  {pdfUrl ? 'Ready' : isGenerating ? 'Generating...' : 'Not Generated'}
+                </span>
               </div>
-
-              {/* PDF iframe */}
-              <iframe
-                src={pdfUrl}
-                className="w-full h-full border-0"
-                title="PDF Preview"
-                style={{ height: 'calc(100% - 70px)' }}
-              />
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <FileText className="w-12 h-12 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold text-black mb-3">Document Preview</h3>
-                <p className="text-gray-600 mb-4">Your PDF preview will appear here</p>
-                {isGenerating && (
-                  <div className="flex items-center justify-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
-                    <span className="text-purple-600 font-medium">Generating preview...</span>
-                  </div>
-                )}
-                {!isGenerating && !pdfUrl && (
-                  <button
-                    onClick={() => loadAllDataAndGeneratePreview()}
-                    className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-600 transition-all transform hover:scale-105 flex items-center gap-2 mx-auto"
-                  >
-                    <RefreshCw className="w-5 h-5" />
-                    Generate Preview
-                  </button>
-                )}
-              </div>
+              <span className="text-gray-600">GR: {biltyData.gr_no}</span>
+              <span className="text-gray-600">₹{biltyData.total}</span>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modern Status Bar */}
-      <div className="bg-white border-t border-purple-200 px-6 py-3">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${pdfUrl ? 'bg-green-500' : 'bg-orange-500'} animate-pulse`}></div>
-              <span className="font-medium text-black">
-                Status: {pdfUrl ? 'Ready for Print' : 'Loading...'}
+            <div className="flex items-center gap-3 text-gray-500">
+              <span className="flex items-center gap-1">
+                <Printer className="w-3 h-3" />
+                Press Ctrl+P for browser print
               </span>
-            </div>
-            <div className="h-4 w-px bg-gray-300"></div>
-            <span className="text-gray-600">
-              <span className="font-medium text-purple-600">GR:</span> {biltyData.gr_no}
-            </span>
-            <div className="h-4 w-px bg-gray-300"></div>
-            <span className="text-gray-600">
-              <span className="font-medium text-purple-600">Route:</span> {fromCityData?.city_name || 'N/A'} → {toCityData?.city_name || 'N/A'}
-            </span>
-            <div className="h-4 w-px bg-gray-300"></div>
-            <span className="text-gray-600">
-              <span className="font-medium text-purple-600">Total:</span> ₹{biltyData.total}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-              <Printer className="w-4 h-4 text-purple-600" />
-              <span>Press <kbd className="px-2 py-1 bg-gray-100 rounded border text-xs font-mono">Ctrl+P</kbd> for browser print</span>
-            </div>
-            <div className="h-4 w-px bg-gray-300"></div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-2 py-1 bg-gray-100 rounded border text-xs font-mono">Enter</kbd>
-              <span>Direct PDF print</span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd>
+                Direct PDF print
+              </span>
             </div>
           </div>
         </div>

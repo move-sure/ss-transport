@@ -557,13 +557,20 @@ const PDFGenerator = ({
         y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.y,
         STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
       );
-    }      // E-WAY BILL
+    }      // E-WAY BILL    // E-WAY BILL with enhanced styling - label and value separately for better visibility
     addStyledText(
       pdf, 
-      `E-WAY BILL: ${biltyData.e_way_bill || 'N/A'}`, 
+      `E-WAY BILL: `, 
       COORDINATES.PEOPLE_SECTION.EWAY_BILL.x, 
       y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
       STYLES.FONTS.LABELS
+    );
+    addStyledText(
+      pdf, 
+      `${biltyData.e_way_bill || 'N/A'}`, 
+      COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 30, // Offset for the value
+      y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
+      STYLES.FONTS.ENHANCED_VALUES // Using enhanced bold style for the eway bill value
     );
       // 📋 TABLE SECTION WITH ENHANCED STYLING
     // Top horizontal line - Thicker

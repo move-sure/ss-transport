@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
 import { format } from 'date-fns';
-import { FileText, Edit2, Trash2, Truck, Calendar, User } from 'lucide-react';
+import { FileText, Edit2, Truck, Calendar, User } from 'lucide-react';
 
 const ChallanDetailsTab = ({ 
   challans, 
@@ -20,67 +20,10 @@ const ChallanDetailsTab = ({
     status: 'all',
     challanBook: ''
   });
-
   // Load challans when filters change
   useEffect(() => {
     onLoadChallans(filters);
   }, [filters]);
-  const handleDeleteChallan = async (challanId, challanNo) => {
-    if (!confirm(`Are you sure you want to delete challan ${challanNo}?`)) return;
-
-    try {
-      // Step 1: Delete all transit records associated with this challan
-      console.log(`🗑️ Deleting transit records for challan: ${challanNo}`);
-      const { error: transitError } = await supabase
-        .from('transit_details')
-        .delete()
-        .eq('challan_no', challanNo)
-        .eq('is_active', true);
-
-      if (transitError) {
-        console.error('Error deleting transit records:', transitError);
-        alert('Error deleting transit records: ' + transitError.message);
-        return;
-      }
-
-      console.log(`✅ Successfully deleted transit records for challan: ${challanNo}`);
-
-      // Step 2: Mark the challan as inactive
-      const { error: challanError } = await supabase
-        .from('challan_details')
-        .update({ is_active: false })
-        .eq('id', challanId);
-
-      if (challanError) throw challanError;
-
-      // Step 3: Find the challan book and decrease current number if needed
-      const challanPrefix = challanNo.match(/^[A-Za-z]*/)?.[0] || '';
-      const challanNumber = parseInt(challanNo.replace(/[A-Za-z]/g, '').replace(/[^0-9]/g, ''));
-      
-      if (challanNumber) {
-        const { data: book } = await supabase
-          .from('challan_books')
-          .select('*')
-          .eq('branch_1', user.branch_id)
-          .eq('prefix', challanPrefix || null)
-          .eq('current_number', challanNumber + 1)
-          .single();
-
-        if (book) {
-          await supabase
-            .from('challan_books')
-            .update({ current_number: challanNumber })
-            .eq('id', book.id);
-        }
-      }
-
-      alert('Challan and all associated transit records deleted successfully');
-      onLoadChallans(filters);
-    } catch (error) {
-      console.error('Error deleting challan:', error);
-      alert('Error deleting challan');
-    }
-  };
 
   const handleDispatch = async (challanId, isCurrentlyDispatched) => {
     try {
@@ -281,8 +224,7 @@ const ChallanDetailsTab = ({
                       <div className="text-xs text-gray-500">
                         By: {challan.creator?.name || challan.creator?.username}
                       </div>
-                    </td>
-                    <td className="px-4 py-4">
+                    </td>                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => onEdit(challan)}
@@ -297,13 +239,6 @@ const ChallanDetailsTab = ({
                           title={challan.is_dispatched ? 'Mark as Pending' : 'Mark as Dispatched'}
                         >
                           <Truck className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteChallan(challan.id, challan.challan_no)}
-                          className="text-red-600 hover:text-red-800 p-1"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

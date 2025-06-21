@@ -15,7 +15,8 @@ const AVAILABLE_MODULES = [
   { name: 'search', label: 'Search', description: 'Search bilty and documents' },
   { name: 'master', label: 'Master', description: 'Master data management' },
   { name: 'setting', label: 'Settings', description: 'Application settings' },
-  { name: 'staff', label: 'Staff', description: 'Administrative functions' }
+  { name: 'staff', label: 'Staff', description: 'Administrative functions' },
+  { name: 'danger', label: 'Danger Zone', description: 'Critical bill book configuration (USE WITH CAUTION)' }
 ];
 
 export default function UserModulesPage() {

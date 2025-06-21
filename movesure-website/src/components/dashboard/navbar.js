@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle } from 'lucide-react';
 
 // Module configuration
 const MODULE_CONFIG = {
@@ -54,11 +54,15 @@ const MODULE_CONFIG = {
     name: 'Settings',
     path: '/bilty-setting',
     icon: 'Settings',
-  },
-  'staff': {
+  },  'staff': {
     name: 'Admin',
     path: '/test',
     icon: 'Wrench',
+  },
+  'danger': {
+    name: 'Danger Zone',
+    path: '/danger',
+    icon: 'AlertTriangle',
   }
 };
 
@@ -73,9 +77,9 @@ const ROUTE_MODULE_MAP = {
   '/truck-management': 'truck-management',
   '/search': 'search',
   '/staff': 'master',
-  '/bilty-setting': 'setting',
-  '/test': 'staff',
+  '/bilty-setting': 'setting',  '/test': 'staff',
   '/user-modules': 'staff',
+  '/danger': 'danger',
 };
 
 // Public routes that don't require module access
@@ -156,7 +160,7 @@ export default function Navbar() {
     if (!Array.isArray(userModules) || userModules.length === 0) {
       return [];
     }    const navigationItems = [];
-    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff'];
+    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff', 'danger'];
 
     moduleOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -179,11 +183,11 @@ export default function Navbar() {
       'challan': <FileText className="h-4 w-4" />,
       'manual': <FileText className="h-4 w-4" />,
       'challan-setting': <Settings className="h-4 w-4" />,
-      'truck-management': <Truck className="h-4 w-4" />,
-      'search': <Search className="h-4 w-4" />,
+      'truck-management': <Truck className="h-4 w-4" />,      'search': <Search className="h-4 w-4" />,
       'master': <Database className="h-4 w-4" />,
       'setting': <Settings className="h-4 w-4" />,
-      'staff': <Wrench className="h-4 w-4" />
+      'staff': <Wrench className="h-4 w-4" />,
+      'danger': <AlertTriangle className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

@@ -568,7 +568,7 @@ const PDFGenerator = ({
     addStyledText(
       pdf, 
       `${biltyData.e_way_bill || 'N/A'}`, 
-      COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 30, // Offset for the value
+      COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 25, // Offset for the value
       y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
       STYLES.FONTS.ENHANCED_VALUES // Using enhanced bold style for the eway bill value
     );

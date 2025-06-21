@@ -1205,7 +1205,7 @@ const PDFGenerator = ({
             <div className="flex-1 border-2 border-gray-300 rounded-lg m-2 overflow-hidden bg-white shadow-lg">
               {pdfUrl ? (
                 <iframe
-                  src={`${pdfUrl}#zoom=125`}
+                  src={`${pdfUrl}#zoom=115`}
                   className="w-full h-full border-0"
                   title="PDF Preview"
                 />

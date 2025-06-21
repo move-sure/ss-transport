@@ -96,18 +96,7 @@ export default function ConsolidatedEWBPage() {
   const [testingNetwork, setTestingNetwork] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState('');
-  useEffect(() => {
-    if (!authLoading && !requireAuth()) {
-      return;
-    }
-    
-    if (user) {
-      fetchActiveEwbToken();
-    }
-  }, [user, authLoading, requireAuth, fetchActiveEwbToken]);
-
-  const fetchActiveEwbToken = async () => {
+  const [debugInfo, setDebugInfo] = useState('');  const fetchActiveEwbToken = async () => {
     try {
       setFetchingToken(true);
       setError('');
@@ -132,11 +121,20 @@ export default function ConsolidatedEWBPage() {
     } catch (err) {
       console.error('Error fetching EWB token:', err);
       setError(err.message);
-      setDebugInfo(`❌ Error: ${err.message}`);
-    } finally {
+      setDebugInfo(`❌ Error: ${err.message}`);    } finally {
       setFetchingToken(false);
     }
   };
+
+  useEffect(() => {
+    if (!authLoading && !requireAuth()) {
+      return;
+    }
+    
+    if (user) {
+      fetchActiveEwbToken();
+    }
+  }, [user, authLoading, requireAuth]);
 
   const handleFormChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

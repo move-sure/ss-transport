@@ -211,11 +211,10 @@ export default function TransitManagement() {
           .from('staff')
           .select('*')
           .eq('is_active', true)
-          .order('name'),          // Transit bilties to filter out - GET ALL RECORDS FOR PROPER FILTERING
+          .order('name'),        // Transit bilties to filter out - GET ALL RECORDS FOR PROPER FILTERING
         supabase
           .from('transit_details')
-          .select('bilty_id, station_bilty_id, gr_no')
-          .eq('is_active', true), // Remove branch filter to get ALL transit records
+          .select('bilty_id, station_bilty_id, gr_no'), // Get ALL transit records
 
         // All branches for destination display
         supabase
@@ -364,10 +363,8 @@ export default function TransitManagement() {
             id, station, gr_no, consignor, consignee, contents,
             no_of_packets, weight, payment_status, amount, pvt_marks,
             e_way_bill, created_at, updated_at
-          )
-        `)
+          )        `)
         .eq('challan_no', challanNo)
-        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -447,12 +444,10 @@ export default function TransitManagement() {
       console.log('🔄 Refreshing data:', refreshType);
         if (refreshType === 'all' || refreshType === 'bilties') {
         console.log('🔍 Refreshing available bilties...');
-        
-        // Get ALL transit bilties to ensure proper filtering
+          // Get ALL transit bilties to ensure proper filtering
         const { data: transitRes } = await supabase
           .from('transit_details')
-          .select('bilty_id, station_bilty_id, gr_no')
-          .eq('is_active', true);
+          .select('bilty_id, station_bilty_id, gr_no');
 
         console.log('📊 Total transit records found:', transitRes?.length || 0);
           const [{ data: biltiesRes }, { data: stationBiltiesRes }] = await Promise.all([          supabase
@@ -603,7 +598,12 @@ export default function TransitManagement() {
       setSaving(true);
 
       // Get the destination branch from challan book
-      const toBranchId = selectedChallanBook.to_branch_id;      // Prepare transit details data
+      const toBranchId = selectedChallanBook.to_branch_id;
+
+      // NOTE: The schema for transit_details table needs bilty_id to allow NULL
+      // for station bilties. Update schema: ALTER TABLE transit_details ALTER COLUMN bilty_id DROP NOT NULL;
+
+      // Prepare transit details data
       const transitData = biltiesArray.map(bilty => ({
         challan_no: selectedChallan.challan_no,
         gr_no: bilty.gr_no,
@@ -621,14 +621,12 @@ export default function TransitManagement() {
         is_delivered_at_destination: false,
         delivered_at_destination_date: null,
         out_for_door_delivery: false,
-        out_for_door_delivery_date: null,
-        delivery_agent_name: null,
+        out_for_door_delivery_date: null,        delivery_agent_name: null,
         delivery_agent_phone: null,
         vehicle_number: null,
         remarks: null,
         created_by: user.id,
-        updated_by: null,
-        is_active: true
+        updated_by: null
       }));
 
       // Insert transit details

@@ -214,7 +214,7 @@ export default function TransitManagement() {
           .order('name'),        // Transit bilties to filter out - GET ALL RECORDS FOR PROPER FILTERING
         supabase
           .from('transit_details')
-          .select('bilty_id, station_bilty_id, gr_no'), // Get ALL transit records
+          .select('bilty_id, gr_no'), // Get ALL transit records (station_bilty_id removed)
 
         // All branches for destination display
         supabase
@@ -251,14 +251,13 @@ export default function TransitManagement() {
       
       // Enhanced filtering logic - get ALL transit bilties to ensure proper filtering
       console.log('🔍 Processing bilties with enhanced filtering...');
-      
-      const transitBiltyIds = new Set(transitRes.data?.map(t => t.bilty_id).filter(Boolean) || []);
-      const transitStationBiltyIds = new Set(transitRes.data?.map(t => t.station_bilty_id).filter(Boolean) || []);
+        const transitBiltyIds = new Set(transitRes.data?.map(t => t.bilty_id).filter(Boolean) || []);
+      const transitGRNumbers = new Set(transitRes.data?.map(t => t.gr_no).filter(Boolean) || []);
       
       console.log('📊 Transit filtering stats:', {
         totalTransitRecords: transitRes.data?.length || 0,
         biltyIdsToExclude: transitBiltyIds.size,
-        stationBiltyIdsToExclude: transitStationBiltyIds.size
+        grNumbersToExclude: transitGRNumbers.size
       });
       
       const processedBilties = (biltiesRes.data || [])
@@ -279,16 +278,15 @@ export default function TransitManagement() {
           };
         })
         .sort(sortByGRNumber); // Sort by GR number      
-      
-      // Process station bilties with enhanced filtering
+        // Process station bilties with enhanced filtering
       const processedStationBilties = (stationBiltiesRes.data || [])
         .filter(sb => {
-          const isInTransit = transitStationBiltyIds.has(sb.id);
+          const isInTransit = transitGRNumbers.has(sb.gr_no);
           if (isInTransit) {
             console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) from available list - already in transit`);
           }
           return !isInTransit;
-        })        .map(stationBilty => {
+        }).map(stationBilty => {
           // Find the city name for the station city code
           const city = citiesRes.data?.find(c => c.city_code === stationBilty.station);
           return {
@@ -340,18 +338,47 @@ export default function TransitManagement() {
     } finally {
       setLoading(false);
     }
-  };
-  const loadTransitBilties = async (challanNo) => {
+  };  const loadTransitBilties = async (challanNo) => {
     try {
-      console.log('Loading transit bilties for challan:', challanNo);
+      console.log('🔄 Loading transit bilties for challan:', challanNo);
       
+      // Get transit details for this challan (NO MORE FOREIGN KEY JOINS)
       const { data: transitData, error } = await supabase
         .from('transit_details')
         .select(`
-          id, challan_no, gr_no, bilty_id, station_bilty_id, from_branch_id, to_branch_id,
+          id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
           is_out_of_delivery_from_branch1, is_delivered_at_branch2,
-          is_delivered_at_destination,
-          bilty:bilty(
+          is_delivered_at_destination, created_at
+        `)
+        .eq('challan_no', challanNo)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error loading transit details:', error);
+        setTransitBilties([]);
+        return;
+      }
+
+      if (!transitData || transitData.length === 0) {
+        console.log('📝 No transit records found for challan:', challanNo);
+        setTransitBilties([]);
+        return;
+      }
+
+      console.log('📊 Transit records found:', transitData.length);
+
+      // Separate bilty IDs and GR numbers for dual queries
+      const biltyIds = transitData.map(t => t.bilty_id).filter(Boolean);
+      const grNumbers = transitData.map(t => t.gr_no).filter(Boolean);
+      
+      console.log('🔍 Looking up:', { biltyIds: biltyIds.length, grNumbers: grNumbers.length });
+
+      // Dual query approach - fetch regular bilties and station bilties separately
+      const [regularBiltiesRes, stationBiltiesRes] = await Promise.all([
+        // Regular bilties by bilty_id
+        biltyIds.length > 0 ? supabase
+          .from('bilty')
+          .select(`
             id, gr_no, bilty_date, consignor_name, consignee_name,
             payment_mode, no_of_pkg, total, to_city_id, wt, rate,
             freight_amount, created_at, contain, e_way_bill, pvt_marks,
@@ -359,52 +386,68 @@ export default function TransitManagement() {
             transport_name, transport_gst, transport_number, delivery_type,
             invoice_no, invoice_value, invoice_date, document_number,
             labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark
-          ),          station_bilty:station_bilty_summary(
+          `)
+          .in('id', biltyIds) : Promise.resolve({ data: [] }),
+
+        // Station bilties by GR number (avoid duplicates with regular bilties)
+        grNumbers.length > 0 ? supabase
+          .from('station_bilty_summary')
+          .select(`
             id, station, gr_no, consignor, consignee, contents,
             no_of_packets, weight, payment_status, amount, pvt_marks,
             e_way_bill, created_at, updated_at
-          )        `)
-        .eq('challan_no', challanNo)
-        .order('created_at', { ascending: false });
+          `)
+          .in('gr_no', grNumbers) : Promise.resolve({ data: [] })
+      ]);
 
-      if (error) {
-        console.error('Error loading transit bilties:', error);
-        setTransitBilties([]);
-        return;
-      }
+      // Check if this challan is dispatched
+      const challan = challans.find(c => c.challan_no === challanNo);
+      const isFromDispatchedChallan = challan?.is_dispatched || false;
 
-      // Process transit bilties with city names and dispatched status
-      const processedTransitBilties = (transitData || []).map(transit => {
-        // Handle both regular bilty and station bilty
-        const bilty = transit.bilty;
-        const stationBilty = transit.station_bilty;
-        
-        // Check if this challan is dispatched
-        const challan = challans.find(c => c.challan_no === challanNo);
-        const isFromDispatchedChallan = challan?.is_dispatched || false;
-        
-        if (bilty) {
-          // Regular bilty
-          const city = cities.find(c => c.id === bilty?.to_city_id);
-          return {
+      const processedTransitBilties = [];
+
+      // Process regular bilties
+      if (regularBiltiesRes.data?.length > 0) {
+        console.log('📋 Regular bilties found:', regularBiltiesRes.data.length);
+        regularBiltiesRes.data.forEach(bilty => {
+          const transitRecord = transitData.find(t => t.bilty_id === bilty.id);
+          const city = cities.find(c => c.id === bilty.to_city_id);
+          
+          processedTransitBilties.push({
             ...bilty,
-            transit_id: transit.id,
-            challan_no: transit.challan_no,
+            transit_id: transitRecord?.id,
+            challan_no: transitRecord?.challan_no,
             to_city_name: city?.city_name || 'Unknown',
             to_city_code: city?.city_code || 'N/A',
             in_transit: true,
             bilty_type: 'regular',
             is_dispatched: isFromDispatchedChallan,
-            is_out_of_delivery_from_branch1: transit.is_out_of_delivery_from_branch1,
-            is_delivered_at_branch2: transit.is_delivered_at_branch2,
-            is_delivered_at_destination: transit.is_delivered_at_destination
-          };        } else if (stationBilty) {
-          // Station bilty - map fields to match regular bilty structure
+            is_out_of_delivery_from_branch1: transitRecord?.is_out_of_delivery_from_branch1,
+            is_delivered_at_branch2: transitRecord?.is_delivered_at_branch2,
+            is_delivered_at_destination: transitRecord?.is_delivered_at_destination
+          });
+        });
+      }
+
+      // Process station bilties (exclude those that match regular bilty GR numbers to avoid duplicates)
+      if (stationBiltiesRes.data?.length > 0) {
+        console.log('📋 Station bilties found:', stationBiltiesRes.data.length);
+        const regularBiltyGRs = new Set((regularBiltiesRes.data || []).map(b => b.gr_no));
+        
+        stationBiltiesRes.data.forEach(stationBilty => {
+          // Skip if this GR number already exists in regular bilties
+          if (regularBiltyGRs.has(stationBilty.gr_no)) {
+            console.log(`⚠️ Skipping station bilty ${stationBilty.gr_no} - already exists as regular bilty`);
+            return;
+          }
+
+          const transitRecord = transitData.find(t => t.gr_no === stationBilty.gr_no);
           const city = cities.find(c => c.city_code === stationBilty.station);
-          return {
+          
+          processedTransitBilties.push({
             ...stationBilty,
-            transit_id: transit.id,
-            challan_no: transit.challan_no,
+            transit_id: transitRecord?.id,
+            challan_no: transitRecord?.challan_no,
             bilty_date: stationBilty.created_at,
             consignor_name: stationBilty.consignor,
             consignee_name: stationBilty.consignee,
@@ -418,19 +461,22 @@ export default function TransitManagement() {
             in_transit: true,
             bilty_type: 'station',
             is_dispatched: isFromDispatchedChallan,
-            is_out_of_delivery_from_branch1: transit.is_out_of_delivery_from_branch1,
-            is_delivered_at_branch2: transit.is_delivered_at_branch2,
-            is_delivered_at_destination: transit.is_delivered_at_destination
-          };        }
-        return null;
-      }).filter(Boolean).sort(sortByDestinationCity);
+            is_out_of_delivery_from_branch1: transitRecord?.is_out_of_delivery_from_branch1,
+            is_delivered_at_branch2: transitRecord?.is_delivered_at_branch2,
+            is_delivered_at_destination: transitRecord?.is_delivered_at_destination
+          });
+        });
+      }
 
-      setTransitBilties(processedTransitBilties);
-      console.log('Transit bilties loaded:', processedTransitBilties.length, `(Dispatched: ${processedTransitBilties.filter(b => b.is_dispatched).length})`);
-      console.log('Transit bilties sorted by destination city alphabetically');
+      // Sort by destination city alphabetically
+      const sortedTransitBilties = processedTransitBilties.sort(sortByDestinationCity);
+
+      setTransitBilties(sortedTransitBilties);
+      console.log('✅ Transit bilties loaded successfully:', sortedTransitBilties.length, `(Dispatched: ${sortedTransitBilties.filter(b => b.is_dispatched).length})`);
+      console.log('🎯 Transit bilties sorted by destination city alphabetically');
       
     } catch (error) {
-      console.error('Error loading transit bilties:', error);
+      console.error('❌ Error loading transit bilties:', error);
       setTransitBilties([]);
     }
   };// Enhanced refresh function with better filtering logic
@@ -443,11 +489,10 @@ export default function TransitManagement() {
     try {
       console.log('🔄 Refreshing data:', refreshType);
         if (refreshType === 'all' || refreshType === 'bilties') {
-        console.log('🔍 Refreshing available bilties...');
-          // Get ALL transit bilties to ensure proper filtering
+        console.log('🔍 Refreshing available bilties...');          // Get ALL transit bilties to ensure proper filtering
         const { data: transitRes } = await supabase
           .from('transit_details')
-          .select('bilty_id, station_bilty_id, gr_no');
+          .select('bilty_id, gr_no');
 
         console.log('📊 Total transit records found:', transitRes?.length || 0);
           const [{ data: biltiesRes }, { data: stationBiltiesRes }] = await Promise.all([          supabase
@@ -477,14 +522,12 @@ export default function TransitManagement() {
         ]);
 
         console.log('📋 Total bilties found:', biltiesRes?.length || 0);
-        console.log('📋 Total station bilties found:', stationBiltiesRes?.length || 0);
-
-        // Create sets for filtering - include ALL transit bilties, not just from current branch
+        console.log('📋 Total station bilties found:', stationBiltiesRes?.length || 0);        // Create sets for filtering - include ALL transit bilties, not just from current branch
         const transitBiltyIds = new Set(transitRes?.map(t => t.bilty_id).filter(Boolean) || []);
-        const transitStationBiltyIds = new Set(transitRes?.map(t => t.station_bilty_id).filter(Boolean) || []);
+        const transitGRNumbers = new Set(transitRes?.map(t => t.gr_no).filter(Boolean) || []);
         
         console.log('🚫 Transit bilty IDs to exclude:', transitBiltyIds.size);
-        console.log('🚫 Transit station bilty IDs to exclude:', transitStationBiltyIds.size);
+        console.log('🚫 Transit GR numbers to exclude:', transitGRNumbers.size);
         
         // Process bilties with better filtering
         const processedBilties = (biltiesRes || [])
@@ -504,11 +547,9 @@ export default function TransitManagement() {
               bilty_type: 'regular'
             };
           })
-          .sort(sortByGRNumber);
-
-        const processedStationBilties = (stationBiltiesRes || [])
+          .sort(sortByGRNumber);        const processedStationBilties = (stationBiltiesRes || [])
           .filter(sb => {
-            const isInTransit = transitStationBiltyIds.has(sb.id);
+            const isInTransit = transitGRNumbers.has(sb.gr_no);
             if (isInTransit) {
               console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) - already in transit`);
             }
@@ -606,9 +647,7 @@ export default function TransitManagement() {
       // Prepare transit details data
       const transitData = biltiesArray.map(bilty => ({
         challan_no: selectedChallan.challan_no,
-        gr_no: bilty.gr_no,
-        bilty_id: bilty.bilty_type === 'regular' ? bilty.id : null,
-        station_bilty_id: bilty.bilty_type === 'station' ? bilty.id : null,
+        gr_no: bilty.gr_no,        bilty_id: bilty.bilty_type === 'regular' ? bilty.id : null,
         challan_book_id: selectedChallanBook.id,
         from_branch_id: user.branch_id,
         to_branch_id: toBranchId,

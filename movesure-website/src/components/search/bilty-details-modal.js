@@ -27,6 +27,8 @@ const BiltyDetailsModal = ({
 }) => {
   if (!isOpen || !bilty) return null;
 
+  const isStation = bilty.bilty_type === 'station';
+
   // Format date helper
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -40,28 +42,57 @@ const BiltyDetailsModal = ({
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB');
   };
-
   // Status badge component
   const getStatusBadge = (savingOption) => {
-    switch (savingOption) {
-      case 'DRAFT':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
-            Draft
-          </span>
-        );
-      case 'SAVE':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
-            Saved
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
-            {savingOption || 'Unknown'}
-          </span>
-        );
+    if (isStation) {
+      // Station bilty status based on payment_status
+      switch (savingOption) {
+        case 'paid':
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+              Paid
+            </span>
+          );
+        case 'to-pay':
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-800">
+              To-Pay
+            </span>
+          );
+        case 'foc':
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+              FOC
+            </span>
+          );
+        default:
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
+              {savingOption || 'Unknown'}
+            </span>
+          );
+      }
+    } else {
+      // Regular bilty status
+      switch (savingOption) {
+        case 'DRAFT':
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+              Draft
+            </span>
+          );
+        case 'SAVE':
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+              Saved
+            </span>
+          );
+        default:
+          return (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
+              {savingOption || 'Unknown'}
+            </span>
+          );      }
     }
   };
 
@@ -91,35 +122,41 @@ const BiltyDetailsModal = ({
             <div className="flex items-center gap-3">
               <div className="bg-blue-500 p-2 rounded-lg">
                 <FileText className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Bilty Details</h2>
+              </div>              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {isStation ? 'Station Bilty Details' : 'Bilty Details'}
+                </h2>
                 <p className="text-slate-300">GR Number: {bilty.gr_no}</p>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  onEdit(bilty);
-                  onClose();
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-              
-              <button
-                onClick={() => {
-                  onPrint(bilty);
-                  onClose();
-                }}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
-              >
-                <Printer className="w-4 h-4" />
-                Print
-              </button>
+              {/* Only show Edit and Print for regular bilties */}
+              {!isStation && (
+                <>
+                  <button
+                    onClick={() => {
+                      onEdit(bilty);
+                      onClose();
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onPrint(bilty);
+                      onClose();
+                    }}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print
+                  </button>
+                </>
+              )}
               
               <button
                 onClick={onClose}
@@ -140,22 +177,26 @@ const BiltyDetailsModal = ({
                 <FileText className="w-5 h-5 text-slate-600" />
                 <h3 className="text-lg font-semibold text-slate-800">Basic Information</h3>
               </div>
-              
-              <div className="space-y-3">
+                <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-slate-600">GR Number:</span>
                   <span className="font-semibold text-slate-900">{bilty.gr_no}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Bilty Date:</span>
-                  <span className="font-semibold text-slate-900">{formatDate(bilty.bilty_date)}</span>
+                  <span className="text-slate-600">{isStation ? 'Created Date:' : 'Bilty Date:'}</span>
+                  <span className="font-semibold text-slate-900">
+                    {isStation ? formatDate(bilty.created_at) : formatDate(bilty.bilty_date)}
+                  </span>
                 </div>
+                {!isStation && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Delivery Type:</span>
+                    <span className="font-semibold text-slate-900 capitalize">{bilty.delivery_type?.replace('-', ' ')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Delivery Type:</span>
-                  <span className="font-semibold text-slate-900 capitalize">{bilty.delivery_type?.replace('-', ' ')}</span>
-                </div>                <div className="flex justify-between">
                   <span className="text-slate-600">Status:</span>
-                  {getStatusBadge(bilty.saving_option)}
+                  {getStatusBadge(isStation ? bilty.payment_status : bilty.saving_option)}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Challan:</span>
@@ -178,40 +219,53 @@ const BiltyDetailsModal = ({
                   <span className="font-semibold text-slate-900">{formatDateTime(bilty.created_at)}</span>
                 </div>
               </div>
-            </div>
-
-            {/* Route Information */}
+            </div>            {/* Route/Station Information */}
             <div className="bg-blue-50 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <MapPin className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-slate-800">Route Information</h3>
+                <h3 className="text-lg font-semibold text-slate-800">
+                  {isStation ? 'Station Information' : 'Route Information'}
+                </h3>
               </div>
               
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">From City:</span>
-                  <span className="font-semibold text-slate-900">{getFromCityName()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">To City:</span>
-                  <span className="font-semibold text-slate-900">{getCityName(bilty.to_city_id)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Transport:</span>
-                  <span className="font-semibold text-slate-900">{bilty.transport_name || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Transport GST:</span>
-                  <span className="font-semibold text-slate-900">{bilty.transport_gst || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Transport Phone:</span>
-                  <span className="font-semibold text-slate-900">{bilty.transport_number || 'N/A'}</span>
-                </div>
+                {isStation ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Station:</span>
+                      <span className="font-semibold text-slate-900">{bilty.station || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Contents:</span>
+                      <span className="font-semibold text-slate-900">{bilty.contents || 'N/A'}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">From City:</span>
+                      <span className="font-semibold text-slate-900">{getFromCityName()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">To City:</span>
+                      <span className="font-semibold text-slate-900">{getCityName(bilty.to_city_id)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Transport:</span>
+                      <span className="font-semibold text-slate-900">{bilty.transport_name || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Transport GST:</span>
+                      <span className="font-semibold text-slate-900">{bilty.transport_gst || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Transport Phone:</span>
+                      <span className="font-semibold text-slate-900">{bilty.transport_number || 'N/A'}</span>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-
-            {/* Consignor Information */}
+            </div>            {/* Consignor Information */}
             <div className="bg-green-50 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Users className="w-5 h-5 text-green-600" />
@@ -221,16 +275,22 @@ const BiltyDetailsModal = ({
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-slate-600">Name:</span>
-                  <span className="font-semibold text-slate-900">{bilty.consignor_name}</span>
+                  <span className="font-semibold text-slate-900">
+                    {isStation ? (bilty.consignor || 'N/A') : bilty.consignor_name}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">GST Number:</span>
-                  <span className="font-semibold text-slate-900">{bilty.consignor_gst || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Phone:</span>
-                  <span className="font-semibold text-slate-900">{bilty.consignor_number || 'N/A'}</span>
-                </div>
+                {!isStation && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">GST Number:</span>
+                      <span className="font-semibold text-slate-900">{bilty.consignor_gst || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Phone:</span>
+                      <span className="font-semibold text-slate-900">{bilty.consignor_number || 'N/A'}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -244,16 +304,22 @@ const BiltyDetailsModal = ({
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-slate-600">Name:</span>
-                  <span className="font-semibold text-slate-900">{bilty.consignee_name || 'N/A'}</span>
+                  <span className="font-semibold text-slate-900">
+                    {isStation ? (bilty.consignee || 'N/A') : (bilty.consignee_name || 'N/A')}
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">GST Number:</span>
-                  <span className="font-semibold text-slate-900">{bilty.consignee_gst || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Phone:</span>
-                  <span className="font-semibold text-slate-900">{bilty.consignee_number || 'N/A'}</span>
-                </div>
+                {!isStation && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">GST Number:</span>
+                      <span className="font-semibold text-slate-900">{bilty.consignee_gst || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Phone:</span>
+                      <span className="font-semibold text-slate-900">{bilty.consignee_number || 'N/A'}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

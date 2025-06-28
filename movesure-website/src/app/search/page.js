@@ -7,17 +7,17 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import BiltySearchHeader from '../../components/search/bilty-search-header';
 import BiltyFilterPanel from '../../components/search/SearchFilters';
-import BiltySearchTable from '../../components/search/bilty-table';
+import CombinedBiltySearchTable from '../../components/search/combined-bilty-table';
 import BiltyDetailsModal from '../../components/search/bilty-details-modal';
 import PrintModal from '../../components/bilty/print-model';
 
 export default function BiltySearch() {
   const { user } = useAuth();
   const router = useRouter();
-  
-  // Core state
+    // Core state
   const [loading, setLoading] = useState(true);
   const [allBilties, setAllBilties] = useState([]);
+  const [allStationBilties, setAllStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
   const [branchData, setBranchData] = useState(null);
   const [error, setError] = useState(null);
@@ -46,7 +46,6 @@ export default function BiltySearch() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedBilty, setSelectedBilty] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
-
   // Memoized filtered bilties - only recalculate when allBilties or filters change
   const filteredBilties = useMemo(() => {
     if (!allBilties.length) return [];
@@ -109,16 +108,71 @@ export default function BiltySearch() {
     return filtered;
   }, [allBilties, filters]);
 
+  // Memoized filtered station bilties
+  const filteredStationBilties = useMemo(() => {
+    if (!allStationBilties.length) return [];
+    
+    let filtered = [...allStationBilties];
+    
+    // Apply filters - similar to regular bilties but adjust for station bilty fields
+    if (filters.dateFrom) {
+      filtered = filtered.filter(b => b.created_at && b.created_at.split('T')[0] >= filters.dateFrom);
+    }
+    
+    if (filters.dateTo) {
+      filtered = filtered.filter(b => b.created_at && b.created_at.split('T')[0] <= filters.dateTo);
+    }
+    
+    if (filters.grNumber) {
+      filtered = filtered.filter(b => 
+        b.gr_no.toLowerCase().includes(filters.grNumber.toLowerCase())
+      );
+    }
+    
+    if (filters.consignorName) {
+      filtered = filtered.filter(b => 
+        (b.consignor || '').toLowerCase().includes(filters.consignorName.toLowerCase())
+      );
+    }
+    
+    if (filters.consigneeName) {
+      filtered = filtered.filter(b => 
+        (b.consignee || '').toLowerCase().includes(filters.consigneeName.toLowerCase())
+      );
+    }
+    
+    if (filters.paymentMode) {
+      filtered = filtered.filter(b => b.payment_status === filters.paymentMode);
+    }
+    
+    if (filters.hasEwayBill === 'yes') {
+      filtered = filtered.filter(b => b.e_way_bill && b.e_way_bill.trim() !== '');
+    } else if (filters.hasEwayBill === 'no') {
+      filtered = filtered.filter(b => !b.e_way_bill || b.e_way_bill.trim() === '');
+    }
+    
+    if (filters.minAmount) {
+      filtered = filtered.filter(b => (b.amount || 0) >= parseFloat(filters.minAmount));
+    }
+    
+    if (filters.maxAmount) {
+      filtered = filtered.filter(b => (b.amount || 0) <= parseFloat(filters.maxAmount));
+    }
+    
+    return filtered;
+  }, [allStationBilties, filters]);
   // Memoized stats
   const stats = useMemo(() => {
-    const total = allBilties.length;
-    const filtered = filteredBilties.length;
+    const total = allBilties.length + allStationBilties.length;
+    const filtered = filteredBilties.length + filteredStationBilties.length;
     const selected = selectedBilties.size;
     
-    const totalAmount = allBilties.reduce((sum, b) => sum + (b.total || 0), 0);
+    const totalAmount = allBilties.reduce((sum, b) => sum + (b.total || 0), 0) + 
+                       allStationBilties.reduce((sum, b) => sum + (b.amount || 0), 0);
     const selectedAmount = Array.from(selectedBilties).reduce((sum, id) => {
       const bilty = filteredBilties.find(b => b.id === id);
-      return sum + (bilty?.total || 0);
+      const stationBilty = filteredStationBilties.find(b => b.id === id);
+      return sum + (bilty?.total || 0) + (stationBilty?.amount || 0);
     }, 0);
     
     return {
@@ -128,7 +182,7 @@ export default function BiltySearch() {
       totalAmount,
       selectedAmount
     };
-  }, [allBilties, filteredBilties, selectedBilties]);
+  }, [allBilties, allStationBilties, filteredBilties, filteredStationBilties, selectedBilties]);
 
   // Load initial data
   useEffect(() => {
@@ -136,12 +190,11 @@ export default function BiltySearch() {
       loadInitialData();
     }
   }, [user]);
-
   // Clear selection when filtered data changes
   useEffect(() => {
     setSelectedBilties(new Set());
     setSelectAll(false);
-  }, [filteredBilties]);
+  }, [filteredBilties, filteredStationBilties]);
 
   const loadInitialData = async () => {
     try {
@@ -155,11 +208,12 @@ export default function BiltySearch() {
       ]);
 
       setCities(citiesRes.data || []);
-      setBranchData(branchRes.data);
-
-      // Load all bilties (last 6 months by default)
+      setBranchData(branchRes.data);      // Load all bilties (last 6 months by default)
       const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);      const { data, error } = await supabase
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
+      // Load regular bilties
+      const { data, error } = await supabase
         .from('bilty')
         .select(`
           *,
@@ -179,15 +233,28 @@ export default function BiltySearch() {
         throw error;
       }
 
-      // Get unique staff IDs to fetch user data
-      const staffIds = [...new Set(data?.map(bilty => bilty.staff_id).filter(Boolean))];
+      // Load station bilties
+      const { data: stationData, error: stationError } = await supabase
+        .from('station_bilty_summary')
+        .select('*')
+        .eq('branch_id', user.branch_id)
+        .gte('created_at', format(sixMonthsAgo, 'yyyy-MM-dd'))
+        .order('created_at', { ascending: false });
+
+      if (stationError) {
+        console.error('Station bilty error details:', stationError);
+        // Don't throw error for station bilties, just log it
+      }      // Get unique staff IDs to fetch user data (for both regular and station bilties)
+      const regularStaffIds = data?.map(bilty => bilty.staff_id).filter(Boolean) || [];
+      const stationStaffIds = stationData?.map(bilty => bilty.staff_id).filter(Boolean) || [];
+      const allStaffIds = [...new Set([...regularStaffIds, ...stationStaffIds])];
       
       let usersData = [];
-      if (staffIds.length > 0) {
+      if (allStaffIds.length > 0) {
         const { data: users, error: usersError } = await supabase
           .from('users')
           .select('id, username, name')
-          .in('id', staffIds);
+          .in('id', allStaffIds);
           
         if (!usersError) {
           usersData = users || [];
@@ -200,7 +267,25 @@ export default function BiltySearch() {
         created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
       })) || [];
 
+      // Combine station bilty data with user data and check transit details
+      const stationBiltiesWithUsers = await Promise.all((stationData || []).map(async (stationBilty) => {
+        // Check if this station bilty is in any transit details
+        const { data: transitData } = await supabase
+          .from('transit_details')
+          .select('challan_no')
+          .eq('gr_no', stationBilty.gr_no)
+          .limit(1);
+
+        return {
+          ...stationBilty,
+          created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
+          transit_details: transitData || [],
+          bilty_type: 'station' // Add identifier for station bilties
+        };
+      }));
+
       setAllBilties(biltiesWithUsers);
+      setAllStationBilties(stationBiltiesWithUsers);
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -242,35 +327,36 @@ export default function BiltySearch() {
       return newSelected;
     });
   }, []);
-
   const handleSelectAll = useCallback(() => {
     if (selectAll) {
       setSelectedBilties(new Set());
       setSelectAll(false);
     } else {
-      const allIds = new Set(filteredBilties.map(b => b.id));
+      const allRegularIds = filteredBilties.map(b => b.id);
+      const allStationIds = filteredStationBilties.map(b => b.id);
+      const allIds = new Set([...allRegularIds, ...allStationIds]);
       setSelectedBilties(allIds);
       setSelectAll(true);
     }
-  }, [selectAll, filteredBilties]);
+  }, [selectAll, filteredBilties, filteredStationBilties]);
 
   const handleBiltyDoubleClick = useCallback((bilty) => {
     setSelectedBiltyForDetails(bilty);
     setShowDetailsModal(true);
   }, []);
-
   const handleExportSelected = useCallback(() => {
     if (selectedBilties.size === 0) {
       alert('Please select bilties to export');
       return;
     }
     
-    const selectedData = filteredBilties.filter(b => selectedBilties.has(b.id));
-    exportToCSV(selectedData);
-  }, [selectedBilties, filteredBilties]);
-  const exportToCSV = (data) => {
+    const selectedRegularBilties = filteredBilties.filter(b => selectedBilties.has(b.id));
+    const selectedStationBilties = filteredStationBilties.filter(b => selectedBilties.has(b.id));
+    
+    exportToCSV([...selectedRegularBilties, ...selectedStationBilties]);
+  }, [selectedBilties, filteredBilties, filteredStationBilties]);  const exportToCSV = (data) => {
     const headers = [
-      'GR Number', 'Date', 'Consignor', 'Consignee', 'From City', 'To City',
+      'Type', 'GR Number', 'Date', 'Consignor', 'Consignee', 'From City', 'To City',
       'Transport', 'Payment Mode', 'Packages', 'Weight', 'Rate', 'Amount',
       'E-Way Bill', 'Invoice No', 'Status', 'Challan Details', 'Created By', 'Created Date'
     ];
@@ -278,21 +364,48 @@ export default function BiltySearch() {
     const csvContent = [
       headers.join(','),
       ...data.map(bilty => [
+        bilty.bilty_type === 'station' ? 'STATION' : 'REGULAR',
         bilty.gr_no,
-        format(new Date(bilty.bilty_date), 'dd/MM/yyyy'),
-        `"${bilty.consignor_name}"`,
-        `"${bilty.consignee_name || 'N/A'}"`,
-        getFromCityName(),
-        getCityName(bilty.to_city_id),
-        `"${bilty.transport_name || 'N/A'}"`,
-        bilty.payment_mode,
-        bilty.no_of_pkg || 0,
-        bilty.wt || 0,
-        bilty.rate || 0,
-        bilty.total || 0,
+        bilty.bilty_type === 'station' 
+          ? format(new Date(bilty.created_at), 'dd/MM/yyyy')
+          : format(new Date(bilty.bilty_date), 'dd/MM/yyyy'),
+        bilty.bilty_type === 'station' 
+          ? `"${bilty.consignor || 'N/A'}"` 
+          : `"${bilty.consignor_name}"`,
+        bilty.bilty_type === 'station' 
+          ? `"${bilty.consignee || 'N/A'}"` 
+          : `"${bilty.consignee_name || 'N/A'}"`,
+        bilty.bilty_type === 'station' 
+          ? `"${bilty.station || 'N/A'}"` 
+          : getFromCityName(),
+        bilty.bilty_type === 'station' 
+          ? 'N/A' 
+          : getCityName(bilty.to_city_id),
+        bilty.bilty_type === 'station' 
+          ? 'N/A' 
+          : `"${bilty.transport_name || 'N/A'}"`,
+        bilty.bilty_type === 'station' 
+          ? bilty.payment_status 
+          : bilty.payment_mode,
+        bilty.bilty_type === 'station' 
+          ? bilty.no_of_packets || 0 
+          : bilty.no_of_pkg || 0,
+        bilty.bilty_type === 'station' 
+          ? bilty.weight || 0 
+          : bilty.wt || 0,
+        bilty.bilty_type === 'station' 
+          ? 'N/A' 
+          : bilty.rate || 0,
+        bilty.bilty_type === 'station' 
+          ? bilty.amount || 0 
+          : bilty.total || 0,
         bilty.e_way_bill || 'N/A',
-        bilty.invoice_no || 'N/A',
-        bilty.saving_option,
+        bilty.bilty_type === 'station' 
+          ? 'N/A' 
+          : bilty.invoice_no || 'N/A',
+        bilty.bilty_type === 'station' 
+          ? bilty.payment_status 
+          : bilty.saving_option,
         bilty.transit_details && bilty.transit_details.length > 0 ? bilty.transit_details[0].challan_no : 'AVL',
         bilty.created_by_user ? (bilty.created_by_user.name || bilty.created_by_user.username) : 'N/A',
         format(new Date(bilty.created_at), 'dd/MM/yyyy HH:mm')
@@ -364,11 +477,10 @@ export default function BiltySearch() {
           cities={cities}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
-        />
-
-        {/* Table Component */}
-        <BiltySearchTable
-          bilties={filteredBilties}
+        />        {/* Table Component */}
+        <CombinedBiltySearchTable
+          regularBilties={filteredBilties}
+          stationBilties={filteredStationBilties}
           loading={loading}
           error={error}
           selectedBilties={selectedBilties}

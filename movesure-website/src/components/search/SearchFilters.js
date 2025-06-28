@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Calendar, 
   FileText, 
@@ -20,27 +20,57 @@ const BiltyFilterPanel = ({
   onClearFilters
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [localFilters, setLocalFilters] = useState(filters);
+  const debounceTimeouts = useRef({});
+
+  // Update local filters when external filters change
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   // Debounced input handler to prevent constant re-renders
   const handleInputChange = useCallback((field, value) => {
-    // Use setTimeout to batch updates and prevent cursor jumping
-    setTimeout(() => {
+    // Update local state immediately for responsive UI
+    setLocalFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // Clear previous timeout
+    if (debounceTimeouts.current[field]) {
+      clearTimeout(debounceTimeouts.current[field]);
+    }
+
+    // Set new timeout for debounced update
+    debounceTimeouts.current[field] = setTimeout(() => {
       onFilterChange({
         ...filters,
         [field]: value
       });
-    }, 0);
+    }, 300); // 300ms debounce
   }, [filters, onFilterChange]);
 
   // Immediate handler for non-text inputs
   const handleSelectChange = useCallback((field, value) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
     onFilterChange({
       ...filters,
       [field]: value
     });
   }, [filters, onFilterChange]);
 
-  const activeFiltersCount = Object.values(filters).filter(value => value !== '' && value !== null).length;
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimeouts.current).forEach(timeout => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
+  }, []);
+  const activeFiltersCount = Object.values(localFilters).filter(value => value !== '' && value !== null).length;
   const hasActiveFilters = activeFiltersCount > 0;
 
   return (
@@ -85,13 +115,12 @@ const BiltyFilterPanel = ({
       {/* Filter Content */}
       {isExpanded && (
         <div className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {/* Date From */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">            {/* Date From */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">From Date</label>
               <input
                 type="date"
-                value={filters.dateFrom}
+                value={localFilters.dateFrom}
                 onChange={(e) => handleSelectChange('dateFrom', e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -102,7 +131,7 @@ const BiltyFilterPanel = ({
               <label className="block text-xs font-medium text-slate-700 mb-1">To Date</label>
               <input
                 type="date"
-                value={filters.dateTo}
+                value={localFilters.dateTo}
                 onChange={(e) => handleSelectChange('dateTo', e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -113,7 +142,7 @@ const BiltyFilterPanel = ({
               <label className="block text-xs font-medium text-slate-700 mb-1">GR Number</label>
               <input
                 type="text"
-                value={filters.grNumber}
+                value={localFilters.grNumber}
                 onChange={(e) => handleInputChange('grNumber', e.target.value)}
                 placeholder="Search GR..."
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -125,19 +154,17 @@ const BiltyFilterPanel = ({
               <label className="block text-xs font-medium text-slate-700 mb-1">Consignor</label>
               <input
                 type="text"
-                value={filters.consignorName}
+                value={localFilters.consignorName}
                 onChange={(e) => handleInputChange('consignorName', e.target.value)}
                 placeholder="Search consignor..."
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
-
-            {/* Consignee */}
+            </div>            {/* Consignee */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">Consignee</label>
               <input
                 type="text"
-                value={filters.consigneeName}
+                value={localFilters.consigneeName}
                 onChange={(e) => handleInputChange('consigneeName', e.target.value)}
                 placeholder="Search consignee..."
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -148,7 +175,7 @@ const BiltyFilterPanel = ({
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">To City</label>
               <select
-                value={filters.toCityId}
+                value={localFilters.toCityId}
                 onChange={(e) => handleSelectChange('toCityId', e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
@@ -165,7 +192,7 @@ const BiltyFilterPanel = ({
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">Payment</label>
               <select
-                value={filters.paymentMode}
+                value={localFilters.paymentMode}
                 onChange={(e) => handleSelectChange('paymentMode', e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
@@ -174,13 +201,11 @@ const BiltyFilterPanel = ({
                 <option value="paid">Paid</option>
                 <option value="freeofcost">FOC</option>
               </select>
-            </div>
-
-            {/* E-Way Bill */}
+            </div>            {/* E-Way Bill */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">E-Way Bill</label>
               <select
-                value={filters.hasEwayBill}
+                value={localFilters.hasEwayBill}
                 onChange={(e) => handleSelectChange('hasEwayBill', e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
@@ -194,7 +219,7 @@ const BiltyFilterPanel = ({
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
               <select
-                value={filters.savingOption}
+                value={localFilters.savingOption}
                 onChange={(e) => handleSelectChange('savingOption', e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
@@ -209,7 +234,7 @@ const BiltyFilterPanel = ({
               <label className="block text-xs font-medium text-slate-700 mb-1">Min Amount</label>
               <input
                 type="number"
-                value={filters.minAmount}
+                value={localFilters.minAmount}
                 onChange={(e) => handleInputChange('minAmount', e.target.value)}
                 placeholder="0"
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -221,7 +246,7 @@ const BiltyFilterPanel = ({
               <label className="block text-xs font-medium text-slate-700 mb-1">Max Amount</label>
               <input
                 type="number"
-                value={filters.maxAmount}
+                value={localFilters.maxAmount}
                 onChange={(e) => handleInputChange('maxAmount', e.target.value)}
                 placeholder="No limit"
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"

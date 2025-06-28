@@ -45,121 +45,66 @@ export default function BiltySearch() {
   const [selectedBiltyForDetails, setSelectedBiltyForDetails] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedBilty, setSelectedBilty] = useState(null);
-  const [showPrintModal, setShowPrintModal] = useState(false);
-  // Memoized filtered bilties - only recalculate when allBilties or filters change
+  const [showPrintModal, setShowPrintModal] = useState(false);  // Memoized filtered bilties - only recalculate when allBilties or filters change
   const filteredBilties = useMemo(() => {
     if (!allBilties.length) return [];
     
-    let filtered = [...allBilties];
-    
-    // Apply filters
-    if (filters.dateFrom) {
-      filtered = filtered.filter(b => b.bilty_date >= filters.dateFrom);
-    }
-    
-    if (filters.dateTo) {
-      filtered = filtered.filter(b => b.bilty_date <= filters.dateTo);
-    }
-    
-    if (filters.grNumber) {
-      filtered = filtered.filter(b => 
-        b.gr_no.toLowerCase().includes(filters.grNumber.toLowerCase())
-      );
-    }
-    
-    if (filters.consignorName) {
-      filtered = filtered.filter(b => 
-        b.consignor_name.toLowerCase().includes(filters.consignorName.toLowerCase())
-      );
-    }
-    
-    if (filters.consigneeName) {
-      filtered = filtered.filter(b => 
-        b.consignee_name?.toLowerCase().includes(filters.consigneeName.toLowerCase())
-      );
-    }
-    
-    if (filters.toCityId) {
-      filtered = filtered.filter(b => b.to_city_id === filters.toCityId);
-    }
-    
-    if (filters.paymentMode) {
-      filtered = filtered.filter(b => b.payment_mode === filters.paymentMode);
-    }
-    
-    if (filters.hasEwayBill === 'yes') {
-      filtered = filtered.filter(b => b.e_way_bill && b.e_way_bill.trim() !== '');
-    } else if (filters.hasEwayBill === 'no') {
-      filtered = filtered.filter(b => !b.e_way_bill || b.e_way_bill.trim() === '');
-    }
-    
-    if (filters.savingOption) {
-      filtered = filtered.filter(b => b.saving_option === filters.savingOption);
-    }
-    
-    if (filters.minAmount) {
-      filtered = filtered.filter(b => (b.total || 0) >= parseFloat(filters.minAmount));
-    }
-    
-    if (filters.maxAmount) {
-      filtered = filtered.filter(b => (b.total || 0) <= parseFloat(filters.maxAmount));
-    }
-    
-    return filtered;
+    return allBilties.filter(bilty => {
+      // Date filters
+      if (filters.dateFrom && bilty.bilty_date < filters.dateFrom) return false;
+      if (filters.dateTo && bilty.bilty_date > filters.dateTo) return false;
+      
+      // Text filters
+      if (filters.grNumber && !bilty.gr_no.toLowerCase().includes(filters.grNumber.toLowerCase())) return false;
+      if (filters.consignorName && !bilty.consignor_name.toLowerCase().includes(filters.consignorName.toLowerCase())) return false;
+      if (filters.consigneeName && !(bilty.consignee_name?.toLowerCase().includes(filters.consigneeName.toLowerCase()))) return false;
+      
+      // Select filters
+      if (filters.toCityId && bilty.to_city_id !== filters.toCityId) return false;
+      if (filters.paymentMode && bilty.payment_mode !== filters.paymentMode) return false;
+      if (filters.savingOption && bilty.saving_option !== filters.savingOption) return false;
+      
+      // E-way bill filter
+      if (filters.hasEwayBill === 'yes' && (!bilty.e_way_bill || bilty.e_way_bill.trim() === '')) return false;
+      if (filters.hasEwayBill === 'no' && bilty.e_way_bill && bilty.e_way_bill.trim() !== '') return false;
+      
+      // Amount filters
+      const total = bilty.total || 0;
+      if (filters.minAmount && total < parseFloat(filters.minAmount)) return false;
+      if (filters.maxAmount && total > parseFloat(filters.maxAmount)) return false;
+      
+      return true;
+    });
   }, [allBilties, filters]);
 
   // Memoized filtered station bilties
   const filteredStationBilties = useMemo(() => {
     if (!allStationBilties.length) return [];
     
-    let filtered = [...allStationBilties];
-    
-    // Apply filters - similar to regular bilties but adjust for station bilty fields
-    if (filters.dateFrom) {
-      filtered = filtered.filter(b => b.created_at && b.created_at.split('T')[0] >= filters.dateFrom);
-    }
-    
-    if (filters.dateTo) {
-      filtered = filtered.filter(b => b.created_at && b.created_at.split('T')[0] <= filters.dateTo);
-    }
-    
-    if (filters.grNumber) {
-      filtered = filtered.filter(b => 
-        b.gr_no.toLowerCase().includes(filters.grNumber.toLowerCase())
-      );
-    }
-    
-    if (filters.consignorName) {
-      filtered = filtered.filter(b => 
-        (b.consignor || '').toLowerCase().includes(filters.consignorName.toLowerCase())
-      );
-    }
-    
-    if (filters.consigneeName) {
-      filtered = filtered.filter(b => 
-        (b.consignee || '').toLowerCase().includes(filters.consigneeName.toLowerCase())
-      );
-    }
-    
-    if (filters.paymentMode) {
-      filtered = filtered.filter(b => b.payment_status === filters.paymentMode);
-    }
-    
-    if (filters.hasEwayBill === 'yes') {
-      filtered = filtered.filter(b => b.e_way_bill && b.e_way_bill.trim() !== '');
-    } else if (filters.hasEwayBill === 'no') {
-      filtered = filtered.filter(b => !b.e_way_bill || b.e_way_bill.trim() === '');
-    }
-    
-    if (filters.minAmount) {
-      filtered = filtered.filter(b => (b.amount || 0) >= parseFloat(filters.minAmount));
-    }
-    
-    if (filters.maxAmount) {
-      filtered = filtered.filter(b => (b.amount || 0) <= parseFloat(filters.maxAmount));
-    }
-    
-    return filtered;
+    return allStationBilties.filter(bilty => {
+      // Date filters (using created_at for station bilties)
+      if (filters.dateFrom && bilty.created_at && bilty.created_at.split('T')[0] < filters.dateFrom) return false;
+      if (filters.dateTo && bilty.created_at && bilty.created_at.split('T')[0] > filters.dateTo) return false;
+      
+      // Text filters
+      if (filters.grNumber && !bilty.gr_no.toLowerCase().includes(filters.grNumber.toLowerCase())) return false;
+      if (filters.consignorName && !(bilty.consignor || '').toLowerCase().includes(filters.consignorName.toLowerCase())) return false;
+      if (filters.consigneeName && !(bilty.consignee || '').toLowerCase().includes(filters.consigneeName.toLowerCase())) return false;
+      
+      // Payment filter (payment_status for station bilties)
+      if (filters.paymentMode && bilty.payment_status !== filters.paymentMode) return false;
+      
+      // E-way bill filter
+      if (filters.hasEwayBill === 'yes' && (!bilty.e_way_bill || bilty.e_way_bill.trim() === '')) return false;
+      if (filters.hasEwayBill === 'no' && bilty.e_way_bill && bilty.e_way_bill.trim() !== '') return false;
+      
+      // Amount filters (using amount field for station bilties)
+      const amount = bilty.amount || 0;
+      if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
+      if (filters.maxAmount && amount > parseFloat(filters.maxAmount)) return false;
+      
+      return true;
+    });
   }, [allStationBilties, filters]);
   // Memoized stats
   const stats = useMemo(() => {
@@ -259,30 +204,36 @@ export default function BiltySearch() {
         if (!usersError) {
           usersData = users || [];
         }
-      }
-
-      // Combine bilty data with user data
+      }      // Combine bilty data with user data
       const biltiesWithUsers = data?.map(bilty => ({
         ...bilty,
         created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
       })) || [];
 
-      // Combine station bilty data with user data and check transit details
-      const stationBiltiesWithUsers = await Promise.all((stationData || []).map(async (stationBilty) => {
-        // Check if this station bilty is in any transit details
+      // Combine station bilty data with user data and check transit details efficiently
+      const stationBiltiesWithUsers = (stationData || []).map(stationBilty => ({
+        ...stationBilty,
+        created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
+        transit_details: [], // We'll check this separately if needed
+        bilty_type: 'station' // Add identifier for station bilties
+      }));
+
+      // Check transit details for all station bilties at once
+      if (stationBiltiesWithUsers.length > 0) {
+        const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no);
         const { data: transitData } = await supabase
           .from('transit_details')
-          .select('challan_no')
-          .eq('gr_no', stationBilty.gr_no)
-          .limit(1);
+          .select('gr_no, challan_no')
+          .in('gr_no', stationGRNumbers);
 
-        return {
-          ...stationBilty,
-          created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
-          transit_details: transitData || [],
-          bilty_type: 'station' // Add identifier for station bilties
-        };
-      }));
+        // Map transit details back to station bilties
+        stationBiltiesWithUsers.forEach(bilty => {
+          const transitDetail = transitData?.find(t => t.gr_no === bilty.gr_no);
+          if (transitDetail) {
+            bilty.transit_details = [{ challan_no: transitDetail.challan_no }];
+          }
+        });
+      }
 
       setAllBilties(biltiesWithUsers);
       setAllStationBilties(stationBiltiesWithUsers);

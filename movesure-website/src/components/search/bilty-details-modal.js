@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { 
   X, 
   FileText, 
@@ -16,7 +16,7 @@ import {
   Receipt
 } from 'lucide-react';
 
-const BiltyDetailsModal = ({ 
+const BiltyDetailsModal = memo(({ 
   bilty, 
   isOpen, 
   onClose, 
@@ -86,13 +86,13 @@ const BiltyDetailsModal = ({
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
               Saved
             </span>
-          );
-        default:
+          );        default:
           return (
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800">
               {savingOption || 'Unknown'}
             </span>
-          );      }
+          );
+      }
     }
   };
 
@@ -437,11 +437,12 @@ const BiltyDetailsModal = ({
               <h3 className="text-lg font-semibold text-slate-800 mb-3">Remarks</h3>
               <p className="text-slate-700">{bilty.remark}</p>
             </div>
-          )}
-        </div>
+          )}        </div>
       </div>
     </div>
   );
-};
+});
+
+BiltyDetailsModal.displayName = 'BiltyDetailsModal';
 
 export default BiltyDetailsModal;

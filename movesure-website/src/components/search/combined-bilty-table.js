@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { 
   FileText, 
   Calendar, 
@@ -17,7 +17,7 @@ import {
   Building
 } from 'lucide-react';
 
-const CombinedBiltySearchTable = ({ 
+const CombinedBiltySearchTable = memo(({ 
   regularBilties,
   stationBilties, 
   loading, 
@@ -491,10 +491,9 @@ const CombinedBiltySearchTable = ({
               ).toLocaleString()}
             </span>
           </div>
-        </div>
-      </div>
+        </div>      </div>
     </div>
   );
-};
+});
 
 export default CombinedBiltySearchTable;

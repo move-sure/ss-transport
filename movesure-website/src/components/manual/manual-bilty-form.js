@@ -25,6 +25,170 @@ const getCombinedValue = (paymentStatus, deliveryType) => {
   return option ? option.value : 'to-pay'; // default to to-pay
 };
 
+// Searchable Dropdown Component for Station (Only Valid Cities)
+const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, isValid, errorMessage }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [inputValue, setInputValue] = useState(value || '');
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
+  
+  const filteredOptions = options.filter(option => {
+    const cityCode = option.city_code || '';
+    const cityName = option.city_name || '';
+    
+    return cityCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           cityName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const handleSelect = (option) => {
+    const selectedValue = option.city_code;
+    setInputValue(selectedValue);
+    setSearchTerm('');
+    onChange(selectedValue);
+    setSelectedIndex(-1);
+  };
+
+  const handleInputChange = (e) => {
+    const newValue = e.target.value.toUpperCase();
+    setInputValue(newValue);
+    setSearchTerm(newValue);
+    onChange(newValue);
+    setSelectedIndex(-1);
+    
+    // Auto-fill if exact match found
+    if (newValue.length >= 2) {
+      const exactMatch = filteredOptions.find(option => 
+        option.city_code?.toLowerCase() === newValue.toLowerCase() ||
+        option.city_name?.toLowerCase() === newValue.toLowerCase()
+      );
+      
+      if (exactMatch) {
+        setTimeout(() => {
+          handleSelect(exactMatch);
+        }, 100);
+      }
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => 
+        prev < filteredOptions.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => 
+        prev > 0 ? prev - 1 : filteredOptions.length - 1
+      );
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+        handleSelect(filteredOptions[selectedIndex]);
+      } else if (filteredOptions.length > 0) {
+        handleSelect(filteredOptions[0]);
+      }
+      if (onTabPress) {
+        onTabPress();
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      setSelectedIndex(-1);
+      setSearchTerm('');
+      
+      if (searchTerm && filteredOptions.length > 0) {
+        const bestMatch = filteredOptions.find(option => 
+          option.city_name?.toLowerCase() === searchTerm.toLowerCase() ||
+          option.city_code?.toLowerCase() === searchTerm.toLowerCase()
+        ) || filteredOptions[0];
+        
+        if (bestMatch) {
+          handleSelect(bestMatch);
+        }
+      }
+      
+      if (onTabPress) {
+        onTabPress();
+      }
+    } else if (e.key === 'Escape') {
+      setSelectedIndex(-1);
+      setSearchTerm('');
+    }
+  };
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => searchTerm && setSelectedIndex(-1)}
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-black bg-white transition-all duration-200 ${
+            !isValid 
+              ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+              : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
+          }`}
+          placeholder={placeholder}
+        />
+      </div>
+
+      {searchTerm && filteredOptions.length > 0 && (
+        <>
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => {
+              setSelectedIndex(-1);
+              setSearchTerm('');
+              document.activeElement?.blur();
+            }}
+          />
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+            {filteredOptions.map((option, index) => {
+              const displayValue = option.city_code;
+              const isSelected = displayValue === value;
+              const isHighlighted = index === selectedIndex;
+              
+              const optionLabel = option.city_name 
+                ? `${option.city_name} (${displayValue})`
+                : displayValue;
+              
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleSelect(option)}
+                  className={`w-full text-left px-3 py-2 flex items-center justify-between ${
+                    isHighlighted 
+                      ? 'bg-purple-200 text-purple-800' 
+                      : isSelected 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'text-gray-900 hover:bg-purple-50'
+                  }`}
+                >
+                  <span className="truncate">{optionLabel}</span>
+                  {isSelected && <CheckCircle className="w-4 h-4 text-purple-600" />}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+      
+      {/* Error Message */}
+      {!isValid && errorMessage && (
+        <div className="mt-1 text-xs text-red-600 font-medium">
+          {errorMessage}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Searchable Dropdown Component
 const SearchableDropdown = ({ options, value, onChange, placeholder, displayField, allowCustom = true, className = "", onTabPress }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -198,8 +362,7 @@ const ManualBiltyForm = ({
   selectedBranch,
   cities,
   loadingReferenceData
-}) => {
-  // E-way bill validation state
+}) => {  // E-way bill validation state
   const [showEwbValidator, setShowEwbValidator] = useState(false);
   const [selectedEwbForDetails, setSelectedEwbForDetails] = useState(null);
   
@@ -207,6 +370,9 @@ const ManualBiltyForm = ({
   const [ewbList, setEwbList] = useState([]);
   const [validatingEwbId, setValidatingEwbId] = useState(null);
 
+  // Station validation state
+  const [stationError, setStationError] = useState('');
+  const [isValidStation, setIsValidStation] = useState(true);
   // Format E-way bill number (1234-1234-1234 format)
   const formatEwayBill = (value) => {
     const digitsOnly = value.replace(/\D/g, '');
@@ -220,6 +386,55 @@ const ManualBiltyForm = ({
     return formatted;
   };
 
+  // Validate station code against cities list
+  const validateStationCode = (stationCode) => {
+    if (!stationCode || stationCode.trim() === '') {
+      setStationError('');
+      setIsValidStation(true);
+      return true;
+    }
+    
+    const trimmedCode = stationCode.trim().toUpperCase();
+    const isValid = cities.some(city => 
+      city.city_code?.toUpperCase() === trimmedCode || 
+      city.city_name?.toUpperCase() === trimmedCode
+    );
+    
+    if (isValid) {
+      setStationError('');
+      setIsValidStation(true);
+      return true;
+    } else {
+      setStationError('This city is not available. Add this city first.');
+      setIsValidStation(false);
+      return false;
+    }
+  };
+  // Handle station change with validation
+  const handleStationChange = (value) => {
+    setFormData({ ...formData, station: value });
+    validateStationCode(value);
+  };
+
+  // Enhanced form submission with station validation
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    
+    // Validate station before submission
+    const stationValid = validateStationCode(formData.station);
+    
+    if (!stationValid) {
+      // Focus on station input if invalid
+      const stationInput = document.querySelector('[data-tab-target="station"] input');
+      if (stationInput) {
+        stationInput.focus();
+      }
+      return;
+    }
+    
+    // If station is valid, proceed with original submission
+    handleSubmit(e);
+  };
   // Initialize EWB list from formData whenever it changes (for edit mode)
   useEffect(() => {
     if (formData.e_way_bill && formData.e_way_bill.trim() !== '') {
@@ -236,6 +451,13 @@ const ManualBiltyForm = ({
       setEwbList([]);
     }
   }, [formData.e_way_bill]);
+
+  // Validate station when cities load or formData.station changes
+  useEffect(() => {
+    if (cities.length > 0 && formData.station) {
+      validateStationCode(formData.station);
+    }
+  }, [cities, formData.station]);
 
   // Update formData whenever ewbList changes
   useEffect(() => {
@@ -708,7 +930,7 @@ const ManualBiltyForm = ({
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleFormSubmit} className="space-y-8">
               {loadingReferenceData && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-center gap-2 text-blue-700">
@@ -762,21 +984,18 @@ const ManualBiltyForm = ({
                       autoFocus
                       data-tab-target="gr_no"
                     />
-                  </div>
-
-                  {/* Station */}
+                  </div>                  {/* Station */}
                   <div data-tab-target="station">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Station Code *
                     </label>
-                    <SearchableDropdown
+                    <StationDropdown
                       options={cities}
                       value={formData.station}
-                      onChange={(value) => setFormData({ ...formData, station: value })}
+                      onChange={handleStationChange}
                       placeholder="Enter or select station code"
-                      displayField="city_code"
-                      allowCustom={true}
-                      className=""
+                      isValid={isValidStation}
+                      errorMessage={stationError}
                       onTabPress={() => {
                         const consignorInput = document.querySelector('[data-tab-target="consignor"]');
                         if (consignorInput) {
@@ -784,8 +1003,11 @@ const ManualBiltyForm = ({
                         }
                       }}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      You can search by city name or code, or enter manually
+                    <p className={`text-xs mt-1 ${!isValidStation ? 'text-red-600' : 'text-gray-500'}`}>
+                      {!isValidStation 
+                        ? 'Only valid city codes from the system are allowed'
+                        : 'Search by city name or code from available cities'
+                      }
                     </p>
                   </div>
 
@@ -1039,32 +1261,40 @@ const ManualBiltyForm = ({
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
-                </button>
-                <button
+                </button>                <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !isValidStation}
                   onKeyDown={(e) => {
                     if (e.key === 'Tab' && !e.shiftKey) {
                       e.preventDefault();
                       const form = e.target.closest('form');
-                      if (form && !saving) {
+                      if (form && !saving && isValidStation) {
                         form.requestSubmit();
                       }
                     } else if (e.key === 'Enter') {
                       e.preventDefault();
                       const form = e.target.closest('form');
-                      if (form) {
+                      if (form && isValidStation) {
                         form.requestSubmit();
                       }
                     }
                   }}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className={`px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
+                    !isValidStation 
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
                   data-tab-target="save"
-                >
-                  {saving ? (
+                  title={!isValidStation ? 'Please enter a valid station code before saving' : ''}
+                >                  {saving ? (
                     <>
                       <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
                       Saving...
+                    </>
+                  ) : !isValidStation ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Fix Station Code
                     </>
                   ) : (
                     <>

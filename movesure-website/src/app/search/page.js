@@ -119,8 +119,22 @@ export default function BiltySearch() {
       if (appliedFilters.consignorName && !(bilty.consignor || '').toLowerCase().includes(appliedFilters.consignorName.toLowerCase())) return false;
       if (appliedFilters.consigneeName && !(bilty.consignee || '').toLowerCase().includes(appliedFilters.consigneeName.toLowerCase())) return false;
       
-      // Skip city filter for station bilties as they don't have to_city_id
-      // Station bilties use the 'station' field which is the source station name
+      // FIXED: City filter for station bilties
+      // Station bilties should be filtered by the 'station' field matching the selected city name
+      if (appliedFilters.toCityId) {
+        const selectedCity = cities.find(c => c.id?.toString() === appliedFilters.toCityId?.toString());
+        if (selectedCity) {
+          // Check if station name matches the selected city name (case insensitive)
+          const stationName = (bilty.station || '').toLowerCase();
+          const cityName = selectedCity.city_name.toLowerCase();
+          const cityCode = (selectedCity.city_code || '').toLowerCase();
+          
+          // Station bilties should match if station name contains city name or city code
+          if (!stationName.includes(cityName) && !stationName.includes(cityCode)) {
+            return false;
+          }
+        }
+      }
       
       // Payment filter with proper mapping
       if (appliedFilters.paymentMode) {
@@ -145,7 +159,7 @@ export default function BiltySearch() {
       
       return true;
     });
-  }, [allStationBilties, appliedFilters]);
+  }, [allStationBilties, appliedFilters, cities]);
 
   // Memoized stats
   const stats = useMemo(() => {
@@ -325,8 +339,17 @@ export default function BiltySearch() {
   // Handle search button click - apply pending filters
   const handleSearch = useCallback(() => {
     console.log('Applying filters:', pendingFilters);
+    
+    // Debug city filter
+    if (pendingFilters.toCityId) {
+      const selectedCity = cities.find(c => c.id?.toString() === pendingFilters.toCityId?.toString());
+      console.log('Selected city for filtering:', selectedCity);
+      console.log('Will filter regular bilties by to_city_id:', pendingFilters.toCityId);
+      console.log('Will filter station bilties by station name containing:', selectedCity?.city_name);
+    }
+    
     setAppliedFilters(pendingFilters);
-  }, [pendingFilters]);
+  }, [pendingFilters, cities]);
 
   // Handle clear filters
   const handleClearFilters = useCallback(() => {

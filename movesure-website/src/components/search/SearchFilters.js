@@ -136,6 +136,7 @@ const BiltyFilterPanel = ({
             <div className="bg-slate-600 p-2 rounded-lg">
               <Filter className="w-4 h-4 text-white" />
             </div>
+            
             <div>
               <h3 className="text-md font-bold text-slate-800">Search Filters</h3>
               <p className="text-xs text-slate-600">
@@ -252,7 +253,10 @@ const BiltyFilterPanel = ({
 
             {/* To City - Enhanced with Search */}
             <div className="relative">
-              <label className="block text-xs font-medium text-slate-700 mb-1">To City</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                To City / Station
+                <span className="text-xs text-slate-500 ml-1">(Destination or Station Name)</span>
+              </label>
               <div className="relative">
                 <input
                   ref={cityInputRef}
@@ -264,7 +268,7 @@ const BiltyFilterPanel = ({
                     handleCityInputKeyDown(e);
                     if (e.key === 'Enter') handleKeyDown(e);
                   }}
-                  placeholder="Search city..."
+                  placeholder="Search city or station..."
                   className="w-full px-2 py-1 pr-8 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
                 <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-slate-400" />
@@ -394,7 +398,7 @@ const BiltyFilterPanel = ({
                 <span className="text-sm font-medium">Ready to search</span>
               </div>
               <p className="text-xs text-blue-600 mt-1">
-                Click the Search button or press Enter to apply your filters and see results.
+                Click the "Search" button or press Enter to apply your filters and see results.
               </p>
             </div>
           )}
@@ -420,7 +424,7 @@ const BiltyFilterPanel = ({
                     case 'consignorName': label = 'Consignor'; break;
                     case 'consigneeName': label = 'Consignee'; break;
                     case 'toCityId': 
-                      label = 'City';
+                      label = 'City/Station';
                       displayValue = cities.find(c => c.id?.toString() === value?.toString())?.city_name || value;
                       break;
                     case 'paymentMode': label = 'Payment'; displayValue = value.toUpperCase(); break;

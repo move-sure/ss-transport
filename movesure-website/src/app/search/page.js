@@ -22,8 +22,22 @@ export default function BiltySearch() {
   const [branchData, setBranchData] = useState(null);
   const [error, setError] = useState(null);
   
-  // Filter state with debounced updates
-  const [filters, setFilters] = useState({
+  // Separate pending filters (user input) from applied filters (actual search)
+  const [pendingFilters, setPendingFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    grNumber: '',
+    consignorName: '',
+    consigneeName: '',
+    toCityId: '',
+    paymentMode: '',
+    hasEwayBill: '',
+    savingOption: '',
+    minAmount: '',
+    maxAmount: ''
+  });
+
+  const [appliedFilters, setAppliedFilters] = useState({
     dateFrom: '',
     dateTo: '',
     grNumber: '',
@@ -47,86 +61,91 @@ export default function BiltySearch() {
   const [selectedBilty, setSelectedBilty] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);  
 
-  // Memoized filtered bilties - only recalculate when allBilties or filters change
+  // Memoized filtered bilties - FIXED CITY FILTERING
   const filteredBilties = useMemo(() => {
     if (!allBilties.length) return [];
     
     return allBilties.filter(bilty => {
       // Date filters
-      if (filters.dateFrom && bilty.bilty_date < filters.dateFrom) return false;
-      if (filters.dateTo && bilty.bilty_date > filters.dateTo) return false;
+      if (appliedFilters.dateFrom && bilty.bilty_date < appliedFilters.dateFrom) return false;
+      if (appliedFilters.dateTo && bilty.bilty_date > appliedFilters.dateTo) return false;
       
       // Text filters
-      if (filters.grNumber && !bilty.gr_no.toLowerCase().includes(filters.grNumber.toLowerCase())) return false;
-      if (filters.consignorName && !bilty.consignor_name.toLowerCase().includes(filters.consignorName.toLowerCase())) return false;
-      if (filters.consigneeName && !(bilty.consignee_name?.toLowerCase().includes(filters.consigneeName.toLowerCase()))) return false;
+      if (appliedFilters.grNumber && !bilty.gr_no.toLowerCase().includes(appliedFilters.grNumber.toLowerCase())) return false;
+      if (appliedFilters.consignorName && !bilty.consignor_name.toLowerCase().includes(appliedFilters.consignorName.toLowerCase())) return false;
+      if (appliedFilters.consigneeName && !(bilty.consignee_name?.toLowerCase().includes(appliedFilters.consigneeName.toLowerCase()))) return false;
       
-      // Select filters
-      if (filters.toCityId && bilty.to_city_id !== filters.toCityId) return false;
-      if (filters.paymentMode && bilty.payment_mode !== filters.paymentMode) return false;
-      if (filters.savingOption && bilty.saving_option !== filters.savingOption) return false;
+      // FIXED: City filter with proper type conversion
+      if (appliedFilters.toCityId) {
+        const filterCityId = appliedFilters.toCityId.toString();
+        const biltyCityId = bilty.to_city_id?.toString();
+        if (biltyCityId !== filterCityId) return false;
+      }
+      
+      // Payment and other filters
+      if (appliedFilters.paymentMode && bilty.payment_mode !== appliedFilters.paymentMode) return false;
+      if (appliedFilters.savingOption && bilty.saving_option !== appliedFilters.savingOption) return false;
       
       // E-way bill filter
-      if (filters.hasEwayBill === 'yes' && (!bilty.e_way_bill || bilty.e_way_bill.trim() === '')) return false;
-      if (filters.hasEwayBill === 'no' && bilty.e_way_bill && bilty.e_way_bill.trim() !== '') return false;
+      if (appliedFilters.hasEwayBill === 'yes' && (!bilty.e_way_bill || bilty.e_way_bill.trim() === '')) return false;
+      if (appliedFilters.hasEwayBill === 'no' && bilty.e_way_bill && bilty.e_way_bill.trim() !== '') return false;
       
       // Amount filters
       const total = bilty.total || 0;
-      if (filters.minAmount && total < parseFloat(filters.minAmount)) return false;
-      if (filters.maxAmount && total > parseFloat(filters.maxAmount)) return false;
+      if (appliedFilters.minAmount && total < parseFloat(appliedFilters.minAmount)) return false;
+      if (appliedFilters.maxAmount && total > parseFloat(appliedFilters.maxAmount)) return false;
       
       return true;
     });
-  }, [allBilties, filters]);
+  }, [allBilties, appliedFilters]);
 
-  // Memoized filtered station bilties - FIXED FILTERING LOGIC
+  // Memoized filtered station bilties - FIXED CITY FILTERING
   const filteredStationBilties = useMemo(() => {
     if (!allStationBilties.length) return [];
     
     return allStationBilties.filter(bilty => {
       // Date filters (using created_at for station bilties)
-      if (filters.dateFrom && bilty.created_at) {
+      if (appliedFilters.dateFrom && bilty.created_at) {
         const biltyDate = bilty.created_at.split('T')[0];
-        if (biltyDate < filters.dateFrom) return false;
+        if (biltyDate < appliedFilters.dateFrom) return false;
       }
-      if (filters.dateTo && bilty.created_at) {
+      if (appliedFilters.dateTo && bilty.created_at) {
         const biltyDate = bilty.created_at.split('T')[0];
-        if (biltyDate > filters.dateTo) return false;
+        if (biltyDate > appliedFilters.dateTo) return false;
       }
       
-      // Text filters - IMPROVED NULL HANDLING
-      if (filters.grNumber && !bilty.gr_no?.toLowerCase().includes(filters.grNumber.toLowerCase())) return false;
-      if (filters.consignorName && !(bilty.consignor || '').toLowerCase().includes(filters.consignorName.toLowerCase())) return false;
-      if (filters.consigneeName && !(bilty.consignee || '').toLowerCase().includes(filters.consigneeName.toLowerCase())) return false;
+      // Text filters
+      if (appliedFilters.grNumber && !bilty.gr_no?.toLowerCase().includes(appliedFilters.grNumber.toLowerCase())) return false;
+      if (appliedFilters.consignorName && !(bilty.consignor || '').toLowerCase().includes(appliedFilters.consignorName.toLowerCase())) return false;
+      if (appliedFilters.consigneeName && !(bilty.consignee || '').toLowerCase().includes(appliedFilters.consigneeName.toLowerCase())) return false;
       
-      // Payment filter (payment_status for station bilties) - FIXED MAPPING
-      if (filters.paymentMode) {
-        // Map regular bilty payment modes to station bilty payment status
+      // Skip city filter for station bilties as they don't have to_city_id
+      // Station bilties use the 'station' field which is the source station name
+      
+      // Payment filter with proper mapping
+      if (appliedFilters.paymentMode) {
         const paymentModeMapping = {
           'to-pay': 'to-pay',
           'paid': 'paid',
           'freeofcost': 'foc'
         };
-        const expectedStationPayment = paymentModeMapping[filters.paymentMode];
+        const expectedStationPayment = paymentModeMapping[appliedFilters.paymentMode];
         if (expectedStationPayment && bilty.payment_status !== expectedStationPayment) return false;
-        if (!expectedStationPayment && bilty.payment_status !== filters.paymentMode) return false;
+        if (!expectedStationPayment && bilty.payment_status !== appliedFilters.paymentMode) return false;
       }
       
       // E-way bill filter
-      if (filters.hasEwayBill === 'yes' && (!bilty.e_way_bill || bilty.e_way_bill.trim() === '')) return false;
-      if (filters.hasEwayBill === 'no' && bilty.e_way_bill && bilty.e_way_bill.trim() !== '') return false;
+      if (appliedFilters.hasEwayBill === 'yes' && (!bilty.e_way_bill || bilty.e_way_bill.trim() === '')) return false;
+      if (appliedFilters.hasEwayBill === 'no' && bilty.e_way_bill && bilty.e_way_bill.trim() !== '') return false;
       
-      // Amount filters (using amount field for station bilties)
+      // Amount filters
       const amount = bilty.amount || 0;
-      if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
-      if (filters.maxAmount && amount > parseFloat(filters.maxAmount)) return false;
-      
-      // Skip saving_option filter for station bilties as they don't have this field
-      // Station bilties are always considered "saved" entries
+      if (appliedFilters.minAmount && amount < parseFloat(appliedFilters.minAmount)) return false;
+      if (appliedFilters.maxAmount && amount > parseFloat(appliedFilters.maxAmount)) return false;
       
       return true;
     });
-  }, [allStationBilties, filters]);
+  }, [allStationBilties, appliedFilters]);
 
   // Memoized stats
   const stats = useMemo(() => {
@@ -178,11 +197,11 @@ export default function BiltySearch() {
       setCities(citiesRes.data || []);
       setBranchData(branchRes.data);      
 
-      // IMPROVED: Load more data by default (1 year instead of 6 months)
+      // Load more data by default (1 year)
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       
-      // Load regular bilties with better error handling
+      // Load regular bilties
       const { data, error } = await supabase
         .from('bilty')
         .select(`
@@ -203,7 +222,7 @@ export default function BiltySearch() {
         throw new Error(`Failed to load regular bilties: ${error.message}`);
       }
 
-      // IMPROVED: Load station bilties with better query and error handling
+      // Load station bilties (removed branch_id filter to get all)
       const { data: stationData, error: stationError } = await supabase
         .from('station_bilty_summary')
         .select('*')
@@ -212,14 +231,13 @@ export default function BiltySearch() {
 
       if (stationError) {
         console.error('Station bilty error details:', stationError);
-        // Continue with empty station data but log the error
         console.warn('Station bilties could not be loaded, continuing with regular bilties only');
       }
 
       console.log('Loaded regular bilties:', data?.length || 0);
       console.log('Loaded station bilties:', stationData?.length || 0);
 
-      // Get unique staff IDs to fetch user data (for both regular and station bilties)
+      // Get unique staff IDs to fetch user data
       const regularStaffIds = data?.map(bilty => bilty.staff_id).filter(Boolean) || [];
       const stationStaffIds = stationData?.map(bilty => bilty.staff_id).filter(Boolean) || [];
       const allStaffIds = [...new Set([...regularStaffIds, ...stationStaffIds])];
@@ -244,13 +262,12 @@ export default function BiltySearch() {
         created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
       })) || [];
 
-      // IMPROVED: Combine station bilty data with user data and add proper identifiers
+      // Combine station bilty data with user data
       const stationBiltiesWithUsers = (stationData || []).map(stationBilty => ({
         ...stationBilty,
         created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
-        transit_details: [], // We'll check this separately if needed
-        bilty_type: 'station', // Add identifier for station bilties
-        // Ensure all required fields are present
+        transit_details: [],
+        bilty_type: 'station',
         id: stationBilty.id,
         gr_no: stationBilty.gr_no || '',
         consignor: stationBilty.consignor || '',
@@ -261,7 +278,7 @@ export default function BiltySearch() {
         created_at: stationBilty.created_at
       }));
 
-      // IMPROVED: Check transit details for station bilties more efficiently
+      // Check transit details for station bilties
       if (stationBiltiesWithUsers.length > 0) {
         try {
           const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no).filter(Boolean);
@@ -273,7 +290,6 @@ export default function BiltySearch() {
               .in('gr_no', stationGRNumbers);
 
             if (!transitError && transitData) {
-              // Map transit details back to station bilties
               stationBiltiesWithUsers.forEach(bilty => {
                 const transitDetail = transitData.find(t => t.gr_no === bilty.gr_no);
                 if (transitDetail) {
@@ -301,13 +317,20 @@ export default function BiltySearch() {
     }
   };
 
-  // Optimized filter change handler - no immediate re-render
+  // Handle pending filter changes (user input)
   const handleFilterChange = useCallback((newFilters) => {
-    setFilters(newFilters);
+    setPendingFilters(newFilters);
   }, []);
 
+  // Handle search button click - apply pending filters
+  const handleSearch = useCallback(() => {
+    console.log('Applying filters:', pendingFilters);
+    setAppliedFilters(pendingFilters);
+  }, [pendingFilters]);
+
+  // Handle clear filters
   const handleClearFilters = useCallback(() => {
-    setFilters({
+    const emptyFilters = {
       dateFrom: '',
       dateTo: '',
       grNumber: '',
@@ -319,7 +342,9 @@ export default function BiltySearch() {
       savingOption: '',
       minAmount: '',
       maxAmount: ''
-    });
+    };
+    setPendingFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
   }, []);
 
   const handleSelectBilty = useCallback((biltyId) => {
@@ -435,7 +460,7 @@ export default function BiltySearch() {
 
   // Helper functions
   const getCityName = useCallback((cityId) => {
-    const city = cities.find(c => c.id === cityId);
+    const city = cities.find(c => c.id?.toString() === cityId?.toString());
     return city ? city.city_name : 'N/A';
   }, [cities]);
 
@@ -483,10 +508,12 @@ export default function BiltySearch() {
 
         {/* Filter Panel Component */}
         <BiltyFilterPanel
-          filters={filters}
+          filters={pendingFilters}
           cities={cities}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
+          onSearch={handleSearch}
+          appliedFilters={appliedFilters}
         />        
 
         {/* Table Component */}

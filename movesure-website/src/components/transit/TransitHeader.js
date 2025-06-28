@@ -13,7 +13,8 @@ const TransitHeader = ({
   selectedChallan,
   onRefresh,
   onPreviewLoadingChallan,
-  onPreviewChallanBilties
+  onPreviewChallanBilties,
+  availableCount // new prop
 }) => {
   const getCityName = (cityCode) => {
     return cityCode || 'Unknown';
@@ -73,7 +74,7 @@ const TransitHeader = ({
             <div className="flex items-center gap-3 flex-wrap">
               <div className="bg-white border-2 border-green-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Package className="w-4 h-4 text-green-600" />
-                Available: <span className="text-green-700">{bilties.length}</span>
+                Available: <span className="text-green-700">{availableCount}</span>
               </div>              <div className="bg-white border-2 border-yellow-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
                 <Truck className="w-4 h-4 text-yellow-600" />
                 In Challan: <span className="text-yellow-700">{transitBilties.length}</span>

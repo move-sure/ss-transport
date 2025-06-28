@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Search, Package, Calendar, CreditCard, Trash2, CheckSquare, Square, Truck, Plus, X, Eye, RefreshCw } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
 
 const BiltyList = ({ 
   bilties, 
@@ -35,6 +36,7 @@ const BiltyList = ({
   
   const [filteredBilties, setFilteredBilties] = useState([]);
   const [filteredTransitBilties, setFilteredTransitBilties] = useState([]);
+  const [fullyFilteredBilties, setFullyFilteredBilties] = useState([]);
   // City mapping function
   const getCityName = (cityCode) => {
     if (!cityCode) return '';
@@ -179,6 +181,37 @@ const BiltyList = ({
     setFilteredBilties(applyFilters(allAvailableBilties, searchTerm, filterPaymentMode, filterDate, filterCity, filterBiltyType, false));
     setFilteredTransitBilties(applyFilters(transitBilties || [], transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType, true));
   }, [bilties, stationBilties, transitBilties, searchTerm, filterPaymentMode, filterDate, filterCity, filterBiltyType, transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType]);
+
+  // Effect to filter out bilties whose gr_no exists in transit_details
+  useEffect(() => {
+    async function filterBiltiesByTransit() {
+      if (!filteredBilties || filteredBilties.length === 0) {
+        setFullyFilteredBilties([]);
+        return;
+      }
+      // Get all gr_no from filteredBilties
+      const grNos = filteredBilties.map(b => b.gr_no).filter(Boolean);
+      if (grNos.length === 0) {
+        setFullyFilteredBilties(filteredBilties);
+        return;
+      }
+      // Query transit_details for these gr_no
+      const { data: transitRecords, error } = await supabase
+        .from('transit_details')
+        .select('gr_no')
+        .in('gr_no', grNos);
+      if (error) {
+        // On error, fallback to showing all
+        setFullyFilteredBilties(filteredBilties);
+        return;
+      }
+      const transitGRSet = new Set((transitRecords || []).map(t => t.gr_no));
+      // Remove bilties whose gr_no is in transit_details
+      const filtered = filteredBilties.filter(b => !transitGRSet.has(b.gr_no));
+      setFullyFilteredBilties(filtered);
+    }
+    filterBiltiesByTransit();
+  }, [filteredBilties]);
 
   const handleBiltySelect = (bilty) => {
     // Only allow selection of regular bilties, not transit bilties, and not for dispatched challans
@@ -490,7 +523,7 @@ const BiltyList = ({
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
           <div className="flex items-center justify-between">            <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Available Bilties ({filteredBilties.length})
+              Available Bilties ({fullyFilteredBilties.length})
             </h3>
             <div className="flex items-center gap-2">
               <button
@@ -507,14 +540,14 @@ const BiltyList = ({
                 disabled={selectedChallan?.is_dispatched}
                 className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
               >
-                {selectedBilties.length === filteredBilties.length && filteredBilties.length > 0 ? (
+                {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 ? (
                   <CheckSquare className="w-3 h-3" />
                 ) : (
                   <Square className="w-3 h-3" />
                 )}
-                {selectedBilties.length === filteredBilties.length && filteredBilties.length > 0 
+                {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 
                   ? 'Deselect All' 
-                  : `Select All (${filteredBilties.length})`
+                  : `Select All (${fullyFilteredBilties.length})`
                 }
               </button>
               <button
@@ -598,7 +631,7 @@ const BiltyList = ({
 
         {/* Available Bilties Table */}
         <div className="overflow-x-auto">
-          {filteredBilties.length > 0 ? (
+          {fullyFilteredBilties.length > 0 ? (
             <table className="w-full text-sm">
               <thead className="bg-blue-50 sticky top-0 z-10">
                 <tr>
@@ -608,7 +641,7 @@ const BiltyList = ({
                       disabled={selectedChallan?.is_dispatched}
                       className="flex items-center gap-1 text-blue-800 font-medium disabled:opacity-50 text-sm"
                     >
-                      {selectedBilties.length === filteredBilties.length && filteredBilties.length > 0 ? (
+                      {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 ? (
                         <CheckSquare className="w-4 h-4" />
                       ) : (
                         <Square className="w-4 h-4" />
@@ -629,7 +662,7 @@ const BiltyList = ({
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">Amount</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">                {filteredBilties.map((bilty, index) => {
+              <tbody className="bg-white divide-y divide-gray-200">                {fullyFilteredBilties.map((bilty, index) => {
                   const isSelected = selectedBilties.find(b => b.id === bilty.id);
                   return (
                     <tr 

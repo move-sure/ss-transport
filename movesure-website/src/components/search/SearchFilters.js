@@ -394,7 +394,7 @@ const BiltyFilterPanel = ({
                 <span className="text-sm font-medium">Ready to search</span>
               </div>
               <p className="text-xs text-blue-600 mt-1">
-                Click the "Search" button or press Enter to apply your filters and see results.
+                Click the Search button or press Enter to apply your filters and see results.
               </p>
             </div>
           )}

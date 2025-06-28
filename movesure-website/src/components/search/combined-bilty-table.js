@@ -492,8 +492,9 @@ const CombinedBiltySearchTable = memo(({
             </span>
           </div>
         </div>      </div>
-    </div>
-  );
+    </div>  );
 });
+
+CombinedBiltySearchTable.displayName = 'CombinedBiltySearchTable';
 
 export default CombinedBiltySearchTable;

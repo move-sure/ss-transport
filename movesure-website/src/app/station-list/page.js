@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StationSearch from '../../components/station-list/station-search';
+import Link from 'next/link';
 
 export default function StationListPage() {
   const [mounted, setMounted] = useState(false);
@@ -81,7 +82,7 @@ export default function StationListPage() {
             <div>
               <h4 className="font-semibold text-gray-900 mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="/" className="hover:text-blue-600 transition-colors">Home</a></li>
+                <li><Link href="/" className="hover:text-blue-600 transition-colors">Home</Link></li>
               </ul>
             </div>
             <div>

@@ -40,7 +40,7 @@ function LayoutContent({ children }) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   
   // Routes where navbar should not be shown
-  const noNavbarRoutes = ['/login', '/register', '/404', '/403'];
+  const noNavbarRoutes = ['/login', '/register', '/404', '/403', '/station-list'];
   const showNavbar = !noNavbarRoutes.includes(pathname);
 
   return (

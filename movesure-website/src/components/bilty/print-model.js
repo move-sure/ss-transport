@@ -25,10 +25,20 @@ const PrintModal = ({
       const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          handlePrint();
+          // Prioritize WhatsApp + Print if mobile number exists
+          if (biltyData?.consignor_number) {
+            handlePrintAndSendWhatsApp();
+          } else {
+            handlePrint();
+          }
         } else if (e.key === 'Tab') {
           e.preventDefault();
-          onSaveOnly();
+          // Tab also triggers WhatsApp + Print if mobile number exists
+          if (biltyData?.consignor_number) {
+            handlePrintAndSendWhatsApp();
+          } else {
+            onSaveOnly();
+          }
         } else if (e.key === 'Escape') {
           e.preventDefault();
           onClose();
@@ -38,7 +48,7 @@ const PrintModal = ({
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen, onSaveOnly, onClose]);
+  }, [isOpen, onSaveOnly, onClose, biltyData]);
 
   // Reset states when modal opens
   useEffect(() => {
@@ -202,7 +212,9 @@ const PrintModal = ({
             >
               <Printer className="w-6 h-6" />
               <div>
-                <div className="text-lg">Print Only {showShortcuts && '(Enter)'}</div>
+                <div className="text-lg">
+                  Print Only {showShortcuts && !biltyData?.consignor_number && '(Enter)'}
+                </div>
                 <div className="text-xs opacity-90">Generate & Download PDF</div>
               </div>
             </button>
@@ -229,7 +241,9 @@ const PrintModal = ({
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         Sending...
                       </div>
-                    ) : whatsappSent ? 'Print + WhatsApp ✓' : 'Print + Send WhatsApp'}
+                    ) : whatsappSent ? 'Print + WhatsApp ✓' : (
+                      <>Print + Send WhatsApp {showShortcuts && '(Enter/Tab)'}</>
+                    )}
                   </div>
                   <div className="text-xs opacity-90">
                     {whatsappSending ? 'Sending message...' : whatsappSent ? 'Message sent successfully' : 'PDF + WhatsApp to consignor'}
@@ -245,7 +259,9 @@ const PrintModal = ({
             >
               <Save className="w-6 h-6" />
               <div>
-                <div className="text-lg">Save Only {showShortcuts && '(Tab)'}</div>
+                <div className="text-lg">
+                  Save Only {showShortcuts && !biltyData?.consignor_number && '(Tab)'}
+                </div>
                 <div className="text-xs opacity-70">Save without printing</div>
               </div>
             </button>

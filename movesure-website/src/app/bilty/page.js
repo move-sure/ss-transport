@@ -891,7 +891,9 @@ export default function BiltyForm() {
     } finally {
       setSaving(false);
     }
-  };const resetForm = () => {
+  };
+
+  const resetForm = () => {
     const newGrNo = selectedBillBook ? generateGRNumber(selectedBillBook) : '';
     
     setFormData({
@@ -1219,6 +1221,9 @@ export default function BiltyForm() {
         onSaveOnly={handleSaveOnly}
         biltyData={savedBiltyData}
         branchData={branchData}
+        cities={cities}
+        fromCityName={fromCityName}
+        toCityName={toCityName}
         showShortcuts={showShortcuts}
       />      {/* Print Component */}
       {showPrintBilty && savedBiltyData && (

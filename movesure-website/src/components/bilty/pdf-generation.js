@@ -18,6 +18,21 @@ const PDFGenerator = ({
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // ==========================================
   // 📐 COORDINATE CONFIGURATION SECTION
@@ -1064,10 +1079,162 @@ const PDFGenerator = ({
         </div>
       </div>
     );
-  }  return (
+  }
+
+  // Mobile UI
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white w-full h-full flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between p-3 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+            <div className="flex items-center gap-2">
+              <div className="bg-white/20 p-1 rounded">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold">Bilty PDF - GR: {biltyData.gr_no}</h3>
+                <p className="text-xs text-purple-100">₹{biltyData.total}</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={onClose}
+              className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Mobile Content */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {/* Document Info Card */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200 mb-4">
+              <div className="text-center mb-3">
+                <div className="text-lg font-bold text-purple-600">GR: {biltyData.gr_no}</div>
+                <div className="text-sm text-gray-600">{new Date(biltyData.bilty_date).toLocaleDateString('en-GB')}</div>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <span className="text-gray-600 text-sm">From:</span>
+                  <p className="font-semibold text-black">{biltyData.consignor_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-600 text-sm">To:</span>
+                  <p className="font-semibold text-black">{biltyData.consignee_name || 'N/A'}</p>
+                </div>
+                <div className="border-t pt-3">
+                  <span className="text-gray-600 text-sm">Total Amount:</span>
+                  <p className="font-bold text-purple-600 text-xl">₹{biltyData.total}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Action Buttons */}
+            <div className="space-y-3 mb-4">
+              <button
+                onClick={() => loadAllDataAndGeneratePreview()}
+                disabled={isGenerating}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-4 rounded-lg hover:from-purple-700 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-3 text-base font-semibold shadow-lg"
+              >
+                <RefreshCw className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+                {isGenerating ? 'Generating PDF...' : 'Generate PDF'}
+              </button>
+
+              {pdfUrl && (
+                <>
+                  <button
+                    onClick={downloadPDF}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-4 rounded-lg flex items-center justify-center gap-3 text-base font-semibold shadow-lg"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download PDF
+                  </button>
+
+                  <button
+                    onClick={printPDF}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-4 rounded-lg flex items-center justify-center gap-3 text-base font-semibold shadow-lg"
+                  >
+                    <Printer className="w-5 h-5" />
+                    Print PDF
+                  </button>
+
+                  {/* Mobile PDF Link */}
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-orange-500 p-2 rounded-full">
+                        <FileText className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-orange-800">PDF Ready!</div>
+                        <div className="text-sm text-orange-600">Tap to open in a new tab</div>
+                      </div>
+                    </div>
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Open PDF in New Tab
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Mobile Summary */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h5 className="text-sm font-bold text-black mb-3">Document Summary</h5>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-600">Packages:</span>
+                  <div className="font-bold text-purple-600">{biltyData.no_of_pkg || 0}</div>
+                </div>
+                <div>
+                  <span className="text-gray-600">Weight:</span>
+                  <div className="font-bold text-blue-600">{biltyData.wt || 0} kg</div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-600">Content:</span>
+                  <div className="font-semibold">{biltyData.contain || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Status */}
+            {!pdfUrl && !isGenerating && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-center">
+                <div className="text-blue-800 font-semibold mb-1">Ready to Generate</div>
+                <div className="text-blue-600 text-sm">Tap "Generate PDF" to create your document</div>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Footer */}
+          <div className="bg-white border-t border-gray-200 p-3">
+            <div className="flex justify-between items-center text-xs">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${pdfUrl ? 'bg-green-500' : 'bg-orange-500'} animate-pulse`}></div>
+                <span className="font-medium text-black">
+                  {pdfUrl ? 'PDF Ready' : isGenerating ? 'Generating...' : 'Not Generated'}
+                </span>
+              </div>
+              <span className="text-gray-600">GR: {biltyData.gr_no}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop UI (unchanged)
+  return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full m-4 flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
-        {/* Minimal Header */}
+        {/* Desktop Header */}
         <div className="flex items-center justify-between p-4 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-lg">

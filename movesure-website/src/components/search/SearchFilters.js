@@ -12,7 +12,8 @@ import {
   ChevronUp,
   Search,
   MapPin,
-  SearchIcon
+  SearchIcon,
+  Tag
 } from 'lucide-react';
 
 const BiltyFilterPanel = ({ 
@@ -39,15 +40,27 @@ const BiltyFilterPanel = ({
     }
   }, [filters.toCityId, cities]);
 
-  // Memoized filtered cities for fast search
+  // Memoized filtered cities for ultra-fast search
   const filteredCities = useMemo(() => {
-    if (!citySearchTerm.trim()) return cities.slice(0, 20); // Show first 20 cities when no search
+    if (!cities.length) return [];
+    if (!citySearchTerm.trim()) return cities.slice(0, 30); // Show first 30 cities when no search
     
     const searchLower = citySearchTerm.toLowerCase().trim();
-    return cities.filter(city => 
-      city.city_name.toLowerCase().includes(searchLower) ||
-      city.city_code?.toLowerCase().includes(searchLower)
-    ).slice(0, 10);
+    const startsWith = [];
+    const contains = [];
+    
+    for (const city of cities) {
+      const cityName = city.city_name.toLowerCase();
+      const cityCode = city.city_code?.toLowerCase() || '';
+      
+      if (cityName.startsWith(searchLower) || cityCode.startsWith(searchLower)) {
+        startsWith.push(city);
+      } else if (cityName.includes(searchLower) || cityCode.includes(searchLower)) {
+        contains.push(city);
+      }
+    }
+    
+    return [...startsWith, ...contains].slice(0, 25); // Prioritize starts-with matches
   }, [cities, citySearchTerm]);
 
   // Close dropdown when clicking outside
@@ -67,13 +80,13 @@ const BiltyFilterPanel = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Immediate handler for all inputs (no debouncing)
+  // Fast immediate input handler - NO DEBOUNCING for maximum speed
   const handleInputChange = useCallback((field, value) => {
-    onFilterChange({
-      ...filters,
+    onFilterChange(prevFilters => ({
+      ...prevFilters,
       [field]: value
-    });
-  }, [filters, onFilterChange]);
+    }));
+  }, [onFilterChange]);
 
   // Handle city search input
   const handleCitySearchChange = useCallback((value) => {
@@ -187,7 +200,7 @@ const BiltyFilterPanel = ({
       {/* Filter Content */}
       {isExpanded && (
         <div className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
             {/* Date From */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">From Date</label>
@@ -247,6 +260,24 @@ const BiltyFilterPanel = ({
                 onChange={(e) => handleInputChange('consigneeName', e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search consignee..."
+                className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            {/* Private Marks - FIXED FIELD NAME */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                <div className="flex items-center gap-1">
+                  <Tag className="w-3 h-3" />
+                  Private Marks
+                </div>
+              </label>
+              <input
+                type="text"
+                value={filters.pvtMarks || ''}
+                onChange={(e) => handleInputChange('pvtMarks', e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search private marks..."
                 className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
             </div>
@@ -423,6 +454,7 @@ const BiltyFilterPanel = ({
                     case 'grNumber': label = 'GR'; break;
                     case 'consignorName': label = 'Consignor'; break;
                     case 'consigneeName': label = 'Consignee'; break;
+                    case 'pvtMarks': label = 'Pvt Marks'; break;
                     case 'toCityId': 
                       label = 'City/Station';
                       displayValue = cities.find(c => c.id?.toString() === value?.toString())?.city_name || value;

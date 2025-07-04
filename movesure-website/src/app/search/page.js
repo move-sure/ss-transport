@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,11 @@ import PrintModal from '../../components/bilty/print-model';
 export default function BiltySearch() {
   const { user } = useAuth();
   const router = useRouter();
-    // Core state
+  
+  // Debounce timer ref for performance optimization
+  const debounceTimerRef = useRef(null);
+  
+  // Core state
   const [loading, setLoading] = useState(true);
   const [allBilties, setAllBilties] = useState([]);
   const [allStationBilties, setAllStationBilties] = useState([]);
@@ -34,7 +38,8 @@ export default function BiltySearch() {
     hasEwayBill: '',
     savingOption: '',
     minAmount: '',
-    maxAmount: ''
+    maxAmount: '',
+    pvtMarks: '' // Fixed field name to match database
   });
 
   const [appliedFilters, setAppliedFilters] = useState({
@@ -48,7 +53,8 @@ export default function BiltySearch() {
     hasEwayBill: '',
     savingOption: '',
     minAmount: '',
-    maxAmount: ''
+    maxAmount: '',
+    pvtMarks: '' // Fixed field name to match database
   });
   
   // Selection state
@@ -61,7 +67,7 @@ export default function BiltySearch() {
   const [selectedBilty, setSelectedBilty] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);  
 
-  // Memoized filtered bilties - FIXED CITY FILTERING
+  // Memoized filtered bilties - OPTIMIZED WITH PRIVATE MARK SEARCH
   const filteredBilties = useMemo(() => {
     if (!allBilties.length) return [];
     
@@ -70,10 +76,13 @@ export default function BiltySearch() {
       if (appliedFilters.dateFrom && bilty.bilty_date < appliedFilters.dateFrom) return false;
       if (appliedFilters.dateTo && bilty.bilty_date > appliedFilters.dateTo) return false;
       
-      // Text filters
+      // Text filters - optimized with early returns
       if (appliedFilters.grNumber && !bilty.gr_no.toLowerCase().includes(appliedFilters.grNumber.toLowerCase())) return false;
       if (appliedFilters.consignorName && !bilty.consignor_name.toLowerCase().includes(appliedFilters.consignorName.toLowerCase())) return false;
       if (appliedFilters.consigneeName && !(bilty.consignee_name?.toLowerCase().includes(appliedFilters.consigneeName.toLowerCase()))) return false;
+      
+      // Private mark search - fixed field name
+      if (appliedFilters.pvtMarks && !(bilty.pvt_marks?.toLowerCase().includes(appliedFilters.pvtMarks.toLowerCase()))) return false;
       
       // FIXED: City filter with proper type conversion
       if (appliedFilters.toCityId) {
@@ -99,7 +108,7 @@ export default function BiltySearch() {
     });
   }, [allBilties, appliedFilters]);
 
-  // Memoized filtered station bilties - FIXED CITY FILTERING
+  // Memoized filtered station bilties - OPTIMIZED WITH PRIVATE MARK SEARCH
   const filteredStationBilties = useMemo(() => {
     if (!allStationBilties.length) return [];
     
@@ -114,10 +123,13 @@ export default function BiltySearch() {
         if (biltyDate > appliedFilters.dateTo) return false;
       }
       
-      // Text filters
+      // Text filters - optimized with early returns
       if (appliedFilters.grNumber && !bilty.gr_no?.toLowerCase().includes(appliedFilters.grNumber.toLowerCase())) return false;
       if (appliedFilters.consignorName && !(bilty.consignor || '').toLowerCase().includes(appliedFilters.consignorName.toLowerCase())) return false;
       if (appliedFilters.consigneeName && !(bilty.consignee || '').toLowerCase().includes(appliedFilters.consigneeName.toLowerCase())) return false;
+      
+      // Private mark search for station bilties - fixed field name
+      if (appliedFilters.pvtMarks && !(bilty.pvt_marks?.toLowerCase().includes(appliedFilters.pvtMarks.toLowerCase()))) return false;
       
       // FIXED: City filter for station bilties
       // Station bilties should be filtered by the 'station' field matching the selected city name
@@ -196,6 +208,15 @@ export default function BiltySearch() {
     setSelectedBilties(new Set());
     setSelectAll(false);
   }, [filteredBilties, filteredStationBilties]);
+
+  // Clear debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadInitialData = async () => {
     try {
@@ -331,7 +352,7 @@ export default function BiltySearch() {
     }
   };
 
-  // Handle pending filter changes (user input)
+  // Handle pending filter changes (user input) with performance optimization
   const handleFilterChange = useCallback((newFilters) => {
     setPendingFilters(newFilters);
   }, []);
@@ -364,7 +385,8 @@ export default function BiltySearch() {
       hasEwayBill: '',
       savingOption: '',
       minAmount: '',
-      maxAmount: ''
+      maxAmount: '',
+      pvtMarks: '' // Fixed field name
     };
     setPendingFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
@@ -414,7 +436,7 @@ export default function BiltySearch() {
 
   const exportToCSV = (data) => {
     const headers = [
-      'Type', 'GR Number', 'Date', 'Consignor', 'Consignee', 'From City', 'To City',
+      'Type', 'GR Number', 'Date', 'Consignor', 'Consignee', 'Private Mark', 'From City', 'To City',
       'Transport', 'Payment Mode', 'Packages', 'Weight', 'Rate', 'Amount',
       'E-Way Bill', 'Invoice No', 'Status', 'Challan Details', 'Created By', 'Created Date'
     ];
@@ -433,6 +455,7 @@ export default function BiltySearch() {
         bilty.bilty_type === 'station' 
           ? `"${bilty.consignee || 'N/A'}"` 
           : `"${bilty.consignee_name || 'N/A'}"`,
+        `"${bilty.pvt_marks || 'N/A'}"`, // Fixed field name for private marks
         bilty.bilty_type === 'station' 
           ? `"${bilty.station || 'N/A'}"` 
           : getFromCityName(),

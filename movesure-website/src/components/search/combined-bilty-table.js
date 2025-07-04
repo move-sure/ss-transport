@@ -14,7 +14,8 @@ import {
   Square,
   Package,
   MapPin,
-  Building
+  Building,
+  Tag
 } from 'lucide-react';
 
 const CombinedBiltySearchTable = memo(({ 
@@ -250,6 +251,9 @@ const CombinedBiltySearchTable = memo(({
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-48">
                 Consignee
               </th>
+              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
+                Private Mark
+              </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-40">
                 Route/Station
               </th>
@@ -345,6 +349,23 @@ const CombinedBiltySearchTable = memo(({
                       {!isStation && bilty.consignee_number && (
                         <div className="text-xs text-slate-600">{bilty.consignee_number}</div>
                       )}
+                    </div>
+                  </td>
+
+                  {/* Private Mark */}
+                  <td className="px-3 py-2">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-slate-900 truncate max-w-32" 
+                           title={bilty.pvt_marks || 'No private mark'}>
+                        {bilty.pvt_marks ? (
+                          <div className="flex items-center gap-1">
+                            <Tag className="w-3 h-3 text-blue-600" />
+                            <span className="text-blue-800 font-medium">{bilty.pvt_marks}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">No mark</span>
+                        )}
+                      </div>
                     </div>
                   </td>
 

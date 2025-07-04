@@ -32,7 +32,8 @@ const PUBLIC_ROUTES = [
   '/help',
   '/about',
   '/contact',
-  '/station-list'
+  '/station-list',
+  '/print' // Make print routes public for external access
 ];
 
 // Routes that require authentication but no specific module
@@ -101,6 +102,11 @@ export default function RouteProtection({ children }) {
     // Check if it's a public route
     if (PUBLIC_ROUTES.includes(pathname)) {
       return; // Allow access
+    }
+
+    // Check if it's a print route (dynamic route /print/[gr_no])
+    if (pathname.startsWith('/print/')) {
+      return; // Allow public access to print routes
     }
 
     // Check if user is authenticated for protected routes

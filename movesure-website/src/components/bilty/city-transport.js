@@ -164,7 +164,7 @@ const CityTransportSection = ({
     }
   };
   const handleInputChange = (e) => {
-    const value = e.target.value;
+    const value = e.target.value.toUpperCase(); // Convert to uppercase
     setCitySearch(value);
     setShowCityDropdown(true);
     setSelectedIndex(-1);
@@ -300,7 +300,7 @@ const CityTransportSection = ({
                 type="text"
                 ref={transportNameRef}
                 value={formData.transport_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -323,7 +323,7 @@ const CityTransportSection = ({
                 type="text"
                 ref={transportGstRef}
                 value={formData.transport_gst}
-                onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value.toUpperCase() }))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -346,7 +346,7 @@ const CityTransportSection = ({
                 type="text"
                 ref={transportNumberRef}
                 value={formData.transport_number}
-                onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value.toUpperCase() }))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();

@@ -122,19 +122,20 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
   return (
     <div className="relative">
       <div className="relative">
-        <input
-          type="text"
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onFocus={() => searchTerm && setSelectedIndex(-1)}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-black bg-white transition-all duration-200 ${
-            !isValid 
-              ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50' 
-              : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
-          }`}
-          placeholder={placeholder}
-        />
+                    <input
+                      type="text"
+                      value={inputValue}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      onFocus={() => searchTerm && setSelectedIndex(-1)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-black bg-white transition-all duration-200 ${
+                        !isValid 
+                          ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+                          : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
+                      }`}
+                      placeholder={placeholder}
+                      style={{ textTransform: 'uppercase' }}
+                    />
       </div>
 
       {searchTerm && filteredOptions.length > 0 && (
@@ -303,6 +304,7 @@ const SearchableDropdown = ({ options, value, onChange, placeholder, displayFiel
           onFocus={() => searchTerm && setSelectedIndex(-1)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
           placeholder={placeholder}
+          style={{ textTransform: 'uppercase' }}
         />
       </div>
 
@@ -1019,7 +1021,7 @@ const ManualBiltyForm = ({
                     <input
                       type="text"
                       value={formData.consignor}
-                      onChange={(e) => setFormData({ ...formData, consignor: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, consignor: e.target.value.toUpperCase() })}
                       onKeyDown={(e) => {
                         if (e.key === 'Tab' && !e.shiftKey) {
                           e.preventDefault();
@@ -1043,7 +1045,7 @@ const ManualBiltyForm = ({
                     <input
                       type="text"
                       value={formData.consignee}
-                      onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, consignee: e.target.value.toUpperCase() })}
                       onKeyDown={(e) => {
                         if (e.key === 'Tab' && !e.shiftKey) {
                           e.preventDefault();
@@ -1075,7 +1077,7 @@ const ManualBiltyForm = ({
                     <input
                       type="text"
                       value={formData.contents}
-                      onChange={(e) => setFormData({ ...formData, contents: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, contents: e.target.value.toUpperCase() })}
                       onKeyDown={(e) => {
                         if (e.key === 'Tab' && !e.shiftKey) {
                           e.preventDefault();
@@ -1235,7 +1237,7 @@ const ManualBiltyForm = ({
                     <input
                       type="text"
                       value={formData.pvt_marks}
-                      onChange={(e) => setFormData({ ...formData, pvt_marks: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, pvt_marks: e.target.value.toUpperCase() })}
                       onKeyDown={(e) => {
                         if (e.key === 'Tab' && !e.shiftKey) {
                           e.preventDefault();

@@ -408,7 +408,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   };
 
   const handleInputChange = (e) => {
-    const value = e.target.value;
+    const value = e.target.value.toUpperCase(); // Convert to uppercase
     setContentSearch(value);
     setFormData(prev => ({ ...prev, contain: value }));
     
@@ -832,7 +832,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 <input
                   type="text"
                   value={newContentName}
-                  onChange={(e) => setNewContentName(e.target.value)}
+                  onChange={(e) => setNewContentName(e.target.value.toUpperCase())}
                   onKeyDown={handleKeyDown}
                   placeholder="✨ Enter new content name..."
                   className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-400 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 text-sm lg:text-base"
@@ -933,7 +933,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             type="text"
             ref={invoiceNoRef}
             value={formData.invoice_no || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
+            onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value.toUpperCase() }))}
             className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 text-sm lg:text-base"
             placeholder="📄 Invoice number"
             tabIndex={14}

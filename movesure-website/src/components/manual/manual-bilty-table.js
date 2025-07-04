@@ -182,7 +182,7 @@ const ManualBiltyTable = ({
                 {/* Created Column */}
                 <td className="px-2 py-2 whitespace-nowrap">
                   <div className="text-xs font-medium text-gray-900">
-                    {summary.creator?.name || summary.creator?.username || 'Unknown'}
+                    {summary.creator?.name || summary.creator?.username || 'System User'}
                   </div>
                   <div className="text-xs text-gray-500">
                     {summary.created_at ? new Date(summary.created_at).toLocaleDateString('en-GB', { 
@@ -204,7 +204,7 @@ const ManualBiltyTable = ({
                   {summary.updated_at && summary.updated_at !== summary.created_at ? (
                     <div>
                       <div className="text-xs font-medium text-blue-600">
-                        {summary.updater?.name || summary.updater?.username || 'Unknown'}
+                        {summary.updater?.name || summary.updater?.username || 'System User'}
                       </div>
                       <div className="text-xs text-blue-500">
                         {new Date(summary.updated_at).toLocaleDateString('en-GB', { 
@@ -221,7 +221,10 @@ const ManualBiltyTable = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-400">null</div>
+                    <div className="text-xs text-gray-400 text-center py-1">
+                      <div className="font-medium">No Updates</div>
+                      <div className="text-xs">Yet</div>
+                    </div>
                   )}
                 </td>
                 

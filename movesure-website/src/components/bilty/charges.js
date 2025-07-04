@@ -375,11 +375,12 @@ return (
                   PVT MARKS
                 </span>                <input                  type="text"
                   value={formData.pvt_marks || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, pvt_marks: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, pvt_marks: e.target.value.toUpperCase() }))}
                   ref={(el) => setInputRef(18, el)}
                   className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all text-input-focus"
                   placeholder="Private marks"
                   tabIndex={18}
+                  style={{ textTransform: 'uppercase' }}
                 />
               </div>              {/* Weight - Second */}
               <div className="flex items-center gap-3">

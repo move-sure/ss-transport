@@ -1232,8 +1232,8 @@ const PDFGenerator = ({
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4 mt-4 text-center shadow-lg">
                 <div className="text-blue-800 font-bold mb-1 text-lg">Ready to Generate</div>
                 <div className="text-blue-800 font-bold mb-2">तैयार करने के लिए तैयार</div>
-                <div className="text-blue-600 text-sm">Tap "Generate PDF" to create your document</div>
-                <div className="text-blue-600 text-sm">अपना दस्तावेज़ बनाने के लिए "पीडीएफ बनाएं" पर टैप करें</div>
+                <div className="text-blue-600 text-sm">Tap &quot;Generate PDF&quot; to create your document</div>
+                <div className="text-blue-600 text-sm">अपना दस्तावेज़ बनाने के लिए &quot;पीडीएफ बनाएं&quot; पर टैप करें</div>
               </div>
             )}
           </div>

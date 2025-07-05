@@ -2,6 +2,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from './utils/auth'
 import RouteProtection from './utils/routeprotection'
+import OfflineDetector from '../components/common/offline-detector'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,6 +22,8 @@ export default function RootLayout({ children }) {
             </AppLayout>
           </RouteProtection>
         </AuthProvider>
+        {/* Global offline detector popup */}
+        <OfflineDetector />
       </body>
     </html>
   )

@@ -263,10 +263,14 @@ export default function TransitManagement() {
       const processedBilties = (biltiesRes.data || [])
         .filter(b => {
           const isInTransit = transitBiltyIds.has(b.id);
+          const isCancelBilty = b.consignor_name === 'CANCEL BILTY';
           if (isInTransit) {
             console.log(`🚫 Excluding bilty ${b.gr_no} (ID: ${b.id}) from available list - already in transit`);
           }
-          return !isInTransit;
+          if (isCancelBilty) {
+            console.log(`🚫 Excluding bilty ${b.gr_no} (ID: ${b.id}) from available list - cancelled bilty`);
+          }
+          return !isInTransit && !isCancelBilty;
         })
         .map(bilty => {
           const city = citiesRes.data?.find(c => c.id === bilty.to_city_id);
@@ -282,10 +286,14 @@ export default function TransitManagement() {
       const processedStationBilties = (stationBiltiesRes.data || [])
         .filter(sb => {
           const isInTransit = transitGRNumbers.has(sb.gr_no);
+          const isCancelBilty = sb.consignor === 'CANCEL BILTY';
           if (isInTransit) {
             console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) from available list - already in transit`);
           }
-          return !isInTransit;
+          if (isCancelBilty) {
+            console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) from available list - cancelled bilty`);
+          }
+          return !isInTransit && !isCancelBilty;
         }).map(stationBilty => {
           // Find the city name for the station city code
           const city = citiesRes.data?.find(c => c.city_code === stationBilty.station);
@@ -533,10 +541,14 @@ export default function TransitManagement() {
         const processedBilties = (biltiesRes || [])
           .filter(b => {
             const isInTransit = transitBiltyIds.has(b.id);
+            const isCancelBilty = b.consignor_name === 'CANCEL BILTY';
             if (isInTransit) {
               console.log(`🚫 Excluding bilty ${b.gr_no} (ID: ${b.id}) - already in transit`);
             }
-            return !isInTransit;
+            if (isCancelBilty) {
+              console.log(`🚫 Excluding bilty ${b.gr_no} (ID: ${b.id}) - cancelled bilty`);
+            }
+            return !isInTransit && !isCancelBilty;
           })
           .map(bilty => {
             const city = cities.find(c => c.id === bilty.to_city_id);
@@ -550,10 +562,14 @@ export default function TransitManagement() {
           .sort(sortByGRNumber);        const processedStationBilties = (stationBiltiesRes || [])
           .filter(sb => {
             const isInTransit = transitGRNumbers.has(sb.gr_no);
+            const isCancelBilty = sb.consignor === 'CANCEL BILTY';
             if (isInTransit) {
               console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) - already in transit`);
             }
-            return !isInTransit;
+            if (isCancelBilty) {
+              console.log(`🚫 Excluding station bilty ${sb.gr_no} (ID: ${sb.id}) - cancelled bilty`);
+            }
+            return !isInTransit && !isCancelBilty;
           })
           .map(stationBilty => {
             const city = cities.find(c => c.city_code === stationBilty.station);

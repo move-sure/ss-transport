@@ -151,6 +151,12 @@ const BiltyList = ({
         const searchLower = searchTerm.toLowerCase();
         const biltyDisplayCity = getBiltyDisplayCity(bilty);
         
+        // Filter out cancelled bilties
+        const isCancelBilty = (bilty.consignor_name === 'CANCEL BILTY' || bilty.consignor === 'CANCEL BILTY');
+        if (isCancelBilty && !isTransitBilties) {
+          return false; // Don't show cancelled bilties in available list
+        }
+        
         const matchesSearch = !searchTerm || 
           (bilty.gr_no || '').toLowerCase().includes(searchLower) ||
           (bilty.consignor_name || bilty.consignor || '').toLowerCase().includes(searchLower) ||

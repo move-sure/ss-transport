@@ -550,6 +550,11 @@ export default function BiltySearch() {
           onRefresh={loadInitialData}
           selectedCount={selectedBilties.size}
           onExport={handleExportSelected}
+          selectedBilties={selectedBilties}
+          filteredBilties={filteredBilties}
+          filteredStationBilties={filteredStationBilties}
+          cities={cities}
+          branchData={branchData}
         />
 
         {/* Filter Panel Component */}

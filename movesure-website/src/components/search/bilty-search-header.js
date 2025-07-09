@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, RefreshCw, Download, FileText, TrendingUp, Filter, CheckSquare } from 'lucide-react';
+import { Search, RefreshCw, Download, FileText, TrendingUp, Filter, CheckSquare, Copy } from 'lucide-react';
 
 const BiltySearchHeader = ({ 
   stats, 
@@ -10,8 +10,90 @@ const BiltySearchHeader = ({
   error, 
   onRefresh, 
   selectedCount, 
-  onExport 
+  onExport,
+  selectedBilties,
+  filteredBilties,
+  filteredStationBilties,
+  cities,
+  branchData
 }) => {
+  
+  // Helper function to get city name
+  const getCityName = (cityId) => {
+    const city = cities?.find(c => c.id?.toString() === cityId?.toString());
+    return city ? city.city_name : 'N/A';
+  };
+
+  // Copy function for tab-separated format (Excel-friendly)
+  const handleCopy = () => {
+    if (selectedBilties.size === 0) {
+      alert('Please select bilties to copy');
+      return;
+    }
+    
+    const selectedRegularBilties = filteredBilties.filter(b => selectedBilties.has(b.id));
+    const selectedStationBilties = filteredStationBilties.filter(b => selectedBilties.has(b.id));
+    const allSelectedBilties = [...selectedRegularBilties, ...selectedStationBilties];
+    
+    const headers = [
+      'SN.NO',
+      'GR_NO',
+      'CONSIGNOR',
+      'CONSIGNEE',
+      'CONTENT',
+      'NO_OF_PACKAGES',
+      'WEIGHT',
+      'TO_PAY',
+      'PAID',
+      'STATION',
+      'PVT_MARK',
+      'E-WAY-BILL'
+    ];
+    
+    const tabContent = [
+      headers.join('\t'),
+      ...allSelectedBilties.map((bilty, index) => [
+        index + 1, // SN.NO
+        bilty.gr_no || 'N/A',
+        bilty.bilty_type === 'station' 
+          ? (bilty.consignor || 'N/A') 
+          : (bilty.consignor_name || 'N/A'),
+        bilty.bilty_type === 'station' 
+          ? (bilty.consignee || 'N/A') 
+          : (bilty.consignee_name || 'N/A'),
+        bilty.bilty_type === 'station' 
+          ? (bilty.contents || 'N/A') 
+          : (bilty.contain || 'N/A'),
+        bilty.bilty_type === 'station' 
+          ? (bilty.no_of_packets || 0) 
+          : (bilty.no_of_pkg || 0),
+        bilty.bilty_type === 'station' 
+          ? (bilty.weight || 0) 
+          : (bilty.wt || 0),
+        // TO_PAY column
+        bilty.bilty_type === 'station' 
+          ? (bilty.payment_status === 'to-pay' ? (bilty.amount || 0) : 0)
+          : (bilty.payment_mode === 'to-pay' ? (bilty.total || 0) : 0),
+        // PAID column
+        bilty.bilty_type === 'station' 
+          ? (bilty.payment_status === 'paid' ? (bilty.amount || 0) : 0)
+          : (bilty.payment_mode === 'paid' ? (bilty.total || 0) : 0),
+        bilty.bilty_type === 'station' 
+          ? (bilty.station || 'N/A') 
+          : getCityName(bilty.to_city_id),
+        bilty.pvt_marks || 'N/A',
+        bilty.e_way_bill || 'N/A'
+      ].join('\t'))
+    ].join('\n');
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(tabContent).then(() => {
+      alert(`Successfully copied ${allSelectedBilties.length} bilty records to clipboard! You can now paste this data into Excel.`);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+      alert('Failed to copy data to clipboard. Please try again.');
+    });
+  };
   return (
     <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 rounded-2xl shadow-2xl p-6">
       {/* Main Header */}
@@ -27,6 +109,20 @@ const BiltySearchHeader = ({
         </div>
         
         <div className="flex items-center gap-3">
+          {/* Copy Button */}
+          <button
+            onClick={handleCopy}
+            disabled={selectedCount === 0}
+            className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg ${
+              selectedCount > 0
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            <Copy className="w-5 h-5" />
+            Copy ({selectedCount})
+          </button>
+
           {/* Export Button */}
           <button
             onClick={onExport}

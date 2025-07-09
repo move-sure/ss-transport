@@ -47,7 +47,7 @@ const BiltySearchHeader = ({
       'PAID',
       'STATION',
       'PVT_MARK',
-      'E-WAY-BILL'
+      'DATE'
     ];
     
     const tabContent = [
@@ -82,7 +82,10 @@ const BiltySearchHeader = ({
           ? (bilty.station || 'N/A') 
           : getCityName(bilty.to_city_id),
         bilty.pvt_marks || 'N/A',
-        bilty.e_way_bill || 'N/A'
+        // DATE column - use created_at for station bilties, bilty_date for regular bilties
+        bilty.bilty_type === 'station' 
+          ? (bilty.created_at ? new Date(bilty.created_at).toLocaleDateString('en-GB') : 'N/A')
+          : (bilty.bilty_date ? new Date(bilty.bilty_date).toLocaleDateString('en-GB') : 'N/A')
       ].join('\t'))
     ].join('\n');
     

@@ -860,7 +860,7 @@ const PDFGenerator = ({
       }
 
       console.log('Generating QR code...');
-      const qrDataURL = await generateQRCode(biltyData.gr_no);
+      const qrDataURL = await generateQRCode(`https://console.movesure.io/print/${biltyData.gr_no}`);
         console.log('Creating PDF...');
       const pdf = new jsPDF('p', 'mm', 'a4');
       

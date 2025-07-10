@@ -19,7 +19,8 @@ const BiltyList = ({
   onBulkRemoveFromTransit,
   onRefresh, // Add refresh function prop
   saving,
-  cities = [] // Add cities prop for mapping
+  cities = [], // Add cities prop for mapping
+  totalAvailableCount = 0 // Add total available count prop
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
@@ -530,6 +531,11 @@ const BiltyList = ({
           <div className="flex items-center justify-between">            <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Package className="w-5 h-5" />
               Available Bilties ({fullyFilteredBilties.length})
+              {totalAvailableCount > 0 && (
+                <span className="text-blue-200 text-sm font-normal">
+                  • Total: {totalAvailableCount}
+                </span>
+              )}
             </h3>
             <div className="flex items-center gap-2">
               <button

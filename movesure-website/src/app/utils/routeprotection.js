@@ -40,7 +40,8 @@ const PUBLIC_ROUTES = [
 const AUTH_ONLY_ROUTES = [
   '/profile',
   '/dashboard',
-  '/help'
+  '/help',
+  '/godown'
 ];
 
 export default function RouteProtection({ children }) {

@@ -9,7 +9,7 @@ import GodownBiltyList from '../../components/godown/godown-bilty-list';
 import GodownSearchFilter from '../../components/godown/godown-search-filter';
 
 export default function GodownPage() {
-  const { user } = useAuth();
+  const { user, requireAuth } = useAuth();
   const router = useRouter();
   
   // Core state
@@ -17,7 +17,6 @@ export default function GodownPage() {
   const [bilties, setBilties] = useState([]);
   const [stationBilties, setStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
-  const [branchData, setBranchData] = useState(null);
   const [error, setError] = useState(null);
   
   // Search and filter state
@@ -26,11 +25,10 @@ export default function GodownPage() {
   
   // Redirect if not authenticated
   useEffect(() => {
-    if (!user) {
+    if (!requireAuth()) {
       router.push('/login');
-      return;
     }
-  }, [user, router]);
+  }, [requireAuth, router]);
 
   // Load initial data
   useEffect(() => {
@@ -43,87 +41,26 @@ export default function GodownPage() {
   const loadInitialData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      await Promise.all([
-        fetchBilties(),
-        fetchStationBilties(),
-        fetchCities(),
-        fetchBranchData()
+      const [biltiesData, stationBiltiesData, citiesData] = await Promise.all([
+        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('cities').select('id, city_name')
       ]);
+
+      if (biltiesData.error) throw biltiesData.error;
+      if (stationBiltiesData.error) throw stationBiltiesData.error;
+      if (citiesData.error) throw citiesData.error;
+
+      setBilties(biltiesData.data || []);
+      setStationBilties(stationBiltiesData.data || []);
+      setCities(citiesData.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load godown data. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Fetch regular bilties with required columns
-  const fetchBilties = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('bilty')
-        .select('id, gr_no, pvt_marks, to_city_id, no_of_bags, bilty_date, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setBilties(data || []);
-    } catch (err) {
-      console.error('Error fetching bilties:', err);
-      throw err;
-    }
-  };
-
-  // Fetch station bilties with required columns
-  const fetchStationBilties = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('station_summary')
-        .select('id, gr_no, pvt_marks, station, no_of_bags, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setStationBilties(data || []);
-    } catch (err) {
-      console.error('Error fetching station bilties:', err);
-      throw err;
-    }
-  };
-
-  // Fetch cities for destination names
-  const fetchCities = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('cities')
-        .select('id, city_name, city_code')
-        .eq('user_id', user.id)
-        .order('city_name');
-
-      if (error) throw error;
-      setCities(data || []);
-    } catch (err) {
-      console.error('Error fetching cities:', err);
-      throw err;
-    }
-  };
-
-  // Fetch branch data
-  const fetchBranchData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('branch_master')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error;
-      setBranchData(data);
-    } catch (err) {
-      console.error('Error fetching branch data:', err);
-      throw err;
     }
   };
 
@@ -139,13 +76,17 @@ export default function GodownPage() {
     const combinedBilties = [
       ...bilties.map(bilty => ({
         ...bilty,
-        source: 'regular',
+        no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
+        source: 'manual', // Replace "station" with "manual"
+        combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_pkg || ''}`, // Combine pvt_marks and no_of_bags
         destination: getCityName(bilty.to_city_id),
         station_destination: getCityName(bilty.to_city_id)
       })),
       ...stationBilties.map(bilty => ({
         ...bilty,
-        source: 'station',
+        no_of_bags: bilty.no_of_packets, // Standardize to no_of_bags
+        source: 'manual', // Replace "station" with "manual"
+        combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`, // Combine pvt_marks and no_of_bags
         destination: bilty.station || 'Unknown',
         station_destination: bilty.station || 'Unknown'
       }))
@@ -153,12 +94,12 @@ export default function GodownPage() {
 
     // Apply search filter
     let filtered = combinedBilties;
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(bilty => 
         bilty.gr_no?.toLowerCase().includes(query) ||
-        bilty.pvt_marks?.toLowerCase().includes(query) ||
+        bilty.combinedColumn?.toLowerCase().includes(query) ||
         bilty.station_destination?.toLowerCase().includes(query)
       );
     }
@@ -214,7 +155,6 @@ export default function GodownPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
-        
         {/* Header */}
         <GodownHeader 
           stats={stats}
@@ -236,9 +176,9 @@ export default function GodownPage() {
           bilties={filteredBilties}
           loading={loading}
           error={error}
+          
           onRefresh={handleRefresh}
         />
-
       </div>
     </div>
   );

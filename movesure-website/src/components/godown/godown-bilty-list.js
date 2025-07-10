@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 
 export default function GodownBiltyList({ bilties, loading, error, onRefresh }) {
-
   // Format date helper
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -37,11 +36,14 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
           <MapPin className="w-3 h-3 mr-1" />
-          Station
+          Manual
         </span>
       );
     }
   };
+
+  // Sort bilties by created_at (newest first)
+  const sortedBilties = [...bilties].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   // Loading state
   if (loading) {
@@ -77,7 +79,7 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
   }
 
   // Empty state
-  if (bilties.length === 0) {
+  if (sortedBilties.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-8">
         <div className="text-center">
@@ -98,7 +100,6 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-      
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-700 to-slate-800 px-4 py-3">
         <div className="flex items-center justify-between">
@@ -107,7 +108,7 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
             Godown Bilty Records
           </h2>
           <span className="text-slate-200 text-sm">
-            {bilties.length} records
+            {sortedBilties.length} records
           </span>
         </div>
       </div>
@@ -138,7 +139,7 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
-            {bilties.map((bilty) => (
+            {sortedBilties.map((bilty) => (
               <tr key={`${bilty.source}-${bilty.id}`} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
@@ -187,7 +188,7 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
       {/* Mobile Card View */}
       <div className="lg:hidden">
         <div className="divide-y divide-slate-200">
-          {bilties.map((bilty) => (
+          {sortedBilties.map((bilty) => (
             <div key={`${bilty.source}-${bilty.id}`} className="p-4 hover:bg-slate-50 transition-colors">
               
               {/* Header Row - GR Number and Source */}
@@ -252,7 +253,7 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
       {/* Footer with count */}
       <div className="bg-slate-50 px-4 py-3 border-t border-slate-200">
         <div className="text-center text-sm text-slate-600">
-          Showing {bilties.length} bilty records for godown management
+          Showing {sortedBilties.length} bilty records for godown management
         </div>
       </div>
 

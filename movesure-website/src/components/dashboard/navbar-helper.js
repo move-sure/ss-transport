@@ -57,6 +57,12 @@ export const MODULE_CONFIG = {
     path: '/admin',
     icon: 'Wrench',
     description: 'Administrative functions'
+  },
+  'godown': {
+    name: 'Godown',
+    path: '/godown',
+    icon: 'Database',
+    description: 'Manage godown operations'
   }
 };
 
@@ -71,7 +77,7 @@ export const getNavigationItems = (userModules) => {
   }
 
   const navigationItems = [];  // Define the order in which modules should appear in the navbar
-  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff'];
+  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff', 'godown'];
 
   moduleOrder.forEach(moduleName => {
     if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -104,7 +110,8 @@ export const getModuleIcon = (moduleName) => {
     'search': <Search className="h-4 w-4" />,
     'master': <Database className="h-4 w-4" />,
     'setting': <Settings className="h-4 w-4" />,
-    'staff': <Wrench className="h-4 w-4" />
+    'staff': <Wrench className="h-4 w-4" />,
+    'godown': <Database className="h-4 w-4" />
   };
 
   return iconMap[moduleName] || <FileText className="h-4 w-4" />;

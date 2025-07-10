@@ -16,7 +16,8 @@ const AVAILABLE_MODULES = [
   { name: 'master', label: 'Master', description: 'Master data management' },
   { name: 'setting', label: 'Settings', description: 'Application settings' },
   { name: 'staff', label: 'Staff', description: 'Administrative functions' },
-  { name: 'danger', label: 'Danger Zone', description: 'Critical bill book configuration (USE WITH CAUTION)' }
+  { name: 'danger', label: 'Danger Zone', description: 'Critical bill book configuration (USE WITH CAUTION)' },
+  { name: 'godown', label: 'Godown', description: 'Manage godown operations' }
 ];
 
 export default function UserModulesPage() {

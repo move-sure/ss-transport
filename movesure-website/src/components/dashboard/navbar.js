@@ -19,7 +19,7 @@ const MODULE_CONFIG = {
     name: 'E-Way Bill',
     path: '/ewb',
     icon: 'Receipt',
-    shortcut: 'Alt+E'
+    shortcut: ''
   },  'challan': {
     name: 'Challan',
     path: '/challan',
@@ -63,6 +63,12 @@ const MODULE_CONFIG = {
     name: 'Danger Zone',
     path: '/danger',
     icon: 'AlertTriangle',
+  },
+  'godown': {
+    name: 'Godown',
+    path: '/godown',
+    icon: 'Database',
+    shortcut: ''
   }
 };
 
@@ -80,6 +86,7 @@ const ROUTE_MODULE_MAP = {
   '/bilty-setting': 'setting',  '/test': 'staff',
   '/user-modules': 'staff',
   '/danger': 'danger',
+  '/godown': 'godown',
 };
 
 // Public routes that don't require module access
@@ -129,6 +136,12 @@ export default function Navbar() {
               handleNavClick({ path: '/ewb', module: 'e-way-bill' });
             }
             break;
+          case 'g':
+            event.preventDefault();
+            if (userModules.includes('godown')) {
+              handleNavClick({ path: '/godown', module: 'godown' });
+            }
+            break;
         }
       }
     };
@@ -160,7 +173,7 @@ export default function Navbar() {
     if (!Array.isArray(userModules) || userModules.length === 0) {
       return [];
     }    const navigationItems = [];
-    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff', 'danger'];
+    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff', 'danger', 'godown'];
 
     moduleOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -187,7 +200,8 @@ export default function Navbar() {
       'master': <Database className="h-4 w-4" />,
       'setting': <Settings className="h-4 w-4" />,
       'staff': <Wrench className="h-4 w-4" />,
-      'danger': <AlertTriangle className="h-4 w-4" />
+      'danger': <AlertTriangle className="h-4 w-4" />,
+      'godown': <Database className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

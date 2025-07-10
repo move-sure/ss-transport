@@ -71,7 +71,7 @@ export default function GodownSearchFilter({
             {searchQuery && (
               <div className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
                 <Search className="w-3 h-3" />
-                <span>Search: "{searchQuery}"</span>
+                <span>Search: {searchQuery}</span>
                 <button
                   onClick={() => onSearchChange('')}
                   className="ml-1 hover:bg-blue-200 rounded-full p-0.5 transition-colors"

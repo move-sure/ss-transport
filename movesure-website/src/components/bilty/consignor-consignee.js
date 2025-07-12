@@ -63,54 +63,48 @@ const ConsignorConsigneeSection = ({
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
   // Use the optimized search hook
-  const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();  // Control dropdown visibility based on search results and exact matches
+  const { searchResults, isSearching, searchDatabase, clearResults } = useConsignorConsigneeSearch();  // Control dropdown visibility and auto-selection
   useEffect(() => {
-    if (searchResults.consignors && consignorSearch && consignorSearch.length >= 2) {
-      const exactMatch = searchResults.consignors.find(
-        c => c.company_name.toLowerCase() === consignorSearch.toLowerCase()
-      );
-      // Only show dropdown if no exact match, input is focused, and has results
-      if (!exactMatch && document.activeElement === consignorInputRef.current && searchResults.consignors.length > 0) {
-        setShowConsignorDropdown(true);
-        
-        // Auto-select if only one option available
-        if (searchResults.consignors.length === 1) {
-          console.log('🚀 Fast auto-selecting single consignor option:', searchResults.consignors[0].company_name);
+    if (consignorSearch && consignorSearch.length >= 1 && document.activeElement === consignorInputRef.current) {
+      setShowConsignorDropdown(true);
+      
+      // Auto-select if only one exact prefix match available
+      if (searchResults.consignors && searchResults.consignors.length > 0) {
+        const filteredResults = searchResults.consignors.filter(c => 
+          c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase())
+        );
+        if (filteredResults.length === 1) {
+          console.log('🚀 Auto-selecting single consignor option:', filteredResults[0].company_name);
           setTimeout(() => {
-            handleConsignorSelect(searchResults.consignors[0]);
-          }, 100);
+            handleConsignorSelect(filteredResults[0]);
+          }, 200);
         }
-      } else {
-        setShowConsignorDropdown(false);
       }
     } else {
       setShowConsignorDropdown(false);
     }
-  }, [searchResults.consignors, consignorSearch]);
+  }, [consignorSearch, searchResults.consignors]);
 
   useEffect(() => {
-    if (searchResults.consignees && consigneeSearch && consigneeSearch.length >= 2) {
-      const exactMatch = searchResults.consignees.find(
-        c => c.company_name.toLowerCase() === consigneeSearch.toLowerCase()
-      );
-      // Only show dropdown if no exact match, input is focused, and has results
-      if (!exactMatch && document.activeElement === consigneeInputRef.current && searchResults.consignees.length > 0) {
-        setShowConsigneeDropdown(true);
-        
-        // Auto-select if only one option available
-        if (searchResults.consignees.length === 1) {
-          console.log('🚀 Fast auto-selecting single consignee option:', searchResults.consignees[0].company_name);
+    if (consigneeSearch && consigneeSearch.length >= 1 && document.activeElement === consigneeInputRef.current) {
+      setShowConsigneeDropdown(true);
+      
+      // Auto-select if only one exact prefix match available
+      if (searchResults.consignees && searchResults.consignees.length > 0) {
+        const filteredResults = searchResults.consignees.filter(c => 
+          c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase())
+        );
+        if (filteredResults.length === 1) {
+          console.log('🚀 Auto-selecting single consignee option:', filteredResults[0].company_name);
           setTimeout(() => {
-            handleConsigneeSelect(searchResults.consignees[0]);
-          }, 100);
+            handleConsigneeSelect(filteredResults[0]);
+          }, 200);
         }
-      } else {
-        setShowConsigneeDropdown(false);
       }
     } else {
       setShowConsigneeDropdown(false);
     }
-  }, [searchResults.consignees, consigneeSearch]);
+  }, [consigneeSearch, searchResults.consignees]);
   // Initialize search values when formData changes (for edit mode)
   useEffect(() => {
     if (formData.consignor_name && consignorSearch !== formData.consignor_name) {
@@ -176,21 +170,23 @@ const ConsignorConsigneeSection = ({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);  // Handle consignor search with optimized database query
+  }, []);  // Handle consignor search with exact prefix matching
   const handleConsignorSearchChange = (value) => {
-    console.log('🎯 Consignor search changed:', value);
+    // Convert to uppercase immediately
+    const upperValue = value.toUpperCase();
+    console.log('🎯 Consignor search changed:', upperValue);
     
     // Update search state immediately
-    setConsignorSearch(value);
+    setConsignorSearch(upperValue);
     
     // Update form data immediately and synchronously
     setFormData(prev => {
-      const updated = { ...prev, consignor_name: value };
+      const updated = { ...prev, consignor_name: upperValue };
       console.log('🔄 Updated formData.consignor_name:', updated.consignor_name);
       return updated;
     });
-      // Clear GST and phone when clearing consignor name but don't trigger navigation
-    if (!value || value.length === 0) {
+      // Clear GST and phone when clearing consignor name
+    if (!upperValue || upperValue.length === 0) {
       setFormData(prev => ({
         ...prev,
         consignor_name: '',
@@ -200,50 +196,33 @@ const ConsignorConsigneeSection = ({
       setShowConsignorDropdown(false);
       clearResults();
       setConsignorSelectedIndex(-1);
-        // Force update of aria-expanded attribute to ensure navigation system knows dropdown is closed
-      if (consignorInputRef.current) {
-        consignorInputRef.current.setAttribute('aria-expanded', 'false');
-        // Maintain focus on the consignor input when clearing to prevent unwanted navigation
-        setTimeout(() => {
-          if (consignorInputRef.current && document.activeElement !== consignorInputRef.current) {
-            consignorInputRef.current.focus();
-          }
-        }, 10);
-      }
-      
-      return; // Return early to prevent further processing
+      return;
     }
     
-    if (value.length >= 2) {
-      searchDatabase(value, 'consignors');
-      
-      // Enhanced auto-selection: check for single option after search results update
-      setTimeout(() => {
-        if (searchResults.consignors?.length === 1) {
-          console.log('🎯 Auto-selecting single consignor option:', searchResults.consignors[0].company_name);
-          handleConsignorSelect(searchResults.consignors[0]);
-        }
-      }, 200); // Reduced timeout for faster response
+    // Always search when user types (even 1 character)
+    if (upperValue.length >= 1) {
+      searchDatabase(upperValue, 'consignors');
     } else {
-      setShowConsignorDropdown(false);
       clearResults();
     }
     setConsignorSelectedIndex(-1);
-  };  // Handle consignee search with optimized database query
+  };  // Handle consignee search with exact prefix matching
   const handleConsigneeSearchChange = (value) => {
-    console.log('🎯 Consignee search changed:', value);
+    // Convert to uppercase immediately
+    const upperValue = value.toUpperCase();
+    console.log('🎯 Consignee search changed:', upperValue);
     
     // Update search state immediately
-    setConsigneeSearch(value);
+    setConsigneeSearch(upperValue);
     
     // Update form data immediately and synchronously
     setFormData(prev => {
-      const updated = { ...prev, consignee_name: value };
+      const updated = { ...prev, consignee_name: upperValue };
       console.log('🔄 Updated formData.consignee_name:', updated.consignee_name);
       return updated;
     });
-      // Clear GST and phone when clearing consignee name but don't trigger navigation
-    if (!value || value.length === 0) {
+      // Clear GST and phone when clearing consignee name
+    if (!upperValue || upperValue.length === 0) {
       setFormData(prev => ({
         ...prev,
         consignee_name: '',
@@ -253,32 +232,13 @@ const ConsignorConsigneeSection = ({
       setShowConsigneeDropdown(false);
       clearResults();
       setConsigneeSelectedIndex(-1);
-        // Force update of aria-expanded attribute to ensure navigation system knows dropdown is closed
-      if (consigneeInputRef.current) {
-        consigneeInputRef.current.setAttribute('aria-expanded', 'false');
-        // Maintain focus on the consignee input when clearing to prevent unwanted navigation
-        setTimeout(() => {
-          if (consigneeInputRef.current && document.activeElement !== consigneeInputRef.current) {
-            consigneeInputRef.current.focus();
-          }
-        }, 10);
-      }
-      
-      return; // Return early to prevent further processing
+      return;
     }
     
-    if (value.length >= 2) {
-      searchDatabase(value, 'consignees');
-      
-      // Enhanced auto-selection: check for single option after search results update
-      setTimeout(() => {
-        if (searchResults.consignees?.length === 1) {
-          console.log('🎯 Auto-selecting single consignee option:', searchResults.consignees[0].company_name);
-          handleConsigneeSelect(searchResults.consignees[0]);
-        }
-      }, 200); // Reduced timeout for faster response
+    // Always search when user types (even 1 character)
+    if (upperValue.length >= 1) {
+      searchDatabase(upperValue, 'consignees');
     } else {
-      setShowConsigneeDropdown(false);
       clearResults();
     }
     setConsigneeSelectedIndex(-1);
@@ -772,11 +732,12 @@ const ConsignorConsigneeSection = ({
                     setConsignorSelectedIndex(-1);
                   }, 150); // Small delay to allow dropdown clicks
                 }}                onKeyDown={handleConsignorKeyDown}
-                placeholder="👤 Type to search consignor..."
-                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input"
+                placeholder="👤 Start typing consignor name..."
+                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input uppercase"
                 tabIndex={5}
                 aria-expanded={showConsignorDropdown ? 'true' : 'false'}
                 role="combobox"
+                style={{ textTransform: 'uppercase' }}
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -788,21 +749,37 @@ const ConsignorConsigneeSection = ({
               )}
             </div>                {showConsignorDropdown && (
                 <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dropdown-open autocomplete-open">
-                  <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
-                    CONSIGNOR SEARCH RESULTS ({searchResults.consignors.length})
-                  </div>
-                  
-                  {/* Add New Consignor Button */}
+                  {/* Add New Consignor Button - Always at top */}
                   <button
-                    onClick={() => setShowAddConsignor(true)}
-                    className="w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-200 bg-purple-25"
+                    onClick={() => {
+                      setNewConsignorData({ company_name: consignorSearch, gst_num: '', number: '' });
+                      setShowAddConsignor(true);
+                      setShowConsignorDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-green-50 text-xs transition-colors border-b-2 border-green-200 bg-green-25"
                   >
-                    <div className="flex items-center gap-2 font-medium text-purple-700">
+                    <div className="flex items-center gap-2 font-bold text-green-700">
                       <Plus className="w-4 h-4" />
-                      Add New Consignor
+                      <span className="text-xs">Add "{consignorSearch}" as New Consignor</span>
                     </div>
-                  </button>                  {searchResults.consignors.length > 0 ? (
-                    searchResults.consignors.map((consignor, index) => (
+                  </button>
+                  
+                  {/* Search Results Header */}
+                  {searchResults.consignors && searchResults.consignors.length > 0 && (
+                    <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold">
+                      EXISTING CONSIGNORS ({searchResults.consignors.filter(c => 
+                        c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase())
+                      ).length})
+                    </div>
+                  )}
+                  
+                  {/* Filtered Results - Only exact prefix matches */}
+                  {searchResults.consignors && searchResults.consignors
+                    .filter(c => c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase()))
+                    .length > 0 ? (
+                    searchResults.consignors
+                      .filter(c => c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase()))
+                      .map((consignor, index) => (
                       <button
                         key={consignor.id}
                         data-index={index}
@@ -818,9 +795,13 @@ const ConsignorConsigneeSection = ({
                         </div>
                       </button>
                     ))
-                  ) : !isSearching && (
+                  ) : searchResults.consignors && searchResults.consignors.length > 0 ? (
                     <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignors found for &quot;{consignorSearch}&quot;
+                      No consignors starting with "{consignorSearch}"
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-xs text-gray-600">
+                      {isSearching ? 'Searching...' : `Type to search existing consignors`}
                     </div>
                   )}
                 </div>
@@ -901,11 +882,12 @@ const ConsignorConsigneeSection = ({
                     setShowConsigneeDropdown(false);
                     setConsigneeSelectedIndex(-1);
                   }, 150); // Small delay to allow dropdown clicks
-                }}onKeyDown={handleConsigneeKeyDown}                placeholder="🏢 Type to search consignee..."
-                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input"
+                }}onKeyDown={handleConsigneeKeyDown}                placeholder="🏢 Start typing consignee name..."
+                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input uppercase"
                 tabIndex={8}
                 aria-expanded={showConsigneeDropdown}
                 role="combobox"
+                style={{ textTransform: 'uppercase' }}
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -918,21 +900,37 @@ const ConsignorConsigneeSection = ({
             </div>
               {showConsigneeDropdown && (
               <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dropdown-open autocomplete-open">
-                <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold rounded-t-xl">
-                  CONSIGNEE SEARCH RESULTS ({searchResults.consignees.length})
-                </div>
-                
-                {/* Add New Consignee Button */}
+                {/* Add New Consignee Button - Always at top */}
                 <button
-                  onClick={() => setShowAddConsignee(true)}
-                  className="w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-200 bg-purple-25"
+                  onClick={() => {
+                    setNewConsigneeData({ company_name: consigneeSearch, gst_num: '', number: '' });
+                    setShowAddConsignee(true);
+                    setShowConsigneeDropdown(false);
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-green-50 text-xs transition-colors border-b-2 border-green-200 bg-green-25"
                 >
-                  <div className="flex items-center gap-2 font-medium text-purple-700">
+                  <div className="flex items-center gap-2 font-bold text-green-700">
                     <Plus className="w-4 h-4" />
-                    Add New Consignee
+                    <span className="text-xs">Add "{consigneeSearch}" as New Consignee</span>
                   </div>
-                </button>                {searchResults.consignees.length > 0 ? (
-                  searchResults.consignees.map((consignee, index) => (
+                </button>
+                
+                {/* Search Results Header */}
+                {searchResults.consignees && searchResults.consignees.length > 0 && (
+                  <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold">
+                    EXISTING CONSIGNEES ({searchResults.consignees.filter(c => 
+                      c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase())
+                    ).length})
+                  </div>
+                )}
+                
+                {/* Filtered Results - Only exact prefix matches */}
+                {searchResults.consignees && searchResults.consignees
+                  .filter(c => c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase()))
+                  .length > 0 ? (
+                  searchResults.consignees
+                    .filter(c => c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase()))
+                    .map((consignee, index) => (
                     <button
                       key={consignee.id}
                       data-index={index}
@@ -948,9 +946,13 @@ const ConsignorConsigneeSection = ({
                       </div>
                     </button>
                   ))
-                ) : !isSearching && (
+                ) : searchResults.consignees && searchResults.consignees.length > 0 ? (
                   <div className="px-4 py-3 text-xs text-gray-600">
-                    No consignees found for &quot;{consigneeSearch}&quot;
+                    No consignees starting with "{consigneeSearch}"
+                  </div>
+                ) : (
+                  <div className="px-4 py-3 text-xs text-gray-600">
+                    {isSearching ? 'Searching...' : `Type to search existing consignees`}
                   </div>
                 )}
               </div>
@@ -1003,47 +1005,57 @@ const ConsignorConsigneeSection = ({
 
       {/* Add New Consignor Modal */}
       {showAddConsignor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 text-center bg-emerald-100 py-2 rounded">
-              Add New Consignor
-            </h3>
-            <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <Plus className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                Add New Consignor
+              </h3>
+              <p className="text-sm text-gray-600">
+                Fill in the details to add a new consignor to your database
+              </p>
+            </div>
+            
+            <div className="space-y-5">
               <div className="relative">
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Company Name <span className="text-red-500">*</span>
                 </label>                <input
                   type="text"
                   value={newConsignorData.company_name || ''}
-                  onChange={(e) => setNewConsignorData(prev => ({ ...prev, company_name: e.target.value }))}
-                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none text-black font-medium ${
+                  onChange={(e) => setNewConsignorData(prev => ({ ...prev, company_name: e.target.value.toUpperCase() }))}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none text-black font-medium text-lg uppercase ${
                     consignorExists 
                       ? 'border-red-500 focus:border-red-500 bg-red-50' 
-                      : 'border-gray-300 focus:border-emerald-500 bg-white'
+                      : 'border-gray-300 focus:border-green-500 bg-white focus:bg-green-50'
                   }`}
                   placeholder="Enter company name"
                   autoFocus
+                  style={{ textTransform: 'uppercase' }}
                 />
                 
                 {/* Duplicate Warning */}
                 {consignorExists && (
-                  <div className="flex items-center gap-2 mt-1 text-red-600 text-sm">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="font-medium">Company name already exists!</span>
+                  <div className="flex items-center gap-2 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <span className="font-medium text-red-700">This company name already exists!</span>
                   </div>
                 )}
                 
                 {/* Suggestions Dropdown */}
                 {consignorSuggestions.length > 0 && !consignorExists && (
-                  <div className="absolute z-60 mt-1 w-full bg-white border-2 border-emerald-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                    <div className="p-2 bg-emerald-100 text-emerald-800 text-xs font-bold">
-                      Similar companies found - Click to use existing:
+                  <div className="absolute z-60 mt-1 w-full bg-white border-2 border-orange-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    <div className="p-3 bg-orange-100 text-orange-800 text-sm font-bold">
+                      💡 Similar companies found - Click to use existing:
                     </div>
                     {consignorSuggestions.map((consignor) => (
                       <button
                         key={consignor.id}
                         onClick={() => handleConsignorSuggestionSelect(consignor)}
-                        className="w-full px-3 py-2 text-left hover:bg-emerald-50 text-sm transition-colors border-b border-emerald-100"
+                        className="w-full px-4 py-3 text-left hover:bg-orange-50 text-sm transition-colors border-b border-orange-100"
                       >
                         <div className="font-medium text-black">{consignor.company_name}</div>
                         <div className="text-xs text-gray-600">
@@ -1057,32 +1069,46 @@ const ConsignorConsigneeSection = ({
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">GST Number</label>                <input
+                <label className="block text-sm font-bold text-gray-700 mb-2">GST Number (Optional)</label>                <input
                   type="text"
                   value={newConsignorData.gst_num || ''}
                   onChange={(e) => setNewConsignorData(prev => ({ ...prev, gst_num: e.target.value }))}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
-                  placeholder="Enter GST number"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-green-500 text-black font-medium bg-white focus:bg-green-50"
+                  placeholder="Enter GST number (optional)"
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>                <input
+                <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number (Optional)</label>                <input
                   type="text"
                   value={newConsignorData.number || ''}
                   onChange={(e) => setNewConsignorData(prev => ({ ...prev, number: e.target.value }))}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
-                  placeholder="Enter phone number"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-green-500 text-black font-medium bg-white focus:bg-green-50"
+                  placeholder="Enter phone number (optional)"
                 />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+            
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-3 mt-8">
               <button
                 onClick={handleAddNewConsignor}
                 disabled={addingConsignor || !newConsignorData.company_name.trim() || consignorExists}
-                className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
               >
-                {addingConsignor ? 'Adding...' : 'Add Consignor'}
+                {addingConsignor ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Adding Consignor...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <Plus className="w-5 h-5" />
+                    Add New Consignor
+                  </span>
+                )}
               </button>
+              
               <button
                 onClick={() => {
                   setShowAddConsignor(false);
@@ -1090,7 +1116,7 @@ const ConsignorConsigneeSection = ({
                   setConsignorSuggestions([]);
                   setConsignorExists(false);
                 }}
-                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-gray-600"
+                className="w-full bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-medium hover:bg-gray-300 transition-all duration-200"
               >
                 Cancel
               </button>
@@ -1101,47 +1127,57 @@ const ConsignorConsigneeSection = ({
 
       {/* Add New Consignee Modal */}
       {showAddConsignee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 text-center bg-emerald-100 py-2 rounded">
-              Add New Consignee
-            </h3>
-            <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <Plus className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                Add New Consignee
+              </h3>
+              <p className="text-sm text-gray-600">
+                Fill in the details to add a new consignee to your database
+              </p>
+            </div>
+            
+            <div className="space-y-5">
               <div className="relative">
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Company Name <span className="text-red-500">*</span>
                 </label>                <input
                   type="text"
                   value={newConsigneeData.company_name || ''}
-                  onChange={(e) => setNewConsigneeData(prev => ({ ...prev, company_name: e.target.value }))}
-                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none text-black font-medium ${
+                  onChange={(e) => setNewConsigneeData(prev => ({ ...prev, company_name: e.target.value.toUpperCase() }))}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none text-black font-medium text-lg uppercase ${
                     consigneeExists 
                       ? 'border-red-500 focus:border-red-500 bg-red-50' 
-                      : 'border-gray-300 focus:border-emerald-500 bg-white'
+                      : 'border-gray-300 focus:border-green-500 bg-white focus:bg-green-50'
                   }`}
                   placeholder="Enter company name"
                   autoFocus
+                  style={{ textTransform: 'uppercase' }}
                 />
                 
                 {/* Duplicate Warning */}
                 {consigneeExists && (
-                  <div className="flex items-center gap-2 mt-1 text-red-600 text-sm">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="font-medium">Company name already exists!</span>
+                  <div className="flex items-center gap-2 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <span className="font-medium text-red-700">This company name already exists!</span>
                   </div>
                 )}
                 
                 {/* Suggestions Dropdown */}
                 {consigneeSuggestions.length > 0 && !consigneeExists && (
-                  <div className="absolute z-60 mt-1 w-full bg-white border-2 border-emerald-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                    <div className="p-2 bg-emerald-100 text-emerald-800 text-xs font-bold">
-                      Similar companies found - Click to use existing:
+                  <div className="absolute z-60 mt-1 w-full bg-white border-2 border-orange-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    <div className="p-3 bg-orange-100 text-orange-800 text-sm font-bold">
+                      💡 Similar companies found - Click to use existing:
                     </div>
                     {consigneeSuggestions.map((consignee) => (
                       <button
                         key={consignee.id}
                         onClick={() => handleConsigneeSuggestionSelect(consignee)}
-                        className="w-full px-3 py-2 text-left hover:bg-emerald-50 text-sm transition-colors border-b border-emerald-100"
+                        className="w-full px-4 py-3 text-left hover:bg-orange-50 text-sm transition-colors border-b border-orange-100"
                       >
                         <div className="font-medium text-black">{consignee.company_name}</div>
                         <div className="text-xs text-gray-600">
@@ -1155,32 +1191,46 @@ const ConsignorConsigneeSection = ({
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">GST Number</label>                <input
+                <label className="block text-sm font-bold text-gray-700 mb-2">GST Number (Optional)</label>                <input
                   type="text"
                   value={newConsigneeData.gst_num || ''}
                   onChange={(e) => setNewConsigneeData(prev => ({ ...prev, gst_num: e.target.value }))}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
-                  placeholder="Enter GST number"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-green-500 text-black font-medium bg-white focus:bg-green-50"
+                  placeholder="Enter GST number (optional)"
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>                <input
+                <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number (Optional)</label>                <input
                   type="text"
                   value={newConsigneeData.number || ''}
                   onChange={(e) => setNewConsigneeData(prev => ({ ...prev, number: e.target.value }))}
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500 text-black font-medium bg-white"
-                  placeholder="Enter phone number"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-green-500 text-black font-medium bg-white focus:bg-green-50"
+                  placeholder="Enter phone number (optional)"
                 />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+            
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-3 mt-8">
               <button
                 onClick={handleAddNewConsignee}
                 disabled={addingConsignee || !newConsigneeData.company_name.trim() || consigneeExists}
-                className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg font-bold hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg"
               >
-                {addingConsignee ? 'Adding...' : 'Add Consignee'}
+                {addingConsignee ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Adding Consignee...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <Plus className="w-5 h-5" />
+                    Add New Consignee
+                  </span>
+                )}
               </button>
+              
               <button
                 onClick={() => {
                   setShowAddConsignee(false);
@@ -1188,7 +1238,7 @@ const ConsignorConsigneeSection = ({
                   setConsigneeSuggestions([]);
                   setConsigneeExists(false);
                 }}
-                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-bold hover:bg-gray-600"
+                className="w-full bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-medium hover:bg-gray-300 transition-all duration-200"
               >
                 Cancel
               </button>

@@ -5,6 +5,7 @@ import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import Navbar from '../../components/dashboard/navbar';
 import BiltySearchHeader from '../../components/search/bilty-search-header';
 import BiltyFilterPanel from '../../components/search/SearchFilters';
 import CombinedBiltySearchTable from '../../components/search/combined-bilty-table';
@@ -540,8 +541,10 @@ export default function BiltySearch() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-2">
-      <div className="max-w-full space-y-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <Navbar />
+      <div className="p-2">
+        <div className="max-w-full space-y-4">
         {/* Header Component */}
         <BiltySearchHeader 
           stats={stats}
@@ -608,6 +611,7 @@ export default function BiltySearch() {
           toCityName={selectedBilty ? getCityName(selectedBilty.to_city_id) : ''}
           showShortcuts={false}
         />
+        </div>
       </div>
     </div>
   );

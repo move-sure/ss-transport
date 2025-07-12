@@ -414,15 +414,15 @@ function PrintBiltyPageContent() {
                 </p>
                 <div className="bg-gray-50 rounded-lg p-4 inline-block">
                   <p className="text-gray-800 font-medium mb-1">
-                    Owned by <span className="text-blue-600">Eklavya Singh</span>
+                    Owned by <a href="https://theeklavyasingh.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 transition-colors hover:underline">Eklavya Singh</a>
                   </p>
                   <div className="text-gray-600">
                     Contact: 
                     <a 
                       href="tel:+917668291228" 
-                      className="font-medium text-blue-600 hover:text-blue-700 transition-colors ml-1"
+                      className="font-medium text-blue-600 hover:text-blue-700 transition-colors ml-1 cursor-pointer"
                     >
-                      7668291228
+                      <span role="img" aria-label="phone" className="mr-1">📞</span>7668291228
                     </a>
                   </div>
                 </div>

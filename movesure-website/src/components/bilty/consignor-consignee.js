@@ -760,7 +760,7 @@ const ConsignorConsigneeSection = ({
                   >
                     <div className="flex items-center gap-2 font-bold text-green-700">
                       <Plus className="w-4 h-4" />
-                      <span className="text-xs">Add "{consignorSearch}" as New Consignor</span>
+                      <span className="text-xs">Add {consignorSearch} as New Consignor</span>
                     </div>
                   </button>
                   
@@ -797,7 +797,7 @@ const ConsignorConsigneeSection = ({
                     ))
                   ) : searchResults.consignors && searchResults.consignors.length > 0 ? (
                     <div className="px-4 py-3 text-xs text-gray-600">
-                      No consignors starting with "{consignorSearch}"
+                      No consignors starting with {consignorSearch}
                     </div>
                   ) : (
                     <div className="px-4 py-3 text-xs text-gray-600">
@@ -911,7 +911,7 @@ const ConsignorConsigneeSection = ({
                 >
                   <div className="flex items-center gap-2 font-bold text-green-700">
                     <Plus className="w-4 h-4" />
-                    <span className="text-xs">Add "{consigneeSearch}" as New Consignee</span>
+                    <span className="text-xs">Add {consigneeSearch} as New Consignee</span>
                   </div>
                 </button>
                 
@@ -948,7 +948,7 @@ const ConsignorConsigneeSection = ({
                   ))
                 ) : searchResults.consignees && searchResults.consignees.length > 0 ? (
                   <div className="px-4 py-3 text-xs text-gray-600">
-                    No consignees starting with "{consigneeSearch}"
+                    No consignees starting with {consigneeSearch}
                   </div>
                 ) : (
                   <div className="px-4 py-3 text-xs text-gray-600">

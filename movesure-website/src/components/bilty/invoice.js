@@ -8,19 +8,13 @@ import EwbValidator from '../ewb/ewb-validator';
 import { getActiveEwbToken } from '../ewb/token-helper';
 
 const InvoiceDetailsSection = ({ formData, setFormData }) => {
-  const [contentOptions, setContentOptions] = useState([]);
-  const [showContentDropdown, setShowContentDropdown] = useState(false);
-  const [contentSearch, setContentSearch] = useState('');
-  const [selectedContentIndex, setSelectedContentIndex] = useState(-1);
-  const [isAddingContent, setIsAddingContent] = useState(false);
-  const [newContentName, setNewContentName] = useState('');  const [showEwbValidator, setShowEwbValidator] = useState(false);
+  const [showEwbValidator, setShowEwbValidator] = useState(false);
   // Multiple EWB State
   const [ewbList, setEwbList] = useState([]);
   const [currentEwbInput, setCurrentEwbInput] = useState('');
   const [validatingEwbId, setValidatingEwbId] = useState(null);
   const [selectedEwbForDetails, setSelectedEwbForDetails] = useState(null);
 
-  const contentRef = useRef(null);
   const contentInputRef = useRef(null);
   const paymentModeRef = useRef(null);
   const deliveryTypeRef = useRef(null);
@@ -69,7 +63,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     }
   }, [ewbList]); // Remove setFormData from dependencies to avoid loops
 
-// Multiple EWB Functions
+  // Multiple EWB Functions
   const addEwbToList = () => {
     if (!currentEwbInput || currentEwbInput.trim() === '') return;
     
@@ -229,51 +223,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       setValidatingEwbId(null);
     }
   };
-  // Load content options on component mount
-  useEffect(() => {
-    loadContentOptions();
-  }, []);
-
-  // Initialize contentSearch with form data when component mounts or formData.contain changes
-  useEffect(() => {
-    if (formData.contain && formData.contain !== contentSearch) {
-      setContentSearch(formData.contain);
-    }
-  }, [formData.contain]);
-
-  // Enhanced auto-selection watcher for content dropdown
-  useEffect(() => {
-    if (contentSearch && contentSearch.length >= 2 && !isAddingContent) {
-      const filtered = contentOptions.filter(content =>
-        content.content_name.toLowerCase().includes(contentSearch.toLowerCase())
-      );
-      
-      const exactMatch = contentOptions.find(
-        c => c.content_name.toLowerCase() === contentSearch.toLowerCase()
-      );
-      
-      // Fast auto-select if only one option available and no exact match
-      if (filtered.length === 1 && !exactMatch && document.activeElement === contentInputRef.current) {
-        console.log('🚀 Fast auto-selecting single content option:', filtered[0].content_name);
-        setTimeout(() => {
-          handleContentSelect(filtered[0]);
-        }, 100);
-      }
-    }
-  }, [contentOptions, contentSearch, isAddingContent]);
-
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (contentRef.current && !contentRef.current.contains(event.target)) {
-        setShowContentDropdown(false);
-        setIsAddingContent(false);
-        setSelectedContentIndex(-1);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Register inputs for navigation
   useEffect(() => {
@@ -288,9 +237,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       register(12, paymentModeRef.current);
     }
     if (contentInputRef.current) {
-      register(13, contentInputRef.current, {
-        skipCondition: () => showContentDropdown && filteredContent.length > 0
-      });
+      register(13, contentInputRef.current);
     }
     if (invoiceNoRef.current) {
       register(14, invoiceNoRef.current);
@@ -318,171 +265,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     };
   }, [register, unregister]);
 
-  const loadContentOptions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('content_management')
-        .select('*')
-        .order('content_name');
-      
-      if (error) throw error;
-      setContentOptions(data || []);
-    } catch (error) {
-      console.error('Error loading content options:', error);
-    }
-  };
-
-  const handleContentSelect = (content) => {
-    setContentSearch(content.content_name);
-    setFormData(prev => ({ ...prev, contain: content.content_name }));
-    setShowContentDropdown(false);
-    setSelectedContentIndex(-1);
-    if (contentInputRef.current) {
-      contentInputRef.current.focus();
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (isAddingContent) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAddNewContent();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setIsAddingContent(false);
-        setNewContentName('');
-      }
-      return;
-    }
-
-    // Handle dropdown navigation
-    if (showContentDropdown && filteredContent.length > 0) {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          const newDownIndex = selectedContentIndex < filteredContent.length - 1 ? selectedContentIndex + 1 : 0;
-          setSelectedContentIndex(newDownIndex);
-          setTimeout(() => {
-            const dropdown = contentRef.current?.querySelector('.dropdown-open');
-            const selectedOption = dropdown?.querySelector(`[data-index="${newDownIndex}"]`);
-            if (selectedOption && dropdown) {
-              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
-          }, 10);
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          const newUpIndex = selectedContentIndex > 0 ? selectedContentIndex - 1 : filteredContent.length - 1;
-          setSelectedContentIndex(newUpIndex);
-          setTimeout(() => {
-            const dropdown = contentRef.current?.querySelector('.dropdown-open');
-            const selectedOption = dropdown?.querySelector(`[data-index="${newUpIndex}"]`);
-            if (selectedOption && dropdown) {
-              selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
-          }, 10);
-          break;
-        case 'Enter':
-        case 'Tab':
-          e.preventDefault();
-          e.stopPropagation();
-          console.log(`🎯 ${e.key} key pressed on content dropdown - selecting option`);
-          if (selectedContentIndex >= 0) {
-            handleContentSelect(filteredContent[selectedContentIndex]);
-          } else if (filteredContent.length > 0) {
-            handleContentSelect(filteredContent[0]);
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          setShowContentDropdown(false);
-          setSelectedContentIndex(-1);
-          break;
-      }
-    } else {
-      if (e.key === 'ArrowDown' && !showContentDropdown) {
-        e.preventDefault();
-        setShowContentDropdown(true);
-      }
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const value = e.target.value.toUpperCase(); // Convert to uppercase
-    setContentSearch(value);
-    setFormData(prev => ({ ...prev, contain: value }));
-    
-    const filtered = contentOptions.filter(content =>
-      content.content_name.toLowerCase().includes(value.toLowerCase())
-    );
-
-    if (filtered.length === 1) {
-      console.log('🎯 Auto-selecting single content option:', filtered[0].content_name);
-      setTimeout(() => {
-        handleContentSelect(filtered[0]);
-      }, 200);
-      return;
-    }
-    
-    const exactMatch = contentOptions.find(
-      c => c.content_name.toLowerCase() === value.toLowerCase()
-    );
-    
-    if (!exactMatch && value.trim()) {
-      setShowContentDropdown(true);
-    } else {
-      setShowContentDropdown(false);
-    }
-    
-    setSelectedContentIndex(-1);
-    setIsAddingContent(false);
-  };
-
-  const handleAddNewContent = async () => {
-    if (!newContentName.trim()) return;
-
-    try {
-      const existingContent = contentOptions.find(
-        c => c.content_name.toLowerCase() === newContentName.trim().toLowerCase()
-      );
-
-      if (existingContent) {
-        handleContentSelect(existingContent);
-        setIsAddingContent(false);
-        setNewContentName('');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('content_management')
-        .insert([{ content_name: newContentName.trim() }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setContentOptions(prev => [...prev, data]);
-      handleContentSelect(data);
-      
-      setIsAddingContent(false);
-      setNewContentName('');
-    } catch (error) {
-      console.error('Error adding new content:', error);
-      alert('Error adding new content. Please try again.');
-    }
-  };
-
-  const startAddingContent = () => {
-    setIsAddingContent(true);
-    setNewContentName(contentSearch);
-    setShowContentDropdown(false);
-  };
-  const filteredContent = contentOptions.filter(content =>
-    content.content_name.toLowerCase().includes(contentSearch.toLowerCase())
-  );
-  const exactMatch = contentOptions.find(
-    c => c.content_name.toLowerCase() === contentSearch.toLowerCase()
-  );  // Multiple EWB Status Component
+  // Multiple EWB Status Component
   const MultipleEwbSection = () => {
     const [localInputValue, setLocalInputValue] = useState('');
     const [inputRefs] = useState(() => ({ current: null }));
@@ -821,107 +604,21 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </select>
         </div>
 
-        {/* Enhanced Content Field with Dropdown */}
+        {/* Simple Content Field */}
         <div className="flex items-center gap-3 lg:col-span-1">
           <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
             CONTENT
           </span>
-          <div className="relative flex-1" ref={contentRef}>
-            {isAddingContent ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newContentName}
-                  onChange={(e) => setNewContentName(e.target.value.toUpperCase())}
-                  onKeyDown={handleKeyDown}
-                  placeholder="✨ Enter new content name..."
-                  className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-400 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 text-sm lg:text-base"
-                  autoFocus
-                />
-                <button
-                  onClick={handleAddNewContent}
-                  className="px-2 lg:px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 flex items-center gap-1 shadow-md transition-all"
-                >
-                  <Check className="w-3 lg:w-4 h-3 lg:h-4" />
-                </button>
-              </div>
-            ) : (
-              <input
-                type="text"
-                ref={contentInputRef}
-                value={contentSearch}
-                onChange={handleInputChange}
-                onFocus={() => {
-                  const exactMatch = contentOptions.find(
-                    c => c.content_name.toLowerCase() === contentSearch.toLowerCase()
-                  );
-                  if (!exactMatch && contentSearch.trim()) {
-                    setShowContentDropdown(true);
-                  }
-                }}
-                onBlur={() => {
-                  setTimeout(() => {
-                    setShowContentDropdown(false);
-                    setSelectedContentIndex(-1);
-                  }, 150);
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="📦 Search or type goods description..."
-                className="w-full px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 dropdown-input text-sm lg:text-base"
-                tabIndex={13}
-                aria-expanded={showContentDropdown}
-                role="combobox"
-              />
-            )}
-
-            {showContentDropdown && !isAddingContent && (
-              <div className="absolute z-30 mt-1 w-full bg-white border-2 border-purple-300 rounded-lg shadow-xl max-h-48 lg:max-h-64 overflow-y-auto dropdown-open autocomplete-open">
-                <div className="p-2 lg:p-3 bg-gradient-to-r from-purple-50 to-blue-50 text-xs font-bold border-b border-purple-200 flex justify-between items-center">
-                  <span className="text-black">CONTENT OPTIONS</span>
-                  {contentSearch && !exactMatch && (
-                    <button
-                      onClick={startAddingContent}
-                      className="flex items-center gap-1 text-purple-600 hover:text-purple-800 font-bold transition-colors text-xs"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add New
-                    </button>
-                  )}
-                </div>
-                {filteredContent.length > 0 ? (
-                  filteredContent.map((content, index) => (
-                    <button
-                      key={content.content_id}
-                      data-index={index}
-                      onClick={() => handleContentSelect(content)}
-                      className={`w-full px-3 lg:px-4 py-2 lg:py-3 text-left hover:bg-purple-50 text-xs lg:text-sm transition-colors border-b border-purple-100 ${
-                        index === selectedContentIndex ? 'bg-purple-100' : ''
-                      }`}
-                    >
-                      <div className="font-semibold text-black">{content.content_name}</div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-3 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-600">
-                    {contentSearch ? (
-                      <div className="flex justify-between items-center">
-                        <span>No matching content found</span>
-                        <button
-                          onClick={startAddingContent}
-                          className="text-purple-600 hover:text-purple-800 font-bold flex items-center gap-1 transition-colors text-xs"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Add {contentSearch}
-                        </button>
-                      </div>
-                    ) : (
-                      'Start typing to search content...'
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <input
+            type="text"
+            ref={contentInputRef}
+            value={formData.contain || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, contain: e.target.value.toUpperCase() }))}
+            placeholder="📦 Goods description..."
+            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 text-sm lg:text-base"
+            tabIndex={13}
+            style={{ textTransform: 'uppercase' }}
+          />
         </div>
 
         {/* Row 2 - Invoice Details */}

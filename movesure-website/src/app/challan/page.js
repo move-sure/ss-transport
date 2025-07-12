@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 // Import components
+import Navbar from '../../components/dashboard/navbar';
 import TransitHeader from '../../components/transit/TransitHeader';
 import ChallanSelector from '../../components/transit/ChallanSelector';
 import BiltyList from '../../components/transit/BiltyList';
@@ -894,6 +895,7 @@ export default function TransitManagement() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <Navbar />
       <div className="p-4 space-y-6">        {/* Header with PDF preview buttons */}        <TransitHeader 
           userBranch={userBranch}
           user={user}

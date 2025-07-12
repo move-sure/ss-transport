@@ -32,103 +32,96 @@ const TransitHeader = ({
   };
 
   return (
-    <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-xl border-2 border-purple-300" style={{ backgroundColor: '#fbfaf9' }}>
-      {/* Header Section */}
-      <div className="p-6">
-        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
-          {/* Left Section - Title and Branch Info */}
-          <div className="flex-1">
-            <div className="flex items-center gap-3 text-white mb-4">
-              <div className="bg-white/20 p-2 rounded-lg">
-                <Truck className="w-8 h-8" />
-              </div>
-              <span className="text-2xl font-bold">TRANSIT MANAGEMENT</span>
+    <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg shadow-lg border border-purple-300 p-4">
+      {/* Compact Header */}
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+        {/* Left Section - Title and Quick Info */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-white">
+            <div className="bg-white/20 p-1.5 rounded-lg">
+              <Truck className="w-5 h-5" />
             </div>
-            
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div className="bg-white border-2 border-purple-300 p-3 rounded-lg shadow-md">
-                <span className="text-purple-600 font-bold block text-xs uppercase tracking-wide">BRANCH</span>
-                <div className="font-bold text-base text-black">{userBranch?.branch_name || 'Unknown'}</div>
-                <div className="text-xs text-purple-800">{getCityName(userBranch?.city_code || '')}</div>
+            <span className="text-lg font-bold">TRANSIT</span>
+          </div>
+          
+          <div className="hidden md:flex items-center gap-3 text-xs text-white/90">
+            <span>{userBranch?.branch_name || 'Unknown'}</span>
+            <span>•</span>
+            <span>{user?.username}</span>
+            <span>•</span>
+            <span>{format(new Date(), 'dd/MM/yyyy HH:mm')}</span>
+          </div>
+        </div>
+        
+        {/* Right Section - Stats and Actions */}
+        <div className="flex flex-col gap-3">
+          {/* Stats Row with Labels */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
+              <Package className="w-4 h-4" />
+              <div className="flex flex-col">
+                <span className="text-xs opacity-90">Available</span>
+                <span className="text-sm font-bold">{availableCount}</span>
               </div>
-              <div className="bg-white border-2 border-purple-300 p-3 rounded-lg shadow-md">
-                <span className="text-purple-600 font-bold block text-xs uppercase tracking-wide">USER</span>
-                <div className="font-bold text-base text-black">{user?.username}</div>
-                <div className="text-xs text-purple-800">{user?.email}</div>
+            </div>
+            <div className="bg-yellow-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
+              <Truck className="w-4 h-4" />
+              <div className="flex flex-col">
+                <span className="text-xs opacity-90">In Challan</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-bold">{transitBilties.length}</span>
+                  {selectedChallan?.is_dispatched && (
+                    <span className="px-1 bg-orange-200 text-orange-800 text-xs rounded font-bold">
+                      DISP
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="bg-white border-2 border-purple-300 p-3 rounded-lg shadow-md">
-                <span className="text-purple-600 font-bold block text-xs uppercase tracking-wide">DATE</span>
-                <div className="font-bold text-base text-black">{format(new Date(), 'dd/MM/yyyy')}</div>
-                <div className="text-xs text-purple-800">{format(new Date(), 'EEEE')}</div>
+            </div>
+            <div className="bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
+              <Package className="w-4 h-4" />
+              <div className="flex flex-col">
+                <span className="text-xs opacity-90">Weight</span>
+                <span className="text-sm font-bold">{getTotalWeight()}kg</span>
               </div>
-              <div className="bg-white border-2 border-purple-300 p-3 rounded-lg shadow-md">
-                <span className="text-purple-600 font-bold block text-xs uppercase tracking-wide">TIME</span>
-                <div className="font-bold text-base text-black">{format(new Date(), 'HH:mm')}</div>
-                <div className="text-xs text-purple-800">IST</div>
+            </div>
+            <div className="bg-purple-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
+              <AlertCircle className="w-4 h-4" />
+              <div className="flex flex-col">
+                <span className="text-xs opacity-90">Selected</span>
+                <span className="text-sm font-bold">{selectedBilties.length}</span>
               </div>
             </div>
           </div>
           
-          {/* Right Section - Stats and Actions */}
-          <div className="flex flex-col gap-4">            {/* Stats Row */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="bg-white border-2 border-green-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
-                <Package className="w-4 h-4 text-green-600" />
-                Available: <span className="text-green-700">{availableCount}</span>
-              </div>              <div className="bg-white border-2 border-yellow-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
-                <Truck className="w-4 h-4 text-yellow-600" />
-                In Challan: <span className="text-yellow-700">{transitBilties.length}</span>
-                {selectedChallan?.is_dispatched && (
-                  <span className="ml-2 px-2 py-1 bg-orange-200 text-orange-800 text-xs rounded-full font-bold">
-                    DISPATCHED
-                  </span>
-                )}
-              </div>
-              <div className="bg-white border-2 border-orange-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
-                <Package className="w-4 h-4 text-orange-600" />
-                Weight: <span className="text-orange-700">{getTotalWeight()} kg</span>
-              </div>
-              <div className="bg-white border-2 border-purple-400 text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-lg">
-                <AlertCircle className="w-4 h-4 text-purple-600" />
-                Selected: <span className="text-purple-700">{selectedBilties.length}</span>
-              </div>
-            </div>
-            
-            {/* Action Buttons Row */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <button
-                onClick={handleDashboard}
-                className="bg-white text-black border-2 border-purple-400 px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-50 hover:border-purple-600 transition-all text-sm shadow-lg"
-                title="Go to Dashboard"
-              >
-                <Home className="w-4 h-4 text-purple-600" />
-                Dashboard
-              </button>
-              <button
-                onClick={onPreviewLoadingChallan}
-                disabled={bilties.length === 0}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold border-2 border-green-700 flex items-center gap-2 hover:bg-green-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                title="Preview/Download all available bilties as PDF"
-              >
-                <Eye className="w-4 h-4" />
-                Loading Challan
-              </button>
-              <button
-                onClick={onPreviewChallanBilties}
-                disabled={!selectedChallan || transitBilties.length === 0}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold border-2 border-orange-700 flex items-center gap-2 hover:bg-orange-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                title={`Preview/Download challan ${selectedChallan?.challan_no || ''} bilties as PDF`}
-              >
-                <Eye className="w-4 h-4" />
-                {selectedChallan ? `CHALLAN - ${selectedChallan.challan_no}` : 'CHALLAN'} Print
-              </button>              <button
-                onClick={onRefresh}
-                className="bg-white text-black border-2 border-purple-400 p-2 rounded-lg hover:bg-purple-50 hover:border-purple-600 transition-all shadow-lg"
-                title="Refresh Data"
-              >
-                <RefreshCw className="w-5 h-5 text-purple-600" />
-              </button>
-            </div>
+          {/* Action Buttons Row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={onPreviewLoadingChallan}
+              disabled={bilties.length === 0}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              title="Preview/Download all available bilties as PDF"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Loading Challan</span>
+            </button>
+            <button
+              onClick={onPreviewChallanBilties}
+              disabled={!selectedChallan || transitBilties.length === 0}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              title={`Preview/Download challan ${selectedChallan?.challan_no || ''} bilties as PDF`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Challan {selectedChallan ? selectedChallan.challan_no : 'Print'}</span>
+            </button>
+            <button
+              onClick={onRefresh}
+              className="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+              title="Refresh Data"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="text-xs font-medium">Refresh</span>
+            </button>
           </div>
         </div>
       </div>

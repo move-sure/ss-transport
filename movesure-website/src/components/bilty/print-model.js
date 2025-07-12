@@ -77,37 +77,94 @@ const PrintModal = ({
       setWhatsappSending(true);
       setLastSendTime(currentTime);
 
-      // Clean mobile number
-      let mobileNumber = biltyData.consignor_number.toString().replace(/\D/g, '');
-      if (mobileNumber.length === 10) {
-        mobileNumber = '91' + mobileNumber;
+      const promises = [];
+
+      // Send to consignor (always send if we reach this function)
+      let consignorMobile = biltyData.consignor_number.toString().replace(/\D/g, '');
+      if (consignorMobile.length === 10) {
+        consignorMobile = '91' + consignorMobile;
       }
 
-      // Get city name
-      const toCity = cities.find(city => city.id === biltyData.to_city_id);
-      const toCityName = toCity ? toCity.city_name : 'N/A';
-
-      const payload = {
-        receiver: mobileNumber,
+      const consignorPayload = {
+        receiver: consignorMobile,
         values: {
           "1": biltyData.consignor_name,
           "2": biltyData.gr_no,
-          "3": toCityName
+          "3": biltyData.gr_no
         }
       };
 
-      const response = await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/3cfm9toz45/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      promises.push(
+        fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/4091xkylvs/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(consignorPayload)
+        }).then(response => {
+          if (response.ok) {
+            console.log('✅ WhatsApp sent successfully to consignor');
+            return { success: true, type: 'consignor' };
+          } else {
+            console.error('❌ WhatsApp failed for consignor:', response.status);
+            return { success: false, type: 'consignor' };
+          }
+        }).catch(error => {
+          console.error('❌ WhatsApp error for consignor:', error);
+          return { success: false, type: 'consignor' };
+        })
+      );
 
-      if (response.ok) {
-        console.log('✅ WhatsApp sent successfully');
+      // Send to consignee (only if consignee has mobile number)
+      if (biltyData?.consignee_number && biltyData?.consignee_name) {
+        let consigneeMobile = biltyData.consignee_number.toString().replace(/\D/g, '');
+        if (consigneeMobile.length === 10) {
+          consigneeMobile = '91' + consigneeMobile;
+        }
+        if (consigneeMobile.length >= 10) {
+          const consigneePayload = {
+            receiver: consigneeMobile,
+            values: {
+              "1": biltyData.consignee_name,
+              "2": biltyData.gr_no,
+              "3": biltyData.gr_no
+            }
+          };
+
+          promises.push(
+            fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/q09vgfk1r4/process', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(consigneePayload)
+            }).then(response => {
+              if (response.ok) {
+                console.log('✅ WhatsApp sent successfully to consignee');
+                return { success: true, type: 'consignee' };
+              } else {
+                console.error('❌ WhatsApp failed for consignee:', response.status);
+                return { success: false, type: 'consignee' };
+              }
+            }).catch(error => {
+              console.error('❌ WhatsApp error for consignee:', error);
+              return { success: false, type: 'consignee' };
+            })
+          );
+        }
+      }
+
+      // Send WhatsApp to all recipients
+      const results = await Promise.all(promises);
+      const allSuccess = results.every(result => result.success);
+      const consignorSent = results.find(r => r.type === 'consignor')?.success;
+
+      if (allSuccess) {
+        console.log('✅ All WhatsApp messages sent successfully');
         setWhatsappSent(true);
         return true;
+      } else if (consignorSent) {
+        console.log('⚠️ Consignor message sent, but consignee failed');
+        setWhatsappSent(true); // Still show as sent if consignor got it
+        return true;
       } else {
-        console.error('❌ WhatsApp failed:', response.status);
+        console.log('❌ Failed to send WhatsApp to consignor');
         return false;
       }
     } catch (error) {

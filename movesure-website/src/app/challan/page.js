@@ -31,6 +31,7 @@ export default function TransitManagement() {
   const [branches, setBranches] = useState([]);
   const [permanentDetails, setPermanentDetails] = useState(null);
   const [totalAvailableCount, setTotalAvailableCount] = useState(0);
+  const [filteredAvailableCount, setFilteredAvailableCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(1000); // Large page size for challan management
     // Selection states
@@ -901,6 +902,7 @@ export default function TransitManagement() {
           selectedBilties={selectedBilties}
           selectedChallan={selectedChallan}
           totalAvailableCount={totalAvailableCount}
+          availableCount={filteredAvailableCount}
           onRefresh={() => refreshData('all')}
           onPreviewLoadingChallan={handlePreviewLoadingChallan}
           onPreviewChallanBilties={handlePreviewChallanBilties}
@@ -938,6 +940,8 @@ export default function TransitManagement() {
               onRefresh={refreshData}
               saving={saving}
               totalAvailableCount={totalAvailableCount}
+              onFilteredCountChange={setFilteredAvailableCount}
+              cities={cities}
             />
           </div>
         </div>

@@ -14,7 +14,7 @@ const TransitHeader = ({
   onRefresh,
   onPreviewLoadingChallan,
   onPreviewChallanBilties,
-  availableCount // new prop
+  availableCount // filtered count from BiltyList
 }) => {
   const getCityName = (cityCode) => {
     return cityCode || 'Unknown';

@@ -20,7 +20,8 @@ const BiltyList = ({
   onRefresh, // Add refresh function prop
   saving,
   cities = [], // Add cities prop for mapping
-  totalAvailableCount = 0 // Add total available count prop
+  totalAvailableCount = 0, // Add total available count prop
+  onFilteredCountChange // Add callback for filtered count
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
@@ -194,12 +195,20 @@ const BiltyList = ({
     async function filterBiltiesByTransit() {
       if (!filteredBilties || filteredBilties.length === 0) {
         setFullyFilteredBilties([]);
+        // Notify parent of the filtered count
+        if (onFilteredCountChange) {
+          onFilteredCountChange(0);
+        }
         return;
       }
       // Get all gr_no from filteredBilties
       const grNos = filteredBilties.map(b => b.gr_no).filter(Boolean);
       if (grNos.length === 0) {
         setFullyFilteredBilties(filteredBilties);
+        // Notify parent of the filtered count
+        if (onFilteredCountChange) {
+          onFilteredCountChange(filteredBilties.length);
+        }
         return;
       }
       // Query transit_details for these gr_no
@@ -210,12 +219,21 @@ const BiltyList = ({
       if (error) {
         // On error, fallback to showing all
         setFullyFilteredBilties(filteredBilties);
+        // Notify parent of the filtered count
+        if (onFilteredCountChange) {
+          onFilteredCountChange(filteredBilties.length);
+        }
         return;
       }
       const transitGRSet = new Set((transitRecords || []).map(t => t.gr_no));
       // Remove bilties whose gr_no is in transit_details
       const filtered = filteredBilties.filter(b => !transitGRSet.has(b.gr_no));
       setFullyFilteredBilties(filtered);
+      
+      // Notify parent of the filtered count
+      if (onFilteredCountChange) {
+        onFilteredCountChange(filtered.length);
+      }
     }
     filterBiltiesByTransit();
   }, [filteredBilties]);

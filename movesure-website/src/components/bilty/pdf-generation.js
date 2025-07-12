@@ -1084,155 +1084,183 @@ const PDFGenerator = ({
   // Mobile UI
   if (isMobile) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white w-full h-full flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
-          {/* Welcome Header with Hindi + English */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white p-4 text-center shadow-lg border-b-2 border-indigo-300">
-            <h2 className="text-xl font-bold tracking-wide">Welcome To SS Transport</h2>
-            <p className="text-sm opacity-95 font-medium mt-1">SS ट्रांसपोर्ट में आपका स्वागत है</p>
-          </div>
-
-          {/* Mobile Header */}
-          <div className="flex items-center justify-between p-3 border-b border-purple-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md">
-            <div className="flex items-center gap-2">
-              <div className="bg-white/20 p-1.5 rounded-lg">
-                <FileText className="w-4 h-4" />
+      <div className="fixed inset-0 bg-gray-50 flex flex-col z-50">
+        <div className="bg-white w-full h-full flex flex-col">
+          {/* Professional Mobile Header */}
+          <div className="bg-white border-b shadow-sm">
+            <div className="px-4 py-4">
+              {/* Top row with close button */}
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={onClose}
+                  className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors flex items-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  <span className="text-sm font-medium">Close</span>
+                </button>
+                
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-gray-600">GR: {biltyData.gr_no}</span>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold">बिल्टी PDF - GR: {biltyData.gr_no}</h3>
-                <p className="text-xs text-blue-100">Bilty PDF - ₹{biltyData.total}</p>
+              
+              {/* Movesure Print Title */}
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">Movesure Print</h1>
+                <p className="text-sm text-blue-600 font-medium">Professional Bilty Document</p>
               </div>
             </div>
-            
-            <button
-              onClick={onClose}
-              className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Mobile Content */}
-          <div className="flex-1 p-3 overflow-y-auto">
-            {/* Document Info Card */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200 mb-3 shadow-md">
-              <div className="text-center mb-3">
-                <div className="text-lg font-semibold text-blue-800 mb-1">GR: {biltyData.gr_no}</div>
-                <div className="text-sm font-medium text-indigo-700 mb-1">जीआर: {biltyData.gr_no}</div>
-                <div className="text-xs text-blue-600">{new Date(biltyData.bilty_date).toLocaleDateString('en-GB')}</div>
+          <div className="flex-1 px-4 py-6 overflow-y-auto bg-gray-50">
+            {/* Professional Document Card */}
+            <div className="bg-white rounded-lg shadow-md border p-6 mb-6">
+              {/* Header with GR Number */}
+              <div className="flex items-center justify-between mb-6 pb-4 border-b">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <h3 className="text-lg font-bold text-gray-900">GR Number: {biltyData.gr_no}</h3>
+                  </div>
+                  <p className="text-gray-600 ml-4">{new Date(biltyData.bilty_date).toLocaleDateString('en-IN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}</p>
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                <div className="bg-white rounded p-2 border border-blue-100 shadow-sm">
-                  <span className="text-blue-700 text-xs font-semibold">From / से:</span>
-                  <p className="font-semibold text-gray-800 text-sm">{biltyData.consignor_name || 'N/A'}</p>
+
+              {/* Information Grid */}
+              <div className="space-y-4">
+                {/* Consignor */}
+                <div className="border-l-4 border-blue-500 pl-4">
+                  <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Consignor</h4>
+                  <p className="text-base font-semibold text-gray-900 mt-1">{biltyData.consignor_name}</p>
+                  {biltyData.consignor_number && (
+                    <p className="text-gray-600 text-sm">{biltyData.consignor_number}</p>
+                  )}
                 </div>
-                <div className="bg-white rounded p-2 border border-indigo-100 shadow-sm">
-                  <span className="text-indigo-700 text-xs font-semibold">To / तक:</span>
-                  <p className="font-semibold text-gray-800 text-sm">{biltyData.consignee_name || 'N/A'}</p>
+
+                {/* Consignee */}
+                <div className="border-l-4 border-purple-500 pl-4">
+                  <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Consignee</h4>
+                  <p className="text-base font-semibold text-gray-900 mt-1">{biltyData.consignee_name || 'N/A'}</p>
+                  {biltyData.consignee_number && (
+                    <p className="text-gray-600 text-sm">{biltyData.consignee_number}</p>
+                  )}
                 </div>
-                <div className="bg-white rounded p-2 border border-purple-100 shadow-sm">
-                  <span className="text-purple-700 text-xs font-semibold">Total Amount / कुल राशि:</span>
-                  <p className="font-bold text-purple-800 text-lg">₹{biltyData.total}</p>
-                </div>
+
+                {/* Package & Weight Info */}
+                {(biltyData.no_of_pkg > 0 || biltyData.wt > 0) && (
+                  <div className="border-l-4 border-teal-500 pl-4">
+                    <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Package Details</h4>
+                    <div className="mt-1 flex gap-4">
+                      {biltyData.no_of_pkg > 0 && (
+                        <span className="text-base font-semibold text-gray-900">{biltyData.no_of_pkg} Packages</span>
+                      )}
+                      {biltyData.wt > 0 && (
+                        <span className="text-base font-semibold text-gray-900">{biltyData.wt} kg</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Content */}
+                {biltyData.contain && (
+                  <div className="border-l-4 border-gray-500 pl-4">
+                    <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Contents</h4>
+                    <p className="text-base font-semibold text-gray-900 mt-1">{biltyData.contain}</p>
+                  </div>
+                )}
+
+                {/* Total Amount */}
+                {biltyData.total && biltyData.total > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-base font-semibold text-gray-700">Total Amount:</h4>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-gray-900">₹{biltyData.total.toLocaleString()}</p>
+                        <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                          biltyData.payment_mode === 'PAID' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {biltyData.payment_mode === 'PAID' ? 'Paid' : 'To Pay'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Mobile Action Buttons - Only Download and Open PDF */}
+            {/* Professional Action Buttons */}
             {pdfUrl && (
-              <div className="space-y-3 mb-3">
+              <div className="space-y-3 mb-6">
                 <button
                   onClick={downloadPDF}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold shadow-lg transition-all transform hover:scale-105"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <Download className="w-4 h-4" />
-                  <div className="text-center">
-                    <div>Download PDF</div>
-                    <div className="text-xs opacity-90">पीडीएफ डाउनलोड करें</div>
-                  </div>
+                  <Download className="w-5 h-5" />
+                  Download PDF
                 </button>
 
-                {/* Mobile PDF Link */}
-                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-3 shadow-md">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-2 rounded-full">
-                      <FileText className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-indigo-800 text-sm">PDF Ready!</div>
-                      <div className="text-xs text-indigo-600">पीडीएफ तैयार है!</div>
-                    </div>
-                  </div>
-                  <a
-                    href={pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-3 py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold shadow-lg transition-all transform hover:scale-105"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <div className="text-center">
-                      <div>Open PDF</div>
-                      <div className="text-xs opacity-90">पीडीएफ खोलें</div>
-                    </div>
-                  </a>
-                </div>
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Eye className="w-5 h-5" />
+                  View PDF
+                </a>
               </div>
             )}
 
-            {/* Mobile Status - Only show when PDF is not ready */}
+            {/* Status Message */}
             {!pdfUrl && (
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 text-center shadow-sm">
-                <div className="text-amber-800 font-semibold mb-1 text-sm">
-                  {isGenerating ? 'Generating PDF...' : 'PDF will appear here when generated'}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center mb-6">
+                <div className="text-orange-800 font-medium mb-1">
+                  {isGenerating ? 'Generating PDF...' : 'PDF Not Generated Yet'}
                 </div>
-                <div className="text-amber-700 text-xs">
-                  {isGenerating ? 'पीडीएफ तैयार कर रहे हैं...' : 'जब तैयार हो जाएगा तो पीडीएफ यहाँ दिखेगा'}
+                <div className="text-orange-600 text-sm">
+                  {isGenerating ? 'Please wait while we prepare your document' : 'Click the generate button to create your PDF'}
                 </div>
-              </div>
-            )}
-
-            {/* Mobile Summary */}
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border-2 border-gray-200 shadow-lg">
-              <h5 className="text-base font-bold text-black mb-3 text-center">
-                Document Summary / दस्तावेज़ सारांश
-              </h5>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-white rounded-lg p-3 border border-purple-200 text-center">
-                  <span className="text-gray-600 font-semibold">Packages / पैकेज:</span>
-                  <div className="font-bold text-purple-600 text-xl">{biltyData.no_of_pkg || 0}</div>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-blue-200 text-center">
-                  <span className="text-gray-600 font-semibold">Weight / वजन:</span>
-                  <div className="font-bold text-blue-600 text-xl">{biltyData.wt || 0} kg</div>
-                </div>
-                <div className="col-span-2 bg-white rounded-lg p-3 border border-green-200 text-center">
-                  <span className="text-gray-600 font-semibold">Content / सामग्री:</span>
-                  <div className="font-bold text-green-600 text-lg">{biltyData.contain || 'N/A'}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile Status */}
-            {!pdfUrl && !isGenerating && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4 mt-4 text-center shadow-lg">
-                <div className="text-blue-800 font-bold mb-1 text-lg">Ready to Generate</div>
-                <div className="text-blue-800 font-bold mb-2">तैयार करने के लिए तैयार</div>
-                <div className="text-blue-600 text-sm">Tap &quot;Generate PDF&quot; to create your document</div>
-                <div className="text-blue-600 text-sm">अपना दस्तावेज़ बनाने के लिए &quot;पीडीएफ बनाएं&quot; पर टैप करें</div>
               </div>
             )}
           </div>
 
-          {/* Mobile Footer */}
-          <div className="bg-gradient-to-r from-blue-100 to-indigo-100 border-t border-blue-200 p-3 shadow-lg">
-            <div className="flex justify-between items-center text-xs">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${pdfUrl ? 'bg-green-500' : 'bg-amber-500'} animate-pulse shadow-md`}></div>
-                <span className="font-semibold text-blue-800">
-                  {pdfUrl ? 'PDF Ready / पीडीएफ तैयार' : isGenerating ? 'Generating... / तैयार कर रहे हैं...' : 'Not Generated / नहीं बनाया गया'}
-                </span>
+          {/* Professional Footer */}
+          <div className="bg-white border-t mt-auto">
+            <div className="px-4 py-4">
+              <div className="text-center">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold text-gray-800 mb-1">Powered by</h3>
+                  <a 
+                    href="https://movesure.io" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-lg font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    movesure.io
+                  </a>
+                </div>
+                
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${pdfUrl ? 'bg-green-500' : 'bg-orange-500'} animate-pulse`}></div>
+                      <span className="font-medium text-gray-700">
+                        {pdfUrl ? 'Ready' : isGenerating ? 'Generating...' : 'Not Generated'}
+                      </span>
+                    </div>
+                    <span className="text-gray-600">GR: {biltyData.gr_no}</span>
+                    <span className="text-gray-600">₹{biltyData.total}</span>
+                  </div>
+                </div>
               </div>
-              <span className="text-indigo-700 font-semibold">GR: {biltyData.gr_no}</span>
             </div>
           </div>
         </div>

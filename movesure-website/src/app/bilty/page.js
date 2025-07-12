@@ -7,6 +7,7 @@ import supabase from '../utils/supabase';
 import { format } from 'date-fns';
 import { ChevronDown, ArrowLeft, Building2, User, MapPin, Calendar, FileText, Settings } from 'lucide-react';
 import { navigationManager, useInputNavigation } from '../../components/bilty/input-navigation';
+import Navbar from '../../components/dashboard/navbar';
 
 // Import all components
 import GRNumberSection from '../../components/bilty/grnumber-manager';
@@ -1010,6 +1011,7 @@ export default function BiltyForm() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+        <Navbar />
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
@@ -1024,33 +1026,14 @@ export default function BiltyForm() {
       </div>
     );
   }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+      <Navbar />
       <div className="w-full px-6 py-6">
-        {/* Enhanced Header with Back Button */}
+        {/* Bill Book Header */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
-          {/* Top Section - Back Button and Brand */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 text-purple-600 p-3 rounded-xl transition-all transform hover:scale-105 border border-white border-opacity-20 flex items-center gap-2 font-medium"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Dashboard
-              </button>
-              <div className="h-8 w-px bg-white bg-opacity-30"></div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-white">movesure.io</div>
-                  <div className="w-16 h-0.5 bg-white bg-opacity-40 rounded-full"></div>
-                </div>
-              </div>
-            </div>
-
+          <div className="flex justify-between items-center">
             {/* Bill Book Selector */}
             <div className="relative">
               <div className="flex items-center gap-3">
@@ -1070,7 +1053,7 @@ export default function BiltyForm() {
               </div>
               
               {showBillBookDropdown && (
-                <div className="absolute z-30 right-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                <div className="absolute z-30 left-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
                   {billBooks.map((book) => (
                     <button
                       key={book.id}
@@ -1088,48 +1071,6 @@ export default function BiltyForm() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Main Header Info */}
-          <div className="flex justify-between items-center">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-white flex-1">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-4 h-4 text-purple-300" />
-                </div>
-                <div>
-                  <div className="text-xs text-white text-opacity-80">BRANCH</div>
-                  <div className="font-bold">{branchData?.branch_name}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                  <User className="w-4 h-4 text-purple-300" />
-                </div>
-                <div>
-                  <div className="text-xs text-white text-opacity-80">STAFF</div>
-                  <div className="font-bold">{user?.username}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                  <MapPin className="w-4 h-4 text-purple-300" />
-                </div>
-                <div>
-                  <div className="text-xs text-white text-opacity-80">FROM CITY</div>
-                  <div className="font-bold">{fromCityName}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-purple-300" />
-                </div>
-                <div>
-                  <div className="text-xs text-white text-opacity-80">DATE</div>
-                  <div className="font-bold">{format(new Date(), 'dd/MM/yyyy')}</div>
-                </div>
-              </div>
             </div>
             
             {/* Edit Mode Indicator */}

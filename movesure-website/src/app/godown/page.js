@@ -44,7 +44,7 @@ export default function GodownPage() {
 
     try {
       const [biltiesData, stationBiltiesData, citiesData] = await Promise.all([
-        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('cities').select('id, city_name')
       ]);
@@ -77,7 +77,8 @@ export default function GodownPage() {
       ...bilties.map(bilty => ({
         ...bilty,
         no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
-        source: 'manual', // Replace "station" with "manual"
+        weight: bilty.wt, // Map weight field
+        source: 'regular', // Changed from 'manual' to 'regular' for main bilty table
         combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_pkg || ''}`, // Combine pvt_marks and no_of_bags
         destination: getCityName(bilty.to_city_id),
         station_destination: getCityName(bilty.to_city_id)
@@ -85,7 +86,10 @@ export default function GodownPage() {
       ...stationBilties.map(bilty => ({
         ...bilty,
         no_of_bags: bilty.no_of_packets, // Standardize to no_of_bags
-        source: 'manual', // Replace "station" with "manual"
+        weight: null, // Station bilties don't have weight
+        consignor_name: null, // Station bilties don't have consignor
+        consignee_name: null, // Station bilties don't have consignee
+        source: 'manual', // Station bilties are manual
         combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`, // Combine pvt_marks and no_of_bags
         destination: bilty.station || 'Unknown',
         station_destination: bilty.station || 'Unknown'
@@ -100,7 +104,9 @@ export default function GodownPage() {
       filtered = filtered.filter(bilty => 
         bilty.gr_no?.toLowerCase().includes(query) ||
         bilty.combinedColumn?.toLowerCase().includes(query) ||
-        bilty.station_destination?.toLowerCase().includes(query)
+        bilty.station_destination?.toLowerCase().includes(query) ||
+        bilty.consignor_name?.toLowerCase().includes(query) ||
+        bilty.consignee_name?.toLowerCase().includes(query)
       );
     }
 
@@ -133,11 +139,13 @@ export default function GodownPage() {
     const totalBilties = bilties.length + stationBilties.length;
     const filteredCount = filteredBilties.length;
     const totalBags = filteredBilties.reduce((sum, bilty) => sum + (parseInt(bilty.no_of_bags) || 0), 0);
+    const totalWeight = filteredBilties.reduce((sum, bilty) => sum + (parseFloat(bilty.weight) || 0), 0);
     
     return {
       totalBilties,
       filteredCount,
       totalBags,
+      totalWeight,
       regularCount: bilties.length,
       stationCount: stationBilties.length
     };

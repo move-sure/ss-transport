@@ -9,10 +9,21 @@ import {
   AlertCircle,
   RefreshCw,
   Search,
-  FileText
+  FileText,
+  Weight,
+  User,
+  Users
 } from 'lucide-react';
 
 export default function GodownBiltyList({ bilties, loading, error, onRefresh }) {
+  // Format weight helper
+  const formatWeight = (weight) => {
+    if (!weight) return '-';
+    const numWeight = parseFloat(weight);
+    if (isNaN(numWeight)) return '-';
+    return `${numWeight.toFixed(3)} kg`;
+  };
+
   // Format date helper
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -122,6 +133,12 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                 GR Number
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Consignor
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Consignee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Private Marks
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -129,6 +146,9 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 No of Bags
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Weight
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Source
@@ -146,6 +166,22 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                     <FileText className="w-4 h-4 text-blue-600" />
                     <span className="text-sm font-medium text-slate-900">
                       {bilty.gr_no || 'N/A'}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-slate-900">
+                      {bilty.consignor_name || '-'}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm text-slate-900">
+                      {bilty.consignee_name || '-'}
                     </span>
                   </div>
                 </td>
@@ -170,6 +206,14 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                     <Package className="w-4 h-4 text-orange-600" />
                     <span className="text-sm font-medium text-slate-900">
                       {bilty.no_of_bags || '0'}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <Weight className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-slate-900">
+                      {formatWeight(bilty.weight)}
                     </span>
                   </div>
                 </td>
@@ -205,6 +249,32 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
               {/* Content Grid */}
               <div className="grid grid-cols-1 gap-3">
                 
+                {/* Consigner */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 w-24 flex-shrink-0">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-medium text-slate-500 uppercase">
+                      Consignor
+                    </span>
+                  </div>
+                  <span className="text-sm text-slate-900 font-medium">
+                    {bilty.consignor_name || '-'}
+                  </span>
+                </div>
+
+                {/* Consignee */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 w-24 flex-shrink-0">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-medium text-slate-500 uppercase">
+                      Consignee
+                    </span>
+                  </div>
+                  <span className="text-sm text-slate-900 font-medium">
+                    {bilty.consignee_name || '-'}
+                  </span>
+                </div>
+
                 {/* Private Marks */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 w-24 flex-shrink-0">
@@ -231,14 +301,24 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                   </span>
                 </div>
 
-                {/* Bags and Date Row */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                {/* Weight and Bags Row */}
+                <div className="flex items-center justify-between pt-2">
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-orange-600" />
                     <span className="text-sm font-bold text-slate-900">
                       {bilty.no_of_bags || '0'} Bags
                     </span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Weight className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-bold text-slate-900">
+                      {formatWeight(bilty.weight)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Date Row */}
+                <div className="flex items-center justify-center pt-2 border-t border-slate-100">
                   <span className="text-xs text-slate-500">
                     {formatDate(bilty.created_at)}
                   </span>

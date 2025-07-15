@@ -45,17 +45,35 @@ const BiltyList = ({
     const city = cities.find(c => c.city_code === cityCode);
     return city ? city.city_name : cityCode;
   };
+
+  // City mapping by ID for regular bilties
+  const getCityNameById = (cityId) => {
+    if (!cityId) return '';
+    const city = cities.find(c => c.id === cityId);
+    return city ? city.city_name : '';
+  };
+
   // Get display city for bilty (handles both regular and station bilties)
   const getBiltyDisplayCity = (bilty) => {
-    if (bilty.bilty_type === 'station') {
-      // If to_city_name is already a city name (not a code), use it directly
-      // Otherwise, try to convert the city code to city name
-      if (bilty.to_city_name && bilty.to_city_name.length > 3) {
-        return bilty.to_city_name; // Already converted to city name
-      }
-      return getCityName(bilty.to_city_name || bilty.station);
+    // If to_city_name is already set and is a proper city name, use it
+    if (bilty.to_city_name && bilty.to_city_name !== 'Unknown' && bilty.to_city_name.length > 2) {
+      return bilty.to_city_name;
     }
-    return bilty.to_city_name;
+
+    // For station bilties, try to map using city_code
+    if (bilty.bilty_type === 'station' || bilty.source === 'station_bilty_summary') {
+      const cityFromCode = getCityName(bilty.station || bilty.to_city_code);
+      if (cityFromCode) return cityFromCode;
+    }
+
+    // For regular bilties, try to map using to_city_id
+    if (bilty.to_city_id) {
+      const cityFromId = getCityNameById(bilty.to_city_id);
+      if (cityFromId) return cityFromId;
+    }
+
+    // Fallback to existing to_city_name or Unknown
+    return bilty.to_city_name || 'Unknown';
   };
   
   // Transit bilty selection handler
@@ -112,8 +130,8 @@ const BiltyList = ({
 
   // Sort function for destination city names alphabetically
   const sortByDestinationCity = (a, b) => {
-    const cityA = (a.to_city_name || '').toUpperCase();
-    const cityB = (b.to_city_name || '').toUpperCase();
+    const cityA = getBiltyDisplayCity(a).toUpperCase();
+    const cityB = getBiltyDisplayCity(b).toUpperCase();
     
     // First sort by destination city alphabetically
     const cityCompare = cityA.localeCompare(cityB);

@@ -142,7 +142,7 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                 Private Marks
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Station / Destination
+                Destination (Code)
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 No of Bags
@@ -196,9 +196,14 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-slate-900">
-                      {bilty.station_destination || 'Unknown'}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-slate-900 font-medium">
+                        {bilty.destination || 'Unknown'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        ({bilty.city_code || 'N/A'})
+                      </span>
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -296,9 +301,14 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
                       Destination
                     </span>
                   </div>
-                  <span className="text-sm text-slate-900 font-medium">
-                    {bilty.station_destination || 'Unknown'}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-slate-900 font-medium">
+                      {bilty.destination || 'Unknown'}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Code: {bilty.city_code || 'N/A'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Weight and Bags Row */}

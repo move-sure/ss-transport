@@ -45,8 +45,8 @@ export default function GodownPage() {
     try {
       const [biltiesData, stationBiltiesData, citiesData] = await Promise.all([
         supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }).limit(100),
-        supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, created_at').order('created_at', { ascending: false }).limit(100),
-        supabase.from('cities').select('id, city_name')
+        supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('cities').select('id, city_name, city_code')
       ]);
 
       if (biltiesData.error) throw biltiesData.error;
@@ -64,35 +64,39 @@ export default function GodownPage() {
     }
   };
 
-  // Helper function to get city name by ID
-  const getCityName = (cityId) => {
+  // Helper function to get city name and code by ID
+  const getCityInfo = (cityId) => {
     const city = cities.find(c => c.id === cityId);
-    return city ? city.city_name : 'Unknown';
+    return city ? { name: city.city_name, code: city.city_code } : { name: 'Unknown', code: 'N/A' };
   };
 
   // Combined and filtered bilties
   const filteredBilties = useMemo(() => {
     // Combine bilties from both tables
     const combinedBilties = [
-      ...bilties.map(bilty => ({
-        ...bilty,
-        no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
-        weight: bilty.wt, // Map weight field
-        source: 'regular', // Changed from 'manual' to 'regular' for main bilty table
-        combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_pkg || ''}`, // Combine pvt_marks and no_of_bags
-        destination: getCityName(bilty.to_city_id),
-        station_destination: getCityName(bilty.to_city_id)
-      })),
+      ...bilties.map(bilty => {
+        const cityInfo = getCityInfo(bilty.to_city_id);
+        return {
+          ...bilty,
+          no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
+          weight: bilty.wt, // Map weight field
+          source: 'regular', // Regular bilty table
+          combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_pkg || ''}`,
+          destination: cityInfo.name,
+          city_code: cityInfo.code,
+          station_destination: `${cityInfo.name} (${cityInfo.code})`
+        };
+      }),
       ...stationBilties.map(bilty => ({
         ...bilty,
         no_of_bags: bilty.no_of_packets, // Standardize to no_of_bags
-        weight: null, // Station bilties don't have weight
-        consignor_name: null, // Station bilties don't have consignor
-        consignee_name: null, // Station bilties don't have consignee
+        consignor_name: bilty.consignor, // Map consignor field
+        consignee_name: bilty.consignee, // Map consignee field
         source: 'manual', // Station bilties are manual
-        combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`, // Combine pvt_marks and no_of_bags
+        combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`,
         destination: bilty.station || 'Unknown',
-        station_destination: bilty.station || 'Unknown'
+        city_code: 'MANUAL',
+        station_destination: `${bilty.station || 'Unknown'} (MANUAL)`
       }))
     ];
 
@@ -125,11 +129,11 @@ export default function GodownPage() {
   const uniqueStations = useMemo(() => {
     const stations = new Set();
     bilties.forEach(bilty => {
-      const cityName = getCityName(bilty.to_city_id);
-      if (cityName !== 'Unknown') stations.add(cityName);
+      const cityInfo = getCityInfo(bilty.to_city_id);
+      if (cityInfo.name !== 'Unknown') stations.add(`${cityInfo.name} (${cityInfo.code})`);
     });
     stationBilties.forEach(bilty => {
-      if (bilty.station) stations.add(bilty.station);
+      if (bilty.station) stations.add(`${bilty.station} (MANUAL)`);
     });
     return Array.from(stations).sort();
   }, [bilties, stationBilties, cities]);

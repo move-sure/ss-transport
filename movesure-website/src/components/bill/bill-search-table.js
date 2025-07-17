@@ -228,7 +228,7 @@ export default function BillSearchTable({
             <div className="text-gray-500">
               <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No bilties found</h3>
-              <p className="text-sm">Try adjusting your search filters to find what you're looking for.</p>
+              <p className="text-sm">Try adjusting your search filters to find what you are looking for.</p>
             </div>
           </td>
         </tr>

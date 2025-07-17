@@ -45,6 +45,11 @@ const MODULE_CONFIG = {
     name: 'Search',
     path: '/search',
     icon: 'Search',
+  },
+  'bill': {
+    name: 'Bill Search',
+    path: '/bill',
+    icon: 'Search',
   },  'master': {
     name: 'Master',
     path: '/staff',
@@ -75,13 +80,14 @@ const MODULE_CONFIG = {
 // Route to module mapping
 const ROUTE_MODULE_MAP = {
   '/bilty': 'bilty',
+  '/bill': 'bill',
+  '/search': 'search',
   '/ewb': 'e-way-bill',
   '/e-way-bill': 'e-way-bill',
   '/challan': 'challan',
   '/manual': 'manual',
   '/challan-setting': 'challan-setting',
   '/truck-management': 'truck-management',
-  '/search': 'search',
   '/staff': 'master',
   '/bilty-setting': 'setting',  '/test': 'staff',
   '/user-modules': 'staff',
@@ -173,7 +179,7 @@ export default function Navbar() {
     if (!Array.isArray(userModules) || userModules.length === 0) {
       return [];
     }    const navigationItems = [];
-    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff', 'danger', 'godown'];
+    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'bill', 'master', 'setting', 'staff', 'danger', 'godown'];
 
     moduleOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {

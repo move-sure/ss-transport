@@ -9,6 +9,8 @@ import { Shield, AlertTriangle, Home, ArrowLeft } from 'lucide-react';
 // Route to module mapping - define which module is required for each route
 const ROUTE_MODULE_MAP = {
   '/bilty': 'bilty',
+  '/bill': 'bill',
+  '/search': 'search',
   '/e-way-bill': 'e-way-bill',
   '/loading': 'loading',
   '/challan': 'challan',

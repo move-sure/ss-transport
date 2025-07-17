@@ -40,6 +40,12 @@ export const MODULE_CONFIG = {
     path: '/search',
     icon: 'Search',
     description: 'Search bilty and documents'
+  },
+  'bill': {
+    name: 'Bill Search',
+    path: '/bill',
+    icon: 'FileSearch',
+    description: 'Advanced bill search and management'
   },  'master': {
     name: 'Master',
     path: '/staff',
@@ -77,7 +83,7 @@ export const getNavigationItems = (userModules) => {
   }
 
   const navigationItems = [];  // Define the order in which modules should appear in the navbar
-  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'master', 'setting', 'staff', 'godown'];
+  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'bill', 'master', 'setting', 'staff', 'godown'];
 
   moduleOrder.forEach(moduleName => {
     if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -108,6 +114,7 @@ export const getModuleIcon = (moduleName) => {
     'challan-setting': <Settings className="h-4 w-4" />,
     'truck-management': <Truck className="h-4 w-4" />,
     'search': <Search className="h-4 w-4" />,
+    'bill': <Search className="h-4 w-4" />,
     'master': <Database className="h-4 w-4" />,
     'setting': <Settings className="h-4 w-4" />,
     'staff': <Wrench className="h-4 w-4" />,

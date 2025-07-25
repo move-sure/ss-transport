@@ -2,8 +2,6 @@
 
 import React, { useState } from 'react';
 import { 
-  Eye, 
-  Printer, 
   FileText,
   Truck,
   Building,
@@ -17,9 +15,10 @@ export default function BillSearchTable({
   regularBilties, 
   stationBilties, 
   loading, 
-  onViewDetails, 
-  onPrintBilty,
-  biltyType 
+  biltyType,
+  onSelectBilty,
+  onSelectAll,
+  selectedBilties = []
 }) {
   const [activeTab, setActiveTab] = useState('all');
 
@@ -51,156 +50,166 @@ export default function BillSearchTable({
     );
   };
 
-  const RegularBiltyRow = ({ bilty, index }) => (
-    <tr key={`regular-${bilty.id}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <FileText className="h-5 w-5 text-blue-500 mr-2" />
-          <div>
-            <div className="text-sm font-medium text-gray-900">{bilty.gr_no}</div>
-            <div className="text-xs text-gray-500">Regular</div>
+  const RegularBiltyRow = ({ bilty, index }) => {
+    const isSelected = selectedBilties.includes(`regular-${bilty.id}`);
+    
+    return (
+      <tr key={`regular-${bilty.id}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+        <td className="px-3 py-2 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onSelectBilty({ ...bilty, type: 'regular' })}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="flex items-center">
+            <FileText className="h-4 w-4 text-blue-500 mr-1" />
+            <div>
+              <div className="text-xs font-medium text-gray-900">{bilty.gr_no}</div>
+              <div className="text-xs text-gray-500">Regular</div>
+            </div>
           </div>
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">{formatDate(bilty.bilty_date)}</div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900 max-w-xs truncate" title={bilty.consignor_name}>
-          {bilty.consignor_name || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900 max-w-xs truncate" title={bilty.consignee_name}>
-          {bilty.consignee_name || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900 max-w-xs truncate" title={bilty.transport_name}>
-          {bilty.transport_name || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center text-sm text-gray-900">
-          <MapPin className="h-4 w-4 text-gray-400 mr-1" />
-          <span className="truncate max-w-20" title={`${bilty.from_city_name || 'N/A'} → ${bilty.to_city_name || 'N/A'}`}>
-            {bilty.from_city_name || 'N/A'} → {bilty.to_city_name || 'N/A'}
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-gray-900">{formatDate(bilty.bilty_date)}</div>
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.consignor_name}>
+            {bilty.consignor_name || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.consignee_name}>
+            {bilty.consignee_name || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="flex items-center text-xs text-gray-900">
+            <MapPin className="h-3 w-3 text-gray-400 mr-1" />
+            <div className="text-center">
+              <div className="font-medium">{bilty.to_city_name || 'N/A'}</div>
+              <div className="text-xs text-gray-500">{bilty.to_city_code || 'N/A'}</div>
+            </div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            bilty.payment_mode === 'paid' ? 'bg-green-100 text-green-800' :
+            bilty.payment_mode === 'to-pay' ? 'bg-yellow-100 text-yellow-800' :
+            bilty.payment_mode === 'foc' ? 'bg-blue-100 text-blue-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {bilty.payment_mode?.toUpperCase() || 'N/A'}
           </span>
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        {getStatusBadge(bilty.payment_mode)}
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900">
-          {formatCurrency(bilty.total)}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">
-          {bilty.e_way_bill || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => onViewDetails(bilty)}
-            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition-colors"
-            title="View Details"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => onPrintBilty(bilty)}
-            className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50 transition-colors"
-            title="Print Bilty"
-          >
-            <Printer className="h-4 w-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-
-  const StationBiltyRow = ({ bilty, index }) => (
-    <tr key={`station-${bilty.id}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <Building className="h-5 w-5 text-purple-500 mr-2" />
-          <div>
-            <div className="text-sm font-medium text-gray-900">{bilty.gr_no}</div>
-            <div className="text-xs text-gray-500">Station Summary</div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs font-medium text-gray-900">
+            {formatCurrency(bilty.total)}
           </div>
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">{formatDate(bilty.created_at)}</div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900 max-w-xs truncate" title={bilty.consignor}>
-          {bilty.consignor || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900 max-w-xs truncate" title={bilty.consignee}>
-          {bilty.consignee || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900">
-          {bilty.station || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">
-          <span className="font-medium">{bilty.no_of_packets || 0}</span> pkts
-          <div className="text-xs text-gray-500">{bilty.weight || 0} kg</div>
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        {getStatusBadge(bilty.payment_status)}
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900">
-          {formatCurrency(bilty.amount)}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">
-          {bilty.e_way_bill || 'N/A'}
-        </div>
-      </td>
-      
-      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => onViewDetails(bilty)}
-            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition-colors"
-            title="View Details"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-24 truncate" title={bilty.pvt_marks}>
+            {bilty.pvt_marks || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-gray-900">
+            {bilty.challan_no || 'N/A'}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const StationBiltyRow = ({ bilty, index }) => {
+    const isSelected = selectedBilties.includes(`station-${bilty.id}`);
+    
+    return (
+      <tr key={`station-${bilty.id}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+        <td className="px-3 py-2 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onSelectBilty({ ...bilty, type: 'station' })}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="flex items-center">
+            <Building className="h-4 w-4 text-purple-500 mr-1" />
+            <div>
+              <div className="text-xs font-medium text-gray-900">{bilty.gr_no}</div>
+              <div className="text-xs text-gray-500">Station Summary</div>
+            </div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-gray-900">{formatDate(bilty.created_at)}</div>
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.consignor}>
+            {bilty.consignor || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.consignee}>
+            {bilty.consignee || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-gray-900">
+            <div className="font-medium">{bilty.station || 'N/A'}</div>
+            <div className="text-xs text-gray-500">{bilty.no_of_packets || 0} pkts • {bilty.weight || 0} kg</div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            bilty.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+            bilty.payment_status === 'to-pay' ? 'bg-yellow-100 text-yellow-800' :
+            bilty.payment_status === 'foc' ? 'bg-blue-100 text-blue-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            {bilty.payment_status?.toUpperCase() || 'N/A'}
+          </span>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs font-medium text-gray-900">
+            {formatCurrency(bilty.amount)}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-24 truncate" title={bilty.pvt_marks}>
+            {bilty.pvt_marks || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-gray-900">
+            N/A
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
   const renderTableContent = () => {
     let combinedData = [];
@@ -224,7 +233,7 @@ export default function BillSearchTable({
     if (combinedData.length === 0) {
       return (
         <tr>
-          <td colSpan="10" className="px-6 py-12 text-center">
+          <td colSpan="9" className="px-6 py-12 text-center">
             <div className="text-gray-500">
               <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No bilties found</h3>
@@ -283,35 +292,40 @@ export default function BillSearchTable({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <input
+                  type="checkbox"
+                  checked={selectedBilties.length > 0 && selectedBilties.length === (regularBilties.length + stationBilties.length)}
+                  onChange={onSelectAll}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+              </th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 GR Number
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Consignor
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Consignee
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Transport/Station
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Destination/Station
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Route/Packages
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Amount
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                E-Way Bill
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Private Marks
               </th>
-              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Challan No
               </th>
             </tr>
           </thead>

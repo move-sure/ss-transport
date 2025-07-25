@@ -1,4 +1,4 @@
-'use client';
+'use client';                                                                                                                                                             
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../utils/auth';
@@ -9,8 +9,6 @@ import Navbar from '../../components/dashboard/navbar';
 import BillSearchHeader from '../../components/bill/bill-search-header';
 import BillFilterPanel from '../../components/bill/bill-filters';
 import BillSearchTable from '../../components/bill/bill-search-table';
-import BillDetailsModal from '../../components/bill/bill-details-modal';
-import PrintModal from '../../components/bilty/print-model';
 
 export default function BillSearch() {
   const { user, requireAuth } = useAuth();
@@ -37,16 +35,10 @@ export default function BillSearch() {
     transportName: '',
     paymentMode: '',
     eWayBill: '',
-    biltyType: 'all', // 'all', 'regular', 'station'
-    minAmount: '',
-    maxAmount: ''
+    biltyType: 'all' // 'all', 'regular', 'station'
   });
 
   // UI state
-  const [selectedBilty, setSelectedBilty] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printData, setPrintData] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchResults, setSearchResults] = useState({
     regular: [],
@@ -54,6 +46,7 @@ export default function BillSearch() {
     totalCount: 0
   });
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedBilties, setSelectedBilties] = useState([]);
 
   // Check authentication
   useEffect(() => {
@@ -254,14 +247,6 @@ export default function BillSearch() {
         query = query.ilike('e_way_bill', `%${filters.eWayBill.trim()}%`);
       }
 
-      if (filters.minAmount && !isNaN(filters.minAmount)) {
-        query = query.gte('total', parseFloat(filters.minAmount));
-      }
-
-      if (filters.maxAmount && !isNaN(filters.maxAmount)) {
-        query = query.lte('total', parseFloat(filters.maxAmount));
-      }
-
       // Order by creation date (newest first)
       query = query.order('created_at', { ascending: false });
 
@@ -272,44 +257,48 @@ export default function BillSearch() {
         throw error;
       }
       
-      // Get city names in a separate query if we have city IDs
+      // Get city names and challan numbers in separate queries
       const biltyDataWithCities = await Promise.all(
         (data || []).map(async (bilty) => {
-          let fromCityName = 'N/A';
           let toCityName = 'N/A';
+          let toCityCode = 'N/A';
+          let challanNo = 'N/A';
           
-          // Fetch city names if city IDs exist
-          if (bilty.from_city_id) {
-            try {
-              const { data: fromCity } = await supabase
-                .from('cities')
-                .select('city_name')
-                .eq('id', bilty.from_city_id)
-                .single();
-              fromCityName = fromCity?.city_name || 'N/A';
-            } catch (error) {
-              console.log('Error fetching from city:', error);
-            }
-          }
-          
+          // Fetch destination city name and code
           if (bilty.to_city_id) {
             try {
               const { data: toCity } = await supabase
                 .from('cities')
-                .select('city_name')
+                .select('city_name, city_code')
                 .eq('id', bilty.to_city_id)
                 .single();
               toCityName = toCity?.city_name || 'N/A';
+              toCityCode = toCity?.city_code || 'N/A';
             } catch (error) {
               console.log('Error fetching to city:', error);
+            }
+          }
+          
+          // Fetch challan number from transit_details
+          if (bilty.gr_no) {
+            try {
+              const { data: transitData } = await supabase
+                .from('transit_details')
+                .select('challan_no')
+                .eq('gr_no', bilty.gr_no)
+                .single();
+              challanNo = transitData?.challan_no || 'N/A';
+            } catch (error) {
+              console.log('Error fetching challan number:', error);
             }
           }
           
           return {
             ...bilty,
             type: 'regular',
-            from_city_name: fromCityName,
-            to_city_name: toCityName
+            to_city_name: toCityName,
+            to_city_code: toCityCode,
+            challan_no: challanNo
           };
         })
       );
@@ -358,14 +347,6 @@ export default function BillSearch() {
 
       if (filters.eWayBill?.trim()) {
         query = query.ilike('e_way_bill', `%${filters.eWayBill.trim()}%`);
-      }
-
-      if (filters.minAmount && !isNaN(filters.minAmount)) {
-        query = query.gte('amount', parseFloat(filters.minAmount));
-      }
-
-      if (filters.maxAmount && !isNaN(filters.maxAmount)) {
-        query = query.lte('amount', parseFloat(filters.maxAmount));
       }
 
       // Apply payment status filter (map payment_mode to payment_status)
@@ -418,9 +399,7 @@ export default function BillSearch() {
       transportName: '',
       paymentMode: '',
       eWayBill: '',
-      biltyType: 'all',
-      minAmount: '',
-      maxAmount: ''
+      biltyType: 'all'
     };
     
     setSearchFilters(clearedFilters);
@@ -430,16 +409,43 @@ export default function BillSearch() {
       station: [],
       totalCount: 0
     });
+    setSelectedBilties([]);
   };
 
-  const handleViewDetails = (bilty) => {
-    setSelectedBilty(bilty);
-    setShowDetailsModal(true);
+  // Selection handlers
+  const handleSelectBilty = (bilty) => {
+    const biltyId = `${bilty.type}-${bilty.id}`;
+    setSelectedBilties(prev => {
+      if (prev.includes(biltyId)) {
+        return prev.filter(id => id !== biltyId);
+      } else {
+        return [...prev, biltyId];
+      }
+    });
   };
 
-  const handlePrintBilty = (bilty) => {
-    setPrintData(bilty);
-    setShowPrintModal(true);
+  const handleSelectAll = () => {
+    const allBiltyIds = [
+      ...searchResults.regular.map(bilty => `regular-${bilty.id}`),
+      ...searchResults.station.map(bilty => `station-${bilty.id}`)
+    ];
+    
+    if (selectedBilties.length === allBiltyIds.length) {
+      setSelectedBilties([]);
+    } else {
+      setSelectedBilties(allBiltyIds);
+    }
+  };
+
+  const getSelectedBilties = () => {
+    const allBilties = [
+      ...searchResults.regular.map(bilty => ({ ...bilty, type: 'regular' })),
+      ...searchResults.station.map(bilty => ({ ...bilty, type: 'station' }))
+    ];
+    
+    return allBilties.filter(bilty => 
+      selectedBilties.includes(`${bilty.type}-${bilty.id}`)
+    );
   };
 
   const convertToCSV = (data) => {
@@ -452,11 +458,11 @@ export default function BillSearch() {
       'Date',
       'Consignor',
       'Consignee',
-      'From City',
-      'To City',
-      'Transport Name',
+      'Destination City',
+      'City Code',
       'Payment Mode',
-      'E-Way Bill',
+      'Private Marks',
+      'Challan No',
       'Amount'
     ];
     
@@ -470,11 +476,11 @@ export default function BillSearch() {
           bilty.bilty_date || bilty.created_at || 'N/A',
           bilty.consignor_name || bilty.consignor || 'N/A',
           bilty.consignee_name || bilty.consignee || 'N/A',
-          bilty.from_city_name || bilty.from_city || 'N/A',
-          bilty.to_city_name || bilty.to_city || 'N/A',
-          bilty.transport_name || 'N/A',
+          bilty.to_city_name || bilty.station || 'N/A',
+          bilty.to_city_code || 'N/A',
           bilty.payment_mode || bilty.payment_status || 'N/A',
-          bilty.e_way_bill || 'N/A',
+          bilty.pvt_marks || 'N/A',
+          bilty.challan_no || 'N/A',
           bilty.total || bilty.amount || 0
         ];
         
@@ -493,19 +499,24 @@ export default function BillSearch() {
   };
 
   const handleDownloadCSV = () => {
-    const allData = [...searchResults.regular, ...searchResults.station];
-    const csvContent = convertToCSV(allData);
+    const selectedData = getSelectedBilties();
+    const dataToDownload = selectedData.length > 0 ? selectedData : [...searchResults.regular, ...searchResults.station];
+    const csvContent = convertToCSV(dataToDownload);
     
     if (!csvContent) {
       alert('No data to download');
       return;
     }
     
+    const fileName = selectedData.length > 0 
+      ? `selected_bilties_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`
+      : `bilty_search_results_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`;
+    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `bilty_search_results_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`);
+    link.setAttribute('download', fileName);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -513,8 +524,9 @@ export default function BillSearch() {
   };
 
   const handleCopyToClipboard = async () => {
-    const allData = [...searchResults.regular, ...searchResults.station];
-    const csvContent = convertToCSV(allData);
+    const selectedData = getSelectedBilties();
+    const dataToCopy = selectedData.length > 0 ? selectedData : [...searchResults.regular, ...searchResults.station];
+    const csvContent = convertToCSV(dataToCopy);
     
     if (!csvContent) {
       alert('No data to copy');
@@ -523,7 +535,10 @@ export default function BillSearch() {
     
     try {
       await navigator.clipboard.writeText(csvContent);
-      alert('Data copied to clipboard successfully!');
+      const message = selectedData.length > 0 
+        ? `${selectedData.length} selected bilties copied to clipboard successfully!`
+        : 'All search results copied to clipboard successfully!';
+      alert(message);
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
       // Fallback for older browsers
@@ -533,7 +548,10 @@ export default function BillSearch() {
       textArea.select();
       try {
         document.execCommand('copy');
-        alert('Data copied to clipboard successfully!');
+        const message = selectedData.length > 0 
+          ? `${selectedData.length} selected bilties copied to clipboard successfully!`
+          : 'All search results copied to clipboard successfully!';
+        alert(message);
       } catch (fallbackErr) {
         alert('Failed to copy to clipboard');
       }
@@ -558,7 +576,7 @@ export default function BillSearch() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 py-8">
         <BillSearchHeader 
           onToggleFilters={() => setShowFilters(!showFilters)}
           showFilters={showFilters}
@@ -567,6 +585,7 @@ export default function BillSearch() {
           hasSearched={hasSearched}
           onDownloadCSV={handleDownloadCSV}
           onCopyToClipboard={handleCopyToClipboard}
+          selectedBiltiesCount={selectedBilties.length}
         />
 
         {showFilters && (
@@ -596,9 +615,10 @@ export default function BillSearch() {
             regularBilties={searchResults.regular}
             stationBilties={searchResults.station}
             loading={loading}
-            onViewDetails={handleViewDetails}
-            onPrintBilty={handlePrintBilty}
             biltyType={searchFilters.biltyType}
+            onSelectBilty={handleSelectBilty}
+            onSelectAll={handleSelectAll}
+            selectedBilties={selectedBilties}
           />
         )}
 
@@ -612,29 +632,6 @@ export default function BillSearch() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">Start Your Search</h3>
             <p className="text-gray-500 mb-4">Use the filters above and click the search button to find bilties.</p>
           </div>
-        )}
-
-        {/* Modals */}
-        {showDetailsModal && selectedBilty && (
-          <BillDetailsModal
-            bilty={selectedBilty}
-            onClose={() => {
-              setShowDetailsModal(false);
-              setSelectedBilty(null);
-            }}
-            cities={cities}
-          />
-        )}
-
-        {showPrintModal && printData && (
-          <PrintModal
-            biltyData={printData}
-            branchData={branchData}
-            onClose={() => {
-              setShowPrintModal(false);
-              setPrintData(null);
-            }}
-          />
         )}
       </div>
     </div>

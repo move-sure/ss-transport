@@ -171,38 +171,6 @@ export default function BillFilterPanel({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
-
-        {/* Min Amount */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Min Amount
-          </label>
-          <input
-            type="number"
-            value={filters.minAmount}
-            onChange={(e) => handleInputChange('minAmount', e.target.value)}
-            placeholder="0"
-            min="0"
-            step="0.01"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        {/* Max Amount */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Max Amount
-          </label>
-          <input
-            type="number"
-            value={filters.maxAmount}
-            onChange={(e) => handleInputChange('maxAmount', e.target.value)}
-            placeholder="999999"
-            min="0"
-            step="0.01"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
       </div>
 
       {/* Action Buttons */}
@@ -260,14 +228,6 @@ export default function BillFilterPanel({
               break;
             case 'eWayBill':
               displayKey = 'E-Way Bill';
-              break;
-            case 'minAmount':
-              displayKey = 'Min Amount';
-              displayValue = `₹${value}`;
-              break;
-            case 'maxAmount':
-              displayKey = 'Max Amount';
-              displayValue = `₹${value}`;
               break;
             default:
               break;

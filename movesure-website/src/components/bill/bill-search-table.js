@@ -31,6 +31,15 @@ export default function BillSearchTable({
     }
   };
 
+  const formatDispatchDate = (dateString) => {
+    if (!dateString) return null;
+    try {
+      return format(new Date(dateString), 'dd MMM yyyy');
+    } catch (error) {
+      return null;
+    }
+  };
+
   const formatCurrency = (amount) => {
     if (!amount) return '₹0.00';
     return `₹${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -125,7 +134,12 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="text-xs text-gray-900">
-            {bilty.challan_no || 'N/A'}
+            <div className="font-medium">{bilty.challan_no || 'N/A'}</div>
+            {bilty.dispatch_date && (
+              <div className="text-xs text-gray-500">
+                Dispatched: {formatDispatchDate(bilty.dispatch_date)}
+              </div>
+            )}
           </div>
         </td>
       </tr>
@@ -204,7 +218,12 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="text-xs text-gray-900">
-            {bilty.challan_no || 'N/A'}
+            <div className="font-medium">{bilty.challan_no || 'N/A'}</div>
+            {bilty.dispatch_date && (
+              <div className="text-xs text-gray-500">
+                Dispatched: {formatDispatchDate(bilty.dispatch_date)}
+              </div>
+            )}
           </div>
         </td>
       </tr>

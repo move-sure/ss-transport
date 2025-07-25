@@ -278,53 +278,87 @@ export default function BillSearch() {
         throw error;
       }
       
-      // Get city names and challan numbers in separate queries
-      const biltyDataWithCities = await Promise.all(
-        (data || []).map(async (bilty) => {
-          let toCityName = 'N/A';
-          let toCityCode = 'N/A';
-          let challanNo = 'N/A';
-          
-          // Fetch destination city name and code
-          if (bilty.to_city_id) {
-            try {
-              const { data: toCity } = await supabase
-                .from('cities')
-                .select('city_name, city_code')
-                .eq('id', bilty.to_city_id)
-                .single();
-              toCityName = toCity?.city_name || 'N/A';
-              toCityCode = toCity?.city_code || 'N/A';
-            } catch (error) {
-              console.log('Error fetching to city:', error);
-            }
-          }
-          
-          // Fetch challan number from transit_details
-          if (bilty.gr_no) {
-            try {
-              const { data: transitData } = await supabase
-                .from('transit_details')
-                .select('challan_no')
-                .eq('gr_no', bilty.gr_no)
-                .single();
-              challanNo = transitData?.challan_no || 'N/A';
-            } catch (error) {
-              console.log('Error fetching challan number:', error);
-            }
-          }
-          
-          return {
-            ...bilty,
-            type: 'regular',
-            to_city_name: toCityName,
-            to_city_code: toCityCode,
-            challan_no: challanNo
-          };
-        })
-      );
+      // Get city names, challan numbers and dispatch dates in optimized queries
+      const grNumbers = (data || []).map(bilty => bilty.gr_no).filter(Boolean);
       
-      return biltyDataWithCities;
+      let cityMap = {};
+      let challanMap = {};
+      let dispatchDateMap = {};
+      
+      // Get all unique city IDs for fetching city names
+      const cityIds = [...new Set((data || []).map(bilty => bilty.to_city_id).filter(Boolean))];
+      
+      // Fetch city names in bulk
+      if (cityIds.length > 0) {
+        try {
+          const { data: citiesData } = await supabase
+            .from('cities')
+            .select('id, city_name, city_code')
+            .in('id', cityIds);
+          
+          if (citiesData) {
+            cityMap = citiesData.reduce((map, city) => {
+              map[city.id] = { name: city.city_name, code: city.city_code };
+              return map;
+            }, {});
+          }
+        } catch (error) {
+          console.log('Error fetching cities for regular bilties:', error);
+        }
+      }
+      
+      // Fetch challan numbers and dispatch dates
+      if (grNumbers.length > 0) {
+        try {
+          // First get challan numbers from transit_details
+          const { data: transitData } = await supabase
+            .from('transit_details')
+            .select('gr_no, challan_no')
+            .in('gr_no', grNumbers);
+          
+          if (transitData) {
+            const challanNumbers = [...new Set(transitData.map(t => t.challan_no).filter(Boolean))];
+            
+            // Build challan map
+            challanMap = transitData.reduce((map, transit) => {
+              map[transit.gr_no] = transit.challan_no;
+              return map;
+            }, {});
+            
+            // Fetch dispatch dates from challan_details
+            if (challanNumbers.length > 0) {
+              const { data: challanDetailsData } = await supabase
+                .from('challan_details')
+                .select('challan_no, dispatch_date')
+                .in('challan_no', challanNumbers);
+              
+              if (challanDetailsData) {
+                dispatchDateMap = challanDetailsData.reduce((map, challan) => {
+                  map[challan.challan_no] = challan.dispatch_date;
+                  return map;
+                }, {});
+              }
+            }
+          }
+        } catch (error) {
+          console.log('Error fetching challan numbers and dispatch dates:', error);
+        }
+      }
+      
+      return (data || []).map(bilty => {
+        const cityInfo = cityMap[bilty.to_city_id] || { name: 'N/A', code: 'N/A' };
+        const challanNo = challanMap[bilty.gr_no] || 'N/A';
+        const dispatchDate = dispatchDateMap[challanNo] || null;
+        
+        return {
+          ...bilty,
+          type: 'regular',
+          to_city_name: cityInfo.name,
+          to_city_code: cityInfo.code,
+          challan_no: challanNo,
+          dispatch_date: dispatchDate
+        };
+      });
 
     } catch (error) {
       console.error('Error searching regular bilties:', error);
@@ -413,29 +447,49 @@ export default function BillSearch() {
         throw error;
       }
       
-      // Get challan numbers and city names for all station bilties in optimized queries
+      // Get challan numbers, city names and dispatch dates for all station bilties in optimized queries
       const grNumbers = (data || []).map(bilty => bilty.gr_no).filter(Boolean);
       const stationCodes = [...new Set((data || []).map(bilty => bilty.station).filter(Boolean))];
       
       let challanMap = {};
       let cityMap = {};
+      let dispatchDateMap = {};
       
-      // Fetch challan numbers
+      // Fetch challan numbers and dispatch dates
       if (grNumbers.length > 0) {
         try {
+          // First get challan numbers from transit_details
           const { data: transitData } = await supabase
             .from('transit_details')
             .select('gr_no, challan_no')
             .in('gr_no', grNumbers);
           
           if (transitData) {
+            const challanNumbers = [...new Set(transitData.map(t => t.challan_no).filter(Boolean))];
+            
+            // Build challan map
             challanMap = transitData.reduce((map, transit) => {
               map[transit.gr_no] = transit.challan_no;
               return map;
             }, {});
+            
+            // Fetch dispatch dates from challan_details
+            if (challanNumbers.length > 0) {
+              const { data: challanDetailsData } = await supabase
+                .from('challan_details')
+                .select('challan_no, dispatch_date')
+                .in('challan_no', challanNumbers);
+              
+              if (challanDetailsData) {
+                dispatchDateMap = challanDetailsData.reduce((map, challan) => {
+                  map[challan.challan_no] = challan.dispatch_date;
+                  return map;
+                }, {});
+              }
+            }
           }
         } catch (error) {
-          console.log('Error fetching challan numbers for station bilties:', error);
+          console.log('Error fetching challan numbers and dispatch dates for station bilties:', error);
         }
       }
       
@@ -458,12 +512,18 @@ export default function BillSearch() {
         }
       }
       
-      return (data || []).map(bilty => ({
-        ...bilty,
-        type: 'station',
-        challan_no: challanMap[bilty.gr_no] || 'N/A',
-        station_city_name: cityMap[bilty.station] || bilty.station || 'N/A'
-      }));
+      return (data || []).map(bilty => {
+        const challanNo = challanMap[bilty.gr_no] || 'N/A';
+        const dispatchDate = dispatchDateMap[challanNo] || null;
+        
+        return {
+          ...bilty,
+          type: 'station',
+          challan_no: challanNo,
+          dispatch_date: dispatchDate,
+          station_city_name: cityMap[bilty.station] || bilty.station || 'N/A'
+        };
+      });
 
     } catch (error) {
       console.error('Error searching station bilties:', error);

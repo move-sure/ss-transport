@@ -32,7 +32,8 @@ export default function BillSearch() {
     grNumber: '',
     consignorName: '',
     consigneeName: '',
-    transportName: '',
+    pvtMarks: '',
+    cityName: '',
     paymentMode: '',
     eWayBill: '',
     biltyType: 'all' // 'all', 'regular', 'station'
@@ -235,8 +236,28 @@ export default function BillSearch() {
         query = query.ilike('consignee_name', `%${filters.consigneeName.trim()}%`);
       }
 
-      if (filters.transportName?.trim()) {
-        query = query.ilike('transport_name', `%${filters.transportName.trim()}%`);
+      if (filters.pvtMarks?.trim()) {
+        query = query.ilike('pvt_marks', `%${filters.pvtMarks.trim()}%`);
+      }
+
+      // Handle city name filter - get city IDs that match the name
+      if (filters.cityName?.trim()) {
+        try {
+          const { data: matchingCities } = await supabase
+            .from('cities')
+            .select('id')
+            .ilike('city_name', `%${filters.cityName.trim()}%`);
+          
+          if (matchingCities && matchingCities.length > 0) {
+            const cityIds = matchingCities.map(city => city.id);
+            query = query.in('to_city_id', cityIds);
+          } else {
+            // If no cities match, return empty result
+            return [];
+          }
+        } catch (error) {
+          console.log('Error filtering by city name:', error);
+        }
       }
 
       if (filters.paymentMode) {
@@ -345,6 +366,15 @@ export default function BillSearch() {
         query = query.ilike('consignee', `%${filters.consigneeName.trim()}%`);
       }
 
+      if (filters.pvtMarks?.trim()) {
+        query = query.ilike('pvt_marks', `%${filters.pvtMarks.trim()}%`);
+      }
+
+      // Handle city name filter for station bilties - filter by station field
+      if (filters.cityName?.trim()) {
+        query = query.ilike('station', `%${filters.cityName.trim()}%`);
+      }
+
       if (filters.eWayBill?.trim()) {
         query = query.ilike('e_way_bill', `%${filters.eWayBill.trim()}%`);
       }
@@ -364,10 +394,57 @@ export default function BillSearch() {
         throw error;
       }
       
-      return data?.map(bilty => ({
+      // Get challan numbers and city names for all station bilties in optimized queries
+      const grNumbers = (data || []).map(bilty => bilty.gr_no).filter(Boolean);
+      const stationCodes = [...new Set((data || []).map(bilty => bilty.station).filter(Boolean))];
+      
+      let challanMap = {};
+      let cityMap = {};
+      
+      // Fetch challan numbers
+      if (grNumbers.length > 0) {
+        try {
+          const { data: transitData } = await supabase
+            .from('transit_details')
+            .select('gr_no, challan_no')
+            .in('gr_no', grNumbers);
+          
+          if (transitData) {
+            challanMap = transitData.reduce((map, transit) => {
+              map[transit.gr_no] = transit.challan_no;
+              return map;
+            }, {});
+          }
+        } catch (error) {
+          console.log('Error fetching challan numbers for station bilties:', error);
+        }
+      }
+      
+      // Fetch city names for station codes
+      if (stationCodes.length > 0) {
+        try {
+          const { data: citiesData } = await supabase
+            .from('cities')
+            .select('city_code, city_name')
+            .in('city_code', stationCodes);
+          
+          if (citiesData) {
+            cityMap = citiesData.reduce((map, city) => {
+              map[city.city_code] = city.city_name;
+              return map;
+            }, {});
+          }
+        } catch (error) {
+          console.log('Error fetching city names for station bilties:', error);
+        }
+      }
+      
+      return (data || []).map(bilty => ({
         ...bilty,
-        type: 'station'
-      })) || [];
+        type: 'station',
+        challan_no: challanMap[bilty.gr_no] || 'N/A',
+        station_city_name: cityMap[bilty.station] || bilty.station || 'N/A'
+      }));
 
     } catch (error) {
       console.error('Error searching station bilties:', error);
@@ -396,7 +473,8 @@ export default function BillSearch() {
       grNumber: '',
       consignorName: '',
       consigneeName: '',
-      transportName: '',
+      pvtMarks: '',
+      cityName: '',
       paymentMode: '',
       eWayBill: '',
       biltyType: 'all'

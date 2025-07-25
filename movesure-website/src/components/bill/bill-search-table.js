@@ -174,7 +174,7 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="text-xs text-gray-900">
-            <div className="font-medium">{bilty.station || 'N/A'}</div>
+            <div className="font-medium">{bilty.station_city_name || bilty.station || 'N/A'}</div>
             <div className="text-xs text-gray-500">{bilty.no_of_packets || 0} pkts • {bilty.weight || 0} kg</div>
           </div>
         </td>
@@ -204,7 +204,7 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="text-xs text-gray-900">
-            {bilty.challan_no || 'AVL'}
+            {bilty.challan_no || 'N/A'}
           </div>
         </td>
       </tr>

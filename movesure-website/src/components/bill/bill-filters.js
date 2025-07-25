@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Calendar, Search, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Calendar, Search, X, ChevronDown } from 'lucide-react';
 
 export default function BillFilterPanel({ 
   filters, 
@@ -11,9 +11,64 @@ export default function BillFilterPanel({
   cities, 
   loading 
 }) {
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [citySearchTerm, setCitySearchTerm] = useState(filters.cityName || '');
+  const cityInputRef = useRef(null);
+  const cityDropdownRef = useRef(null);
+
+  // Filter cities based on search term
+  const filteredCities = cities.filter(city => 
+    city.city_name.toLowerCase().includes(citySearchTerm.toLowerCase()) ||
+    city.city_code.toLowerCase().includes(citySearchTerm.toLowerCase())
+  ).slice(0, 15); // Increased to 15 results
+
+  // Show all cities when no search term
+  const citiesToShow = citySearchTerm.length === 0 ? cities.slice(0, 15) : filteredCities;
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target)) {
+        setShowCityDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleInputChange = (field, value) => {
     onFilterChange(field, value);
   };
+
+  const handleCityInputChange = (value) => {
+    setCitySearchTerm(value);
+    onFilterChange('cityName', value);
+    setShowCityDropdown(true); // Always show dropdown when typing
+  };
+
+  const handleCitySelect = (city) => {
+    setCitySearchTerm(city.city_name);
+    onFilterChange('cityName', city.city_name);
+    setShowCityDropdown(false);
+  };
+
+  const handleCityInputFocus = () => {
+    setShowCityDropdown(true); // Always show dropdown on focus
+  };
+
+  const handleClearFilters = () => {
+    setCitySearchTerm('');
+    setShowCityDropdown(false);
+    onClearFilters();
+  };
+
+  // Sync citySearchTerm with filters.cityName when filters change externally
+  useEffect(() => {
+    if (filters.cityName !== citySearchTerm) {
+      setCitySearchTerm(filters.cityName || '');
+    }
+  }, [filters.cityName]);
 
   const paymentModes = [
     { value: '', label: 'All Payment Modes' },
@@ -124,21 +179,67 @@ export default function BillFilterPanel({
           />
         </div>
 
-        {/* Transport Name (only for regular bilties) */}
-        {(filters.biltyType === 'all' || filters.biltyType === 'regular') && (
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              Transport Name
-            </label>
+        {/* Private Marks */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Private Marks
+          </label>
+          <input
+            type="text"
+            value={filters.pvtMarks}
+            onChange={(e) => handleInputChange('pvtMarks', e.target.value)}
+            placeholder="Enter private marks"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* City Name Filter with Autocomplete */}
+        <div className="space-y-1 relative" ref={cityDropdownRef}>
+          <label className="block text-sm font-medium text-gray-700">
+            Destination City
+          </label>
+          <div className="relative">
             <input
+              ref={cityInputRef}
               type="text"
-              value={filters.transportName}
-              onChange={(e) => handleInputChange('transportName', e.target.value)}
-              placeholder="Enter transport name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={citySearchTerm}
+              onChange={(e) => handleCityInputChange(e.target.value)}
+              onFocus={handleCityInputFocus}
+              placeholder="Search destination city..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
+              autoComplete="off"
             />
+            <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
-        )}
+          
+          {/* Dropdown with city suggestions */}
+          {showCityDropdown && citiesToShow.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {citiesToShow.map((city) => (
+                <div
+                  key={city.id}
+                  onClick={() => handleCitySelect(city)}
+                  className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-900">{city.city_name}</span>
+                    <span className="text-sm text-gray-500">{city.city_code}</span>
+                  </div>
+                </div>
+              ))}
+              {citySearchTerm && citiesToShow.length === 0 && (
+                <div className="px-4 py-2 text-gray-500 text-sm">
+                  No cities found matching "{citySearchTerm}"
+                </div>
+              )}
+              {citySearchTerm.length === 0 && cities.length > 15 && (
+                <div className="px-4 py-2 text-gray-500 text-sm text-center border-t">
+                  Showing first 15 cities. Type to search for more...
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Payment Mode */}
         <div className="space-y-1">
@@ -185,7 +286,7 @@ export default function BillFilterPanel({
         </button>
 
         <button
-          onClick={onClearFilters}
+          onClick={handleClearFilters}
           disabled={loading}
           className="flex items-center space-x-2 px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
@@ -219,8 +320,11 @@ export default function BillFilterPanel({
             case 'consigneeName':
               displayKey = 'Consignee';
               break;
-            case 'transportName':
-              displayKey = 'Transport';
+            case 'pvtMarks':
+              displayKey = 'Private Marks';
+              break;
+            case 'cityName':
+              displayKey = 'Destination City';
               break;
             case 'paymentMode':
               displayKey = 'Payment';

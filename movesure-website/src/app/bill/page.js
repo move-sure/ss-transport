@@ -711,41 +711,55 @@ export default function BillSearch() {
     
     const tabContent = [
       headers.join('\t'),
-      ...selectedData.map((bilty, index) => [
-        index + 1, // SN.NO
-        bilty.gr_no || 'N/A',
-        bilty.type === 'station' 
-          ? (bilty.consignor || 'N/A') 
-          : (bilty.consignor_name || 'N/A'),
-        bilty.type === 'station' 
-          ? (bilty.consignee || 'N/A') 
-          : (bilty.consignee_name || 'N/A'),
-        bilty.type === 'station' 
-          ? (bilty.contents || 'N/A') 
-          : (bilty.contain || 'N/A'),
-        bilty.type === 'station' 
-          ? (bilty.no_of_packets || 0) 
-          : (bilty.no_of_pkg || 0),
-        bilty.type === 'station' 
-          ? (bilty.weight || 0) 
-          : (bilty.wt || 0),
-        // TO_PAY column
-        bilty.type === 'station' 
-          ? (bilty.payment_status === 'to-pay' ? (bilty.amount || 0) : 0)
-          : (bilty.payment_mode === 'to-pay' ? (bilty.total || 0) : 0),
-        // PAID column
-        bilty.type === 'station' 
-          ? (bilty.payment_status === 'paid' ? (bilty.amount || 0) : 0)
-          : (bilty.payment_mode === 'paid' ? (bilty.total || 0) : 0),
-        bilty.type === 'station' 
-          ? (bilty.station || 'N/A') 
-          : getCityName(bilty.to_city_id),
-        bilty.pvt_marks || 'N/A',
-        // DATE column - use created_at for station bilties, bilty_date for regular bilties
-        bilty.type === 'station' 
-          ? (bilty.created_at ? new Date(bilty.created_at).toLocaleDateString('en-GB') : 'N/A')
-          : (bilty.bilty_date ? new Date(bilty.bilty_date).toLocaleDateString('en-GB') : 'N/A')
-      ].join('\t'))
+      ...selectedData.map((bilty, index) => {
+        const row = [
+          index + 1, // SN.NO
+          bilty.gr_no || 'N/A',
+          bilty.type === 'station' 
+            ? (bilty.consignor || 'N/A') 
+            : (bilty.consignor_name || 'N/A'),
+          bilty.type === 'station' 
+            ? (bilty.consignee || 'N/A') 
+            : (bilty.consignee_name || 'N/A'),
+          bilty.type === 'station' 
+            ? (bilty.contents || 'N/A') 
+            : (bilty.contain || 'N/A'),
+          bilty.type === 'station' 
+            ? (bilty.no_of_packets || 0) 
+            : (bilty.no_of_pkg || 0),
+          bilty.type === 'station' 
+            ? (bilty.weight || 0) 
+            : (bilty.wt || 0),
+          // TO_PAY column
+          bilty.type === 'station' 
+            ? (bilty.payment_status === 'to-pay' ? (bilty.amount || 0) : 0)
+            : (bilty.payment_mode === 'to-pay' ? (bilty.total || 0) : 0),
+          // PAID column
+          bilty.type === 'station' 
+            ? (bilty.payment_status === 'paid' ? (bilty.amount || 0) : 0)
+            : (bilty.payment_mode === 'paid' ? (bilty.total || 0) : 0),
+          bilty.type === 'station' 
+            ? (bilty.station || 'N/A') 
+            : getCityName(bilty.to_city_id),
+          bilty.pvt_marks || 'N/A',
+          // DATE column - use created_at for station bilties, bilty_date for regular bilties
+          bilty.type === 'station' 
+            ? (bilty.created_at ? new Date(bilty.created_at).toLocaleDateString('en-GB') : 'N/A')
+            : (bilty.bilty_date ? new Date(bilty.bilty_date).toLocaleDateString('en-GB') : 'N/A')
+        ];
+        
+        // Clean each field to ensure proper tab-separated format for Excel
+        return row.map(field => {
+          let cleanField = String(field || '').trim();
+          // Remove any tabs, newlines, carriage returns, and replace commas with spaces
+          cleanField = cleanField.replace(/[\t\n\r,]/g, ' ');
+          // Remove multiple spaces
+          cleanField = cleanField.replace(/\s+/g, ' ');
+          // Remove any remaining problematic characters except basic ones
+          cleanField = cleanField.replace(/[^\w\s\-\.\/]/g, '');
+          return cleanField;
+        }).join('\t');
+      })
     ].join('\n');
     
     try {

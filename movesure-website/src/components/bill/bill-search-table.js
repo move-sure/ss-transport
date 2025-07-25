@@ -204,7 +204,7 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="text-xs text-gray-900">
-            N/A
+            {bilty.challan_no || 'AVL'}
           </div>
         </td>
       </tr>

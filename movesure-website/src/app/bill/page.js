@@ -370,9 +370,28 @@ export default function BillSearch() {
         query = query.ilike('pvt_marks', `%${filters.pvtMarks.trim()}%`);
       }
 
-      // Handle city name filter for station bilties - filter by station field
+      // Handle city name filter for station bilties - search by both city name and city code
       if (filters.cityName?.trim()) {
-        query = query.ilike('station', `%${filters.cityName.trim()}%`);
+        // First get matching city codes for the entered city name
+        try {
+          const { data: matchingCities } = await supabase
+            .from('cities')
+            .select('city_code')
+            .ilike('city_name', `%${filters.cityName.trim()}%`);
+          
+          if (matchingCities && matchingCities.length > 0) {
+            // Search by matching city codes in station field
+            const cityCodes = matchingCities.map(city => city.city_code);
+            query = query.in('station', cityCodes);
+          } else {
+            // Also search directly in station field in case it contains city names
+            query = query.ilike('station', `%${filters.cityName.trim()}%`);
+          }
+        } catch (error) {
+          console.log('Error filtering station bilties by city name:', error);
+          // Fallback to direct station field search
+          query = query.ilike('station', `%${filters.cityName.trim()}%`);
+        }
       }
 
       if (filters.eWayBill?.trim()) {

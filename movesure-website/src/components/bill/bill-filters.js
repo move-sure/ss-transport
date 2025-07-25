@@ -229,7 +229,7 @@ export default function BillFilterPanel({
               ))}
               {citySearchTerm && citiesToShow.length === 0 && (
                 <div className="px-4 py-2 text-gray-500 text-sm">
-                  No cities found matching "{citySearchTerm}"
+                  No cities found matching {citySearchTerm}
                 </div>
               )}
               {citySearchTerm.length === 0 && cities.length > 15 && (

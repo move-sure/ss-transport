@@ -44,10 +44,13 @@ export default function BillSearch() {
   const [searchResults, setSearchResults] = useState({
     regular: [],
     station: [],
-    totalCount: 0
+    totalCount: 0,
+    hasMore: false,
+    loading: false
   });
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedBilties, setSelectedBilties] = useState([]);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -155,14 +158,14 @@ export default function BillSearch() {
       
       // Search regular bilties if needed
       if (filters.biltyType === 'all' || filters.biltyType === 'regular') {
-        promises.push(searchRegularBilties(filters));
+        promises.push(searchRegularBilties(filters, 0));
       } else {
         promises.push(Promise.resolve([]));
       }
       
       // Search station bilties if needed
       if (filters.biltyType === 'all' || filters.biltyType === 'station') {
-        promises.push(searchStationBilties(filters));
+        promises.push(searchStationBilties(filters, 0));
       } else {
         promises.push(Promise.resolve([]));
       }
@@ -181,10 +184,15 @@ export default function BillSearch() {
         console.error('Station bilties search failed:', results[1].reason);
       }
       
+      // Check if we have more data to load (if we got exactly 5000 records, there might be more)
+      const hasMoreData = regularResults.length === 5000 || stationResults.length === 5000;
+      
       setSearchResults({
         regular: regularResults,
         station: stationResults,
-        totalCount: regularResults.length + stationResults.length
+        totalCount: regularResults.length + stationResults.length,
+        hasMore: hasMoreData,
+        loading: false
       });
       
       // Show warning if some searches failed
@@ -200,7 +208,7 @@ export default function BillSearch() {
     }
   };
 
-  const searchRegularBilties = async (filters) => {
+  const searchRegularBilties = async (filters, offset = 0) => {
     try {
       let query = supabase
         .from('bilty')
@@ -271,7 +279,14 @@ export default function BillSearch() {
       // Order by creation date (newest first)
       query = query.order('created_at', { ascending: false });
 
-      const { data, error } = await query.limit(1000);
+      // Add pagination support
+      if (offset > 0) {
+        query = query.range(offset, offset + 4999); // Load 5000 at a time
+      } else {
+        query = query.limit(5000); // Initial load
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase query error:', error);
@@ -366,16 +381,16 @@ export default function BillSearch() {
     }
   };
 
-  const searchStationBilties = async (filters) => {
+  const searchStationBilties = async (filters, offset = 0) => {
     try {
       let query = supabase
         .from('station_bilty_summary')
         .select('*');
 
-      // Apply branch filter if user has branch_id
-      if (user?.branch_id) {
-        query = query.eq('branch_id', user.branch_id);
-      }
+      // Remove branch filter to get all station bilties from all branches
+      // if (user?.branch_id) {
+      //   query = query.eq('branch_id', user.branch_id);
+      // }
 
       // Apply filters
       if (filters.grNumber?.trim()) {
@@ -440,7 +455,14 @@ export default function BillSearch() {
       // Order by creation date (newest first)
       query = query.order('created_at', { ascending: false });
 
-      const { data, error } = await query.limit(1000);
+      // Add pagination support
+      if (offset > 0) {
+        query = query.range(offset, offset + 4999); // Load 5000 at a time
+      } else {
+        query = query.limit(5000); // Initial load
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase station query error:', error);
@@ -564,7 +586,9 @@ export default function BillSearch() {
     setSearchResults({
       regular: [],
       station: [],
-      totalCount: 0
+      totalCount: 0,
+      hasMore: false,
+      loading: false
     });
     setSelectedBilties([]);
   };
@@ -771,6 +795,56 @@ export default function BillSearch() {
     }
   };
 
+  // Load more results function
+  const loadMoreResults = async () => {
+    if (loadingMore || !searchResults.hasMore) return;
+    
+    try {
+      setLoadingMore(true);
+      
+      const currentRegularCount = searchResults.regular.length;
+      const currentStationCount = searchResults.station.length;
+      
+      const promises = [];
+      
+      // Load more regular bilties if needed
+      if (searchFilters.biltyType === 'all' || searchFilters.biltyType === 'regular') {
+        promises.push(searchRegularBilties(searchFilters, currentRegularCount));
+      } else {
+        promises.push(Promise.resolve([]));
+      }
+      
+      // Load more station bilties if needed
+      if (searchFilters.biltyType === 'all' || searchFilters.biltyType === 'station') {
+        promises.push(searchStationBilties(searchFilters, currentStationCount));
+      } else {
+        promises.push(Promise.resolve([]));
+      }
+
+      const results = await Promise.allSettled(promises);
+      
+      const newRegularResults = results[0].status === 'fulfilled' ? results[0].value : [];
+      const newStationResults = results[1].status === 'fulfilled' ? results[1].value : [];
+      
+      // Check if we have more data
+      const hasMoreData = newRegularResults.length === 5000 || newStationResults.length === 5000;
+      
+      setSearchResults(prev => ({
+        regular: [...prev.regular, ...newRegularResults],
+        station: [...prev.station, ...newStationResults],
+        totalCount: prev.totalCount + newRegularResults.length + newStationResults.length,
+        hasMore: hasMoreData,
+        loading: false
+      }));
+      
+    } catch (error) {
+      console.error('Error loading more results:', error);
+      setError(`Failed to load more results: ${error.message}`);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -798,6 +872,9 @@ export default function BillSearch() {
           onDownloadCSV={handleDownloadCSV}
           onCopyToClipboard={handleCopyToClipboard}
           selectedBiltiesCount={selectedBilties.length}
+          hasMore={searchResults.hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMoreResults}
         />
 
         {showFilters && (
@@ -823,15 +900,28 @@ export default function BillSearch() {
         )}
 
         {hasSearched && (
-          <BillSearchTable
-            regularBilties={searchResults.regular}
-            stationBilties={searchResults.station}
-            loading={loading}
-            biltyType={searchFilters.biltyType}
-            onSelectBilty={handleSelectBilty}
-            onSelectAll={handleSelectAll}
-            selectedBilties={selectedBilties}
-          />
+          <>
+            <BillSearchTable
+              regularBilties={searchResults.regular}
+              stationBilties={searchResults.station}
+              loading={loading}
+              biltyType={searchFilters.biltyType}
+              onSelectBilty={handleSelectBilty}
+              onSelectAll={handleSelectAll}
+              selectedBilties={selectedBilties}
+            />
+
+            {searchResults.hasMore && (
+              <div className="mt-4">
+                <button
+                  onClick={loadMoreResults}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-all duration-200"
+                >
+                  {loadingMore ? 'Loading more...' : 'Load more results'}
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {!hasSearched && !loading && (

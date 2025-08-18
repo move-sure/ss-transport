@@ -17,6 +17,7 @@ export default function GodownPage() {
   const [bilties, setBilties] = useState([]);
   const [stationBilties, setStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
+  const [transports, setTransports] = useState([]);
   const [error, setError] = useState(null);
   
   // Search and filter state
@@ -48,19 +49,22 @@ export default function GodownPage() {
     setError(null);
 
     try {
-      const [biltiesData, stationBiltiesData, citiesData] = await Promise.all([
+      const [biltiesData, stationBiltiesData, citiesData, transportsData] = await Promise.all([
         supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }),
         supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at').order('created_at', { ascending: false }),
-        supabase.from('cities').select('id, city_name, city_code')
+        supabase.from('cities').select('id, city_name, city_code'),
+        supabase.from('transports').select('id, transport_name, city_id, city_name')
       ]);
 
       if (biltiesData.error) throw biltiesData.error;
       if (stationBiltiesData.error) throw stationBiltiesData.error;
       if (citiesData.error) throw citiesData.error;
+      if (transportsData.error) throw transportsData.error;
 
       setBilties(biltiesData.data || []);
       setStationBilties(stationBiltiesData.data || []);
       setCities(citiesData.data || []);
+      setTransports(transportsData.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load godown data. Please try again.');
@@ -75,12 +79,26 @@ export default function GodownPage() {
     return city ? { name: city.city_name, code: city.city_code } : { name: 'Unknown', code: 'N/A' };
   };
 
+  // Helper function to get city info by city code (for station bilties)
+  const getCityInfoByCode = (cityCode) => {
+    if (!cityCode) return { name: 'Unknown', code: 'N/A' };
+    const city = cities.find(c => c.city_code === cityCode);
+    return city ? { name: city.city_name, code: city.city_code } : { name: cityCode, code: cityCode };
+  };
+
+  // Helper function to get transport names by city name
+  const getTransportsByCity = (cityName) => {
+    return transports.filter(t => t.city_name === cityName);
+  };
+
   // Combined and filtered bilties
   const allFilteredBilties = useMemo(() => {
     // Combine bilties from both tables
     const combinedBilties = [
       ...bilties.map(bilty => {
         const cityInfo = getCityInfo(bilty.to_city_id);
+        const cityTransports = getTransportsByCity(cityInfo.name);
+        
         return {
           ...bilty,
           no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
@@ -89,20 +107,28 @@ export default function GodownPage() {
           combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_pkg || ''}`,
           destination: cityInfo.name,
           city_code: cityInfo.code,
-          station_destination: `${cityInfo.name} (${cityInfo.code})`
+          station_destination: `${cityInfo.name} (${cityInfo.code})`,
+          transports: cityTransports // Add transport info
         };
       }),
-      ...stationBilties.map(bilty => ({
-        ...bilty,
-        no_of_bags: bilty.no_of_packets, // Standardize to no_of_bags
-        consignor_name: bilty.consignor, // Map consignor field
-        consignee_name: bilty.consignee, // Map consignee field
-        source: 'manual', // Station bilties are manual
-        combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`,
-        destination: bilty.station || 'Unknown',
-        city_code: 'MANUAL',
-        station_destination: `${bilty.station || 'Unknown'} (MANUAL)`
-      }))
+      ...stationBilties.map(bilty => {
+        // Convert city code to city name for station bilties
+        const cityInfo = getCityInfoByCode(bilty.station);
+        const cityTransports = getTransportsByCity(cityInfo.name);
+        
+        return {
+          ...bilty,
+          no_of_bags: bilty.no_of_packets, // Standardize to no_of_bags
+          consignor_name: bilty.consignor, // Map consignor field
+          consignee_name: bilty.consignee, // Map consignee field
+          source: 'manual', // Station bilties are manual
+          combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`,
+          destination: cityInfo.name, // Convert code to name
+          city_code: cityInfo.code,
+          station_destination: `${cityInfo.name} (${cityInfo.code})`,
+          transports: cityTransports // Add transport info
+        };
+      })
     ];
 
     // Apply search filter
@@ -128,7 +154,7 @@ export default function GodownPage() {
 
     // Sort by created_at (newest first)
     return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [bilties, stationBilties, cities, searchQuery, selectedStation]);
+  }, [bilties, stationBilties, cities, transports, searchQuery, selectedStation]);
 
   // Paginated bilties
   const paginatedBilties = useMemo(() => {
@@ -150,7 +176,10 @@ export default function GodownPage() {
       if (cityInfo.name !== 'Unknown') stations.add(`${cityInfo.name} (${cityInfo.code})`);
     });
     stationBilties.forEach(bilty => {
-      if (bilty.station) stations.add(`${bilty.station} (MANUAL)`);
+      if (bilty.station) {
+        const cityInfo = getCityInfoByCode(bilty.station);
+        stations.add(`${cityInfo.name} (${cityInfo.code})`);
+      }
     });
     return Array.from(stations).sort();
   }, [bilties, stationBilties, cities]);

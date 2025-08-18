@@ -12,9 +12,11 @@ import {
   FileText,
   Weight,
   User,
-  Users
+  Users,
+  Truck
 } from 'lucide-react';
 import GodownPagination from './godown-pagination';
+import TransportInfo from './transport-info';
 
 export default function GodownBiltyList({ 
   bilties, 
@@ -166,6 +168,9 @@ export default function GodownBiltyList({
                 Destination (Code)
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Transport
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 No of Bags
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -226,6 +231,9 @@ export default function GodownBiltyList({
                       </span>
                     </div>
                   </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <TransportInfo transports={bilty.transports} maxDisplay={2} />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
@@ -329,6 +337,18 @@ export default function GodownBiltyList({
                     <span className="text-xs text-slate-500">
                       Code: {bilty.city_code || 'N/A'}
                     </span>
+                  </div>
+                </div>
+
+                {/* Transport */}
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-2 w-24 flex-shrink-0">
+                    <span className="text-xs font-medium text-slate-500 uppercase">
+                      Transport
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <TransportInfo transports={bilty.transports} maxDisplay={3} showIcon={false} />
                   </div>
                 </div>
 

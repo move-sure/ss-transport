@@ -282,8 +282,8 @@ export default function GodownPage() {
             <div className="flex items-center justify-between text-sm">
               <div className="text-blue-700">
                 <strong>{allFilteredBilties.length}</strong> records found
-                {searchQuery && <span> matching "{searchQuery}"</span>}
-                {selectedStation && <span> in "{selectedStation}"</span>}
+                {searchQuery && <span> matching {searchQuery}</span>}
+                {selectedStation && <span> in {selectedStation}</span>}
               </div>
               {totalPages > 1 && (
                 <div className="text-blue-600">

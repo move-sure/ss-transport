@@ -18,6 +18,8 @@ export default function GodownPage() {
   const [stationBilties, setStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
   const [transports, setTransports] = useState([]);
+  const [userBranchId, setUserBranchId] = useState(null);
+  const [userBranchName, setUserBranchName] = useState(null);
   const [error, setError] = useState(null);
   
   // Search and filter state
@@ -49,9 +51,42 @@ export default function GodownPage() {
     setError(null);
 
     try {
+      // Get user's branch_id and branch info
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('branch_id')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        throw new Error('Failed to fetch user branch information');
+      }
+
+      const userBranchId = userData?.branch_id;
+      setUserBranchId(userBranchId);
+
+      // Get branch name if branch_id exists
+      let branchName = null;
+      if (userBranchId) {
+        const { data: branchData, error: branchError } = await supabase
+          .from('branches')
+          .select('branch_name')
+          .eq('id', userBranchId)
+          .single();
+
+        if (!branchError && branchData) {
+          branchName = branchData.branch_name;
+        }
+      }
+      setUserBranchName(branchName);
+
       const [biltiesData, stationBiltiesData, citiesData, transportsData] = await Promise.all([
         supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }),
-        supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at').order('created_at', { ascending: false }),
+        // Filter station bilties by user's branch_id
+        userBranchId 
+          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id').eq('branch_id', userBranchId).order('created_at', { ascending: false })
+          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id').limit(0), // Return empty if no branch_id
         supabase.from('cities').select('id, city_name, city_code'),
         supabase.from('transports').select('id, transport_name, city_id, city_name')
       ]);
@@ -275,6 +310,31 @@ export default function GodownPage() {
           onStationChange={setSelectedStation}
           stations={uniqueStations}
         />
+
+        {/* Branch filter notification */}
+        {userBranchId ? (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-sm text-green-700">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                Showing station bilties for your branch only {userBranchName && `(${userBranchName})`}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-sm text-yellow-700">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span>
+                No branch assigned to your account. Station bilties are not available.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Quick summary for filtered results */}
         {(searchQuery || selectedStation) && (

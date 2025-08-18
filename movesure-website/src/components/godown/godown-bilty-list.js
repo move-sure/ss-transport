@@ -14,8 +14,23 @@ import {
   User,
   Users
 } from 'lucide-react';
+import GodownPagination from './godown-pagination';
 
-export default function GodownBiltyList({ bilties, loading, error, onRefresh }) {
+export default function GodownBiltyList({ 
+  bilties, 
+  loading, 
+  error, 
+  onRefresh,
+  totalRecords,
+  currentPage,
+  totalPages,
+  itemsPerPage,
+  startRecord,
+  endRecord,
+  onPageChange,
+  onPreviousPage,
+  onNextPage
+}) {
   // Format weight helper
   const formatWeight = (weight) => {
     if (!weight) return '-';
@@ -53,8 +68,8 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
     }
   };
 
-  // Sort bilties by created_at (newest first)
-  const sortedBilties = [...bilties].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  // Bilties are already sorted and paginated from parent component
+  const sortedBilties = bilties;
 
   // Loading state
   if (loading) {
@@ -96,7 +111,12 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
         <div className="text-center">
           <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-slate-700 mb-2">No Bilties Found</h3>
-          <p className="text-slate-500 mb-4">No bilty records match your current filters.</p>
+          <p className="text-slate-500 mb-4">
+            {totalRecords > 0 
+              ? `No records found on page ${currentPage}. Try adjusting your search or going to a different page.`
+              : 'No bilty records match your current filters.'
+            }
+          </p>
           <button
             onClick={onRefresh}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 mx-auto transition-colors"
@@ -118,9 +138,10 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
             <Package className="w-5 h-5" />
             Godown Bilty Records
           </h2>
-          <span className="text-slate-200 text-sm">
-            {sortedBilties.length} records
-          </span>
+          <div className="text-slate-200 text-sm">
+            <div>Showing {startRecord}-{endRecord} of {totalRecords} records</div>
+            <div className="text-xs opacity-75">Page {currentPage} of {totalPages}</div>
+          </div>
         </div>
       </div>
 
@@ -340,12 +361,18 @@ export default function GodownBiltyList({ bilties, loading, error, onRefresh }) 
         </div>
       </div>
 
-      {/* Footer with count */}
-      <div className="bg-slate-50 px-4 py-3 border-t border-slate-200">
-        <div className="text-center text-sm text-slate-600">
-          Showing {sortedBilties.length} bilty records for godown management
-        </div>
-      </div>
+      {/* Pagination Controls */}
+      <GodownPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        startRecord={startRecord}
+        endRecord={endRecord}
+        itemsPerPage={itemsPerPage}
+        onPageChange={onPageChange}
+        onPreviousPage={onPreviousPage}
+        onNextPage={onNextPage}
+      />
 
     </div>
   );

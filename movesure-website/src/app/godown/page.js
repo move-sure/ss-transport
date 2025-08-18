@@ -23,6 +23,11 @@ export default function GodownPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStation, setSelectedStation] = useState('');
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50); // Show 50 items per page
+  const [pageLoading, setPageLoading] = useState(false);
+  
   // Redirect if not authenticated
   useEffect(() => {
     if (!requireAuth()) {
@@ -44,8 +49,8 @@ export default function GodownPage() {
 
     try {
       const [biltiesData, stationBiltiesData, citiesData] = await Promise.all([
-        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }).limit(100),
-        supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }),
+        supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at').order('created_at', { ascending: false }),
         supabase.from('cities').select('id, city_name, city_code')
       ]);
 
@@ -71,7 +76,7 @@ export default function GodownPage() {
   };
 
   // Combined and filtered bilties
-  const filteredBilties = useMemo(() => {
+  const allFilteredBilties = useMemo(() => {
     // Combine bilties from both tables
     const combinedBilties = [
       ...bilties.map(bilty => {
@@ -125,6 +130,18 @@ export default function GodownPage() {
     return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [bilties, stationBilties, cities, searchQuery, selectedStation]);
 
+  // Paginated bilties
+  const paginatedBilties = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return allFilteredBilties.slice(startIndex, endIndex);
+  }, [allFilteredBilties, currentPage, itemsPerPage]);
+
+  // Pagination info
+  const totalPages = Math.ceil(allFilteredBilties.length / itemsPerPage);
+  const startRecord = allFilteredBilties.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
+  const endRecord = Math.min(currentPage * itemsPerPage, allFilteredBilties.length);
+
   // Get unique stations for filter
   const uniqueStations = useMemo(() => {
     const stations = new Set();
@@ -141,9 +158,9 @@ export default function GodownPage() {
   // Stats
   const stats = useMemo(() => {
     const totalBilties = bilties.length + stationBilties.length;
-    const filteredCount = filteredBilties.length;
-    const totalBags = filteredBilties.reduce((sum, bilty) => sum + (parseInt(bilty.no_of_bags) || 0), 0);
-    const totalWeight = filteredBilties.reduce((sum, bilty) => sum + (parseFloat(bilty.weight) || 0), 0);
+    const filteredCount = allFilteredBilties.length;
+    const totalBags = allFilteredBilties.reduce((sum, bilty) => sum + (parseInt(bilty.no_of_bags) || 0), 0);
+    const totalWeight = allFilteredBilties.reduce((sum, bilty) => sum + (parseFloat(bilty.weight) || 0), 0);
     
     return {
       totalBilties,
@@ -153,7 +170,54 @@ export default function GodownPage() {
       regularCount: bilties.length,
       stationCount: stationBilties.length
     };
-  }, [bilties, stationBilties, filteredBilties]);
+  }, [bilties, stationBilties, allFilteredBilties]);
+
+  // Reset to first page when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedStation]);
+
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Only handle if not typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+      if (e.key === 'ArrowLeft' && currentPage > 1) {
+        e.preventDefault();
+        handlePreviousPage();
+      } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+        e.preventDefault();
+        handleNextPage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [currentPage, totalPages]);
+
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    setPageLoading(true);
+    setCurrentPage(page);
+    // Small delay to show loading state, then scroll
+    setTimeout(() => {
+      setPageLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1);
+    }
+  };
 
   // Handle refresh
   const handleRefresh = () => {
@@ -183,13 +247,39 @@ export default function GodownPage() {
           stations={uniqueStations}
         />
 
+        {/* Quick summary for filtered results */}
+        {(searchQuery || selectedStation) && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between text-sm">
+              <div className="text-blue-700">
+                <strong>{allFilteredBilties.length}</strong> records found
+                {searchQuery && <span> matching "{searchQuery}"</span>}
+                {selectedStation && <span> in "{selectedStation}"</span>}
+              </div>
+              {totalPages > 1 && (
+                <div className="text-blue-600">
+                  Page {currentPage} of {totalPages}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Bilty List */}
         <GodownBiltyList
-          bilties={filteredBilties}
-          loading={loading}
+          bilties={paginatedBilties}
+          loading={loading || pageLoading}
           error={error}
-          
           onRefresh={handleRefresh}
+          totalRecords={allFilteredBilties.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          startRecord={startRecord}
+          endRecord={endRecord}
+          onPageChange={handlePageChange}
+          onPreviousPage={handlePreviousPage}
+          onNextPage={handleNextPage}
         />
       </div>
     </div>

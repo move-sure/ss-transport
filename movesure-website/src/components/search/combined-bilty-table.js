@@ -32,8 +32,20 @@ const CombinedBiltySearchTable = memo(({
   onBiltyDoubleClick,
   onEdit, 
   onPrint, 
-  onRefresh 
+  onRefresh,
+  currentPage = 1,
+  itemsPerPage = 100
 }) => {
+
+  // Combine and paginate data
+  const allBilties = [...regularBilties, ...stationBilties];
+  const totalItems = allBilties.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  
+  // Paginate the combined data
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBilties = allBilties.slice(startIndex, endIndex);
 
   // Format date helper
   const formatDate = (dateString) => {
@@ -139,10 +151,13 @@ const CombinedBiltySearchTable = memo(({
   };
 
   // Combine and sort both types of bilties
-  const allBilties = [
+  const combinedBilties = [
     ...regularBilties.map(b => ({ ...b, bilty_type: 'regular' })),
     ...stationBilties.map(b => ({ ...b, bilty_type: 'station' }))
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // Paginate the combined data
+  const displayBilties = paginatedBilties.length > 0 ? paginatedBilties : combinedBilties;
 
   // Loading state
   if (loading) {
@@ -178,7 +193,7 @@ const CombinedBiltySearchTable = memo(({
   }
 
   // Empty state
-  if (allBilties.length === 0) {
+  if (combinedBilties.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-8">
         <div className="text-center">
@@ -275,7 +290,7 @@ const CombinedBiltySearchTable = memo(({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
-            {allBilties.map((bilty, index) => {
+            {displayBilties.map((bilty, index) => {
               const isSelected = selectedBilties.has(bilty.id);
               const isStation = bilty.bilty_type === 'station';
               
@@ -497,22 +512,34 @@ const CombinedBiltySearchTable = memo(({
         </table>
       </div>
       
-      {/* Table Footer */}
-      <div className="bg-slate-50 px-4 py-2 border-t border-slate-200">
-        <div className="flex justify-between items-center text-sm text-slate-600">
-          <span>
-            Showing {allBilties.length} bilties ({regularBilties.length} regular, {stationBilties.length} station)
-          </span>
-          <div className="flex gap-4">
-            <span>Selected: {selectedBilties.size}</span>
+      {/* Table Footer with Pagination */}
+      <div className="bg-slate-50 px-4 py-3 border-t border-slate-200">
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-slate-600">
             <span>
-              Total: ₹{(
-                regularBilties.reduce((sum, b) => sum + (b.total || 0), 0) +
-                stationBilties.reduce((sum, b) => sum + (b.amount || 0), 0)
-              ).toLocaleString()}
+              Showing {displayBilties.length} bilties ({regularBilties.length} regular, {stationBilties.length} station)
             </span>
+            <div className="flex gap-4 mt-1">
+              <span>Selected: {selectedBilties.size}</span>
+              <span>
+                Total: ₹{(
+                  regularBilties.reduce((sum, b) => sum + (b.total || 0), 0) +
+                  stationBilties.reduce((sum, b) => sum + (b.amount || 0), 0)
+                ).toLocaleString()}
+              </span>
+            </div>
           </div>
-        </div>      </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600">
+                Page {currentPage} of {totalPages} ({totalItems} total)
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>  );
 });
 

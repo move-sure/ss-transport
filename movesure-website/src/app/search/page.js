@@ -21,11 +21,22 @@ export default function BiltySearch() {
   
   // Core state
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [allBilties, setAllBilties] = useState([]);
   const [allStationBilties, setAllStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
   const [branchData, setBranchData] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Pagination state
+  const [hasMoreRegular, setHasMoreRegular] = useState(true);
+  const [hasMoreStation, setHasMoreStation] = useState(true);
+  const [regularOffset, setRegularOffset] = useState(0);
+  const [stationOffset, setStationOffset] = useState(0);
+  const [isFiltered, setIsFiltered] = useState(false);
+  
+  const INITIAL_LOAD_SIZE = 100; // Per table
+  const LOAD_MORE_SIZE = 50; // Per table
   
   // Separate pending filters (user input) from applied filters (actual search)
   const [pendingFilters, setPendingFilters] = useState({
@@ -61,6 +72,10 @@ export default function BiltySearch() {
   // Selection state
   const [selectedBilties, setSelectedBilties] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  
+  // Pagination for display
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
   
   // Modal states
   const [selectedBiltyForDetails, setSelectedBiltyForDetails] = useState(null);
@@ -208,6 +223,7 @@ export default function BiltySearch() {
   useEffect(() => {
     setSelectedBilties(new Set());
     setSelectAll(false);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [filteredBilties, filteredStationBilties]);
 
   // Clear debounce timer on unmount
@@ -223,6 +239,13 @@ export default function BiltySearch() {
     try {
       setLoading(true);
       setError(null);
+      setIsFiltered(false);
+      
+      // Reset pagination state
+      setRegularOffset(0);
+      setStationOffset(0);
+      setHasMoreRegular(true);
+      setHasMoreStation(true);
       
       // Load cities and branch data
       const [citiesRes, branchRes] = await Promise.all([
@@ -233,12 +256,12 @@ export default function BiltySearch() {
       setCities(citiesRes.data || []);
       setBranchData(branchRes.data);      
 
-      // Load more data by default (1 year)
+      // Load initial limited data (100 records each)
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       
-      // Load regular bilties
-      const { data, error } = await supabase
+      // Load regular bilties - LIMITED TO 100
+      const { data, error, count } = await supabase
         .from('bilty')
         .select(`
           *,
@@ -247,103 +270,49 @@ export default function BiltySearch() {
             challan_no,
             gr_no
           )
-        `)
+        `, { count: 'exact' })
         .eq('branch_id', user.branch_id)
         .eq('is_active', true)
         .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, INITIAL_LOAD_SIZE - 1);
 
       if (error) {
         console.error('Regular bilty error details:', error);
         throw new Error(`Failed to load regular bilties: ${error.message}`);
       }
 
-      // Load station bilties (removed branch_id filter to get all)
-      const { data: stationData, error: stationError } = await supabase
+      // Check if there are more regular bilties
+      setHasMoreRegular((count || 0) > INITIAL_LOAD_SIZE);
+      setRegularOffset(INITIAL_LOAD_SIZE);
+
+      // Load station bilties - LIMITED TO 100
+      const { data: stationData, error: stationError, count: stationCount } = await supabase
         .from('station_bilty_summary')
-        .select('*')
+        .select('*', { count: 'exact' })
         .gte('created_at', format(oneYearAgo, 'yyyy-MM-dd'))
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, INITIAL_LOAD_SIZE - 1);
 
       if (stationError) {
         console.error('Station bilty error details:', stationError);
         console.warn('Station bilties could not be loaded, continuing with regular bilties only');
       }
 
-      console.log('Loaded regular bilties:', data?.length || 0);
-      console.log('Loaded station bilties:', stationData?.length || 0);
+      // Check if there are more station bilties
+      setHasMoreStation((stationCount || 0) > INITIAL_LOAD_SIZE);
+      setStationOffset(INITIAL_LOAD_SIZE);
+
+      console.log('Loaded regular bilties:', data?.length || 0, 'of', count || 0);
+      console.log('Loaded station bilties:', stationData?.length || 0, 'of', stationCount || 0);
 
       // Get unique staff IDs to fetch user data
       const regularStaffIds = data?.map(bilty => bilty.staff_id).filter(Boolean) || [];
       const stationStaffIds = stationData?.map(bilty => bilty.staff_id).filter(Boolean) || [];
       const allStaffIds = [...new Set([...regularStaffIds, ...stationStaffIds])];
       
-      let usersData = [];
-      if (allStaffIds.length > 0) {
-        const { data: users, error: usersError } = await supabase
-          .from('users')
-          .select('id, username, name')
-          .in('id', allStaffIds);
-          
-        if (!usersError) {
-          usersData = users || [];
-        } else {
-          console.warn('Could not load user data:', usersError);
-        }
-      }      
-
-      // Combine bilty data with user data
-      const biltiesWithUsers = data?.map(bilty => ({
-        ...bilty,
-        created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
-      })) || [];
-
-      // Combine station bilty data with user data
-      const stationBiltiesWithUsers = (stationData || []).map(stationBilty => ({
-        ...stationBilty,
-        created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
-        transit_details: [],
-        bilty_type: 'station',
-        id: stationBilty.id,
-        gr_no: stationBilty.gr_no || '',
-        consignor: stationBilty.consignor || '',
-        consignee: stationBilty.consignee || '',
-        amount: stationBilty.amount || 0,
-        payment_status: stationBilty.payment_status || 'unknown',
-        e_way_bill: stationBilty.e_way_bill || '',
-        created_at: stationBilty.created_at
-      }));
-
-      // Check transit details for station bilties
-      if (stationBiltiesWithUsers.length > 0) {
-        try {
-          const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no).filter(Boolean);
-          
-          if (stationGRNumbers.length > 0) {
-            const { data: transitData, error: transitError } = await supabase
-              .from('transit_details')
-              .select('gr_no, challan_no')
-              .in('gr_no', stationGRNumbers);
-
-            if (!transitError && transitData) {
-              stationBiltiesWithUsers.forEach(bilty => {
-                const transitDetail = transitData.find(t => t.gr_no === bilty.gr_no);
-                if (transitDetail) {
-                  bilty.transit_details = [{ challan_no: transitDetail.challan_no }];
-                }
-              });
-            }
-          }
-        } catch (transitError) {
-          console.warn('Could not load transit details for station bilties:', transitError);
-        }
-      }
-
-      setAllBilties(biltiesWithUsers);
-      setAllStationBilties(stationBiltiesWithUsers);
-      
-      console.log('Final regular bilties count:', biltiesWithUsers.length);
-      console.log('Final station bilties count:', stationBiltiesWithUsers.length);
+      // Process data using helper function
+      await processAndSetBiltyData(data || [], stationData || []);
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -358,9 +327,62 @@ export default function BiltySearch() {
     setPendingFilters(newFilters);
   }, []);
 
-  // Handle search button click - apply pending filters
-  const handleSearch = useCallback(() => {
+  // Handle search button click - apply pending filters with full database search
+  const handleSearch = useCallback(async () => {
     console.log('Applying filters:', pendingFilters);
+    
+    // Check if any filter is applied
+    const hasFilters = Object.values(pendingFilters).some(value => value !== '');
+    
+    if (hasFilters) {
+      // Full database search when filters are applied
+      setLoading(true);
+      setIsFiltered(true);
+      
+      try {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        // Load ALL regular bilties for filtering
+        const { data: allRegularData, error: regularError } = await supabase
+          .from('bilty')
+          .select(`
+            *,
+            transit_details(
+              id,
+              challan_no,
+              gr_no
+            )
+          `)
+          .eq('branch_id', user.branch_id)
+          .eq('is_active', true)
+          .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
+          .order('created_at', { ascending: false });
+
+        // Load ALL station bilties for filtering
+        const { data: allStationData, error: stationError } = await supabase
+          .from('station_bilty_summary')
+          .select('*')
+          .gte('created_at', format(oneYearAgo, 'yyyy-MM-dd'))
+          .order('created_at', { ascending: false });
+
+        if (regularError) throw regularError;
+        
+        // Process the data same as before
+        await processAndSetBiltyData(allRegularData || [], allStationData || []);
+        
+        console.log('Loaded ALL data for filtering - Regular:', allRegularData?.length || 0, 'Station:', allStationData?.length || 0);
+        
+      } catch (error) {
+        console.error('Error loading filtered data:', error);
+        setError(error.message || 'Failed to load filtered data');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // No filters applied, just update applied filters
+      setIsFiltered(false);
+    }
     
     // Debug city filter
     if (pendingFilters.toCityId) {
@@ -371,7 +393,7 @@ export default function BiltySearch() {
     }
     
     setAppliedFilters(pendingFilters);
-  }, [pendingFilters, cities]);
+  }, [pendingFilters, cities, user]);
 
   // Handle clear filters
   const handleClearFilters = useCallback(() => {
@@ -391,7 +413,13 @@ export default function BiltySearch() {
     };
     setPendingFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
-  }, []);
+    setIsFiltered(false);
+    
+    // Reload initial data
+    if (user && user.branch_id) {
+      loadInitialData();
+    }
+  }, [user]);
 
   const handleSelectBilty = useCallback((biltyId) => {
     setSelectedBilties(prev => {
@@ -540,6 +568,234 @@ export default function BiltySearch() {
     setShowPrintModal(false);
   }, []);
 
+  // Helper function to process and set bilty data
+  const processAndSetBiltyData = async (regularData, stationData) => {
+    // Get unique staff IDs to fetch user data
+    const regularStaffIds = regularData?.map(bilty => bilty.staff_id).filter(Boolean) || [];
+    const stationStaffIds = stationData?.map(bilty => bilty.staff_id).filter(Boolean) || [];
+    const allStaffIds = [...new Set([...regularStaffIds, ...stationStaffIds])];
+    
+    let usersData = [];
+    if (allStaffIds.length > 0) {
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, name')
+        .in('id', allStaffIds);
+        
+      if (!usersError) {
+        usersData = users || [];
+      } else {
+        console.warn('Could not load user data:', usersError);
+      }
+    }      
+
+    // Combine bilty data with user data
+    const biltiesWithUsers = regularData?.map(bilty => ({
+      ...bilty,
+      created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
+    })) || [];
+
+    // Combine station bilty data with user data
+    const stationBiltiesWithUsers = (stationData || []).map(stationBilty => ({
+      ...stationBilty,
+      created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
+      transit_details: [],
+      bilty_type: 'station',
+      id: stationBilty.id,
+      gr_no: stationBilty.gr_no || '',
+      consignor: stationBilty.consignor || '',
+      consignee: stationBilty.consignee || '',
+      amount: stationBilty.amount || 0,
+      payment_status: stationBilty.payment_status || 'unknown',
+      e_way_bill: stationBilty.e_way_bill || '',
+      created_at: stationBilty.created_at
+    }));
+
+    // Check transit details for station bilties
+    if (stationBiltiesWithUsers.length > 0) {
+      try {
+        const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no).filter(Boolean);
+        
+        if (stationGRNumbers.length > 0) {
+          const { data: transitData, error: transitError } = await supabase
+            .from('transit_details')
+            .select('gr_no, challan_no')
+            .in('gr_no', stationGRNumbers);
+
+          if (!transitError && transitData) {
+            stationBiltiesWithUsers.forEach(bilty => {
+              const transitDetail = transitData.find(t => t.gr_no === bilty.gr_no);
+              if (transitDetail) {
+                bilty.transit_details = [{ challan_no: transitDetail.challan_no }];
+              }
+            });
+          }
+        }
+      } catch (transitError) {
+        console.warn('Could not load transit details for station bilties:', transitError);
+      }
+    }
+
+    setAllBilties(biltiesWithUsers);
+    setAllStationBilties(stationBiltiesWithUsers);
+    
+    console.log('Final regular bilties count:', biltiesWithUsers.length);
+    console.log('Final station bilties count:', stationBiltiesWithUsers.length);
+  };
+
+  // Load more data function
+  const loadMoreData = async () => {
+    if (loadingMore || isFiltered || (!hasMoreRegular && !hasMoreStation)) return;
+    
+    setLoadingMore(true);
+    
+    try {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      
+      const promises = [];
+      
+      // Load more regular bilties if available
+      if (hasMoreRegular) {
+        promises.push(
+          supabase
+            .from('bilty')
+            .select(`
+              *,
+              transit_details(
+                id,
+                challan_no,
+                gr_no
+              )
+            `, { count: 'exact' })
+            .eq('branch_id', user.branch_id)
+            .eq('is_active', true)
+            .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
+            .order('created_at', { ascending: false })
+            .range(regularOffset, regularOffset + LOAD_MORE_SIZE - 1)
+        );
+      }
+      
+      // Load more station bilties if available
+      if (hasMoreStation) {
+        promises.push(
+          supabase
+            .from('station_bilty_summary')
+            .select('*', { count: 'exact' })
+            .gte('created_at', format(oneYearAgo, 'yyyy-MM-dd'))
+            .order('created_at', { ascending: false })
+            .range(stationOffset, stationOffset + LOAD_MORE_SIZE - 1)
+        );
+      }
+      
+      const results = await Promise.all(promises);
+      let regularResult = null;
+      let stationResult = null;
+      
+      if (hasMoreRegular && hasMoreStation) {
+        [regularResult, stationResult] = results;
+      } else if (hasMoreRegular) {
+        [regularResult] = results;
+      } else if (hasMoreStation) {
+        [stationResult] = results;
+      }
+      
+      // Process regular bilties
+      if (regularResult && !regularResult.error) {
+        const newRegularData = regularResult.data || [];
+        const newRegularWithUsers = await processNewBiltyData(newRegularData, 'regular');
+        
+        setAllBilties(prev => [...prev, ...newRegularWithUsers]);
+        setRegularOffset(prev => prev + LOAD_MORE_SIZE);
+        setHasMoreRegular(newRegularData.length === LOAD_MORE_SIZE);
+        
+        console.log('Loaded more regular bilties:', newRegularData.length);
+      }
+      
+      // Process station bilties
+      if (stationResult && !stationResult.error) {
+        const newStationData = stationResult.data || [];
+        const newStationWithUsers = await processNewBiltyData(newStationData, 'station');
+        
+        setAllStationBilties(prev => [...prev, ...newStationWithUsers]);
+        setStationOffset(prev => prev + LOAD_MORE_SIZE);
+        setHasMoreStation(newStationData.length === LOAD_MORE_SIZE);
+        
+        console.log('Loaded more station bilties:', newStationData.length);
+      }
+      
+    } catch (error) {
+      console.error('Error loading more data:', error);
+      setError('Failed to load more data');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Helper to process new bilty data
+  const processNewBiltyData = async (data, type) => {
+    const staffIds = data.map(bilty => bilty.staff_id).filter(Boolean);
+    let usersData = [];
+    
+    if (staffIds.length > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, username, name')
+        .in('id', staffIds);
+      usersData = users || [];
+    }
+    
+    if (type === 'regular') {
+      return data.map(bilty => ({
+        ...bilty,
+        created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
+      }));
+    } else {
+      // Station bilties
+      const stationBiltiesWithUsers = data.map(stationBilty => ({
+        ...stationBilty,
+        created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
+        transit_details: [],
+        bilty_type: 'station',
+        id: stationBilty.id,
+        gr_no: stationBilty.gr_no || '',
+        consignor: stationBilty.consignor || '',
+        consignee: stationBilty.consignee || '',
+        amount: stationBilty.amount || 0,
+        payment_status: stationBilty.payment_status || 'unknown',
+        e_way_bill: stationBilty.e_way_bill || '',
+        created_at: stationBilty.created_at
+      }));
+      
+      // Add transit details
+      if (stationBiltiesWithUsers.length > 0) {
+        try {
+          const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no).filter(Boolean);
+          
+          if (stationGRNumbers.length > 0) {
+            const { data: transitData } = await supabase
+              .from('transit_details')
+              .select('gr_no, challan_no')
+              .in('gr_no', stationGRNumbers);
+
+            if (transitData) {
+              stationBiltiesWithUsers.forEach(bilty => {
+                const transitDetail = transitData.find(t => t.gr_no === bilty.gr_no);
+                if (transitDetail) {
+                  bilty.transit_details = [{ challan_no: transitDetail.challan_no }];
+                }
+              });
+            }
+          }
+        } catch (transitError) {
+          console.warn('Could not load transit details for new station bilties:', transitError);
+        }
+      }
+      
+      return stationBiltiesWithUsers;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
@@ -558,6 +814,10 @@ export default function BiltySearch() {
           filteredStationBilties={filteredStationBilties}
           cities={cities}
           branchData={branchData}
+          isFiltered={isFiltered}
+          hasMore={hasMoreRegular || hasMoreStation}
+          onLoadMore={loadMoreData}
+          loadingMore={loadingMore}
         />
 
         {/* Filter Panel Component */}
@@ -586,7 +846,72 @@ export default function BiltySearch() {
           onEdit={handleEdit}
           onPrint={handlePrint}
           onRefresh={loadInitialData}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
+
+        {/* Pagination Controls */}
+        {(filteredBilties.length + filteredStationBilties.length > itemsPerPage) && (
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 px-6 py-4">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-slate-600">
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredBilties.length + filteredStationBilties.length)} - {Math.min(currentPage * itemsPerPage, filteredBilties.length + filteredStationBilties.length)} of {filteredBilties.length + filteredStationBilties.length} bilties
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage)) }, (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  
+                  {Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage) > 5 && (
+                    <>
+                      <span className="px-2 text-slate-500">...</span>
+                      <button
+                        onClick={() => setCurrentPage(Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage))}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                          currentPage === Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage)
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage)}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage)))}
+                  disabled={currentPage === Math.ceil((filteredBilties.length + filteredStationBilties.length) / itemsPerPage)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Details Modal */}
         <BiltyDetailsModal

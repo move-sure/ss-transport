@@ -15,7 +15,11 @@ const BiltySearchHeader = ({
   filteredBilties,
   filteredStationBilties,
   cities,
-  branchData
+  branchData,
+  isFiltered,
+  hasMore,
+  onLoadMore,
+  loadingMore
 }) => {
   
   // Helper function to get city name
@@ -149,6 +153,22 @@ const BiltySearchHeader = ({
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
+
+          {/* Load More Button */}
+          {!isFiltered && hasMore && (
+            <button
+              onClick={onLoadMore}
+              disabled={loadingMore}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl font-semibold transition-all shadow-lg flex items-center gap-2"
+            >
+              {loadingMore ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                <Download className="w-5 h-5" />
+              )}
+              {loadingMore ? 'Loading...' : 'Load More'}
+            </button>
+          )}
         </div>
       </div>
 

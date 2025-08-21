@@ -51,6 +51,8 @@ const BiltySearchHeader = ({
       'PAID',
       'STATION',
       'PVT_MARK',
+      'CHALLAN_NO',
+      'DISPATCH_DATE',
       'DATE'
     ];
     
@@ -86,6 +88,14 @@ const BiltySearchHeader = ({
           ? (bilty.station || 'N/A') 
           : getCityName(bilty.to_city_id),
         bilty.pvt_marks || 'N/A',
+        // CHALLAN_NO
+        bilty.transit_details && bilty.transit_details.length > 0 
+          ? bilty.transit_details[0].challan_no 
+          : 'AVL',
+        // DISPATCH_DATE
+        bilty.transit_details && bilty.transit_details.length > 0 && bilty.transit_details[0].dispatch_date
+          ? new Date(bilty.transit_details[0].dispatch_date).toLocaleDateString('en-GB')
+          : 'Not Dispatched',
         // DATE column - use created_at for station bilties, bilty_date for regular bilties
         bilty.bilty_type === 'station' 
           ? (bilty.created_at ? new Date(bilty.created_at).toLocaleDateString('en-GB') : 'N/A')

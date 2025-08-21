@@ -431,6 +431,41 @@ const BiltyDetailsModal = memo(({
             </div>
           )}
 
+          {/* Transit/Challan Information */}
+          <div className="mt-6 bg-purple-50 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Truck className="w-5 h-5 text-purple-600" />
+              <h3 className="text-lg font-semibold text-slate-800">Transit Details</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Challan Number:</span>
+                <span className="font-semibold text-slate-900">
+                  {bilty.transit_details && bilty.transit_details.length > 0 
+                    ? bilty.transit_details[0].challan_no 
+                    : 'AVL (Available)'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Status:</span>
+                <span className="font-semibold">
+                  {bilty.transit_details && bilty.transit_details.length > 0 
+                    ? (bilty.transit_details[0].dispatch_date 
+                        ? <span className="text-green-600">Dispatched</span>
+                        : <span className="text-orange-600">Not Dispatched</span>)
+                    : <span className="text-green-600">Available for Dispatch</span>}
+                </span>
+              </div>
+              {bilty.transit_details && bilty.transit_details.length > 0 && bilty.transit_details[0].dispatch_date && (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Dispatch Date:</span>
+                  <span className="font-semibold text-slate-900">{formatDate(bilty.transit_details[0].dispatch_date)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Remarks */}
           {bilty.remark && (
             <div className="mt-6 bg-gray-50 rounded-xl p-5">

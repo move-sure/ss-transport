@@ -447,9 +447,21 @@ const CombinedBiltySearchTable = memo(({
                   <td className="px-3 py-2">
                     <div className="space-y-1">
                       {bilty.transit_details && bilty.transit_details.length > 0 ? (
-                        <span className="text-sm font-medium text-blue-600">
-                          {bilty.transit_details[0].challan_no}
-                        </span>
+                        <div>
+                          <span className="text-sm font-medium text-blue-600">
+                            {bilty.transit_details[0].challan_no}
+                          </span>
+                          <div className="text-xs text-slate-500">
+                            {bilty.transit_details[0].dispatch_date ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-green-600">Dispatched:</span>
+                                <span>{formatDate(bilty.transit_details[0].dispatch_date)}</span>
+                              </div>
+                            ) : (
+                              <span className="text-orange-600">Not Dispatched</span>
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         <span className="text-sm font-medium text-green-600">
                           AVL

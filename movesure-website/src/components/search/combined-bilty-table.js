@@ -267,7 +267,7 @@ const CombinedBiltySearchTable = memo(({
                 Consignee
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
-                Private Mark
+                Content & Pvt Marks
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-40">
                 Route/Station
@@ -367,20 +367,49 @@ const CombinedBiltySearchTable = memo(({
                     </div>
                   </td>
 
-                  {/* Private Mark */}
+                  {/* Content & Pvt Marks */}
                   <td className="px-3 py-2">
                     <div className="space-y-1">
-                      <div className="text-sm font-medium text-slate-900 truncate max-w-32" 
-                           title={bilty.pvt_marks || 'No private mark'}>
-                        {bilty.pvt_marks ? (
-                          <div className="flex items-center gap-1">
-                            <Tag className="w-3 h-3 text-blue-600" />
-                            <span className="text-blue-800 font-medium">{bilty.pvt_marks}</span>
+                      {/* Content field - handle both optimized search results and regular data */}
+                      {(() => {
+                        const contentValue = isStation 
+                          ? (bilty.content_field || bilty.contents) 
+                          : (bilty.content_field || bilty.contain);
+                        return contentValue && (
+                          <div className="text-sm font-medium text-slate-900 truncate max-w-32" 
+                               title={`Content: ${contentValue}`}>
+                            <div className="flex items-center gap-1">
+                              <Package className="w-3 h-3 text-blue-600" />
+                              <span className="text-blue-800 font-medium text-xs">
+                                {contentValue}
+                              </span>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-xs">No mark</span>
-                        )}
-                      </div>
+                        );
+                      })()}
+                      
+                      {/* Private Marks field */}
+                      {bilty.pvt_marks && (
+                        <div className="text-sm font-medium text-slate-900 truncate max-w-32" 
+                             title={`Private Mark: ${bilty.pvt_marks}`}>
+                          <div className="flex items-center gap-1">
+                            <Tag className="w-3 h-3 text-purple-600" />
+                            <span className="text-purple-800 font-medium text-xs">
+                              {bilty.pvt_marks}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show message when both are empty */}
+                      {(() => {
+                        const contentValue = isStation 
+                          ? (bilty.content_field || bilty.contents) 
+                          : (bilty.content_field || bilty.contain);
+                        return !contentValue && !bilty.pvt_marks && (
+                          <span className="text-slate-400 italic text-xs">No content/marks</span>
+                        );
+                      })()}
                     </div>
                   </td>
 
@@ -511,9 +540,12 @@ const CombinedBiltySearchTable = memo(({
                         </>
                       )}
                       {isStation && (
-                        <span className="text-xs text-slate-500 italic">
-                          Station Entry
-                        </span>
+                        <div className="flex items-center justify-center">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                            <Building className="w-3 h-3 mr-1" />
+                            Station Entry
+                          </span>
+                        </div>
                       )}
                     </div>
                   </td>

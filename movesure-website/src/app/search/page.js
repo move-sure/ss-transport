@@ -278,6 +278,7 @@ export default function BiltySearch() {
         .from('bilty')
         .select(`
           *,
+          contain,
           transit_details(
             id,
             challan_no,
@@ -333,10 +334,10 @@ export default function BiltySearch() {
       setHasMoreRegular((count || 0) > INITIAL_LOAD_SIZE);
       setRegularOffset(INITIAL_LOAD_SIZE);
 
-      // Load station bilties - LIMITED TO 100
+      // Load station bilties - LIMITED TO 100 (FROM ALL BRANCHES)
       const { data: stationData, error: stationError, count: stationCount } = await supabase
         .from('station_bilty_summary')
-        .select('*', { count: 'exact' })
+        .select('*, contents', { count: 'exact' })
         .gte('created_at', format(oneYearAgo, 'yyyy-MM-dd'))
         .order('created_at', { ascending: false })
         .range(0, INITIAL_LOAD_SIZE - 1);
@@ -440,6 +441,7 @@ export default function BiltySearch() {
               if (item.type === 'station') {
                 stationBilties.push({
                   id: item.id,
+                  bilty_type: 'station', // CRITICAL: Ensure station bilties have correct type
                   gr_no: item.gr_no,
                   consignor: item.consignor || '',
                   consignee: item.consignee || '',
@@ -449,6 +451,7 @@ export default function BiltySearch() {
                   weight: item.weight || 0,
                   amount: item.amount || 0,
                   pvt_marks: item.pvt_marks || '',
+                  content_field: item.content_field || '', // Add content field
                   created_at: item.created_at,
                   staff_id: item.staff_id,
                   e_way_bill: item.e_way_bill || '',
@@ -458,6 +461,7 @@ export default function BiltySearch() {
                 // Regular bilty with proper transit_details structure
                 regularBilties.push({
                   id: item.id,
+                  bilty_type: 'regular', // CRITICAL: Ensure regular bilties have correct type
                   gr_no: item.gr_no,
                   bilty_date: item.bilty_date,
                   consignor_name: item.consignor_name || '',
@@ -469,6 +473,7 @@ export default function BiltySearch() {
                   wt: parseFloat(item.wt || 0),
                   rate: parseFloat(item.rate || 0),
                   pvt_marks: item.pvt_marks || '',
+                  content_field: item.content_field || '', // Add content field
                   to_city_id: item.to_city_id,
                   created_at: item.created_at,
                   staff_id: item.staff_id,
@@ -534,6 +539,7 @@ export default function BiltySearch() {
       .from('bilty')
       .select(`
         *,
+        contain,
         transit_details(
           id,
           challan_no,
@@ -545,10 +551,10 @@ export default function BiltySearch() {
       .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
       .order('created_at', { ascending: false });
 
-    // Load ALL station bilties for filtering
+    // Load ALL station bilties for filtering (FROM ALL BRANCHES)
     const { data: allStationData, error: stationError } = await supabase
       .from('station_bilty_summary')
-      .select('*')
+      .select('*, contents')
       .gte('created_at', format(oneYearAgo, 'yyyy-MM-dd'))
       .order('created_at', { ascending: false });
 
@@ -663,7 +669,7 @@ export default function BiltySearch() {
 
   const exportToCSV = (data) => {
     const headers = [
-      'Type', 'GR Number', 'Date', 'Consignor', 'Consignee', 'Private Mark', 'From City', 'To City',
+      'Type', 'GR Number', 'Date', 'Consignor', 'Consignee', 'Content', 'Private Mark', 'From City', 'To City',
       'Transport', 'Payment Mode', 'Packages', 'Weight', 'Rate', 'Amount',
       'E-Way Bill', 'Invoice No', 'Status', 'Challan Details', 'Dispatch Date', 'Created By', 'Created Date'
     ];
@@ -682,7 +688,10 @@ export default function BiltySearch() {
         bilty.bilty_type === 'station' 
           ? `"${bilty.consignee || 'N/A'}"` 
           : `"${bilty.consignee_name || 'N/A'}"`,
-        `"${bilty.pvt_marks || 'N/A'}"`, // Fixed field name for private marks
+        bilty.bilty_type === 'station' 
+          ? `"${bilty.contents || 'N/A'}"` 
+          : `"${bilty.contain || 'N/A'}"`,
+        `"${bilty.pvt_marks || 'N/A'}"`,
         bilty.bilty_type === 'station' 
           ? `"${bilty.station || 'N/A'}"` 
           : getFromCityName(),
@@ -793,6 +802,10 @@ export default function BiltySearch() {
     // Combine bilty data with user data
     const biltiesWithUsers = regularData?.map(bilty => ({
       ...bilty,
+      bilty_type: 'regular', // Ensure regular bilties have correct type
+      // Keep separate fields for UI display
+      contain: bilty.contain || '', // Content field for regular bilties
+      pvt_marks: bilty.pvt_marks || '', // Private marks field
       created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
     })) || [];
 
@@ -809,6 +822,9 @@ export default function BiltySearch() {
       amount: stationBilty.amount || 0,
       payment_status: stationBilty.payment_status || 'unknown',
       e_way_bill: stationBilty.e_way_bill || '',
+      // Keep separate fields for UI display
+      contents: stationBilty.contents || '', // Content field for station bilties
+      pvt_marks: stationBilty.pvt_marks || '', // Private marks field
       created_at: stationBilty.created_at
     }));
 
@@ -879,6 +895,7 @@ export default function BiltySearch() {
             .from('bilty')
             .select(`
               *,
+              contain,
               transit_details(
                 id,
                 challan_no,
@@ -898,7 +915,7 @@ export default function BiltySearch() {
         promises.push(
           supabase
             .from('station_bilty_summary')
-            .select('*', { count: 'exact' })
+            .select('*, contents', { count: 'exact' })
             .gte('created_at', format(oneYearAgo, 'yyyy-MM-dd'))
             .order('created_at', { ascending: false })
             .range(stationOffset, stationOffset + LOAD_MORE_SIZE - 1)
@@ -999,6 +1016,10 @@ export default function BiltySearch() {
     if (type === 'regular') {
       return data.map(bilty => ({
         ...bilty,
+        bilty_type: 'regular', // Ensure regular bilties have correct type
+        // Keep separate fields for UI display
+        contain: bilty.contain || '', // Content field for regular bilties
+        pvt_marks: bilty.pvt_marks || '', // Private marks field
         created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
       }));
     } else {
@@ -1015,6 +1036,9 @@ export default function BiltySearch() {
         amount: stationBilty.amount || 0,
         payment_status: stationBilty.payment_status || 'unknown',
         e_way_bill: stationBilty.e_way_bill || '',
+        // Keep separate fields for UI display
+        contents: stationBilty.contents || '', // Content field for station bilties
+        pvt_marks: stationBilty.pvt_marks || '', // Private marks field
         created_at: stationBilty.created_at
       }));
       

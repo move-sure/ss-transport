@@ -45,6 +45,7 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
       });
     }
   }, [truck]);
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -72,6 +73,7 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -100,19 +102,19 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
         is_available: formData.is_available
       };
 
+      let result;
+
       if (truck) {
         // Update existing truck
         const { data, error } = await supabase
           .from('trucks')
           .update(saveData)
           .eq('id', truck.id)
-          .select('*')
+          .select('*, owner:staff(name)')
           .single();
 
         if (error) throw error;
-        
-        onSave(data);
-        alert('Truck updated successfully!');
+        result = data;
       } else {
         // Create new truck
         const { data, error } = await supabase
@@ -122,11 +124,11 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
           .single();
 
         if (error) throw error;
-        
-        onSave(data);
-        alert('Truck created successfully!');
+        result = data;
       }
 
+      onSave(result);
+      alert(truck ? 'Truck updated successfully!' : 'Truck created successfully!');
     } catch (error) {
       console.error('Error saving truck:', error);
       
@@ -170,298 +172,325 @@ const TruckForm = ({ truck, staff, onSave, onClose }) => {
     'electric',
     'hybrid'
   ];
-  // Mock staff data for demo - use real staff data passed as props
+
   const availableStaff = staff || [];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <Truck className="w-7 h-7" />
-              {truck ? 'Edit Truck Details' : 'Add New Truck'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white hover:bg-blue-800 p-2 rounded-lg transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+        <div className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Truck className="w-6 h-6" />
+            {truck ? 'Edit Truck' : 'Add New Truck'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-blue-700 p-1 rounded"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Basic Information */}
-            <div className="space-y-6">
-              <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-                <h3 className="text-xl font-bold text-blue-800 mb-4 flex items-center gap-2">
-                  <Truck className="w-5 h-5" />
-                  Basic Information
-                </h3>
-              </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Column 1 - Basic Details */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-black border-b pb-2">
+                Basic Details
+              </h3>
 
               {/* Truck Number */}
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
+                <label className="block text-sm font-medium text-black mb-1">
                   Truck Number *
                 </label>
                 <input
                   type="text"
                   value={formData.truck_number}
-                  onChange={(e) => handleChange('truck_number', e.target.value.toUpperCase())}
-                  className={`w-full px-4 py-3 text-black font-semibold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                    errors.truck_number ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white hover:border-blue-400'
+                  onChange={(e) => handleChange('truck_number', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
+                    errors.truck_number ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="MH01AB1234"
+                  placeholder="Enter truck number"
                 />
                 {errors.truck_number && (
-                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.truck_number}</p>
+                  <p className="text-red-500 text-xs mt-1">{errors.truck_number}</p>
                 )}
               </div>
 
               {/* Truck Type */}
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
+                <label className="block text-sm font-medium text-black mb-1">
                   Truck Type *
                 </label>
                 <select
                   value={formData.truck_type}
                   onChange={(e) => handleChange('truck_type', e.target.value)}
-                  className={`w-full px-4 py-3 text-black font-semibold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                    errors.truck_type ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white hover:border-blue-400'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
+                    errors.truck_type ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
-                  <option value="" className="text-gray-500">Select truck type</option>
+                  <option value="">Select truck type</option>
                   {truckTypes.map(type => (
-                    <option key={type} value={type} className="text-black">{type}</option>
+                    <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
                 {errors.truck_type && (
-                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.truck_type}</p>
+                  <p className="text-red-500 text-xs mt-1">{errors.truck_type}</p>
                 )}
-              </div>              {/* Brand */}
+              </div>
+
+              {/* Loading Capacity */}
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Brand (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.brand}
-                  onChange={(e) => handleChange('brand', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
-                  placeholder="Tata, Ashok Leyland, etc."
-                />
-              </div>              {/* Year of Manufacturing */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Year of Manufacturing (Optional)
+                <label className="block text-sm font-medium text-black mb-1">
+                  Loading Capacity (tons)
                 </label>
                 <input
                   type="number"
-                  value={formData.year_of_manufacturing}
-                  onChange={(e) => handleChange('year_of_manufacturing', e.target.value)}
-                  className={`w-full px-4 py-3 text-black font-semibold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                    errors.year_of_manufacturing ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white hover:border-blue-400'
+                  value={formData.loading_capacity}
+                  onChange={(e) => handleChange('loading_capacity', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
+                    errors.loading_capacity ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="2020"
-                  min="1900"
-                  max={new Date().getFullYear()}
+                  placeholder="Enter loading capacity"
+                  min="0"
+                  step="0.1"
                 />
-                {errors.year_of_manufacturing && (
-                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.year_of_manufacturing}</p>
-                )}
-              </div>              {/* Tyre Count */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Tyre Count (Optional)
-                </label>
-                <input
-                  type="number"
-                  value={formData.tyre_count}
-                  onChange={(e) => handleChange('tyre_count', e.target.value)}
-                  className={`w-full px-4 py-3 text-black font-semibold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                    errors.tyre_count ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white hover:border-blue-400'
-                  }`}
-                  placeholder="6, 10, 14, etc."
-                  min="4"
-                  max="22"
-                />
-                {errors.tyre_count && (
-                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.tyre_count}</p>
+                {errors.loading_capacity && (
+                  <p className="text-red-500 text-xs mt-1">{errors.loading_capacity}</p>
                 )}
               </div>
 
               {/* Fuel Type */}
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
+                <label className="block text-sm font-medium text-black mb-1">
                   Fuel Type
                 </label>
                 <select
                   value={formData.fuel_type}
                   onChange={(e) => handleChange('fuel_type', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                 >
-                  {fuelTypes.map(type => (
-                    <option key={type} value={type} className="text-black">
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                  {fuelTypes.map(fuel => (
+                    <option key={fuel} value={fuel}>
+                      {fuel.charAt(0).toUpperCase() + fuel.slice(1)}
                     </option>
                   ))}
                 </select>
-              </div>              {/* Loading Capacity */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Loading Capacity (tons) - Optional
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formData.loading_capacity}
-                  onChange={(e) => handleChange('loading_capacity', e.target.value)}
-                  className={`w-full px-4 py-3 text-black font-semibold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                    errors.loading_capacity ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white hover:border-blue-400'
-                  }`}
-                  placeholder="5.5"
-                  min="0.1"
-                />
-                {errors.loading_capacity && (
-                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.loading_capacity}</p>
-                )}
               </div>
-            </div>
 
-            {/* Documents & Details */}
-            <div className="space-y-6">
-              <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                <h3 className="text-xl font-bold text-green-800 mb-4">
-                  Documents & Details
-                </h3>
-              </div>              {/* RC Number */}
+              {/* Current Location */}
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  RC Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.rc_number}
-                  onChange={(e) => handleChange('rc_number', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
-                  placeholder="Registration Certificate Number"
-                />
-              </div>              {/* Insurance Number */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Insurance Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.insurance_number}
-                  onChange={(e) => handleChange('insurance_number', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
-                  placeholder="Insurance Policy Number"
-                />
-              </div>              {/* Permit Number */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Permit Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.permit_number}
-                  onChange={(e) => handleChange('permit_number', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
-                  placeholder="Transport Permit Number"
-                />
-              </div>              {/* Owner */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Owner (Optional)
-                </label><select
-                  value={formData.owner_id}
-                  onChange={(e) => handleChange('owner_id', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
-                >
-                  <option value="" className="text-gray-500">Select owner</option>
-                  {availableStaff
-                    .filter(s => s.post?.toLowerCase().includes('owner') || s.post?.toLowerCase().includes('driver'))
-                    .map(member => (
-                      <option key={member.id} value={member.id} className="text-black">
-                        {member.name} ({member.post})
-                      </option>
-                    ))}
-                </select>
-              </div>              {/* Current Location */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Current Location (Optional)
+                <label className="block text-sm font-medium text-black mb-1">
+                  Current Location
                 </label>
                 <input
                   type="text"
                   value={formData.current_location}
                   onChange={(e) => handleChange('current_location', e.target.value)}
-                  className="w-full px-4 py-3 text-black font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white hover:border-blue-400 transition-colors"
-                  placeholder="Current parking/depot location"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Enter current location"
+                />
+              </div>
+            </div>
+
+            {/* Column 2 - Vehicle Details */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-black border-b pb-2">
+                Vehicle Details
+              </h3>
+
+              {/* Brand */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Brand
+                </label>
+                <input
+                  type="text"
+                  value={formData.brand}
+                  onChange={(e) => handleChange('brand', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Enter brand"
                 />
               </div>
 
-              {/* Status Checkboxes */}
-              <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-                <h4 className="text-lg font-bold text-gray-800 mb-4">Status Settings</h4>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200">
-                    <input
-                      type="checkbox"
-                      id="is_active"
-                      checked={formData.is_active}
-                      onChange={(e) => handleChange('is_active', e.target.checked)}
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="is_active" className="ml-3 block text-sm font-semibold text-gray-800">
-                      Active (truck is operational)
-                    </label>
-                  </div>
+              {/* Year of Manufacturing */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Year of Manufacturing
+                </label>
+                <input
+                  type="number"
+                  value={formData.year_of_manufacturing}
+                  onChange={(e) => handleChange('year_of_manufacturing', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
+                    errors.year_of_manufacturing ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter year"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                />
+                {errors.year_of_manufacturing && (
+                  <p className="text-red-500 text-xs mt-1">{errors.year_of_manufacturing}</p>
+                )}
+              </div>
 
-                  <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200">
-                    <input
-                      type="checkbox"
-                      id="is_available"
-                      checked={formData.is_available}
-                      onChange={(e) => handleChange('is_available', e.target.checked)}
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="is_available" className="ml-3 block text-sm font-semibold text-gray-800">
-                      Available (ready for trips)
-                    </label>
-                  </div>
+              {/* Tyre Count */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Tyre Count
+                </label>
+                <input
+                  type="number"
+                  value={formData.tyre_count}
+                  onChange={(e) => handleChange('tyre_count', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
+                    errors.tyre_count ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter tyre count"
+                  min="4"
+                  max="22"
+                />
+                {errors.tyre_count && (
+                  <p className="text-red-500 text-xs mt-1">{errors.tyre_count}</p>
+                )}
+              </div>
+
+              {/* Owner */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Owner
+                </label>
+                <select
+                  value={formData.owner_id}
+                  onChange={(e) => handleChange('owner_id', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                >
+                  <option value="">Select owner</option>
+                  {availableStaff
+                    .filter(member => member.post.includes('owner'))
+                    .map(owner => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Status Checkboxes */}
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={formData.is_active}
+                    onChange={(e) => handleChange('is_active', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="is_active" className="ml-2 block text-sm text-black">
+                    Active (truck is operational)
+                  </label>
                 </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="is_available"
+                    checked={formData.is_available}
+                    onChange={(e) => handleChange('is_available', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="is_available" className="ml-2 block text-sm text-black">
+                    Available (ready for use)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 3 - Documents */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-black border-b pb-2">
+                Document Details
+              </h3>
+
+              {/* RC Number */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  RC Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.rc_number}
+                  onChange={(e) => handleChange('rc_number', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Enter RC number"
+                />
+              </div>
+
+              {/* Insurance Number */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Insurance Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.insurance_number}
+                  onChange={(e) => handleChange('insurance_number', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Enter insurance number"
+                />
+              </div>
+
+              {/* Permit Number */}
+              <div>
+                <label className="block text-sm font-medium text-black mb-1">
+                  Permit Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.permit_number}
+                  onChange={(e) => handleChange('permit_number', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Enter permit number"
+                />
+              </div>
+
+              {/* Guidelines */}
+              <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+                <h4 className="text-sm font-semibold text-blue-800 mb-2">
+                  Guidelines
+                </h4>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• Truck number and type are required</li>
+                  <li>• Capacity should be in tons</li>
+                  <li>• Year must be valid</li>
+                  <li>• Tyre count: 4-22</li>
+                </ul>
               </div>
             </div>
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end gap-4 mt-10 pt-6 border-t-2 border-gray-200">
+          <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-8 py-3 border-2 border-gray-400 text-gray-700 font-bold rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               Cancel
             </button>
             <button
-              type="button"
-              onClick={handleSubmit}
+              type="submit"
               disabled={saving}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all shadow-lg"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 flex items-center gap-2"
             >
-              <Save className="w-5 h-5" />
+              <Save className="w-4 h-4" />
               {saving ? 'Saving...' : (truck ? 'Update Truck' : 'Create Truck')}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

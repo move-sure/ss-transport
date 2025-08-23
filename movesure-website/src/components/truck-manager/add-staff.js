@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { X, Save, Users, Upload, Phone } from 'lucide-react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { X, Save, Users, Upload } from 'lucide-react';
 
 const StaffForm = ({ staff, onSave, onClose }) => {
   const { user } = useAuth();
@@ -91,7 +91,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
           .from('staff')
           .update(saveData)
           .eq('id', staff.id)
-          .select()
+          .select('*')
           .single();
 
         if (error) throw error;
@@ -101,7 +101,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
         const { data, error } = await supabase
           .from('staff')
           .insert([saveData])
-          .select()
+          .select('*')
           .single();
 
         if (error) throw error;
@@ -147,21 +147,17 @@ const StaffForm = ({ staff, onSave, onClose }) => {
       // Convert file to base64
       const reader = new FileReader();
       reader.onload = (event) => {
-        const base64String = event.target.result;
-        handleChange('image_url', base64String);
+        handleChange('image_url', event.target.result);
         setUploadingImage(false);
       };
-      
       reader.onerror = () => {
-        console.error('Error reading file');
-        alert('Error reading image file. Please try again.');
+        alert('Error reading file');
         setUploadingImage(false);
       };
-
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error processing image:', error);
-      alert('Error processing image. Please try again.');
+      console.error('Error uploading image:', error);
+      alert('Error uploading image');
       setUploadingImage(false);
     }
   };
@@ -187,7 +183,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -204,16 +200,16 @@ const StaffForm = ({ staff, onSave, onClose }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Column 1 - Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+              <h3 className="text-lg font-semibold text-black border-b pb-2">
                 Basic Information
               </h3>
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Full Name *
                 </label>
                 <input
@@ -232,7 +228,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
 
               {/* Post */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Post/Position *
                 </label>
                 <select
@@ -256,7 +252,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
 
               {/* Mobile Number */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Mobile Number
                 </label>
                 <input
@@ -274,9 +270,30 @@ const StaffForm = ({ staff, onSave, onClose }) => {
                 )}
               </div>
 
+              {/* Status */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => handleChange('is_active', e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="is_active" className="ml-2 block text-sm text-black">
+                  Active (currently employed)
+                </label>
+              </div>
+            </div>
+
+            {/* Column 2 - Documents & Image */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-black border-b pb-2">
+                Documents & Photo
+              </h3>
+
               {/* License Number */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Driving License Number
                 </label>
                 <input
@@ -295,7 +312,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
 
               {/* Aadhar Number */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-black mb-1">
                   Aadhar Number
                 </label>
                 <input
@@ -313,55 +330,36 @@ const StaffForm = ({ staff, onSave, onClose }) => {
                 )}
               </div>
 
-              {/* Status */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  checked={formData.is_active}
-                  onChange={(e) => handleChange('is_active', e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
-                  Active (staff member is currently employed)
+              {/* Image Upload Section */}
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-black">
+                  Profile Photo
                 </label>
-              </div>
-            </div>
-
-            {/* Right Column - Image Upload */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
-                Profile Image
-              </h3>
-
-              {/* Image Preview */}
-              <div className="flex flex-col items-center space-y-4">
+                
+                {/* Image Preview */}
                 {formData.image_url ? (
-                  <div className="relative">
+                  <div className="relative inline-block">
                     <img
                       src={formData.image_url}
                       alt="Staff preview"
-                      className="w-40 h-40 rounded-lg object-cover border-2 border-gray-300"
+                      className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300"
                     />
                     <button
                       type="button"
                       onClick={() => handleChange('image_url', '')}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ) : (
-                  <div className="w-40 h-40 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
-                    <div className="text-center">
-                      <Users className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">No image selected</p>
-                    </div>
+                  <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                    <Users className="w-8 h-8 text-gray-400" />
                   </div>
                 )}
 
                 {/* Upload Button */}
-                <div className="relative">
+                <div>
                   <input
                     type="file"
                     id="image-upload"
@@ -372,34 +370,52 @@ const StaffForm = ({ staff, onSave, onClose }) => {
                   />
                   <label
                     htmlFor="image-upload"
-                    className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-black ${
                       uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
                     <Upload className="w-4 h-4" />
-                    {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                    {uploadingImage ? 'Uploading...' : 'Upload Photo'}
                   </label>
                 </div>
-
-                <p className="text-xs text-gray-500 text-center">
-                  Supported formats: JPG, PNG, GIF<br />
-                  Maximum size: 5MB
-                </p>
               </div>
+            </div>
 
-              {/* Additional Info Section */}
-              <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+            {/* Column 3 - Guidelines */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-black border-b pb-2">
+                Guidelines
+              </h3>
+
+              <div className="p-4 bg-blue-50 rounded-lg">
                 <h4 className="text-sm font-semibold text-blue-800 mb-2">
                   Staff Information Guidelines
                 </h4>
                 <ul className="text-xs text-blue-700 space-y-1">
                   <li>• Name and Post are mandatory fields</li>
-                  <li>• Mobile number should be 10 digits starting with 6-9</li>
-                  <li>• License number is required for drivers</li>
+                  <li>• Mobile: 10 digits starting with 6-9</li>
+                  <li>• License required for drivers</li>
                   <li>• Aadhar should be 12 digits</li>
-                  <li>• Image helps in identification</li>
-                  <li>• Use proper post combinations like driver,owner</li>
+                  <li>• Photo helps in identification</li>
+                  <li>• Use combinations like "driver,owner"</li>
                 </ul>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                  Available Posts
+                </h4>
+                <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
+                  <div>• Driver</div>
+                  <div>• Conductor</div>
+                  <div>• Owner</div>
+                  <div>• Driver, Owner</div>
+                  <div>• Mechanic</div>
+                  <div>• Helper</div>
+                  <div>• Cleaner</div>
+                  <div>• Supervisor</div>
+                  <div>• Manager</div>
+                </div>
               </div>
             </div>
           </div>

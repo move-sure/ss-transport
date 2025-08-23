@@ -707,7 +707,7 @@ const PDFGenerator = ({
     );
     
       // RIGHT SECTION - Charges with enhanced styling and proper alignment - BIGGER & ALL BOLD
-    const amount = (parseFloat(biltyData.wt) * parseFloat(biltyData.rate)).toFixed(2);
+    const amount = Math.round(parseFloat(biltyData.wt) * parseFloat(biltyData.rate));
     
     // Define column positions for proper alignment
     const labelX = COORDINATES.TABLE_SECTION.AMOUNT.x;     // Label column at x=155

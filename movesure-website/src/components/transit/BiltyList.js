@@ -426,8 +426,8 @@ const BiltyList = ({
 
           {/* Transit Bilties Table */}
           {filteredTransitBilties.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto min-w-full">
+              <table className="w-full text-sm min-w-max">
                 <thead className="bg-yellow-50 sticky top-0 z-10">
                   <tr>
                     {!selectedChallan.is_dispatched && (
@@ -444,10 +444,11 @@ const BiltyList = ({
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Type</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">GR No</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">Date</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-32">Consignor</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-32">Consignee</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">Destination</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">PVT Marks</th>
+                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-28">Consignor</th>
+                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-28">Consignee</th>
+                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-26">Content</th>
+                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-22">Destination</th>
+                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">PVT Marks</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Payment</th>                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-12">Pkgs</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Weight</th>
                     <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">Amount</th>
@@ -505,15 +506,18 @@ const BiltyList = ({
                           {bilty.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
                            bilty.created_at ? format(new Date(bilty.created_at), 'dd/MM') : '-'}
                         </td>
-                        <td className="px-2 py-2 text-gray-900 truncate max-w-32" title={bilty.consignor_name || bilty.consignor}>
+                        <td className="px-2 py-2 text-gray-900 truncate max-w-28" title={bilty.consignor_name || bilty.consignor}>
                           {bilty.consignor_name || bilty.consignor}
                         </td>
-                        <td className="px-2 py-2 text-gray-900 truncate max-w-32" title={bilty.consignee_name || bilty.consignee}>
+                        <td className="px-2 py-2 text-gray-900 truncate max-w-28" title={bilty.consignee_name || bilty.consignee}>
                           {bilty.consignee_name || bilty.consignee}
                         </td>
-                        <td className="px-2 py-2 text-gray-600 truncate">
+                        <td className="px-2 py-2 text-gray-600 truncate max-w-26" title={bilty.contain || bilty.contents}>
+                          {bilty.contain || bilty.contents || '-'}
+                        </td>
+                        <td className="px-2 py-2 text-gray-600 truncate max-w-22">
                           {getBiltyDisplayCity(bilty)}
-                        </td>                        <td className="px-2 py-2 text-gray-600 truncate max-w-24" title={bilty.pvt_marks}>
+                        </td>                        <td className="px-2 py-2 text-gray-600 truncate max-w-20" title={bilty.pvt_marks}>
                           {bilty.pvt_marks || '-'}
                         </td>
                         <td className="px-2 py-2">
@@ -678,9 +682,9 @@ const BiltyList = ({
         )}
 
         {/* Available Bilties Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-w-full">
           {fullyFilteredBilties.length > 0 ? (
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-max">
               <thead className="bg-blue-50 sticky top-0 z-10">
                 <tr>
                   <th className="px-3 py-2 text-left w-8">
@@ -700,10 +704,11 @@ const BiltyList = ({
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Type</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">GR No</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">Date</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-32">Consignor</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-32">Consignee</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">Destination</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">PVT Marks</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-28">Consignor</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-28">Consignee</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-26">Content</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-22">Destination</th>
+                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">PVT Marks</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Payment</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-12">Pkgs</th>
                   <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Weight</th>
@@ -756,15 +761,18 @@ const BiltyList = ({
                         {bilty.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
                          bilty.created_at ? format(new Date(bilty.created_at), 'dd/MM') : '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-900 truncate max-w-32" title={bilty.consignor_name || bilty.consignor}>
+                      <td className="px-3 py-2 text-gray-900 truncate max-w-28" title={bilty.consignor_name || bilty.consignor}>
                         {bilty.consignor_name || bilty.consignor}
                       </td>
-                      <td className="px-3 py-2 text-gray-900 truncate max-w-32" title={bilty.consignee_name || bilty.consignee}>
+                      <td className="px-3 py-2 text-gray-900 truncate max-w-28" title={bilty.consignee_name || bilty.consignee}>
                         {bilty.consignee_name || bilty.consignee}
                       </td>
-                      <td className="px-3 py-2 text-gray-600 truncate">
+                      <td className="px-3 py-2 text-gray-600 truncate max-w-26" title={bilty.contain || bilty.contents}>
+                        {bilty.contain || bilty.contents || '-'}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 truncate max-w-22">
                         {getBiltyDisplayCity(bilty)}
-                      </td>                      <td className="px-3 py-2 text-gray-600 truncate max-w-24" title={bilty.pvt_marks}>
+                      </td>                      <td className="px-3 py-2 text-gray-600 truncate max-w-20" title={bilty.pvt_marks}>
                         {bilty.pvt_marks || '-'}
                       </td>
                       <td className="px-3 py-2">

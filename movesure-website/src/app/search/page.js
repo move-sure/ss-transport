@@ -438,6 +438,15 @@ export default function BiltySearch() {
             (grSearchData || []).forEach(item => {
               const staffUser = usersData.find(user => user.id === item.staff_id);
               
+              // Create transit_details structure for both regular and station bilties
+              const transitDetails = (item.challan_no && item.challan_no.trim() !== '') ? [{
+                id: `${item.id}_transit`,
+                challan_no: item.challan_no,
+                gr_no: item.gr_no,
+                dispatch_date: item.dispatch_date, // Direct dispatch_date for UI compatibility
+                is_dispatched: item.is_dispatched || false
+              }] : []; // Empty array when no challan
+              
               if (item.type === 'station') {
                 stationBilties.push({
                   id: item.id,
@@ -455,7 +464,8 @@ export default function BiltySearch() {
                   created_at: item.created_at,
                   staff_id: item.staff_id,
                   e_way_bill: item.e_way_bill || '',
-                  created_by_user: staffUser || null
+                  created_by_user: staffUser || null,
+                  transit_details: transitDetails // Add transit_details for station bilties too
                 });
               } else {
                 // Regular bilty with proper transit_details structure
@@ -482,17 +492,7 @@ export default function BiltySearch() {
                   saving_option: item.saving_option || 'SAVE',
                   is_active: item.is_active !== false,
                   created_by_user: staffUser || null,
-                  // Properly structure transit_details for challan information
-                  transit_details: item.challan_no ? [{
-                    id: `${item.id}_transit`,
-                    challan_no: item.challan_no,
-                    gr_no: item.gr_no,
-                    challan_details: item.dispatch_date ? {
-                      challan_no: item.challan_no,
-                      dispatch_date: item.dispatch_date,
-                      is_dispatched: item.is_dispatched || false
-                    } : null
-                  }] : []
+                  transit_details: transitDetails // Use the same transit_details structure
                 });
               }
             });
@@ -799,81 +799,105 @@ export default function BiltySearch() {
       }
     }      
 
-    // Combine bilty data with user data
-    const biltiesWithUsers = regularData?.map(bilty => ({
-      ...bilty,
-      bilty_type: 'regular', // Ensure regular bilties have correct type
-      // Keep separate fields for UI display
-      contain: bilty.contain || '', // Content field for regular bilties
-      pvt_marks: bilty.pvt_marks || '', // Private marks field
-      created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
-    })) || [];
+    // Get all GR numbers for challan lookup (both regular and station bilties)
+    const allGRNumbers = [
+      ...(regularData?.map(b => b.gr_no).filter(Boolean) || []),
+      ...(stationData?.map(b => b.gr_no).filter(Boolean) || [])
+    ];
 
-    // Combine station bilty data with user data
-    const stationBiltiesWithUsers = (stationData || []).map(stationBilty => ({
-      ...stationBilty,
-      created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
-      transit_details: [],
-      bilty_type: 'station',
-      id: stationBilty.id,
-      gr_no: stationBilty.gr_no || '',
-      consignor: stationBilty.consignor || '',
-      consignee: stationBilty.consignee || '',
-      amount: stationBilty.amount || 0,
-      payment_status: stationBilty.payment_status || 'unknown',
-      e_way_bill: stationBilty.e_way_bill || '',
-      // Keep separate fields for UI display
-      contents: stationBilty.contents || '', // Content field for station bilties
-      pvt_marks: stationBilty.pvt_marks || '', // Private marks field
-      created_at: stationBilty.created_at
-    }));
+    let transitDetailsMap = new Map();
+    let challanDetailsMap = new Map();
 
-    // Check transit details for station bilties
-    if (stationBiltiesWithUsers.length > 0) {
-      try {
-        const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no).filter(Boolean);
+    if (allGRNumbers.length > 0) {
+      // Get transit details for all GR numbers
+      const { data: transitData, error: transitError } = await supabase
+        .from('transit_details')
+        .select('gr_no, challan_no')
+        .in('gr_no', allGRNumbers);
+
+      if (!transitError && transitData) {
+        // Map GR numbers to challan numbers
+        transitData.forEach(td => {
+          transitDetailsMap.set(td.gr_no, td.challan_no);
+        });
+
+        // Get unique challan numbers and fetch dispatch details
+        const challanNumbers = [...new Set(transitData.map(td => td.challan_no).filter(Boolean))];
         
-        if (stationGRNumbers.length > 0) {
-          const { data: transitData, error: transitError } = await supabase
-            .from('transit_details')
-            .select('gr_no, challan_no')
-            .in('gr_no', stationGRNumbers);
+        if (challanNumbers.length > 0) {
+          const { data: challanDetails, error: challanError } = await supabase
+            .from('challan_details')
+            .select('challan_no, dispatch_date, is_dispatched')
+            .in('challan_no', challanNumbers)
+            .eq('is_active', true);
 
-          if (!transitError && transitData) {
-            // Get unique challan numbers for dispatch date lookup
-            const challanNumbers = [...new Set(transitData.map(t => t.challan_no).filter(Boolean))];
-            let challanDetailsData = [];
-            
-            if (challanNumbers.length > 0) {
-              const { data: challanDetails } = await supabase
-                .from('challan_details')
-                .select('challan_no, dispatch_date, is_dispatched')
-                .in('challan_no', challanNumbers);
-              
-              challanDetailsData = challanDetails || [];
-            }
-
-            stationBiltiesWithUsers.forEach(bilty => {
-              const transitDetail = transitData.find(t => t.gr_no === bilty.gr_no);
-              if (transitDetail) {
-                const challanDetail = challanDetailsData.find(c => c.challan_no === transitDetail.challan_no);
-                bilty.transit_details = [{
-                  challan_no: transitDetail.challan_no,
-                  dispatch_date: challanDetail?.dispatch_date,
-                  is_dispatched: challanDetail?.is_dispatched || false
-                }];
-              }
+          if (!challanError && challanDetails) {
+            // Map challan numbers to dispatch details
+            challanDetails.forEach(cd => {
+              challanDetailsMap.set(cd.challan_no, {
+                dispatch_date: cd.dispatch_date,
+                is_dispatched: cd.is_dispatched || false
+              });
             });
           }
         }
-      } catch (transitError) {
-
       }
     }
 
+    // Process regular bilties with challan information
+    const biltiesWithUsers = regularData?.map(bilty => {
+      const challanNo = transitDetailsMap.get(bilty.gr_no);
+      const challanDetail = challanNo ? challanDetailsMap.get(challanNo) : null;
+
+      return {
+        ...bilty,
+        bilty_type: 'regular',
+        contain: bilty.contain || '',
+        pvt_marks: bilty.pvt_marks || '',
+        created_by_user: usersData.find(user => user.id === bilty.staff_id) || null,
+        // Enhanced transit_details with proper challan information
+        transit_details: challanNo ? [{
+          id: `${bilty.id}_transit`,
+          challan_no: challanNo,
+          gr_no: bilty.gr_no,
+          dispatch_date: challanDetail?.dispatch_date,
+          is_dispatched: challanDetail?.is_dispatched || false
+        }] : []
+      };
+    }) || [];
+
+    // Process station bilties with challan information
+    const stationBiltiesWithUsers = (stationData || []).map(stationBilty => {
+      const challanNo = transitDetailsMap.get(stationBilty.gr_no);
+      const challanDetail = challanNo ? challanDetailsMap.get(challanNo) : null;
+
+      return {
+        ...stationBilty,
+        created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
+        bilty_type: 'station',
+        id: stationBilty.id,
+        gr_no: stationBilty.gr_no || '',
+        consignor: stationBilty.consignor || '',
+        consignee: stationBilty.consignee || '',
+        amount: stationBilty.amount || 0,
+        payment_status: stationBilty.payment_status || 'unknown',
+        e_way_bill: stationBilty.e_way_bill || '',
+        contents: stationBilty.contents || '',
+        pvt_marks: stationBilty.pvt_marks || '',
+        created_at: stationBilty.created_at,
+        // Enhanced transit_details with proper challan information
+        transit_details: challanNo ? [{
+          id: `${stationBilty.id}_transit`,
+          challan_no: challanNo,
+          gr_no: stationBilty.gr_no,
+          dispatch_date: challanDetail?.dispatch_date,
+          is_dispatched: challanDetail?.is_dispatched || false
+        }] : []
+      };
+    });
+
     setAllBilties(biltiesWithUsers);
     setAllStationBilties(stationBiltiesWithUsers);
-    
   };
 
   // Load more data function
@@ -1012,80 +1036,99 @@ export default function BiltySearch() {
         .in('id', staffIds);
       usersData = users || [];
     }
-    
-    if (type === 'regular') {
-      return data.map(bilty => ({
-        ...bilty,
-        bilty_type: 'regular', // Ensure regular bilties have correct type
-        // Keep separate fields for UI display
-        contain: bilty.contain || '', // Content field for regular bilties
-        pvt_marks: bilty.pvt_marks || '', // Private marks field
-        created_by_user: usersData.find(user => user.id === bilty.staff_id) || null
-      }));
-    } else {
-      // Station bilties
-      const stationBiltiesWithUsers = data.map(stationBilty => ({
-        ...stationBilty,
-        created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
-        transit_details: [],
-        bilty_type: 'station',
-        id: stationBilty.id,
-        gr_no: stationBilty.gr_no || '',
-        consignor: stationBilty.consignor || '',
-        consignee: stationBilty.consignee || '',
-        amount: stationBilty.amount || 0,
-        payment_status: stationBilty.payment_status || 'unknown',
-        e_way_bill: stationBilty.e_way_bill || '',
-        // Keep separate fields for UI display
-        contents: stationBilty.contents || '', // Content field for station bilties
-        pvt_marks: stationBilty.pvt_marks || '', // Private marks field
-        created_at: stationBilty.created_at
-      }));
-      
-      // Add transit details
-      if (stationBiltiesWithUsers.length > 0) {
-        try {
-          const stationGRNumbers = stationBiltiesWithUsers.map(b => b.gr_no).filter(Boolean);
-          
-          if (stationGRNumbers.length > 0) {
-            const { data: transitData } = await supabase
-              .from('transit_details')
-              .select('gr_no, challan_no')
-              .in('gr_no', stationGRNumbers);
 
-            if (transitData) {
-              // Get unique challan numbers for dispatch date lookup
-              const challanNumbers = [...new Set(transitData.map(t => t.challan_no).filter(Boolean))];
-              let challanDetailsData = [];
-              
-              if (challanNumbers.length > 0) {
-                const { data: challanDetails } = await supabase
-                  .from('challan_details')
-                  .select('challan_no, dispatch_date, is_dispatched')
-                  .in('challan_no', challanNumbers);
-                
-                challanDetailsData = challanDetails || [];
-              }
+    // Get GR numbers for challan lookup
+    const grNumbers = data.map(b => b.gr_no).filter(Boolean);
+    let transitDetailsMap = new Map();
+    let challanDetailsMap = new Map();
 
-              stationBiltiesWithUsers.forEach(bilty => {
-                const transitDetail = transitData.find(t => t.gr_no === bilty.gr_no);
-                if (transitDetail) {
-                  const challanDetail = challanDetailsData.find(c => c.challan_no === transitDetail.challan_no);
-                  bilty.transit_details = [{
-                    challan_no: transitDetail.challan_no,
-                    dispatch_date: challanDetail?.dispatch_date,
-                    is_dispatched: challanDetail?.is_dispatched || false
-                  }];
-                }
+    if (grNumbers.length > 0) {
+      // Get transit details for all GR numbers
+      const { data: transitData, error: transitError } = await supabase
+        .from('transit_details')
+        .select('gr_no, challan_no')
+        .in('gr_no', grNumbers);
+
+      if (!transitError && transitData) {
+        // Map GR numbers to challan numbers
+        transitData.forEach(td => {
+          transitDetailsMap.set(td.gr_no, td.challan_no);
+        });
+
+        // Get unique challan numbers and fetch dispatch details
+        const challanNumbers = [...new Set(transitData.map(td => td.challan_no).filter(Boolean))];
+        
+        if (challanNumbers.length > 0) {
+          const { data: challanDetails, error: challanError } = await supabase
+            .from('challan_details')
+            .select('challan_no, dispatch_date, is_dispatched')
+            .in('challan_no', challanNumbers)
+            .eq('is_active', true);
+
+          if (!challanError && challanDetails) {
+            // Map challan numbers to dispatch details
+            challanDetails.forEach(cd => {
+              challanDetailsMap.set(cd.challan_no, {
+                dispatch_date: cd.dispatch_date,
+                is_dispatched: cd.is_dispatched || false
               });
-            }
+            });
           }
-        } catch (transitError) {
-
         }
       }
-      
-      return stationBiltiesWithUsers;
+    }
+    
+    if (type === 'regular') {
+      return data.map(bilty => {
+        const challanNo = transitDetailsMap.get(bilty.gr_no);
+        const challanDetail = challanNo ? challanDetailsMap.get(challanNo) : null;
+
+        return {
+          ...bilty,
+          bilty_type: 'regular',
+          contain: bilty.contain || '',
+          pvt_marks: bilty.pvt_marks || '',
+          created_by_user: usersData.find(user => user.id === bilty.staff_id) || null,
+          // Enhanced transit_details with proper challan information
+          transit_details: challanNo ? [{
+            id: `${bilty.id}_transit`,
+            challan_no: challanNo,
+            gr_no: bilty.gr_no,
+            dispatch_date: challanDetail?.dispatch_date,
+            is_dispatched: challanDetail?.is_dispatched || false
+          }] : []
+        };
+      });
+    } else {
+      // Station bilties
+      return data.map(stationBilty => {
+        const challanNo = transitDetailsMap.get(stationBilty.gr_no);
+        const challanDetail = challanNo ? challanDetailsMap.get(challanNo) : null;
+
+        return {
+          ...stationBilty,
+          created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
+          bilty_type: 'station',
+          id: stationBilty.id,
+          gr_no: stationBilty.gr_no || '',
+          consignor: stationBilty.consignor || '',
+          consignee: stationBilty.consignee || '',
+          amount: stationBilty.amount || 0,
+          payment_status: stationBilty.payment_status || 'unknown',
+          e_way_bill: stationBilty.e_way_bill || '',
+          contents: stationBilty.contents || '',
+          pvt_marks: stationBilty.pvt_marks || '',
+          created_at: stationBilty.created_at,
+          // Enhanced transit_details with proper challan information
+          transit_details: challanNo ? [{
+            id: `${stationBilty.id}_transit`,
+            challan_no: challanNo,
+            gr_no: stationBilty.gr_no,
+            dispatch_date: challanDetail?.dispatch_date,
+            is_dispatched: challanDetail?.is_dispatched || false
+          }] : []
+        };
+      });
     }
   };
 

@@ -475,26 +475,38 @@ const CombinedBiltySearchTable = memo(({
                   {/* Challan Details */}
                   <td className="px-3 py-2">
                     <div className="space-y-1">
-                      {bilty.transit_details && bilty.transit_details.length > 0 ? (
+                      {bilty.transit_details && bilty.transit_details.length > 0 && 
+                       bilty.transit_details[0].challan_no && 
+                       bilty.transit_details[0].challan_no.trim() !== '' ? (
                         <div>
                           <span className="text-sm font-medium text-blue-600">
                             {bilty.transit_details[0].challan_no}
                           </span>
                           <div className="text-xs text-slate-500">
-                            {bilty.transit_details[0].dispatch_date ? (
+                            {bilty.transit_details[0].is_dispatched && bilty.transit_details[0].dispatch_date ? (
                               <div className="flex items-center gap-1">
-                                <span className="text-green-600">Dispatched:</span>
+                                <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                                <span className="text-green-600 font-medium">Dispatched</span>
                                 <span>{formatDate(bilty.transit_details[0].dispatch_date)}</span>
                               </div>
+                            ) : bilty.transit_details[0].challan_no ? (
+                              <div className="flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 bg-orange-500 rounded-full"></span>
+                                <span className="text-orange-600 font-medium">In Challan</span>
+                              </div>
                             ) : (
-                              <span className="text-orange-600">Not Dispatched</span>
+                              <div className="flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
+                                <span className="text-gray-600">Pending</span>
+                              </div>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <span className="text-sm font-medium text-green-600">
-                          AVL
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                          <span className="text-sm font-medium text-green-600">AVL</span>
+                        </div>
                       )}
                     </div>
                   </td>

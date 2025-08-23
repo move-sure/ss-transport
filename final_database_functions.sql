@@ -208,8 +208,8 @@ BEGIN
     cd.dispatch_date,
     COALESCE(cd.is_dispatched, false) as is_dispatched
   FROM search_bilties_by_gr_number(p_gr_number, p_branch_id, p_date_from, p_limit) b
-  LEFT JOIN transit_details td ON b.bilty_type = 'regular' AND td.gr_no = b.gr_no
-  LEFT JOIN challan_details cd ON td.challan_no = cd.challan_no
+  LEFT JOIN transit_details td ON td.gr_no = b.gr_no
+  LEFT JOIN challan_details cd ON cd.challan_no = td.challan_no AND cd.is_active = true
   ORDER BY b.created_at DESC;
 END;
 $$ LANGUAGE plpgsql;
@@ -237,3 +237,17 @@ GRANT EXECUTE ON FUNCTION get_gr_search_results_with_challan_dates TO authentica
 
 -- Test with actual GR number (replace 'YOUR_GR' with real GR number):
 -- SELECT * FROM get_gr_search_results_with_challan_dates('YOUR_GR', null, null, 10);
+
+-- Test challan details accuracy (check if bilties show correct dispatch status):
+-- SELECT 
+--   b.gr_no,
+--   b.type,
+--   b.challan_no,
+--   b.is_dispatched,
+--   b.dispatch_date,
+--   cd.is_dispatched as actual_dispatch_status,
+--   cd.dispatch_date as actual_dispatch_date
+-- FROM get_gr_search_results_with_challan_dates('A', null, null, 20) b
+-- LEFT JOIN challan_details cd ON cd.challan_no = b.challan_no
+-- WHERE b.challan_no IS NOT NULL AND b.challan_no != ''
+-- ORDER BY b.challan_no;

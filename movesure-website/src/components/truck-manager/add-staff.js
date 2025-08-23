@@ -397,7 +397,7 @@ const StaffForm = ({ staff, onSave, onClose }) => {
                   <li>• License required for drivers</li>
                   <li>• Aadhar should be 12 digits</li>
                   <li>• Photo helps in identification</li>
-                  <li>• Use combinations like "driver,owner"</li>
+                  <li>• Use combinations like driver,owner</li>
                 </ul>
               </div>
 

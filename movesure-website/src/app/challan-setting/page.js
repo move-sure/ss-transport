@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
-import { Truck, Settings, List } from 'lucide-react';
+import { Truck, Settings, List, Plus, Search, Filter, Calendar, Eye, RefreshCw } from 'lucide-react';
 import ChallanForm from '../../components/challan-settings/challanform';
 import ChallanBookForm from '../../components/challan-settings/challan-book';
 import ChallanDetailsTab from '../../components/challan-settings/challan-details-tab';
@@ -14,6 +14,7 @@ export default function ChallanManagementPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('challans');
+  const [refreshing, setRefreshing] = useState(false);
   
   // Form States
   const [showChallanForm, setShowChallanForm] = useState(false);
@@ -57,13 +58,11 @@ export default function ChallanManagementPage() {
       setTrucks(trucksRes.data || []);
       setStaff(staffRes.data || []);
 
-      // Load challan books
+      // Load challan books first
       await loadChallanBooks();
       
-      // Load challans only if on challans tab
-      if (activeTab === 'challans') {
-        await loadChallans();
-      }
+      // Always load challans on initial load to show full list
+      await loadChallans();
     } catch (error) {
       console.error('Error loading initial data:', error);
       alert('Error loading data. Please refresh the page.');
@@ -164,147 +163,241 @@ export default function ChallanManagementPage() {
     
     // Reload data
     loadChallanBooks();
-    if (activeTab === 'challans') {
-      loadChallans();
-    }
+    loadChallans();
   };
 
   // Tab change handler
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'challans' && challans.length === 0) {
-      loadChallans();
+  };
+
+  // Refresh handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadChallanBooks();
+      await loadChallans();
+    } finally {
+      setRefreshing(false);
     }
   };
 
+  // Stats calculations
+  const stats = useMemo(() => {
+    const totalChallans = challans.length;
+    const pendingChallans = challans.filter(c => !c.is_dispatched).length;
+    const dispatchedChallans = challans.filter(c => c.is_dispatched).length;
+    const totalBilties = challans.reduce((sum, c) => sum + (c.total_bilty_count || 0), 0);
+    const activeBooks = challanBooks.filter(b => b.is_active && !b.is_completed).length;
+
+    return {
+      totalChallans,
+      pendingChallans,
+      dispatchedChallans,
+      totalBilties,
+      activeBooks
+    };
+  }, [challans, challanBooks]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-2xl font-bold text-black">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="text-xl font-semibold text-gray-700">Loading Challan Management...</div>
+            <div className="text-sm text-gray-500 mt-2">Please wait while we fetch your data</div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white">
       <Navbar />
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-xl border border-blue-300 p-6 mb-6">
-          <div className="flex justify-between items-center">
+      
+      {/* Full-width container */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+        {/* Enhanced Header with Stats */}
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 rounded-xl shadow-2xl border border-blue-300 p-6 mb-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="flex items-center gap-4 text-white">
-              <Truck className="w-8 h-8" />
+              <div className="bg-white/20 p-3 rounded-lg">
+                <Truck className="w-8 h-8" />
+              </div>
               <div>
-                <h1 className="text-2xl font-bold">Challan Management</h1>
-                <p className="text-blue-100">Branch: {branchData?.branch_name} ({branchData?.branch_code})</p>
+                <h1 className="text-3xl font-bold mb-1">Challan Management System</h1>
+                <p className="text-blue-100 flex items-center gap-2">
+                  <span>Branch: {branchData?.branch_name} ({branchData?.branch_code})</span>
+                </p>
               </div>
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="bg-white/10 text-white px-4 py-2 rounded-lg hover:bg-white/20 transition-colors border border-white/20 flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
               {activeTab === 'challans' && (
                 <button
                   onClick={handleCreateNewChallan}
-                  className="bg-white text-blue-600 px-6 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors border-2 border-blue-300 flex items-center gap-2"
+                  className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors border-2 border-blue-300 flex items-center gap-2 shadow-lg"
                   disabled={challanBooks.filter(book => book.is_active && !book.is_completed).length === 0}
                 >
-                  <Truck className="w-5 h-5" />
-                  Create New Challan
+                  <Plus className="w-5 h-5" />
+                  New Challan
                 </button>
               )}
               {activeTab === 'books' && (
                 <button
                   onClick={handleCreateNewBook}
-                  className="bg-white text-blue-600 px-6 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors border-2 border-blue-300 flex items-center gap-2"
+                  className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors border-2 border-blue-300 flex items-center gap-2 shadow-lg"
                 >
-                  <Settings className="w-5 h-5" />
-                  Create New Book
+                  <Plus className="w-5 h-5" />
+                  New Book
                 </button>
               )}
             </div>
           </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-white">{stats.totalChallans}</div>
+              <div className="text-blue-100 text-sm">Total Challans</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-yellow-300">{stats.pendingChallans}</div>
+              <div className="text-blue-100 text-sm">Pending</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-green-300">{stats.dispatchedChallans}</div>
+              <div className="text-blue-100 text-sm">Dispatched</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-purple-300">{stats.totalBilties}</div>
+              <div className="text-blue-100 text-sm">Total Bilties</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-orange-300">{stats.activeBooks}</div>
+              <div className="text-blue-100 text-sm">Active Books</div>
+            </div>
+          </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-lg border border-blue-200 mb-6">
-          <div className="flex border-b border-gray-200">
+        {/* Enhanced Tab Navigation */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 mb-6 overflow-hidden">
+          <div className="flex">
             <button
               onClick={() => handleTabChange('challans')}
-              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
+              className={`flex-1 py-6 px-6 text-center font-semibold transition-all duration-200 relative ${
                 activeTab === 'challans'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-black hover:bg-blue-50'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
               }`}
             >
-              <List className="w-5 h-5 inline mr-2" />
-              Challan Details ({challans.length})
+              <div className="flex flex-col items-center gap-2">
+                <List className="w-6 h-6" />
+                <div>
+                  <div className="font-bold">Challan Details</div>
+                  <div className={`text-sm ${activeTab === 'challans' ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {challans.length} entries
+                  </div>
+                </div>
+              </div>
+              {activeTab === 'challans' && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-400"></div>
+              )}
             </button>
             <button
               onClick={() => handleTabChange('books')}
-              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
+              className={`flex-1 py-6 px-6 text-center font-semibold transition-all duration-200 relative ${
                 activeTab === 'books'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-black hover:bg-blue-50'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
               }`}
             >
-              <Settings className="w-5 h-5 inline mr-2" />
-              Challan Books ({challanBooks.length})
+              <div className="flex flex-col items-center gap-2">
+                <Settings className="w-6 h-6" />
+                <div>
+                  <div className="font-bold">Challan Books</div>
+                  <div className={`text-sm ${activeTab === 'books' ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {challanBooks.length} books
+                  </div>
+                </div>
+              </div>
+              {activeTab === 'books' && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-400"></div>
+              )}
             </button>
           </div>
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'challans' ? (
-          <ChallanDetailsTab
-            challans={challans}
-            challanBooks={challanBooks}
-            onLoadChallans={loadChallans}
-            onCreateNew={handleCreateNewChallan}
-            onEdit={handleEditChallan}
-            userBranch={branchData}
-          />
-        ) : (
-          <ChallanBooksTab
-            challanBooks={challanBooks}
-            onCreateNew={handleCreateNewBook}
-            onEdit={handleEditBook}
-            onRefresh={loadChallanBooks}
-            userBranch={branchData}
-          />
-        )}
+        {/* Tab Content with Enhanced Styling */}
+        <div className="min-h-[500px]">
+          {activeTab === 'challans' ? (
+            <ChallanDetailsTab
+              challans={challans}
+              challanBooks={challanBooks}
+              onLoadChallans={loadChallans}
+              onCreateNew={handleCreateNewChallan}
+              onEdit={handleEditChallan}
+              userBranch={branchData}
+            />
+          ) : (
+            <ChallanBooksTab
+              challanBooks={challanBooks}
+              onCreateNew={handleCreateNewBook}
+              onEdit={handleEditBook}
+              onRefresh={loadChallanBooks}
+              userBranch={branchData}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Form Modals */}
-      {showChallanForm && (
-        <ChallanForm
-          isOpen={showChallanForm}
-          onClose={() => {
-            setShowChallanForm(false);
-            setEditingChallan(null);
-          }}
-          onSuccess={handleFormSuccess}
-          editingChallan={editingChallan}
-          userBranch={branchData}
-          challanBooks={challanBooks.filter(book => book.is_active && !book.is_completed)}
-          trucks={trucks}
-          staff={staff}
-          branches={branches}
-        />
-      )}
+      {/* Form Modals with Enhanced Backdrop */}
+      {(showChallanForm || showBookForm) && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-auto">
+            {showChallanForm && (
+              <ChallanForm
+                isOpen={showChallanForm}
+                onClose={() => {
+                  setShowChallanForm(false);
+                  setEditingChallan(null);
+                }}
+                onSuccess={handleFormSuccess}
+                editingChallan={editingChallan}
+                userBranch={branchData}
+                challanBooks={challanBooks.filter(book => book.is_active && !book.is_completed)}
+                trucks={trucks}
+                staff={staff}
+                branches={branches}
+              />
+            )}
 
-      {showBookForm && (
-        <ChallanBookForm
-          isOpen={showBookForm}
-          onClose={() => {
-            setShowBookForm(false);
-            setEditingBook(null);
-          }}
-          onSuccess={handleFormSuccess}
-          editingBook={editingBook}
-          userBranch={branchData}
-          branches={branches}
-        />
+            {showBookForm && (
+              <ChallanBookForm
+                isOpen={showBookForm}
+                onClose={() => {
+                  setShowBookForm(false);
+                  setEditingBook(null);
+                }}
+                onSuccess={handleFormSuccess}
+                editingBook={editingBook}
+                userBranch={branchData}
+                branches={branches}
+              />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -16,13 +16,19 @@ const ChallanDetailsTab = ({
 }) => {
   const { user } = useAuth();
   const [filters, setFilters] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: '',  // Empty by default to show all
     status: 'all',
     challanBook: ''
   });
-  // Load challans when filters change
+  
+  // Load challans when filters change, but only apply non-empty filters
   useEffect(() => {
-    onLoadChallans(filters);
+    const activeFilters = {};
+    if (filters.date) activeFilters.date = filters.date;
+    if (filters.status !== 'all') activeFilters.status = filters.status;
+    if (filters.challanBook) activeFilters.challanBook = filters.challanBook;
+    
+    onLoadChallans(activeFilters);
   }, [filters]);
 
   const handleDispatch = async (challanId, isCurrentlyDispatched) => {
@@ -62,7 +68,7 @@ const ChallanDetailsTab = ({
 
   const resetFilters = () => {
     setFilters({ 
-      date: format(new Date(), 'yyyy-MM-dd'), 
+      date: '', // Clear date to show all
       status: 'all', 
       challanBook: '' 
     });
@@ -70,29 +76,34 @@ const ChallanDetailsTab = ({
 
   return (
     <>
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-lg border border-blue-200 p-4 mb-6">
+      {/* Enhanced Filters */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Filter Challans
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
-              Filter by Date
+              Filter by Date (Optional)
             </label>
             <input
               type="date"
               value={filters.date}
               onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+              placeholder="All dates"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Status
             </label>
             <select
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -100,13 +111,13 @@ const ChallanDetailsTab = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-black mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Challan Book
             </label>
             <select
               value={filters.challanBook}
               onChange={(e) => setFilters(prev => ({ ...prev, challanBook: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             >
               <option value="">All Books</option>
               {challanBooks.map(book => (
@@ -116,40 +127,67 @@ const ChallanDetailsTab = ({
               ))}
             </select>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={onCreateNew}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2 font-semibold"
             >
+              <Truck className="w-4 h-4" />
               Create Challan
             </button>
             <button
               onClick={resetFilters}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300 font-semibold"
             >
-              Reset
+              Reset Filters
             </button>
           </div>
         </div>
       </div>
 
-      {/* Challans List */}
-      <div className="bg-white rounded-lg shadow-xl border border-blue-200 overflow-hidden">
-        <div className="bg-blue-600 text-white p-4">
-          <h2 className="text-lg font-bold">Challans ({challans.length})</h2>
+      {/* Enhanced Challans List */}
+      <div className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold">All Challans</h2>
+              <p className="text-blue-100 text-sm mt-1">{challans.length} total entries found</p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">{challans.length}</div>
+              <div className="text-blue-100 text-sm">Records</div>
+            </div>
+          </div>
         </div>
         
         {challans.length === 0 ? (
-          <div className="p-8 text-center">
-            <Truck className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold text-black mb-2">No Challans Found</h3>
-            <p className="text-gray-600 mb-4">Create your first challan to get started</p>
-            <button
-              onClick={onCreateNew}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Create Challan
-            </button>
+          <div className="p-12 text-center">
+            <div className="bg-blue-50 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
+              <Truck className="w-12 h-12 text-blue-500" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">No Challans Found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              {filters.date || filters.status !== 'all' || filters.challanBook 
+                ? 'Try adjusting your filters to see more results, or create your first challan.'
+                : 'Get started by creating your first challan to track your shipments.'
+              }
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={onCreateNew}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg font-semibold"
+              >
+                Create Challan
+              </button>
+              {(filters.date || filters.status !== 'all' || filters.challanBook) && (
+                <button
+                  onClick={resetFilters}
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">

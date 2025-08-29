@@ -9,6 +9,7 @@ import Navbar from '../../components/dashboard/navbar';
 import BillSearchHeader from '../../components/bill/bill-search-header';
 import BillFilterPanel from '../../components/bill/bill-filters';
 import BillSearchTable from '../../components/bill/bill-search-table';
+import BillGenerator from '../../components/bill/bill-generation';
 
 export default function BillSearch() {
   const { user, requireAuth } = useAuth();
@@ -51,6 +52,7 @@ export default function BillSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedBilties, setSelectedBilties] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -795,6 +797,17 @@ export default function BillSearch() {
     }
   };
 
+  const handlePrintBilties = () => {
+    const selectedData = getSelectedBilties();
+    
+    if (selectedData.length === 0) {
+      alert('Please select bilties to print');
+      return;
+    }
+    
+    setShowPrintModal(true);
+  };
+
   // Load more results function
   const loadMoreResults = async () => {
     if (loadingMore || !searchResults.hasMore) return;
@@ -871,6 +884,7 @@ export default function BillSearch() {
           hasSearched={hasSearched}
           onDownloadCSV={handleDownloadCSV}
           onCopyToClipboard={handleCopyToClipboard}
+          onPrintBilties={handlePrintBilties}
           selectedBiltiesCount={selectedBilties.length}
           hasMore={searchResults.hasMore}
           loadingMore={loadingMore}
@@ -936,6 +950,15 @@ export default function BillSearch() {
           </div>
         )}
       </div>
+
+      {/* Print Modal */}
+      {showPrintModal && (
+        <BillGenerator
+          selectedBilties={getSelectedBilties()}
+          onClose={() => setShowPrintModal(false)}
+          cities={cities}
+        />
+      )}
     </div>
   );
 }

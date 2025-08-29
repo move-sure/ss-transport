@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, SlidersHorizontal, Download, Copy } from 'lucide-react';
+import { Search, SlidersHorizontal, Download, Copy, Printer } from 'lucide-react';
 
 export default function BillSearchHeader({ 
   onToggleFilters, 
@@ -11,6 +11,7 @@ export default function BillSearchHeader({
   hasSearched,
   onDownloadCSV,
   onCopyToClipboard,
+  onPrintBilties,
   selectedBiltiesCount = 0
 }) {
   return (
@@ -41,6 +42,22 @@ export default function BillSearchHeader({
         <div className="flex items-center space-x-4">
           {hasSearched && totalResults > 0 && (
             <>
+              <button
+                onClick={onPrintBilties}
+                disabled={selectedBiltiesCount === 0}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                  selectedBiltiesCount > 0 
+                    ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title={selectedBiltiesCount > 0 ? `Print ${selectedBiltiesCount} selected bilties` : "Select bilties to print"}
+              >
+                <Printer className="h-4 w-4" />
+                <span className="font-medium">
+                  {selectedBiltiesCount > 0 ? `Print Selected (${selectedBiltiesCount})` : 'Print Bilties'}
+                </span>
+              </button>
+              
               <button
                 onClick={onDownloadCSV}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"

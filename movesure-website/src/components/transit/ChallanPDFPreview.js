@@ -502,7 +502,16 @@ const ChallanPDFPreview = ({
     const totalWeight = sortedTransitBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
     const toPaidAmount = sortedTransitBiltiesData.filter(b => b.payment_mode === 'to-pay').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
     const paidAmount = sortedTransitBiltiesData.filter(b => b.payment_mode === 'paid').reduce((sum, bilty) => sum + (bilty.total || 0), 0);
-    const totalEwayBills = sortedTransitBiltiesData.filter(bilty => bilty.e_way_bill && bilty.e_way_bill.trim() !== '').length;    // Table data with serial numbers - Convert text to CAPS
+    
+    // Count individual e-way bills properly - split by comma and count each one
+    const totalEwayBills = sortedTransitBiltiesData.reduce((total, bilty) => {
+      if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
+        // Split by comma and count each individual e-way bill
+        const ewayBills = bilty.e_way_bill.split(',').filter(bill => bill.trim() !== '');
+        return total + ewayBills.length;
+      }
+      return total;
+    }, 0);    // Table data with serial numbers - Convert text to CAPS
     const tableData = sortedTransitBiltiesData.map((bilty, index) => [
       (index + 1).toString(), // S.No
       (bilty.gr_no || '').toUpperCase(),
@@ -675,168 +684,146 @@ const ChallanPDFPreview = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full m-4 flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b-2 border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl shadow-lg">
-          <div className="flex items-center gap-4">
-            {type === 'loading' ? (
-              <>
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <Package className="w-8 h-8" />
-                </div>
+        <div className="p-3 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {type === 'loading' ? (
+                <>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">Loading Challan Preview</h3>
+                    <p className="text-purple-100 text-xs">Generate and preview loading challan document</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">
+                      Challan Preview - {selectedChallan?.challan_no}
+                    </h3>
+                    <p className="text-purple-100 text-xs">Generate and preview challan document</p>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            {/* Document Info */}
+            <div className="flex items-center gap-6 text-xs">
+              <div className="flex items-center gap-1">
+                <FileText className="w-3 h-3 text-purple-200" />
+                <span className="text-purple-200">Type:</span>
+                <span className="font-bold">{type === 'loading' ? 'Loading Challan' : 'Transit Challan'}</span>
+              </div>
+              
+              {type === 'challan' && (
                 <div>
-                  <h3 className="text-2xl font-bold">Loading Challan Preview</h3>
-                  <p className="text-purple-100 text-sm">Generate and preview loading challan document</p>
+                  <span className="text-purple-200">Challan No:</span>
+                  <span className="ml-1 font-bold">{selectedChallan?.challan_no}</span>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <Truck className="w-8 h-8" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold">
-                    Challan Preview - {selectedChallan?.challan_no}
-                  </h3>
-                  <p className="text-purple-100 text-sm">Generate and preview challan document</p>
-                </div>
-              </>
-            )}
+              )}
+              
+              <div>
+                <span className="text-purple-200">Date:</span>
+                <span className="ml-1 font-bold">{format(new Date(), 'dd/MM/yyyy')}</span>
+              </div>
+              
+              <div>
+                <span className="text-purple-200">Total Bilties:</span>
+                <span className="ml-1 font-bold">{transitBilties.length}</span>
+              </div>
+
+              {transitBilties.length > 0 && (
+                <>
+                  <div>
+                    <span className="text-purple-200">Packages:</span>
+                    <span className="ml-1 font-bold">{transitBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}</span>
+                  </div>
+                  <div>
+                    <span className="text-purple-200">Weight:</span>
+                    <span className="ml-1 font-bold">{Math.round(transitBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg</span>
+                  </div>
+                  <div>
+                    <span className="text-purple-200">E-way Bills:</span>
+                    <span className="ml-1 font-bold">
+                      {transitBilties.reduce((total, bilty) => {
+                        if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
+                          const ewayBills = bilty.e_way_bill.split(',').filter(bill => bill.trim() !== '');
+                          return total + ewayBills.length;
+                        }
+                        return total;
+                      }, 0)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={generatePDFBlob}
+                disabled={loading}
+                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded flex items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+              >
+                <Eye className="w-3 h-3" />
+                {loading ? 'Generating...' : 'Generate'}
+              </button>
+
+              <button
+                onClick={handleDownload}
+                disabled={loading || error || !pdfUrl}
+                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded flex items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+              >
+                <Download className="w-3 h-3" />
+                Download
+              </button>
+              
+              <button
+                onClick={onClose}
+                className="bg-white/20 hover:bg-white/30 text-white p-2 rounded transition-all hover:scale-105"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          
-          <button
-            onClick={onClose}
-            className="bg-white/20 hover:bg-white/30 text-white p-3 rounded-lg transition-all hover:scale-105"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>        {/* Main Content - Split Layout */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel - Controls */}
-          <div className="w-1/4 p-4 border-r-2 border-purple-200 bg-white overflow-y-auto">
-            <div className="space-y-4">
-              {/* Document Info Card */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 shadow-sm">
-                <h4 className="text-sm font-bold text-black mb-3 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-purple-600" />
-                  Document Info
-                </h4>
-                <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="font-semibold text-gray-600">Type:</span>
-                    <p className="text-purple-700 font-bold">{type === 'loading' ? 'Loading Challan' : 'Transit Challan'}</p>
-                  </div>
-                  {type === 'challan' && (
-                    <div>
-                      <span className="font-semibold text-gray-600">Challan No:</span>
-                      <p className="text-purple-700 font-bold">{selectedChallan?.challan_no}</p>
-                    </div>
-                  )}
-                  <div>
-                    <span className="font-semibold text-gray-600">Date:</span>
-                    <p className="text-gray-800">{format(new Date(), 'dd/MM/yyyy')}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-600">Total Bilties:</span>
-                    <p className="text-purple-700 font-bold">{transitBilties.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold text-black">Actions</h4>
-                
-                <button
-                  onClick={generatePDFBlob}
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                >
-                  <Eye className="w-4 h-4" />
-                  {loading ? 'Generating...' : 'Generate Preview'}
-                </button>
-
-                <button
-                  onClick={handleDownload}
-                  disabled={loading || error || !pdfUrl}
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                >
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </button>
-                
-                <button
-                  onClick={handlePrint}
-                  disabled={loading || error || !pdfUrl}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                >
-                  <Printer className="w-4 h-4" />
-                  Print
-                </button>
-              </div>
-
+        </div>        {/* Main Content - Full Width PDF Preview */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* PDF Preview */}
+          <div className="flex-1 p-2 bg-gray-50 overflow-hidden flex flex-col">
+            <div className="mb-2 flex items-center justify-end">
               {/* Status Display */}
               {loading && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                    <div>
-                      <div className="text-sm font-semibold text-blue-800">Generating PDF...</div>
-                      <div className="text-xs text-blue-600">Please wait</div>
-                    </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  <div>
+                    <div className="text-sm font-semibold text-blue-800">Generating PDF...</div>
+                    <div className="text-xs text-blue-600">Please wait</div>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-red-100 p-1 rounded">
-                      <FileText className="w-4 h-4 text-red-600" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-red-800">Error</div>
-                      <div className="text-xs text-red-600">{error}</div>
-                    </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
+                  <div className="bg-red-100 p-1 rounded">
+                    <FileText className="w-4 h-4 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-red-800">Error</div>
+                    <div className="text-xs text-red-600">{error}</div>
                   </div>
                   <button
                     onClick={generatePDFBlob}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-semibold transition-colors"
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-semibold transition-colors ml-3"
                   >
                     Try Again
                   </button>
                 </div>
               )}
-
-              {/* Summary Statistics */}
-              {transitBilties.length > 0 && (
-                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-3">
-                  <h4 className="text-sm font-bold text-black mb-3">Summary</h4>
-                  <div className="space-y-2">
-                    <div className="bg-white rounded p-2 border border-gray-100">
-                      <span className="text-xs font-semibold text-gray-600">Total Packages:</span>
-                      <p className="text-lg font-bold text-purple-600">
-                        {transitBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}
-                      </p>
-                    </div>
-                    <div className="bg-white rounded p-2 border border-gray-100">
-                      <span className="text-xs font-semibold text-gray-600">Total Weight:</span>
-                      <p className="text-lg font-bold text-blue-600">
-                        {Math.round(transitBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Panel - PDF Preview */}
-          <div className="w-3/4 p-4 bg-gray-50 overflow-hidden flex flex-col">
-            <div className="mb-3">
-              <h4 className="text-lg font-bold text-black flex items-center gap-2">
-                <Eye className="w-5 h-5 text-purple-600" />
-                PDF Preview
-              </h4>
-              <p className="text-sm text-gray-600">Live preview of your document</p>
             </div>
 
             <div className="flex-1 border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-lg">

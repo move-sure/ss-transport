@@ -145,14 +145,14 @@ const ChallanPDFPreview = ({
       
         // LEFT COLUMN TABLE      // Draw table header background
       doc.setFillColor(245, 245, 245); // Light gray background
-      doc.rect(margin, startY - 6, tableWidth, 10, 'F'); // Increased header height      // Left Column Header with adjusted column widths - bigger package and station columns
+      doc.rect(margin, startY - 6, tableWidth, 10, 'F'); // Increased header height      // Left Column Header with adjusted column widths - smaller GR No, bigger Station
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('S.No', margin + 2, startY);
       doc.text('G.R.No', margin + 12, startY);
-      doc.text('Pkg', margin + 35, startY);
-      doc.text('Station', margin + 45, startY);
+      doc.text('Pkg', margin + 28, startY);
+      doc.text('Station', margin + 38, startY);
       doc.text('Pvt. Mark', margin + 62, startY);
       doc.text('Remark', margin + 90, startY);
       
@@ -163,11 +163,11 @@ const ChallanPDFPreview = ({
       // Header border
       doc.rect(margin, startY - 6, tableWidth, 10);
       
-      // Vertical lines in header - adjusted for bigger package and station columns
+      // Vertical lines in header - adjusted for smaller GR No, bigger Station
       doc.line(margin + 10, startY - 6, margin + 10, startY + 4); // After S.No
-      doc.line(margin + 33, startY - 6, margin + 33, startY + 4); // After G.R.No
-      doc.line(margin + 43, startY - 6, margin + 43, startY + 4); // After Pkg (bigger)
-      doc.line(margin + 60, startY - 6, margin + 60, startY + 4); // After Station (bigger)
+      doc.line(margin + 26, startY - 6, margin + 26, startY + 4); // After G.R.No (reduced from 33 to 26)
+      doc.line(margin + 36, startY - 6, margin + 36, startY + 4); // After Pkg (reduced from 43 to 36)
+      doc.line(margin + 60, startY - 6, margin + 60, startY + 4); // After Station (kept same, but now bigger due to earlier reduction)
       doc.line(margin + 88, startY - 6, margin + 88, startY + 4); // After Pvt. Mark
       
       let currentY = startY + 10; // Adjusted for increased header height      // Left column data with borders and bigger, bold GR numbers
@@ -201,18 +201,23 @@ const ChallanPDFPreview = ({
         // Make Package column bigger font and bold
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text((bilty.no_of_pkg || 0).toString(), margin + 35, currentY);        // Reset to normal for station (bigger width)
-        doc.setFontSize(8);
+        doc.text((bilty.no_of_pkg || 0).toString(), margin + 28, currentY);        // Dynamic font size for station code based on length
+        const stationCode = bilty.to_city_code || '';
+        const stationFontSize = stationCode.length <= 4 ? 10 : 8; // Bigger font for shorter codes
+        doc.setFontSize(stationFontSize);
         doc.setFont('helvetica', 'bold');
-        doc.text(bilty.to_city_code || '', margin + 45, currentY);
+        doc.text(stationCode, margin + 38, currentY);
         
-        // Fix pvt_marks display - handle both string and number cases
+        // Fix pvt_marks display - handle both string and number cases with dynamic font size
         let pvtMarkText = '';
         if (bilty.pvt_marks && bilty.pvt_marks.toString().trim() !== '') {
           pvtMarkText = `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}`;
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
+        // Dynamic font size for private marks based on length
+        const pvtMarkFontSize = pvtMarkText.length <= 4 ? 10 : 8; // Bigger font for shorter text
+        doc.setFontSize(pvtMarkFontSize);
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, margin + 62, currentY);
         
@@ -226,8 +231,8 @@ const ChallanPDFPreview = ({
         
         // Vertical lines with adjusted positions for new column widths
         doc.line(margin + 10, currentY - 6, margin + 10, currentY + 4);
-        doc.line(margin + 33, currentY - 6, margin + 33, currentY + 4);
-        doc.line(margin + 43, currentY - 6, margin + 43, currentY + 4);
+        doc.line(margin + 26, currentY - 6, margin + 26, currentY + 4);
+        doc.line(margin + 36, currentY - 6, margin + 36, currentY + 4);
         doc.line(margin + 60, currentY - 6, margin + 60, currentY + 4);
         doc.line(margin + 88, currentY - 6, margin + 88, currentY + 4);
         
@@ -244,8 +249,8 @@ const ChallanPDFPreview = ({
         doc.setLineWidth(0.2);
         doc.rect(margin, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height        // Vertical lines with adjusted positions for new column widths
         doc.line(margin + 10, currentY - 6, margin + 10, currentY + 4);
-        doc.line(margin + 33, currentY - 6, margin + 33, currentY + 4);
-        doc.line(margin + 43, currentY - 6, margin + 43, currentY + 4);
+        doc.line(margin + 26, currentY - 6, margin + 26, currentY + 4);
+        doc.line(margin + 36, currentY - 6, margin + 36, currentY + 4);
         doc.line(margin + 60, currentY - 6, margin + 60, currentY + 4);
         doc.line(margin + 88, currentY - 6, margin + 88, currentY + 4);
         
@@ -257,14 +262,14 @@ const ChallanPDFPreview = ({
         // Draw table header background for right column
       doc.setFillColor(245, 245, 245);
       doc.rect(rightColumnX, currentY - 6, tableWidth, 10, 'F');
-        // Right Column Header with adjusted column widths - bigger package and station columns
+        // Right Column Header with adjusted column widths - smaller GR No, bigger Station
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('S.No', rightColumnX + 2, currentY);
       doc.text('G.R.No', rightColumnX + 12, currentY);
-      doc.text('Pkg', rightColumnX + 35, currentY);
-      doc.text('Station', rightColumnX + 45, currentY);
+      doc.text('Pkg', rightColumnX + 28, currentY);
+      doc.text('Station', rightColumnX + 38, currentY);
       doc.text('Pvt. Mark', rightColumnX + 62, currentY);
       doc.text('Remark', rightColumnX + 90, currentY);
       
@@ -274,8 +279,8 @@ const ChallanPDFPreview = ({
       
       // Vertical lines in header with new column widths
       doc.line(rightColumnX + 10, currentY - 6, rightColumnX + 10, currentY + 4);
-      doc.line(rightColumnX + 33, currentY - 6, rightColumnX + 33, currentY + 4);
-      doc.line(rightColumnX + 43, currentY - 6, rightColumnX + 43, currentY + 4);
+      doc.line(rightColumnX + 26, currentY - 6, rightColumnX + 26, currentY + 4);
+      doc.line(rightColumnX + 36, currentY - 6, rightColumnX + 36, currentY + 4);
       doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
       doc.line(rightColumnX + 88, currentY - 6, rightColumnX + 88, currentY + 4);
         currentY += 10; // Adjusted for header height      // Right column data with borders and bigger, bold GR numbers
@@ -309,19 +314,24 @@ const ChallanPDFPreview = ({
         // Make Package column bigger font and bold
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 35, currentY);
-          // Reset to normal for station (bigger width)
-        doc.setFontSize(8);
+        doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 28, currentY);
+        // Dynamic font size for station code based on length
+        const stationCode = bilty.to_city_code || '';
+        const stationFontSize = stationCode.length <= 4 ? 10 : 8; // Bigger font for shorter codes
+        doc.setFontSize(stationFontSize);
         doc.setFont('helvetica', 'bold');
-        doc.text(bilty.to_city_code || '', rightColumnX + 45, currentY);
+        doc.text(stationCode, rightColumnX + 38, currentY);
         
-        // Fix pvt_marks display - handle both string and number cases
+        // Fix pvt_marks display - handle both string and number cases with dynamic font size
         let pvtMarkText = '';
         if (bilty.pvt_marks && bilty.pvt_marks.toString().trim() !== '') {
           pvtMarkText = `${bilty.pvt_marks}/${bilty.no_of_pkg || 0}`;
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
+        // Dynamic font size for private marks based on length
+        const pvtMarkFontSize = pvtMarkText.length <= 4 ? 10 : 8; // Bigger font for shorter text
+        doc.setFontSize(pvtMarkFontSize);
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
@@ -335,8 +345,8 @@ const ChallanPDFPreview = ({
         
         // Vertical lines with adjusted positions for new column widths
         doc.line(rightColumnX + 10, currentY - 6, rightColumnX + 10, currentY + 4);
-        doc.line(rightColumnX + 33, currentY - 6, rightColumnX + 33, currentY + 4);
-        doc.line(rightColumnX + 43, currentY - 6, rightColumnX + 43, currentY + 4);
+        doc.line(rightColumnX + 26, currentY - 6, rightColumnX + 26, currentY + 4);
+        doc.line(rightColumnX + 36, currentY - 6, rightColumnX + 36, currentY + 4);
         doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
         doc.line(rightColumnX + 88, currentY - 6, rightColumnX + 88, currentY + 4);
         
@@ -353,8 +363,8 @@ const ChallanPDFPreview = ({
         doc.setLineWidth(0.2);
         doc.rect(rightColumnX, currentY - 6, tableWidth, rowHeight); // Adjusted for increased row height        // Vertical lines with adjusted positions for new column widths
         doc.line(rightColumnX + 10, currentY - 6, rightColumnX + 10, currentY + 4);
-        doc.line(rightColumnX + 33, currentY - 6, rightColumnX + 33, currentY + 4);
-        doc.line(rightColumnX + 43, currentY - 6, rightColumnX + 43, currentY + 4);
+        doc.line(rightColumnX + 26, currentY - 6, rightColumnX + 26, currentY + 4);
+        doc.line(rightColumnX + 36, currentY - 6, rightColumnX + 36, currentY + 4);
         doc.line(rightColumnX + 60, currentY - 6, rightColumnX + 60, currentY + 4);
         doc.line(rightColumnX + 88, currentY - 6, rightColumnX + 88, currentY + 4);
           currentY += rowHeight;

@@ -201,9 +201,9 @@ const ChallanPDFPreview = ({
         // Make Package column bigger font and bold
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text((bilty.no_of_pkg || 0).toString(), margin + 28, currentY);        // Dynamic font size for station code based on length
+        doc.text((bilty.no_of_pkg || 0).toString(), margin + 28, currentY);        // Dynamic font size for station code - prioritize readability 
         const stationCode = bilty.to_city_code || '';
-        const stationFontSize = stationCode.length <= 4 ? 10 : 8; // Bigger font for shorter codes
+        const stationFontSize = stationCode.length > 6 ? 8 : 10; // More generous threshold
         doc.setFontSize(stationFontSize);
         doc.setFont('helvetica', 'bold');
         doc.text(stationCode, margin + 38, currentY);
@@ -215,8 +215,9 @@ const ChallanPDFPreview = ({
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
-        // Dynamic font size for private marks based on length
-        const pvtMarkFontSize = pvtMarkText.length <= 4 ? 10 : 8; // Bigger font for shorter text
+        // Dynamic font size for private marks - prioritize readability
+        // Use bigger font (10pt) for most cases, only use smaller (8pt) for very long text
+        const pvtMarkFontSize = pvtMarkText.length > 8 ? 8 : 10; // More generous threshold
         doc.setFontSize(pvtMarkFontSize);
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, margin + 62, currentY);
@@ -315,9 +316,9 @@ const ChallanPDFPreview = ({
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 28, currentY);
-        // Dynamic font size for station code based on length
+        // Dynamic font size for station code - prioritize readability
         const stationCode = bilty.to_city_code || '';
-        const stationFontSize = stationCode.length <= 4 ? 10 : 8; // Bigger font for shorter codes
+        const stationFontSize = stationCode.length > 6 ? 8 : 10; // More generous threshold
         doc.setFontSize(stationFontSize);
         doc.setFont('helvetica', 'bold');
         doc.text(stationCode, rightColumnX + 38, currentY);
@@ -329,8 +330,9 @@ const ChallanPDFPreview = ({
         } else {
           pvtMarkText = `/${bilty.no_of_pkg || 0}`;
         }
-        // Dynamic font size for private marks based on length
-        const pvtMarkFontSize = pvtMarkText.length <= 4 ? 10 : 8; // Bigger font for shorter text
+        // Dynamic font size for private marks - prioritize readability
+        // Use bigger font (10pt) for most cases, only use smaller (8pt) for very long text
+        const pvtMarkFontSize = pvtMarkText.length > 8 ? 8 : 10; // More generous threshold
         doc.setFontSize(pvtMarkFontSize);
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, rightColumnX + 62, currentY);

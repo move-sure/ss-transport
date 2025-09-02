@@ -111,6 +111,14 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+          }`}>
+            {bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door' ? 'DD' : 'Godown'}
+          </span>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
             bilty.payment_mode === 'paid' ? 'bg-green-100 text-green-800' :
             bilty.payment_mode === 'to-pay' ? 'bg-yellow-100 text-yellow-800' :
             bilty.payment_mode === 'foc' ? 'bg-blue-100 text-blue-800' :
@@ -195,6 +203,14 @@ export default function BillSearchTable({
         
         <td className="px-3 py-2 whitespace-nowrap">
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            bilty.delivery_type === 'door' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+          }`}>
+            {bilty.delivery_type === 'door' ? 'DD' : 'Godown'}
+          </span>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
             bilty.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
             bilty.payment_status === 'to-pay' ? 'bg-yellow-100 text-yellow-800' :
             bilty.payment_status === 'foc' ? 'bg-blue-100 text-blue-800' :
@@ -252,7 +268,7 @@ export default function BillSearchTable({
     if (combinedData.length === 0) {
       return (
         <tr>
-          <td colSpan="9" className="px-6 py-12 text-center">
+          <td colSpan="11" className="px-6 py-12 text-center">
             <div className="text-gray-500">
               <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No bilties found</h3>
@@ -333,6 +349,9 @@ export default function BillSearchTable({
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Destination/Station
+              </th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Delivery Type
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status

@@ -643,6 +643,7 @@ export default function BillSearch() {
       'Consignee',
       'Destination City',
       'City Code',
+      'Delivery Type',
       'Payment Mode',
       'Private Marks',
       'Challan No',
@@ -661,6 +662,7 @@ export default function BillSearch() {
           bilty.consignee_name || bilty.consignee || 'N/A',
           bilty.to_city_name || bilty.station || 'N/A',
           bilty.to_city_code || 'N/A',
+          (bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door') ? 'DD' : 'Godown',
           bilty.payment_mode || bilty.payment_status || 'N/A',
           bilty.pvt_marks || 'N/A',
           bilty.challan_no || 'N/A',
@@ -728,6 +730,7 @@ export default function BillSearch() {
       'CONTENT',
       'NO_OF_PACKAGES',
       'WEIGHT',
+      'DELIVERY_TYPE',
       'TO_PAY',
       'PAID',
       'STATION',
@@ -756,6 +759,7 @@ export default function BillSearch() {
           bilty.type === 'station' 
             ? (bilty.weight || 0) 
             : (bilty.wt || 0),
+          (bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door') ? 'DD' : 'Godown',
           // TO_PAY column
           bilty.type === 'station' 
             ? (bilty.payment_status === 'to-pay' ? (bilty.amount || 0) : 0)

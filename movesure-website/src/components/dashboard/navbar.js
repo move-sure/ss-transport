@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package } from 'lucide-react';
 
 // Module configuration
 const MODULE_CONFIG = {
@@ -19,17 +19,18 @@ const MODULE_CONFIG = {
     name: 'E-Way Bill',
     path: '/ewb',
     icon: 'Receipt',
-    shortcut: ''
+    shortcut: 'Alt+E'
   },  'challan': {
     name: 'Challan',
     path: '/challan',
-    icon: 'FileText',
+    icon: 'Package',
     shortcut: 'Alt+C'
   },
   'manual': {
     name: 'Manual',
     path: '/manual',
-    icon: 'FileText',
+    icon: 'BookOpen',
+    shortcut: 'Alt+M'
   },
   'challan-setting': {
     name: 'Challan Settings',
@@ -45,11 +46,12 @@ const MODULE_CONFIG = {
     name: 'Search',
     path: '/search',
     icon: 'Search',
+    shortcut: 'Alt+S'
   },
   'bill': {
     name: 'Bill Search',
     path: '/bill',
-    icon: 'Search',
+    icon: 'Receipt',
   },  'master': {
     name: 'Master',
     path: '/staff',
@@ -62,12 +64,14 @@ const MODULE_CONFIG = {
   },  'staff': {
     name: 'Admin',
     path: '/test',
-    icon: 'Wrench',
+    icon: 'Shield',
+    shortcut: 'Alt+A'
   },
   'danger': {
     name: 'Danger Zone',
     path: '/danger',
     icon: 'AlertTriangle',
+    shortcut: 'Alt+Z'
   },
   'godown': {
     name: 'Godown',
@@ -136,10 +140,34 @@ export default function Navbar() {
               handleNavClick({ path: '/challan', module: 'challan' });
             }
             break;
+          case 's':
+            event.preventDefault();
+            if (userModules.includes('search')) {
+              handleNavClick({ path: '/search', module: 'search' });
+            }
+            break;
+          case 'm':
+            event.preventDefault();
+            if (userModules.includes('manual')) {
+              handleNavClick({ path: '/manual', module: 'manual' });
+            }
+            break;
           case 'e':
             event.preventDefault();
             if (userModules.includes('e-way-bill')) {
               handleNavClick({ path: '/ewb', module: 'e-way-bill' });
+            }
+            break;
+          case 'a':
+            event.preventDefault();
+            if (userModules.includes('staff')) {
+              handleNavClick({ path: '/test', module: 'staff' });
+            }
+            break;
+          case 'z':
+            event.preventDefault();
+            if (userModules.includes('danger')) {
+              handleNavClick({ path: '/danger', module: 'danger' });
             }
             break;
           case 'g':
@@ -178,10 +206,17 @@ export default function Navbar() {
   };  const getNavigationItems = (userModules) => {
     if (!Array.isArray(userModules) || userModules.length === 0) {
       return [];
-    }    const navigationItems = [];
-    const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'challan-setting', 'truck-management', 'search', 'bill', 'master', 'setting', 'staff', 'danger', 'godown'];
+    }
 
-    moduleOrder.forEach(moduleName => {
+    const navigationItems = [];
+    
+    // Icon-only modules (left side)
+    const iconOnlyOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'search', 'staff', 'danger'];
+    // Text modules (right side)
+    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown'];
+
+    // Add icon-only modules first
+    iconOnlyOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
         const config = MODULE_CONFIG[moduleName];
         navigationItems.push({
@@ -190,6 +225,22 @@ export default function Navbar() {
           module: moduleName,
           isBilty: config.isBilty || false,
           shortcut: config.shortcut || null,
+          isIconOnly: true,
+        });
+      }
+    });
+
+    // Add text modules after
+    textModulesOrder.forEach(moduleName => {
+      if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
+        const config = MODULE_CONFIG[moduleName];
+        navigationItems.push({
+          name: config.name,
+          path: config.path,
+          module: moduleName,
+          isBilty: config.isBilty || false,
+          shortcut: config.shortcut || null,
+          isIconOnly: false,
         });
       }
     });
@@ -199,13 +250,14 @@ export default function Navbar() {
     const iconMap = {
       'bilty': <FileText className="h-4 w-4" />,
       'e-way-bill': <Receipt className="h-4 w-4" />,
-      'challan': <FileText className="h-4 w-4" />,
-      'manual': <FileText className="h-4 w-4" />,
+      'challan': <Package className="h-4 w-4" />,
+      'manual': <BookOpen className="h-4 w-4" />,
       'challan-setting': <Settings className="h-4 w-4" />,
       'truck-management': <Truck className="h-4 w-4" />,      'search': <Search className="h-4 w-4" />,
+      'bill': <Receipt className="h-4 w-4" />,
       'master': <Database className="h-4 w-4" />,
       'setting': <Settings className="h-4 w-4" />,
-      'staff': <Wrench className="h-4 w-4" />,
+      'staff': <Shield className="h-4 w-4" />,
       'danger': <AlertTriangle className="h-4 w-4" />,
       'godown': <Database className="h-4 w-4" />
     };
@@ -303,54 +355,82 @@ export default function Navbar() {
     return false;
   };
   return (
-    <nav className="bg-gradient-to-r from-blue-900 to-blue-800 shadow-xl border-b border-blue-700">
+    <nav className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 shadow-2xl border-b border-blue-700">
       <div className="w-full mx-auto px-2">
         <div className="flex justify-between h-14">
           {/* Left side - Logo/Brand and Navigation */}
           <div className="flex items-center space-x-4">            {/* Logo/Brand */}
             <div className="flex-shrink-0 flex items-center">
-              <div className="bg-white rounded-lg p-1.5 mr-2">
-                <Database className="h-4 w-4 text-blue-900" />
-              </div>
-              <h1 className="text-sm font-bold text-white">
-                movesure.io
-              </h1>
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className="text-sm font-bold text-white hover:text-blue-200 transition-colors"
+              >
+                movesure
+              </button>
             </div>              {/* Navigation Links */}
             <div className="flex space-x-1">
               {navigationItems.map((item) => {
                 const isActive = isActiveRoute(item.path);
                 const isLoading = navigating === item.path;
-                  if (item.isBilty) {
+                
+                if (item.isBilty) {
                   // Special styling for Bilty button
                   return (
                     <button
                       key={item.name}
                       onClick={() => handleNavClick(item)}
                       disabled={isLoading}
-                      title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}                      className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 flex flex-col items-center space-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                         isActive 
                           ? 'bg-blue-100 text-blue-900 shadow-lg scale-105' 
                           : 'bg-white text-blue-900 hover:bg-blue-50'
                       }`}
                     >
                       {isLoading ? (
-                        <div className="animate-spin h-3 w-3 border-2 border-blue-900 border-t-transparent rounded-full"></div>
+                        <div className="animate-spin h-4 w-4 border-2 border-blue-900 border-t-transparent rounded-full"></div>
                       ) : (
                         getModuleIcon(item.module)
                       )}
-                      <span>{item.name}</span>
                       {item.shortcut && (
-                        <span className="text-xs opacity-70 ml-1">({item.shortcut})</span>
+                        <span className="text-xs opacity-70">{item.shortcut}</span>
                       )}
                     </button>
                   );
                 }
+                
+                if (item.isIconOnly) {
                   return (
+                    <button
+                      key={item.name}
+                      onClick={() => handleNavClick(item)}
+                      disabled={isLoading}
+                      title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
+                      className={`px-3 py-2 rounded-md text-xs font-medium transition-all duration-200 flex flex-col items-center space-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isActive
+                          ? 'text-white bg-blue-700 shadow-md'
+                          : 'text-blue-100 hover:text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      ) : (
+                        getModuleIcon(item.module)
+                      )}
+                      {item.shortcut && (
+                        <span className="text-xs opacity-70">{item.shortcut}</span>
+                      )}
+                    </button>
+                  );
+                }
+                
+                return (
                   <button
                     key={item.name}
                     onClick={() => handleNavClick(item)}
                     disabled={isLoading}
-                    title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}                    className={`px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-200 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
+                    className={`px-2 py-1.5 rounded-md text-xs font-medium transition-all duration-200 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                       isActive
                         ? 'text-white bg-blue-700 shadow-md'
                         : 'text-blue-100 hover:text-white hover:bg-blue-700'
@@ -456,34 +536,6 @@ export default function Navbar() {
                         <div className="ml-auto animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
                       )}
                     </button>
-                    
-                    {checkModuleAccess(userModules, 'setting') && (
-                      <button
-                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                        onClick={() => handleDropdownNavigation('/settings')}
-                        disabled={navigating === '/settings'}
-                      >
-                        <Settings className="h-4 w-4 mr-3 text-blue-600" />
-                        Settings
-                        {navigating === '/settings' && (
-                          <div className="ml-auto animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                        )}
-                      </button>
-                    )}
-
-                    {checkModuleAccess(userModules, 'staff') && (
-                      <button
-                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                        onClick={() => handleDropdownNavigation('/admin')}
-                        disabled={navigating === '/admin'}
-                      >
-                        <Wrench className="h-4 w-4 mr-3 text-blue-600" />
-                        Admin Panel
-                        {navigating === '/admin' && (
-                          <div className="ml-auto animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                        )}
-                      </button>
-                    )}
                   </div>
 
                   {/* Logout */}

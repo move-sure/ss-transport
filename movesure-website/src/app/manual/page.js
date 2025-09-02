@@ -361,10 +361,10 @@ export default function StationBiltySummaryPage() {
     );
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white page-with-navbar">
       <Navbar />
       
-      <main className="w-full max-w-full mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="w-full max-w-full mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="w-full">
           
           {/* Header Section */}

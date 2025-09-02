@@ -19,8 +19,6 @@ const ManualBiltyHeader = ({
     <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 rounded-3xl shadow-2xl mb-8">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-white/5 to-transparent rounded-full -translate-y-48 translate-x-48"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-500/10 to-transparent rounded-full translate-y-48 -translate-x-48"></div>
       
       <div className="relative p-8">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
@@ -58,7 +56,7 @@ const ManualBiltyHeader = ({
           {/* Right Section - Controls */}
           <div className="flex items-center gap-4">
             {/* Branch Selector */}
-            <div className="relative z-10">
+            <div className="relative z-[49]">
               <button
                 onClick={() => setShowBranchDropdown(!showBranchDropdown)}
                 className="bg-white/10 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-3 hover:bg-white/20 transition-all duration-300 border border-white/20 shadow-lg min-w-[200px] justify-between"
@@ -84,10 +82,10 @@ const ManualBiltyHeader = ({
               {showBranchDropdown && (
                 <>
                   <div 
-                    className="fixed inset-0 z-[9998]" 
+                    className="fixed inset-0 z-[48]" 
                     onClick={() => setShowBranchDropdown(false)}
                   />
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[9999] max-h-80 overflow-hidden">
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[49] max-h-80 overflow-hidden">
                     <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
                       <h3 className="font-semibold text-gray-900">Select Branch</h3>
                       <p className="text-sm text-gray-600">Choose your working branch</p>

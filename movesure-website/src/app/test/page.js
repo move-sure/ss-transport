@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
+import Navbar from '../../components/dashboard/navbar';
 import { Users, Plus, Trash2, Save, Search, CheckCircle, XCircle, Shield, User } from 'lucide-react';
 
 const AVAILABLE_MODULES = [
@@ -193,6 +194,7 @@ export default function UserModulesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Navbar />
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-6 py-6">

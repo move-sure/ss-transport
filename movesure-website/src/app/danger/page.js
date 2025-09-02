@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
 import BillBookEditor from '../../components/danger/danger-helper';
+import Navbar from '../../components/dashboard/navbar';
 import { AlertTriangle, Shield, Database } from 'lucide-react';
 
 export default function DangerPage() {
@@ -78,8 +79,10 @@ export default function DangerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50">
+      <Navbar />
+      <div className="p-4">
+        <div className="max-w-6xl mx-auto">
         {/* Header with warning banner */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl p-6 mb-6 shadow-2xl">
           <div className="flex items-center gap-4">
@@ -108,6 +111,7 @@ export default function DangerPage() {
 
         {/* Bill Book Editor Component */}
         <BillBookEditor />
+        </div>
       </div>
     </div>
   );

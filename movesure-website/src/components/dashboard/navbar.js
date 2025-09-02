@@ -392,10 +392,10 @@ export default function Navbar() {
                         ) : (
                           getModuleIcon(item.module)
                         )}
-                        <span className="font-medium transition-all duration-200">
-                          <span className="group-hover:hidden">{item.name}</span>
+                        <span className="font-medium relative inline-block min-w-max">
+                          <span className="transition-opacity duration-300 ease-in-out group-hover:opacity-0">{item.name}</span>
                           {item.shortcut && (
-                            <span className="hidden group-hover:inline">{item.shortcut}</span>
+                            <span className="absolute inset-0 transition-opacity duration-300 ease-in-out opacity-0 group-hover:opacity-100">{item.shortcut}</span>
                           )}
                         </span>
                       </button>
@@ -421,10 +421,10 @@ export default function Navbar() {
                         ) : (
                           getModuleIcon(item.module)
                         )}
-                        <span className="font-medium transition-all duration-200">
-                          <span className="group-hover:hidden">{item.name}</span>
+                        <span className="font-medium relative inline-block min-w-max">
+                          <span className="transition-opacity duration-300 ease-in-out group-hover:opacity-0">{item.name}</span>
                           {item.shortcut && (
-                            <span className="hidden group-hover:inline">{item.shortcut}</span>
+                            <span className="absolute inset-0 transition-opacity duration-300 ease-in-out opacity-0 group-hover:opacity-100">{item.shortcut}</span>
                           )}
                         </span>
                       </button>

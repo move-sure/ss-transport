@@ -195,11 +195,14 @@ export const useStationBiltySummary = () => {
     try {
       setSearching(true);
       
+      // Escape special characters for PostgreSQL ILIKE query
+      const escapedTerm = term.replace(/[%_\\]/g, '\\$&');
+      
       // Search ALL records without pagination limits
       const { data, error } = await supabase
         .from('station_bilty_summary')
         .select('*')
-        .or(`station.ilike.%${term}%,gr_no.ilike.%${term}%,consignor.ilike.%${term}%,consignee.ilike.%${term}%,pvt_marks.ilike.%${term}%,contents.ilike.%${term}%`)
+        .or(`station.ilike.%${escapedTerm}%,gr_no.ilike.%${escapedTerm}%,consignor.ilike.%${escapedTerm}%,consignee.ilike.%${escapedTerm}%,pvt_marks.ilike.%${escapedTerm}%,contents.ilike.%${escapedTerm}%`)
         .order('created_at', { ascending: false })
         .limit(100); // Reasonable limit for search results
 
@@ -294,29 +297,35 @@ export const useStationBiltySummary = () => {
         query = query.lt('created_at', toDate.toISOString().split('T')[0]);
       }
       
-      // Text-based filters using ILIKE for case-insensitive search
+      // Text-based filters using ILIKE for case-insensitive search with escaped special characters
       if (filters.grNumber) {
-        query = query.ilike('gr_no', `%${filters.grNumber}%`);
+        const escapedGrNumber = filters.grNumber.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('gr_no', `%${escapedGrNumber}%`);
       }
       
       if (filters.consignor) {
-        query = query.ilike('consignor', `%${filters.consignor}%`);
+        const escapedConsignor = filters.consignor.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('consignor', `%${escapedConsignor}%`);
       }
       
       if (filters.consignee) {
-        query = query.ilike('consignee', `%${filters.consignee}%`);
+        const escapedConsignee = filters.consignee.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('consignee', `%${escapedConsignee}%`);
       }
       
       if (filters.pvtMarks) {
-        query = query.ilike('pvt_marks', `%${filters.pvtMarks}%`);
+        const escapedPvtMarks = filters.pvtMarks.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('pvt_marks', `%${escapedPvtMarks}%`);
       }
       
       if (filters.contents) {
-        query = query.ilike('contents', `%${filters.contents}%`);
+        const escapedContents = filters.contents.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('contents', `%${escapedContents}%`);
       }
       
       if (filters.station) {
-        query = query.ilike('station', `%${filters.station}%`);
+        const escapedStation = filters.station.replace(/[%_\\]/g, '\\$&');
+        query = query.ilike('station', `%${escapedStation}%`);
       }
       
       // Exact match filters

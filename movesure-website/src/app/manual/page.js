@@ -7,7 +7,6 @@ import Navbar from '../../components/dashboard/navbar';
 import EwbValidatorManual from '../../components/manual/ewb-validator-manual';
 import ManualBiltyForm from '../../components/manual/manual-bilty-form';
 import ManualBiltyTable from '../../components/manual/manual-bilty-table';
-import ManualBiltyStats from '../../components/manual/manual-bilty-stats';
 import ManualBiltyHeader from '../../components/manual/manual-bilty-header';
 import ManualBiltySearch from '../../components/manual/manual-bilty-search';
 import ManualBiltyDeleteModal from '../../components/manual/manual-bilty-delete-modal';
@@ -35,6 +34,7 @@ export default function StationBiltySummaryPage() {
     setFormData,
     setSearchTerm,
     loadSummaryData,
+    searchSummaries,
     saveSummary,
     loadForEdit,
     deleteSummary,
@@ -43,9 +43,8 @@ export default function StationBiltySummaryPage() {
     exportToCSV,
     advancedSearchSummaries
   } = useStationBiltySummary();
-    // Component state
+  // Component state
   const [showForm, setShowForm] = useState(false);
-  const [stats, setStats] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [recordsPerPage] = useState(20);
@@ -75,9 +74,18 @@ export default function StationBiltySummaryPage() {
   useEffect(() => {
     if (user?.id) {
       handleLoadData();
-      loadStats();
     }
   }, [user?.id, currentPage]);
+  
+  // Search when searchTerm changes
+  useEffect(() => {
+    if (searchTerm.length >= 2) {
+      searchSummaries(searchTerm);
+    } else if (searchTerm === '') {
+      // Clear search results when search term is empty
+      handleLoadData();
+    }
+  }, [searchTerm, searchSummaries]);
   
   // Keyboard shortcuts
   useEffect(() => {
@@ -244,12 +252,7 @@ export default function StationBiltySummaryPage() {
 
   // Load statistics
   const loadStats = async () => {
-    try {
-      const statsData = await getSummaryStats();
-      setStats(statsData);
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    }
+    // Stats functionality removed
   };
     // Handle form submission
   const handleSubmit = async (e) => {
@@ -258,7 +261,6 @@ export default function StationBiltySummaryPage() {
       // Pass user data to saveSummary for proper staff_id and branch_id handling
       await saveSummary(user);
       setShowForm(false);
-      await loadStats();
       alert(editingId ? 'Record updated successfully!' : 'Record added successfully!');
     } catch (error) {
       console.error('Error saving:', error);
@@ -285,7 +287,6 @@ export default function StationBiltySummaryPage() {
     try {
       await deleteSummary(id);
       setShowDeleteConfirm(null);
-      await loadStats();
       alert('Record deleted successfully!');
     } catch (error) {
       console.error('Error deleting:', error);
@@ -379,8 +380,7 @@ export default function StationBiltySummaryPage() {
             loading={loading}
           />
 
-          {/* Statistics Cards */}
-          <ManualBiltyStats stats={stats} />          {/* Search and Filter Section */}          <ManualBiltySearch
+          {/* Search and Filter Section */}          <ManualBiltySearch
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             handleLoadData={handleLoadData}

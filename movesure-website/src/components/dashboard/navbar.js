@@ -376,51 +376,63 @@ export default function Navbar() {
                 if (item.isBilty) {
                   // Special styling for Bilty button
                   return (
-                    <button
-                      key={item.name}
-                      onClick={() => handleNavClick(item)}
-                      disabled={isLoading}
-                      title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 flex flex-col items-center space-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isActive 
-                          ? 'bg-blue-100 text-blue-900 shadow-lg scale-105' 
-                          : 'bg-white text-blue-900 hover:bg-blue-50'
-                      }`}
-                    >
-                      {isLoading ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-blue-900 border-t-transparent rounded-full"></div>
-                      ) : (
-                        getModuleIcon(item.module)
-                      )}
-                      {item.shortcut && (
-                        <span className="text-xs opacity-70">{item.shortcut}</span>
-                      )}
-                    </button>
+                    <div key={item.name} className="relative group">
+                      <button
+                        onClick={() => handleNavClick(item)}
+                        disabled={isLoading}
+                        title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 flex flex-col items-center space-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isActive 
+                            ? 'bg-blue-100 text-blue-900 shadow-lg scale-105' 
+                            : 'bg-white text-blue-900 hover:bg-blue-50'
+                        }`}
+                      >
+                        {isLoading ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-900 border-t-transparent rounded-full"></div>
+                        ) : (
+                          getModuleIcon(item.module)
+                        )}
+                        {item.shortcut && (
+                          <span className="text-xs opacity-70">{item.shortcut}</span>
+                        )}
+                      </button>
+                      {/* Hover Tooltip */}
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50">
+                        {item.name}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    </div>
                   );
                 }
                 
                 if (item.isIconOnly) {
                   return (
-                    <button
-                      key={item.name}
-                      onClick={() => handleNavClick(item)}
-                      disabled={isLoading}
-                      title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
-                      className={`px-3 py-2 rounded-md text-xs font-medium transition-all duration-200 flex flex-col items-center space-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isActive
-                          ? 'text-white bg-blue-700 shadow-md'
-                          : 'text-blue-100 hover:text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      {isLoading ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      ) : (
-                        getModuleIcon(item.module)
-                      )}
-                      {item.shortcut && (
-                        <span className="text-xs opacity-70">{item.shortcut}</span>
-                      )}
-                    </button>
+                    <div key={item.name} className="relative group">
+                      <button
+                        onClick={() => handleNavClick(item)}
+                        disabled={isLoading}
+                        title={item.shortcut ? `${item.name} (${item.shortcut})` : item.name}
+                        className={`px-3 py-2 rounded-md text-xs font-medium transition-all duration-200 flex flex-col items-center space-y-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isActive
+                            ? 'text-white bg-blue-700 shadow-md'
+                            : 'text-blue-100 hover:text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {isLoading ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                        ) : (
+                          getModuleIcon(item.module)
+                        )}
+                        {item.shortcut && (
+                          <span className="text-xs opacity-70">{item.shortcut}</span>
+                        )}
+                      </button>
+                      {/* Hover Tooltip */}
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50">
+                        {item.name}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    </div>
                   );
                 }
                 

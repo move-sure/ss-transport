@@ -254,6 +254,7 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
         const destination = bilty.type === 'regular' ? getCityName(bilty.to_city_id) : (bilty.station_name || bilty.station || 'N/A');
         const amount = bilty.total || bilty.amount || 0;
         const date = bilty.bilty_date || bilty.created_at || bilty.date;
+        const deliveryType = (bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door') ? 'DD' : 'Godown';
         
         return [
           (index + 1).toString(),
@@ -261,6 +262,7 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
           formatDate(date),
           consigneeName,
           destination,
+          deliveryType,
           (bilty.payment_mode || bilty.payment_status || 'N/A').toString().toUpperCase(),
           formatCurrency(amount), // Removed rupee symbol to avoid font issues
           bilty.pvt_marks || 'N/A'
@@ -274,6 +276,7 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
         'Date',
         'Consignee',
         'Destination',
+        'Delivery\nType',
         'Payment\nMode',
         'Amount\n(Rs.)',
         'Private\nMarks'
@@ -284,7 +287,7 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
       const cellPadding = 3;
       const startX = 10;
       const tableWidth = pageWidth - 20;
-      const columnWidths = [12, 25, 22, 50, 35, 20, 25, 15]; // Increased date column width
+      const columnWidths = [12, 25, 22, 50, 35, 18, 20, 25, 15]; // Added delivery type column
       
       // Adjust column widths to fit page
       const totalWidth = columnWidths.reduce((a, b) => a + b, 0);

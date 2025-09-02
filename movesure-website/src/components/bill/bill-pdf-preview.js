@@ -101,6 +101,7 @@ const BillPDFPreview = ({
       (bilty.from_city_name || bilty.from_city || '').toUpperCase(),
       (bilty.to_city_name || bilty.to_city || '').toUpperCase(),
       (bilty.transport_name || '').toUpperCase(),
+      (bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door') ? 'DD' : 'Godown',
       (bilty.payment_mode || bilty.payment_status || '').toUpperCase(),
       (bilty.no_of_pkg || 0).toString(),
       Math.round(bilty.wt || 0).toString(),
@@ -111,7 +112,7 @@ const BillPDFPreview = ({
     // Create main table
     autoTable(doc, {
       startY: 58,
-      head: [['S.No', 'G.R. No.', 'Date', 'Consignor', 'Consignee', 'From', 'To', 'Transport', 'Pay Mode', 'Pkg', 'Wt(kg)', 'Amount', 'E-way Bill']],
+      head: [['S.No', 'G.R. No.', 'Date', 'Consignor', 'Consignee', 'From', 'To', 'Transport', 'Delivery Type', 'Pay Mode', 'Pkg', 'Wt(kg)', 'Amount', 'E-way Bill']],
       body: tableData,
       theme: 'grid',
       headStyles: { 
@@ -140,16 +141,17 @@ const BillPDFPreview = ({
         0: { halign: 'center', cellWidth: 15, fontStyle: 'bold' }, // S.No
         1: { halign: 'center', cellWidth: 25, fontStyle: 'bold', fontSize: 9 }, // GR No
         2: { halign: 'center', cellWidth: 20 }, // Date
-        3: { cellWidth: 35, overflow: 'linebreak', fontSize: 7.5 }, // Consignor
-        4: { cellWidth: 35, overflow: 'linebreak', fontSize: 7.5 }, // Consignee
-        5: { cellWidth: 20, overflow: 'linebreak' }, // From
-        6: { cellWidth: 20, overflow: 'linebreak' }, // To
-        7: { cellWidth: 25, overflow: 'linebreak' }, // Transport
-        8: { halign: 'center', cellWidth: 18 }, // Pay Mode
-        9: { halign: 'center', cellWidth: 15 }, // Pkg
-        10: { halign: 'center', cellWidth: 18 }, // Weight
-        11: { halign: 'right', cellWidth: 25 }, // Amount
-        12: { halign: 'center', cellWidth: 25 } // E-way Bill
+        3: { cellWidth: 32, overflow: 'linebreak', fontSize: 7.5 }, // Consignor
+        4: { cellWidth: 32, overflow: 'linebreak', fontSize: 7.5 }, // Consignee
+        5: { cellWidth: 18, overflow: 'linebreak' }, // From
+        6: { cellWidth: 18, overflow: 'linebreak' }, // To
+        7: { cellWidth: 22, overflow: 'linebreak' }, // Transport
+        8: { halign: 'center', cellWidth: 15 }, // Delivery Type
+        9: { halign: 'center', cellWidth: 16 }, // Pay Mode
+        10: { halign: 'center', cellWidth: 12 }, // Pkg
+        11: { halign: 'center', cellWidth: 15 }, // Weight
+        12: { halign: 'right', cellWidth: 22 }, // Amount
+        13: { halign: 'center', cellWidth: 22 } // E-way Bill
       },
       margin: { left: margin, right: margin },
       tableWidth: 'wrap',
@@ -166,7 +168,7 @@ const BillPDFPreview = ({
     
     autoTable(doc, {
       startY: tableEndY,
-      body: [['', '', '', '', '', '', '', 'TOTAL', '', totalPackages.toString(), Math.round(totalWeight).toString(), `₹${totalAmount.toFixed(2)}`, '']],
+      body: [['', '', '', '', '', '', '', 'TOTAL', '', '', totalPackages.toString(), Math.round(totalWeight).toString(), `₹${totalAmount.toFixed(2)}`, '']],
       theme: 'grid',
       styles: { 
         fontSize: 10,
@@ -181,16 +183,17 @@ const BillPDFPreview = ({
         0: { halign: 'center', cellWidth: 15 },
         1: { halign: 'center', cellWidth: 25 },
         2: { halign: 'center', cellWidth: 20 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 35 },
-        5: { cellWidth: 20 },
-        6: { cellWidth: 20 },
-        7: { halign: 'center', cellWidth: 25, fontStyle: 'bold' },
-        8: { halign: 'center', cellWidth: 18 },
-        9: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
-        10: { halign: 'center', cellWidth: 18, fontStyle: 'bold' },
-        11: { halign: 'right', cellWidth: 25, fontStyle: 'bold' },
-        12: { halign: 'center', cellWidth: 25 }
+        3: { cellWidth: 32 },
+        4: { cellWidth: 32 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 18 },
+        7: { halign: 'center', cellWidth: 22, fontStyle: 'bold' },
+        8: { halign: 'center', cellWidth: 15 },
+        9: { halign: 'center', cellWidth: 16 },
+        10: { halign: 'center', cellWidth: 12, fontStyle: 'bold' },
+        11: { halign: 'center', cellWidth: 15, fontStyle: 'bold' },
+        12: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
+        13: { halign: 'center', cellWidth: 22 }
       },
       margin: { left: margin, right: margin },
       tableWidth: 'wrap'

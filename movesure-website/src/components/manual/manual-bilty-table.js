@@ -275,30 +275,30 @@ const ManualBiltyTable = ({
           </div>
         )}      </div>      {/* Pagination - only show when not displaying search results */}
       {!isShowingSearchResults && totalPages > 1 && (
-        <div className="bg-gradient-to-r from-purple-800/20 via-blue-800/20 to-purple-800/20 backdrop-blur-sm px-4 py-4 border-t border-gray-600/30">
+        <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 px-4 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-purple-400/30 text-sm font-medium rounded-md text-purple-200 bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="relative inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-purple-400/30 text-sm font-medium rounded-md text-purple-200 bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-purple-200">
-                  Showing <span className="font-medium text-white">{startRecord}</span> to{' '}
-                  <span className="font-medium text-white">{endRecord}</span> of{' '}
-                  <span className="font-medium text-white">{totalRecords}</span> results
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium text-purple-700">{startRecord}</span> to{' '}
+                  <span className="font-medium text-purple-700">{endRecord}</span> of{' '}
+                  <span className="font-medium text-purple-700">{totalRecords}</span> results
                 </p>
               </div>
               <div>
@@ -306,7 +306,7 @@ const ManualBiltyTable = ({
                   <button
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-purple-400/30 bg-purple-500/20 text-sm font-medium text-purple-200 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-purple-300 bg-white text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
@@ -321,8 +321,8 @@ const ManualBiltyTable = ({
                           onClick={() => setCurrentPage(pageNum)}
                           className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium transition-colors ${
                             currentPage === pageNum
-                              ? 'z-10 bg-purple-500/40 border-purple-400 text-white'
-                              : 'bg-purple-500/20 border-purple-400/30 text-purple-200 hover:bg-purple-500/30'
+                              ? 'z-10 bg-purple-100 border-purple-400 text-purple-800'
+                              : 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50'
                           }`}
                         >
                           {pageNum}
@@ -335,7 +335,7 @@ const ManualBiltyTable = ({
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-purple-400/30 bg-purple-500/20 text-sm font-medium text-purple-200 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-purple-300 bg-white text-sm font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>

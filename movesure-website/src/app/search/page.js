@@ -384,7 +384,7 @@ export default function BiltySearch() {
           .filter(([key]) => key !== 'grNumber')
           .every(([_, value]) => value === '');
 
-      setSearchLoading(true); // Use searchLoading instead of loading
+      setSearchLoading(true);
       setIsFiltered(true);
       
       try {
@@ -393,7 +393,6 @@ export default function BiltySearch() {
         
         if (isOnlyGRFilter) {
           // Optimized GR Number only search using database function
-          
           const { data: grSearchData, error: grError } = await supabase
             .rpc('get_gr_search_results_with_challan_dates', {
               p_gr_number: pendingFilters.grNumber.trim(),
@@ -403,131 +402,166 @@ export default function BiltySearch() {
             });
             
           if (grError) {
-            // Fall back to current method
-            setIsOptimizedSearch(false); // Reset optimized search flag
-            await performFullSearch();
-          } else if (!grSearchData || grSearchData.length === 0) {
-            // Handle empty results
-            setAllBilties([]);
-            setAllStationBilties([]);
-            setIsFiltered(true);
-            setIsOptimizedSearch(true); // Still mark as optimized since we used the DB function
-            setCurrentPage(1);
+            console.error('GR search error:', grError);
+            // Fall back to comprehensive search
+            await performComprehensiveSearch();
           } else {
-            // Process the optimized search results - they already include challan dispatch dates
-            
-            // Get unique staff IDs to fetch user data
-            const staffIds = [...new Set((grSearchData || []).map(item => item.staff_id).filter(Boolean))];
-            let usersData = [];
-            
-            if (staffIds.length > 0) {
-              const { data: users, error: usersError } = await supabase
-                .from('users')
-                .select('id, username, name')
-                .in('id', staffIds);
-                
-              if (!usersError && users) {
-                usersData = users;
-              }
-            }
-            
-            // Transform the data to match our expected format
-            const regularBilties = [];
-            const stationBilties = [];
-            
-            (grSearchData || []).forEach(item => {
-              const staffUser = usersData.find(user => user.id === item.staff_id);
-              
-              // Create transit_details structure for both regular and station bilties
-              const transitDetails = (item.challan_no && item.challan_no.trim() !== '') ? [{
-                id: `${item.id}_transit`,
-                challan_no: item.challan_no,
-                gr_no: item.gr_no,
-                dispatch_date: item.dispatch_date, // Direct dispatch_date for UI compatibility
-                is_dispatched: item.is_dispatched || false
-              }] : []; // Empty array when no challan
-              
-              if (item.type === 'station') {
-                stationBilties.push({
-                  id: item.id,
-                  bilty_type: 'station', // CRITICAL: Ensure station bilties have correct type
-                  gr_no: item.gr_no,
-                  consignor: item.consignor || '',
-                  consignee: item.consignee || '',
-                  station: item.station || '',
-                  payment_status: item.payment_status || 'to-pay',
-                  no_of_packets: item.no_of_packets || 0,
-                  weight: item.weight || 0,
-                  amount: item.amount || 0,
-                  pvt_marks: item.pvt_marks || '',
-                  content_field: item.content_field || '', // Add content field
-                  created_at: item.created_at,
-                  staff_id: item.staff_id,
-                  e_way_bill: item.e_way_bill || '',
-                  created_by_user: staffUser || null,
-                  transit_details: transitDetails // Add transit_details for station bilties too
-                });
-              } else {
-                // Regular bilty with proper transit_details structure
-                regularBilties.push({
-                  id: item.id,
-                  bilty_type: 'regular', // CRITICAL: Ensure regular bilties have correct type
-                  gr_no: item.gr_no,
-                  bilty_date: item.bilty_date,
-                  consignor_name: item.consignor_name || '',
-                  consignee_name: item.consignee_name || '',
-                  transport_name: item.transport_name || '',
-                  payment_mode: item.payment_mode || '',
-                  total: parseFloat(item.total || 0),
-                  no_of_pkg: item.no_of_pkg || 0,
-                  wt: parseFloat(item.wt || 0),
-                  rate: parseFloat(item.rate || 0),
-                  pvt_marks: item.pvt_marks || '',
-                  content_field: item.content_field || '', // Add content field
-                  to_city_id: item.to_city_id,
-                  created_at: item.created_at,
-                  staff_id: item.staff_id,
-                  e_way_bill: item.e_way_bill || '',
-                  invoice_no: item.invoice_no || '',
-                  saving_option: item.saving_option || 'SAVE',
-                  is_active: item.is_active !== false,
-                  created_by_user: staffUser || null,
-                  transit_details: transitDetails // Use the same transit_details structure
-                });
-              }
-            });
-            
-            // Set the processed data
-            setAllBilties(regularBilties);
-            setAllStationBilties(stationBilties);
-            setIsFiltered(true);
-            setIsOptimizedSearch(true); // Mark as optimized search
-            setCurrentPage(1); // Reset pagination
+            await processOptimizedResults(grSearchData);
           }
           
         } else {
-          // Full search for multiple filters
-          setIsOptimizedSearch(false); // Reset optimized search flag
-          await performFullSearch();
+          // Comprehensive search for multiple filters with challan details
+          await performComprehensiveSearch();
         }
         
       } catch (error) {
+        console.error('Search error:', error);
         setError(error.message || 'Failed to search bilties');
       } finally {
-        setSearchLoading(false); // Use searchLoading instead of loading
+        setSearchLoading(false);
       }
     } else {
       // No filters applied, just update applied filters
       setIsFiltered(false);
     }
     
-    // Debug city filter
-    if (pendingFilters.toCityId) {
-      const selectedCity = cities.find(c => c.id?.toString() === pendingFilters.toCityId?.toString());
-    }
-    
     setAppliedFilters(pendingFilters);
   }, [pendingFilters, cities, user]);
+
+  // Helper function for comprehensive search with ALL filters
+  const performComprehensiveSearch = async () => {
+    setIsOptimizedSearch(true); // Using optimized comprehensive function
+    
+    // Prepare search parameters for the comprehensive function
+    const searchParams = {
+      p_branch_id: user?.branch_id || null,
+      p_date_from: pendingFilters.dateFrom || null,
+      p_date_to: pendingFilters.dateTo || null,
+      p_gr_number: pendingFilters.grNumber?.trim() || null,
+      p_consignor_name: pendingFilters.consignorName?.trim() || null,
+      p_consignee_name: pendingFilters.consigneeName?.trim() || null,
+      p_to_city_id: pendingFilters.toCityId || null,
+      p_payment_mode: pendingFilters.paymentMode || null,
+      p_has_eway_bill: pendingFilters.hasEwayBill || null,
+      p_saving_option: pendingFilters.savingOption || null,
+      p_min_amount: pendingFilters.minAmount ? parseFloat(pendingFilters.minAmount) : null,
+      p_max_amount: pendingFilters.maxAmount ? parseFloat(pendingFilters.maxAmount) : null,
+      p_pvt_marks: pendingFilters.pvtMarks?.trim() || null,
+      p_limit: 1000
+    };
+
+    const { data: searchResults, error: searchError } = await supabase
+      .rpc('get_complete_search_results_with_challan', searchParams);
+
+    if (searchError) {
+      console.error('Comprehensive search error:', searchError);
+      throw searchError;
+    }
+
+    await processOptimizedResults(searchResults);
+  };
+
+  // Helper function to process optimized search results
+  const processOptimizedResults = async (searchData) => {
+    if (!searchData || searchData.length === 0) {
+      // Handle empty results
+      setAllBilties([]);
+      setAllStationBilties([]);
+      setIsFiltered(true);
+      setIsOptimizedSearch(true);
+      setCurrentPage(1);
+      return;
+    }
+
+    // Get unique staff IDs to fetch user data
+    const staffIds = [...new Set(searchData.map(item => item.staff_id).filter(Boolean))];
+    let usersData = [];
+    
+    if (staffIds.length > 0) {
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, name')
+        .in('id', staffIds);
+        
+      if (!usersError && users) {
+        usersData = users;
+      }
+    }
+    
+    // Transform the data to match our expected format
+    const regularBilties = [];
+    const stationBilties = [];
+    
+    searchData.forEach(item => {
+      const staffUser = usersData.find(user => user.id === item.staff_id);
+      
+      // Create transit_details structure for both regular and station bilties
+      const transitDetails = (item.challan_no && item.challan_no.trim() !== '') ? [{
+        id: `${item.id}_transit`,
+        challan_no: item.challan_no,
+        gr_no: item.gr_no,
+        dispatch_date: item.dispatch_date,
+        is_dispatched: item.is_dispatched || false
+      }] : [];
+      
+      if (item.type === 'station') {
+        stationBilties.push({
+          id: item.id,
+          bilty_type: 'station',
+          gr_no: item.gr_no,
+          consignor: item.consignor || '',
+          consignee: item.consignee || '',
+          station: item.station || '',
+          payment_status: item.payment_status || 'to-pay',
+          no_of_packets: item.no_of_packets || 0,
+          weight: item.weight || 0,
+          amount: item.amount || 0,
+          pvt_marks: item.pvt_marks || '',
+          content_field: item.content_field || '',
+          created_at: item.created_at,
+          staff_id: item.staff_id,
+          e_way_bill: item.e_way_bill || '',
+          created_by_user: staffUser || null,
+          transit_details: transitDetails
+        });
+      } else {
+        regularBilties.push({
+          id: item.id,
+          bilty_type: 'regular',
+          gr_no: item.gr_no,
+          bilty_date: item.bilty_date,
+          consignor_name: item.consignor_name || '',
+          consignee_name: item.consignee_name || '',
+          transport_name: item.transport_name || '',
+          payment_mode: item.payment_mode || '',
+          total: parseFloat(item.total || 0),
+          no_of_pkg: item.no_of_pkg || 0,
+          wt: parseFloat(item.wt || 0),
+          rate: parseFloat(item.rate || 0),
+          pvt_marks: item.pvt_marks || '',
+          content_field: item.content_field || '',
+          to_city_id: item.to_city_id,
+          created_at: item.created_at,
+          staff_id: item.staff_id,
+          e_way_bill: item.e_way_bill || '',
+          invoice_no: item.invoice_no || '',
+          saving_option: item.saving_option || 'SAVE',
+          is_active: item.is_active !== false,
+          created_by_user: staffUser || null,
+          transit_details: transitDetails
+        });
+      }
+    });
+    
+    // Set the processed data
+    setAllBilties(regularBilties);
+    setAllStationBilties(stationBilties);
+    setIsFiltered(true);
+    setIsOptimizedSearch(true);
+    setCurrentPage(1);
+    
+    console.log(`✅ Search completed: ${regularBilties.length} regular + ${stationBilties.length} station bilties`);
+  };
 
   // Helper function for full database search
   const performFullSearch = async () => {

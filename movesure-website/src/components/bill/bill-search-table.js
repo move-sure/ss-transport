@@ -150,6 +150,8 @@ const BillSearchTable = memo(({
     );
   });
 
+  RegularBiltyRow.displayName = 'RegularBiltyRow';
+
   const StationBiltyRow = memo(({ bilty, index }) => {
     const isSelected = selectedBilties.includes(`station-${bilty.id}`);
     
@@ -256,6 +258,8 @@ const BillSearchTable = memo(({
       </tr>
     );
   });
+
+  StationBiltyRow.displayName = 'StationBiltyRow';
 
   const renderTableContent = () => {
     if (!paginatedData || paginatedData.length === 0) {

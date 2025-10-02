@@ -10,6 +10,14 @@ import BillSearchHeader from '../../components/bill/bill-search-header';
 import BillFilterPanel from '../../components/bill/bill-filters';
 import BillSearchTable from '../../components/bill/bill-search-table';
 import BillGenerator from '../../components/bill/bill-generation';
+import SelectedBiltiesPanel from '../../components/bill/selected-bilties-panel';
+import {
+  getSelectedBilties,
+  toggleSelectedBilty,
+  clearSelectedBilties,
+  getSelectedBiltyIds,
+  isBiltySelected
+} from '../../utils/biltyStorage';
 
 export default function BillSearch() {
   const { user, requireAuth } = useAuth();
@@ -53,6 +61,7 @@ export default function BillSearch() {
   const [selectedBilties, setSelectedBilties] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showSelectedPanel, setShowSelectedPanel] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,6 +81,13 @@ export default function BillSearch() {
       initializeData();
     }
   }, [user]);
+
+  // Load selected bilties from localStorage on mount
+  useEffect(() => {
+    const storedBilties = getSelectedBilties();
+    const storedIds = storedBilties.map(b => `${b.type}-${b.id}`);
+    setSelectedBilties(storedIds);
+  }, []);
 
   const initializeData = async () => {
     try {
@@ -610,38 +626,14 @@ export default function BillSearch() {
 
   // Selection handlers
   const handleSelectBilty = useCallback((bilty) => {
-    const biltyId = `${bilty.type}-${bilty.id}`;
-    setSelectedBilties(prev => {
-      if (prev.includes(biltyId)) {
-        return prev.filter(id => id !== biltyId);
-      } else {
-        return [...prev, biltyId];
-      }
-    });
+    const updatedBilties = toggleSelectedBilty(bilty);
+    const updatedIds = updatedBilties.map(b => `${b.type}-${b.id}`);
+    setSelectedBilties(updatedIds);
   }, []);
 
-  const handleSelectAll = useCallback(() => {
-    const allBiltyIds = [
-      ...searchResults.regular.map(bilty => `regular-${bilty.id}`),
-      ...searchResults.station.map(bilty => `station-${bilty.id}`)
-    ];
-    
-    if (selectedBilties.length === allBiltyIds.length) {
-      setSelectedBilties([]);
-    } else {
-      setSelectedBilties(allBiltyIds);
-    }
-  }, [searchResults.regular, searchResults.station, selectedBilties.length]);
-
-  const getSelectedBilties = () => {
-    const allBilties = [
-      ...searchResults.regular.map(bilty => ({ ...bilty, type: 'regular' })),
-      ...searchResults.station.map(bilty => ({ ...bilty, type: 'station' }))
-    ];
-    
-    return allBilties.filter(bilty => 
-      selectedBilties.includes(`${bilty.type}-${bilty.id}`)
-    );
+  const getSelectedBiltiesData = () => {
+    // Get from localStorage instead of current search results
+    return getSelectedBilties();
   };
 
   const convertToCSV = (data) => {
@@ -697,8 +689,8 @@ export default function BillSearch() {
   };
 
   const handleDownloadCSV = () => {
-    const selectedData = getSelectedBilties();
-    const dataToDownload = selectedData.length > 0 ? selectedData : [...searchResults.regular, ...searchResults.station];
+    const selectedData = getSelectedBiltiesData();
+    const dataToDownload = selectedData.length > 0 ? selectedData : [...searchResults.regular, ...searchResults.station].map(b => ({ ...b, type: b.type || 'regular' }));
     const csvContent = convertToCSV(dataToDownload);
     
     if (!csvContent) {
@@ -728,7 +720,7 @@ export default function BillSearch() {
   };
 
   const handleCopyToClipboard = async () => {
-    const selectedData = getSelectedBilties();
+    const selectedData = getSelectedBiltiesData();
     
     if (selectedData.length === 0) {
       alert('Please select bilties to copy');
@@ -815,7 +807,7 @@ export default function BillSearch() {
   };
 
   const handlePrintBilties = () => {
-    const selectedData = getSelectedBilties();
+    const selectedData = getSelectedBiltiesData();
     
     if (selectedData.length === 0) {
       alert('Please select bilties to print');
@@ -823,6 +815,21 @@ export default function BillSearch() {
     }
     
     setShowPrintModal(true);
+  };
+
+  const handleRemoveBilty = (bilty) => {
+    import('@/utils/biltyStorage').then(({ removeSelectedBilty }) => {
+      const updatedBilties = removeSelectedBilty(bilty);
+      const updatedIds = updatedBilties.map(b => `${b.type}-${b.id}`);
+      setSelectedBilties(updatedIds);
+    });
+  };
+
+  const handleClearAllSelected = () => {
+    if (window.confirm('Are you sure you want to clear all selected bilties?')) {
+      clearSelectedBilties();
+      setSelectedBilties([]);
+    }
   };
 
   // Load more results function
@@ -916,6 +923,35 @@ export default function BillSearch() {
     // Return only the current page
     return allBilties.slice(startIndex, endIndex);
   }, [searchResults.regular, searchResults.station, currentPage, itemsPerPage]);
+
+  // Handle select all after getPaginatedData is defined
+  const handleSelectAll = useCallback(() => {
+    const currentPageBilties = getPaginatedData.map(b => ({ ...b, type: b.type }));
+    const currentPageIds = currentPageBilties.map(b => `${b.type}-${b.id}`);
+    
+    // Check if all current page items are selected
+    const allCurrentPageSelected = currentPageIds.every(id => selectedBilties.includes(id));
+    
+    if (allCurrentPageSelected) {
+      // Remove all current page bilties from localStorage
+      const storedBilties = getSelectedBilties();
+      const updatedBilties = storedBilties.filter(
+        b => !currentPageIds.includes(`${b.type}-${b.id}`)
+      );
+      import('@/utils/biltyStorage').then(({ saveSelectedBilties }) => {
+        saveSelectedBilties(updatedBilties);
+      });
+      const updatedIds = updatedBilties.map(b => `${b.type}-${b.id}`);
+      setSelectedBilties(updatedIds);
+    } else {
+      // Add all current page bilties to localStorage
+      import('@/utils/biltyStorage').then(({ addMultipleBilties }) => {
+        const updatedBilties = addMultipleBilties(currentPageBilties);
+        const updatedIds = updatedBilties.map(b => `${b.type}-${b.id}`);
+        setSelectedBilties(updatedIds);
+      });
+    }
+  }, [getPaginatedData, selectedBilties]);
 
   if (!user) {
     return (
@@ -1109,11 +1145,23 @@ export default function BillSearch() {
       {/* Print Modal */}
       {showPrintModal && (
         <BillGenerator
-          selectedBilties={getSelectedBilties()}
+          selectedBilties={getSelectedBiltiesData()}
           onClose={() => setShowPrintModal(false)}
           cities={cities}
         />
       )}
+
+      {/* Selected Bilties Panel */}
+      <SelectedBiltiesPanel
+        selectedBilties={getSelectedBiltiesData()}
+        onRemoveBilty={handleRemoveBilty}
+        onClearAll={handleClearAllSelected}
+        onDownloadCSV={handleDownloadCSV}
+        onCopyToClipboard={handleCopyToClipboard}
+        onPrintBilties={handlePrintBilties}
+        isOpen={showSelectedPanel}
+        onToggle={() => setShowSelectedPanel(!showSelectedPanel)}
+      />
     </div>
   );
 }

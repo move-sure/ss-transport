@@ -323,7 +323,7 @@ const BillSearchTable = memo(({
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
-                  checked={selectedBilties.length > 0 && selectedBilties.length === allBiltiesCount}
+                  checked={selectedBilties.length > 0 && paginatedData.every(bilty => selectedBilties.includes(`${bilty.type}-${bilty.id}`))}
                   onChange={onSelectAll}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                 />

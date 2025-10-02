@@ -93,9 +93,14 @@ const BiltyFilterPanel = ({
     setCitySearchTerm(value);
     setShowCityDropdown(true);
     
-    // If input is empty, clear the city filter
+    // Update both toCityId and cityCode filters
+    // cityCode is used for station bilty search by city_code (not city_name)
+    handleInputChange('cityCode', value);
+    
+    // If input is empty, clear both city filters
     if (!value.trim()) {
       handleInputChange('toCityId', '');
+      handleInputChange('cityCode', '');
     }
   }, [handleInputChange]);
 
@@ -103,7 +108,9 @@ const BiltyFilterPanel = ({
   const handleCitySelect = useCallback((city) => {
     setCitySearchTerm(city.city_name);
     setShowCityDropdown(false);
+    // Set both city ID (for regular bilties) and city_code (for station bilty search)
     handleInputChange('toCityId', city.id);
+    handleInputChange('cityCode', city.city_code);
   }, [handleInputChange]);
 
   // Handle city input focus
@@ -318,6 +325,7 @@ const BiltyFilterPanel = ({
                             setCitySearchTerm('');
                             setShowCityDropdown(false);
                             handleInputChange('toCityId', '');
+                            handleInputChange('cityCode', '');
                           }}
                           className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 border-b border-slate-100 text-slate-600 italic"
                         >
@@ -458,6 +466,14 @@ const BiltyFilterPanel = ({
                     case 'toCityId': 
                       label = 'City/Station';
                       displayValue = cities.find(c => c.id?.toString() === value?.toString())?.city_name || value;
+                      break;
+                    case 'cityName': 
+                      label = 'Station Search';
+                      displayValue = value;
+                      break;
+                    case 'cityCode': 
+                      label = 'Station Code';
+                      displayValue = value;
                       break;
                     case 'paymentMode': label = 'Payment'; displayValue = value.toUpperCase(); break;
                     case 'hasEwayBill': label = 'E-Way'; displayValue = value === 'yes' ? 'With' : 'Without'; break;

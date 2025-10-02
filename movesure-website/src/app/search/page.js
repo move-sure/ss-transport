@@ -49,6 +49,7 @@ export default function BiltySearch() {
     consignorName: '',
     consigneeName: '',
     toCityId: '',
+    cityCode: '', // Add cityCode field
     paymentMode: '',
     hasEwayBill: '',
     savingOption: '',
@@ -64,6 +65,7 @@ export default function BiltySearch() {
     consignorName: '',
     consigneeName: '',
     toCityId: '',
+    cityCode: '', // Add cityCode field
     paymentMode: '',
     hasEwayBill: '',
     savingOption: '',
@@ -285,7 +287,6 @@ export default function BiltySearch() {
             gr_no
           )
         `, { count: 'exact' })
-        .eq('branch_id', user.branch_id)
         .eq('is_active', true)
         .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
         .order('created_at', { ascending: false })
@@ -393,10 +394,11 @@ export default function BiltySearch() {
         
         if (isOnlyGRFilter) {
           // Optimized GR Number only search using database function
+          // Search across all branches for admin access
           const { data: grSearchData, error: grError } = await supabase
             .rpc('get_gr_search_results_with_challan_dates', {
               p_gr_number: pendingFilters.grNumber.trim(),
-              p_branch_id: user?.branch_id || null,
+              p_branch_id: null, // Admin search - no branch filtering
               p_date_from: format(oneYearAgo, 'yyyy-MM-dd'),
               p_limit: 500
             });
@@ -433,8 +435,9 @@ export default function BiltySearch() {
     setIsOptimizedSearch(true); // Using optimized comprehensive function
     
     // Prepare search parameters for the comprehensive function
+    // Admin search - no branch filtering
     const searchParams = {
-      p_branch_id: user?.branch_id || null,
+      p_branch_id: null, // Admin access - search all branches
       p_date_from: pendingFilters.dateFrom || null,
       p_date_to: pendingFilters.dateTo || null,
       p_gr_number: pendingFilters.grNumber?.trim() || null,
@@ -447,6 +450,7 @@ export default function BiltySearch() {
       p_min_amount: pendingFilters.minAmount ? parseFloat(pendingFilters.minAmount) : null,
       p_max_amount: pendingFilters.maxAmount ? parseFloat(pendingFilters.maxAmount) : null,
       p_pvt_marks: pendingFilters.pvtMarks?.trim() || null,
+      p_city_code: pendingFilters.cityCode?.trim() || null,
       p_limit: 1000
     };
 
@@ -568,7 +572,7 @@ export default function BiltySearch() {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     
-    // Load ALL regular bilties for filtering
+    // Load ALL regular bilties for filtering (from all branches for admin access)
     const { data: allRegularData, error: regularError } = await supabase
       .from('bilty')
       .select(`
@@ -580,12 +584,11 @@ export default function BiltySearch() {
           gr_no
         )
       `)
-      .eq('branch_id', user.branch_id)
       .eq('is_active', true)
       .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
       .order('created_at', { ascending: false });
 
-    // Load ALL station bilties for filtering (FROM ALL BRANCHES)
+    // Load ALL station bilties for filtering (from all branches for admin access)
     const { data: allStationData, error: stationError } = await supabase
       .from('station_bilty_summary')
       .select('*, contents')
@@ -641,6 +644,7 @@ export default function BiltySearch() {
       consignorName: '',
       consigneeName: '',
       toCityId: '',
+      cityCode: '', // Add cityCode field
       paymentMode: '',
       hasEwayBill: '',
       savingOption: '',
@@ -960,7 +964,6 @@ export default function BiltySearch() {
                 gr_no
               )
             `, { count: 'exact' })
-            .eq('branch_id', user.branch_id)
             .eq('is_active', true)
             .gte('bilty_date', format(oneYearAgo, 'yyyy-MM-dd'))
             .order('created_at', { ascending: false })

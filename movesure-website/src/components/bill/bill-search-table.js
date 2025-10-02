@@ -1,26 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { memo, useCallback } from 'react';
 import { 
   FileText,
-  Truck,
   Building,
-  Calendar,
-  DollarSign,
   MapPin
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function BillSearchTable({ 
-  regularBilties, 
-  stationBilties, 
+const BillSearchTable = memo(({ 
+  paginatedData, 
   loading, 
-  biltyType,
   onSelectBilty,
   onSelectAll,
-  selectedBilties = []
-}) {
-  const [activeTab, setActiveTab] = useState('all');
+  selectedBilties = [],
+  allBiltiesCount = 0
+}) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -45,31 +40,32 @@ export default function BillSearchTable({
     return `₹${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
-  const getStatusBadge = (status) => {
-    const statusColors = {
-      'paid': 'bg-green-100 text-green-800',
-      'to-pay': 'bg-yellow-100 text-yellow-800',
-      'foc': 'bg-blue-100 text-blue-800'
-    };
-    
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
-        {status?.toUpperCase() || 'N/A'}
-      </span>
-    );
-  };
-
-  const RegularBiltyRow = ({ bilty, index }) => {
+  const RegularBiltyRow = memo(({ bilty, index }) => {
     const isSelected = selectedBilties.includes(`regular-${bilty.id}`);
     
+    const handleRowClick = useCallback((e) => {
+      if (e.target.type === 'checkbox') return;
+      onSelectBilty({ ...bilty, type: 'regular' });
+    }, [bilty]);
+    
+    const handleCheckboxChange = useCallback((e) => {
+      e.stopPropagation();
+      onSelectBilty({ ...bilty, type: 'regular' });
+    }, [bilty]);
+    
     return (
-      <tr key={`regular-${bilty.id}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-        <td className="px-3 py-2 whitespace-nowrap">
+      <tr 
+        onClick={handleRowClick}
+        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${
+          isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+        } hover:bg-blue-100 cursor-pointer transition-colors`}
+      >
+        <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={() => onSelectBilty({ ...bilty, type: 'regular' })}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            onChange={handleCheckboxChange}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
           />
         </td>
         
@@ -152,19 +148,34 @@ export default function BillSearchTable({
         </td>
       </tr>
     );
-  };
+  });
 
-  const StationBiltyRow = ({ bilty, index }) => {
+  const StationBiltyRow = memo(({ bilty, index }) => {
     const isSelected = selectedBilties.includes(`station-${bilty.id}`);
     
+    const handleRowClick = useCallback((e) => {
+      if (e.target.type === 'checkbox') return;
+      onSelectBilty({ ...bilty, type: 'station' });
+    }, [bilty]);
+    
+    const handleCheckboxChange = useCallback((e) => {
+      e.stopPropagation();
+      onSelectBilty({ ...bilty, type: 'station' });
+    }, [bilty]);
+    
     return (
-      <tr key={`station-${bilty.id}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
-        <td className="px-3 py-2 whitespace-nowrap">
+      <tr 
+        onClick={handleRowClick}
+        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${
+          isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+        } hover:bg-blue-100 cursor-pointer transition-colors`}
+      >
+        <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={() => onSelectBilty({ ...bilty, type: 'station' })}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            onChange={handleCheckboxChange}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
           />
         </td>
         
@@ -244,28 +255,10 @@ export default function BillSearchTable({
         </td>
       </tr>
     );
-  };
+  });
 
   const renderTableContent = () => {
-    let combinedData = [];
-    
-    // Combine data based on selected tab and biltyType filter
-    if (biltyType === 'all' || biltyType === 'regular') {
-      combinedData = [...combinedData, ...regularBilties.map(bilty => ({ ...bilty, type: 'regular' }))];
-    }
-    
-    if (biltyType === 'all' || biltyType === 'station') {
-      combinedData = [...combinedData, ...stationBilties.map(bilty => ({ ...bilty, type: 'station' }))];
-    }
-
-    // Sort by creation date (newest first)
-    combinedData.sort((a, b) => {
-      const dateA = new Date(a.created_at || a.bilty_date);
-      const dateB = new Date(b.created_at || b.bilty_date);
-      return dateB - dateA;
-    });
-
-    if (combinedData.length === 0) {
+    if (!paginatedData || paginatedData.length === 0) {
       return (
         <tr>
           <td colSpan="11" className="px-6 py-12 text-center">
@@ -279,7 +272,7 @@ export default function BillSearchTable({
       );
     }
 
-    return combinedData.map((bilty, index) => {
+    return paginatedData.map((bilty, index) => {
       if (bilty.type === 'regular') {
         return <RegularBiltyRow key={`regular-${bilty.id}`} bilty={bilty} index={index} />;
       } else {
@@ -312,11 +305,7 @@ export default function BillSearchTable({
           <div className="flex items-center space-x-4 text-sm text-gray-600">
             <span className="flex items-center">
               <FileText className="h-4 w-4 text-blue-500 mr-1" />
-              Regular: {regularBilties.length}
-            </span>
-            <span className="flex items-center">
-              <Building className="h-4 w-4 text-purple-500 mr-1" />
-              Station: {stationBilties.length}
+              Total: {allBiltiesCount || paginatedData?.length || 0}
             </span>
           </div>
         </div>
@@ -330,9 +319,9 @@ export default function BillSearchTable({
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
-                  checked={selectedBilties.length > 0 && selectedBilties.length === (regularBilties.length + stationBilties.length)}
+                  checked={selectedBilties.length > 0 && selectedBilties.length === allBiltiesCount}
                   onChange={onSelectAll}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                 />
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -374,4 +363,8 @@ export default function BillSearchTable({
       </div>
     </div>
   );
-}
+});
+
+BillSearchTable.displayName = 'BillSearchTable';
+
+export default BillSearchTable;

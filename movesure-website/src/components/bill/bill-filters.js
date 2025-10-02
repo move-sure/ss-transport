@@ -129,7 +129,8 @@ export default function BillFilterPanel({
               type="date"
               value={filters.dateFrom}
               onChange={(e) => handleInputChange('dateFrom', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 text-gray-900 [color-scheme:light]"
+              style={{ colorScheme: 'light' }}
             />
             <Calendar className="absolute right-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
           </div>
@@ -145,7 +146,8 @@ export default function BillFilterPanel({
               type="date"
               value={filters.dateTo}
               onChange={(e) => handleInputChange('dateTo', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 text-gray-900 [color-scheme:light]"
+              style={{ colorScheme: 'light' }}
             />
             <Calendar className="absolute right-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
           </div>

@@ -53,6 +53,11 @@ export default function BillSearch() {
   const [selectedBilties, setSelectedBilties] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Check authentication
   useEffect(() => {
@@ -155,6 +160,7 @@ export default function BillSearch() {
       setLoading(true);
       setError(null);
       setHasSearched(true);
+      setCurrentPage(1); // Reset to first page on new search
 
       const promises = [];
       
@@ -189,13 +195,18 @@ export default function BillSearch() {
       // Check if we have more data to load (if we got exactly 5000 records, there might be more)
       const hasMoreData = regularResults.length === 5000 || stationResults.length === 5000;
       
+      const totalCount = regularResults.length + stationResults.length;
+      
       setSearchResults({
         regular: regularResults,
         station: stationResults,
-        totalCount: regularResults.length + stationResults.length,
+        totalCount: totalCount,
         hasMore: hasMoreData,
         loading: false
       });
+      
+      // Calculate total pages
+      setTotalPages(Math.ceil(totalCount / itemsPerPage));
       
       // Show warning if some searches failed
       if (results.some(result => result.status === 'rejected')) {
@@ -593,10 +604,12 @@ export default function BillSearch() {
       loading: false
     });
     setSelectedBilties([]);
+    setCurrentPage(1);
+    setTotalPages(0);
   };
 
   // Selection handlers
-  const handleSelectBilty = (bilty) => {
+  const handleSelectBilty = useCallback((bilty) => {
     const biltyId = `${bilty.type}-${bilty.id}`;
     setSelectedBilties(prev => {
       if (prev.includes(biltyId)) {
@@ -605,9 +618,9 @@ export default function BillSearch() {
         return [...prev, biltyId];
       }
     });
-  };
+  }, []);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     const allBiltyIds = [
       ...searchResults.regular.map(bilty => `regular-${bilty.id}`),
       ...searchResults.station.map(bilty => `station-${bilty.id}`)
@@ -618,7 +631,7 @@ export default function BillSearch() {
     } else {
       setSelectedBilties(allBiltyIds);
     }
-  };
+  }, [searchResults.regular, searchResults.station, selectedBilties.length]);
 
   const getSelectedBilties = () => {
     const allBilties = [
@@ -846,13 +859,18 @@ export default function BillSearch() {
       // Check if we have more data
       const hasMoreData = newRegularResults.length === 5000 || newStationResults.length === 5000;
       
+      const newTotalCount = searchResults.totalCount + newRegularResults.length + newStationResults.length;
+      
       setSearchResults(prev => ({
         regular: [...prev.regular, ...newRegularResults],
         station: [...prev.station, ...newStationResults],
-        totalCount: prev.totalCount + newRegularResults.length + newStationResults.length,
+        totalCount: newTotalCount,
         hasMore: hasMoreData,
         loading: false
       }));
+      
+      // Recalculate total pages
+      setTotalPages(Math.ceil(newTotalCount / itemsPerPage));
       
     } catch (error) {
       console.error('Error loading more results:', error);
@@ -861,6 +879,43 @@ export default function BillSearch() {
       setLoadingMore(false);
     }
   };
+
+  // Pagination handlers
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      // Scroll to top of table
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page
+    setTotalPages(Math.ceil(searchResults.totalCount / newItemsPerPage));
+  };
+
+  // Get paginated data - memoized to prevent unnecessary recalculations
+  const getPaginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    // Combine all bilties
+    const allBilties = [
+      ...searchResults.regular.map(b => ({ ...b, type: 'regular' })),
+      ...searchResults.station.map(b => ({ ...b, type: 'station' }))
+    ];
+    
+    // Sort by date (newest first)
+    allBilties.sort((a, b) => {
+      const dateA = new Date(a.created_at || a.bilty_date);
+      const dateB = new Date(b.created_at || b.bilty_date);
+      return dateB - dateA;
+    });
+    
+    // Return only the current page
+    return allBilties.slice(startIndex, endIndex);
+  }, [searchResults.regular, searchResults.station, currentPage, itemsPerPage]);
 
   if (!user) {
     return (
@@ -920,23 +975,119 @@ export default function BillSearch() {
         {hasSearched && (
           <>
             <BillSearchTable
-              regularBilties={searchResults.regular}
-              stationBilties={searchResults.station}
+              paginatedData={getPaginatedData}
               loading={loading}
-              biltyType={searchFilters.biltyType}
               onSelectBilty={handleSelectBilty}
               onSelectAll={handleSelectAll}
               selectedBilties={selectedBilties}
+              allBiltiesCount={searchResults.totalCount}
             />
 
-            {searchResults.hasMore && (
-              <div className="mt-4">
-                <button
-                  onClick={loadMoreResults}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-all duration-200"
-                >
-                  {loadingMore ? 'Loading more...' : 'Load more results'}
-                </button>
+            {/* Pagination Controls */}
+            {searchResults.totalCount > 0 && (
+              <div className="bg-white shadow-md rounded-lg p-6 mt-4 border border-gray-200">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  {/* Items per page selector */}
+                  <div className="flex items-center space-x-3">
+                    <label htmlFor="itemsPerPage" className="text-sm font-medium text-gray-900">
+                      Items per page:
+                    </label>
+                    <select
+                      id="itemsPerPage"
+                      value={itemsPerPage}
+                      onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                      className="bg-white border-2 border-gray-300 text-gray-900 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer hover:border-gray-400 transition-colors"
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                    </select>
+                    <span className="text-sm font-medium text-gray-700 px-2 py-1 bg-gray-100 rounded-md">
+                      Showing <span className="text-blue-600 font-semibold">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="text-blue-600 font-semibold">{Math.min(currentPage * itemsPerPage, searchResults.totalCount)}</span> of <span className="text-blue-600 font-semibold">{searchResults.totalCount}</span> results
+                    </span>
+                  </div>
+
+                  {/* Page navigation */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handlePageChange(1)}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-2 border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 disabled:hover:text-gray-900 transition-all"
+                    >
+                      First
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-2 border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 disabled:hover:text-gray-900 transition-all"
+                    >
+                      Previous
+                    </button>
+                    
+                    {/* Page numbers */}
+                    <div className="flex items-center space-x-1">
+                      {(() => {
+                        const pages = [];
+                        const maxPagesToShow = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                        let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+                        
+                        if (endPage - startPage < maxPagesToShow - 1) {
+                          startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                        }
+                        
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => handlePageChange(i)}
+                              className={`min-w-[40px] px-3 py-2 text-sm font-semibold border-2 rounded-lg transition-all ${
+                                currentPage === i
+                                  ? 'bg-blue-600 text-white border-blue-600 shadow-md hover:bg-blue-700'
+                                  : 'bg-white text-gray-900 border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600'
+                              }`}
+                            >
+                              {i}
+                            </button>
+                          );
+                        }
+                        return pages;
+                      })()}
+                    </div>
+                    
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-2 border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 disabled:hover:text-gray-900 transition-all"
+                    >
+                      Next
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-2 border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 disabled:hover:text-gray-900 transition-all"
+                    >
+                      Last
+                    </button>
+                  </div>
+                </div>
+
+                {/* Load more button if there are more results to fetch */}
+                {searchResults.hasMore && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={loadMoreResults}
+                      disabled={loadingMore}
+                      className="w-full px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingMore ? 'Loading more from database...' : 'Load more results from database'}
+                    </button>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      More results available in the database. Click to load them.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </>

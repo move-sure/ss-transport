@@ -318,6 +318,46 @@ const BiltyList = ({
     }
   };
 
+  // CSV export for transit bilties
+  const handleExportTransitCSV = () => {
+    if (!selectedChallan || !filteredTransitBilties.length) {
+      alert('No bilties to export for this challan.');
+      return;
+    }
+    // Define columns to export (matching table headers)
+    const headers = [
+      'Type', 'GR No', 'Date', 'Consignor', 'Consignee', 'Content', 'Destination', 'PVT Marks', 'Payment', 'Pkgs', 'Weight', 'Amount'
+    ];
+    const rows = filteredTransitBilties.map(bilty => [
+      bilty.bilty_type === 'station' || bilty.source === 'station_bilty_summary' ? 'MNL' : 'REG',
+      bilty.gr_no || '',
+      bilty.bilty_date || bilty.created_at || '',
+      bilty.consignor_name || bilty.consignor || '',
+      bilty.consignee_name || bilty.consignee || '',
+      bilty.contain || bilty.contents || '',
+      getBiltyDisplayCity(bilty),
+      bilty.pvt_marks || '',
+      bilty.payment_mode || bilty.payment_status || '',
+      bilty.no_of_pkg || bilty.no_of_packets || '',
+      bilty.wt || bilty.weight || '',
+      bilty.freight_amount || bilty.amount || ''
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `challan_${selectedChallan.challan_no}_bilties.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
+
   return (
     <div className="space-y-4">
       {/* Challan Bilties Section - Show when challan is selected */}
@@ -335,7 +375,8 @@ const BiltyList = ({
                     DISPATCHED
                   </span>
                 )}
-              </h3>              <div className="flex items-center gap-2">
+              </h3>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => onRefresh?.('transit')}
                   disabled={saving}
@@ -344,6 +385,15 @@ const BiltyList = ({
                 >
                   <RefreshCw className={`w-3 h-3 ${saving ? 'animate-spin' : ''}`} />
                   Refresh
+                </button>
+                <button
+                  onClick={handleExportTransitCSV}
+                  disabled={!filteredTransitBilties.length}
+                  className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
+                  title="Export transit bilties to CSV"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-4-4m4 4l4-4m-8 8h8" /></svg>
+                  Export CSV
                 </button>
                 {!selectedChallan.is_dispatched && filteredTransitBilties.length > 0 && (
                   <>                    <button

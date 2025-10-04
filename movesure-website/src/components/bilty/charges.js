@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useInputNavigation } from './input-navigation';
 import { Save } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
+import { LabourRateInfo, useConsignorLabourRate } from './labour-rate-helper';
 
 const PackageChargesSection = ({ 
   formData, 
@@ -21,7 +22,13 @@ const PackageChargesSection = ({
   const [showDuplicatePopup, setShowDuplicatePopup] = useState(false);
   const [duplicateGrInfo, setDuplicateGrInfo] = useState(null);  const rateRef = useRef(null);
   const saveDebounceRef = useRef(null); // Add debounce ref for save operations
-  const lastSaveTimeRef = useRef(0); // Track last save time  // Validation function to check required fields and duplicate GR numbers
+  const lastSaveTimeRef = useRef(0); // Track last save time
+  
+  // Fetch old labour rate for consignor
+  const { labourRate: oldLabourRate, loading: loadingLabourRate } = useConsignorLabourRate(
+    formData.consignor_name, 
+    formData.branch_id
+  );  // Validation function to check required fields and duplicate GR numbers
   const validateBeforeSaveOrPrint = async (isDraft = false) => {
     console.log('🔍 Starting validation with:', { 
       isDraft, 
@@ -442,10 +449,28 @@ const PackageChargesSection = ({
       });    } finally {
       setIsSavingRate(false);
     }
-  };  // Initialize labour rate and toll charge if not set (only for new bilty, not editing)
+  };
+
+  // Auto-populate labour rate from consignor's previous bilty when consignor changes
+  useEffect(() => {
+    // Only auto-populate in new bilty mode, not in edit mode
+    if (!isEditMode && formData.consignor_name && !loadingLabourRate) {
+      // If old labour rate exists and current labour_rate is default or not set
+      if (oldLabourRate && oldLabourRate.rate) {
+        // Only update if current labour_rate is unset, null, or still at default 20
+        const currentRate = formData.labour_rate;
+        if (currentRate === undefined || currentRate === null || currentRate === 0 || currentRate === 20) {
+          setFormData(prev => ({ ...prev, labour_rate: oldLabourRate.rate }));
+        }
+      }
+    }
+  }, [formData.consignor_name, oldLabourRate, loadingLabourRate, isEditMode]);
+
+  // Initialize labour rate and toll charge if not set (only for new bilty, not editing)
   useEffect(() => {
     const updates = {};
     // Only set default values for new bilty (not edit mode) and only if value is undefined/null
+    // This runs first before consignor is selected
     if (!isEditMode && (formData.labour_rate === undefined || formData.labour_rate === null)) {
       updates.labour_rate = 20;
     }
@@ -572,40 +597,70 @@ return (
                 </div>
 
                 {/* Labour Rate - Fifth */}
-                <div className="flex items-center gap-3 col-span-2">
-                  <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
-                    LABOUR RATE
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : ''}
-                    onChange={(e) => {
-                      const inputValue = e.target.value;
-                      // Handle empty string, 0, and valid numbers properly
-                      let value;
-                      if (inputValue === '') {
-                        value = 0; // Empty input should be 0
-                      } else {
-                        value = parseFloat(inputValue);
-                        // If parseFloat returns NaN, default to 0
-                        if (isNaN(value)) {
-                          value = 0;
+                <div className="flex flex-col gap-1 col-span-2">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
+                      LABOUR RATE
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : ''}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Handle empty string, 0, and valid numbers properly
+                        let value;
+                        if (inputValue === '') {
+                          value = 0; // Empty input should be 0
+                        } else {
+                          value = parseFloat(inputValue);
+                          // If parseFloat returns NaN, default to 0
+                          if (isNaN(value)) {
+                            value = 0;
+                          }
                         }
-                      }
-                      setFormData(prev => ({ ...prev, labour_rate: value }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    ref={(el) => setInputRef(22, el)}
-                    className="w-32 px-3 py-2 text-black font-semibold border-2 border-orange-300 rounded-lg bg-white shadow-sm hover:border-orange-400 transition-all number-input-focus"
-                    placeholder="20"
-                    tabIndex={22}
-                  />
-                  <span className="text-sm text-gray-600 font-medium">₹ per package</span>
-                  <span className="text-xs text-gray-500 ml-auto">
-                    Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
-                  </span>
+                        setFormData(prev => ({ ...prev, labour_rate: value }));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      ref={(el) => setInputRef(22, el)}
+                      className="w-32 px-3 py-2 text-black font-semibold border-2 border-orange-300 rounded-lg bg-white shadow-sm hover:border-orange-400 transition-all number-input-focus"
+                      placeholder="20"
+                      tabIndex={22}
+                    />
+                    <span className="text-sm text-gray-600 font-medium">₹ per package</span>
+                    <span className="text-xs text-gray-500 ml-auto">
+                      Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
+                    </span>
+                  </div>
+                  {/* Smart Labour Rate Status - Shows if using old rate or default */}
+                  {!isEditMode && formData.consignor_name && (
+                    <div className="mr-[400px]">
+                      {loadingLabourRate ? (
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 text-xs font-medium animate-pulse">
+                          <svg className="w-2 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>🤖 MoveSure AI fetching old labour rate...</span>
+                        </div>
+                      ) : oldLabourRate && oldLabourRate.rate ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg border border-green-300 text-xs font-semibold shadow-sm">
+                          <svg className="w-2 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>🤖 MoveSure AI Auto-Applied: ₹{oldLabourRate.rate} (from {new Date(oldLabourRate.date).toLocaleDateString('en-IN')})</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded-lg border border-gray-300 text-xs font-medium">
+                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>💼 Using Default Rate (₹20) - No previous rate found</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

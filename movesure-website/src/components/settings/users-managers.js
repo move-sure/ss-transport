@@ -450,88 +450,109 @@ export default function UserManager() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {users.map((user) => (
-            <div key={user.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
-              <div className="p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="flex-shrink-0">
+            <div key={user.id} className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="p-5">
+                <div className="flex flex-col items-center mb-4">
+                  <div className="relative mb-3">
                     {user.image_url ? (
                       <img
                         src={user.image_url}
                         alt={user.name || user.username}
-                        className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
+                        className="h-20 w-20 rounded-full object-cover border-4 border-indigo-200 shadow-lg"
                         onError={(e) => {
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username)}&background=6366f1&color=ffffff&size=48`;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username)}&background=6366f1&color=ffffff&size=80`;
                         }}
                       />
                     ) : (
-                      <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <span className="text-indigo-600 font-medium text-sm">
+                      <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center border-4 border-indigo-200 shadow-lg">
+                        <span className="text-white font-bold text-2xl">
                           {(user.name || user.username).charAt(0).toUpperCase()}
                         </span>
                       </div>
                     )}
+                    <div className={`absolute bottom-0 right-0 h-6 w-6 rounded-full border-4 border-white ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-gray-900 truncate">
-                      {user.name || user.username}
-                    </h4>
-                    <p className="text-xs text-gray-500 truncate">
-                      @{user.username}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-1 mb-3">
-                  {user.post && (
-                    <p className="text-xs text-gray-600">
-                      <span className="font-medium">Post:</span> {user.post}
-                    </p>
-                  )}
-                  {user.branch && (
-                    <p className="text-xs text-gray-600">
-                      <span className="font-medium">Branch:</span> {user.branch.branch_name}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    Created: {new Date(user.created_at).toLocaleDateString()}
+                  <h4 className="text-lg font-bold text-gray-900 text-center mb-1">
+                    {user.name || user.username}
+                  </h4>
+                  <p className="text-sm text-indigo-600 font-medium mb-1">
+                    @{user.username}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-1 mb-3">
+                <div className="space-y-2 mb-4 bg-gray-50 rounded-lg p-3">
+                  {user.post && (
+                    <div className="flex items-center text-sm text-gray-700">
+                      <svg className="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span className="font-medium">{user.post}</span>
+                    </div>
+                  )}
+                  {user.branch && (
+                    <div className="flex items-center text-sm text-gray-700">
+                      <svg className="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      <span className="font-medium truncate">{user.branch.branch_name}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center text-xs text-gray-500">
+                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Joined {new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-4">
                   <span
-                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${
+                    className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full cursor-pointer transition-colors ${
                       user.is_active
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                        : 'bg-red-100 text-red-800 hover:bg-red-200'
                     }`}
                     onClick={() => toggleStatus(user)}
                   >
+                    <span className={`w-2 h-2 rounded-full mr-1.5 ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`}></span>
                     {user.is_active ? 'Active' : 'Inactive'}
                   </span>
                   {user.is_staff && (
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
                       Staff
                     </span>
                   )}
                   {user.id === currentUser.id && (
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                    <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
                       You
                     </span>
                   )}
                 </div>
 
-                <div className="flex justify-between">
+                <div className="flex gap-2">
                   <button
                     onClick={() => handleEdit(user)}
-                    className="text-indigo-600 hover:text-indigo-900 text-xs font-medium"
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
                   >
+                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
                     Edit
                   </button>
                   {user.id !== currentUser.id && (
                     <button
                       onClick={() => handleDelete(user.id)}
-                      className="text-red-600 hover:text-red-900 text-xs font-medium"
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
                     >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                       Delete
                     </button>
                   )}

@@ -3,7 +3,7 @@
 import React from 'react';
 import supabase from '../../app/utils/supabase';
 import { format } from 'date-fns';
-import { FileText, Edit2, Trash2 } from 'lucide-react';
+import { FileText, Edit2 } from 'lucide-react';
 
 const ChallanBooksTab = ({ 
   challanBooks, 
@@ -12,25 +12,6 @@ const ChallanBooksTab = ({
   onRefresh, 
   userBranch 
 }) => {
-
-  const handleDeleteBook = async (bookId) => {
-    if (!confirm('Are you sure you want to delete this challan book?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('challan_books')
-        .delete()
-        .eq('id', bookId);
-
-      if (error) throw error;
-
-      alert('Challan book deleted successfully');
-      onRefresh();
-    } catch (error) {
-      console.error('Error deleting challan book:', error);
-      alert('Error deleting challan book');
-    }
-  };
 
   const generateChallanNumber = (book) => {
     if (!book) return '';
@@ -163,14 +144,6 @@ const ChallanBooksTab = ({
                         title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteBook(book.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                        title="Delete"
-                        disabled={book.current_number > book.from_number}
-                      >
-                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>

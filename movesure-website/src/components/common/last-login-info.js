@@ -76,7 +76,7 @@ export default function LastLoginInfo({ userId }) {
 
   if (loginInfo.loading) {
     return (
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 animate-pulse">
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200 animate-pulse">
         <div className="h-4 bg-gray-300 rounded mb-2 w-3/4"></div>
         <div className="h-6 bg-gray-300 rounded w-1/2"></div>
       </div>
@@ -84,15 +84,17 @@ export default function LastLoginInfo({ userId }) {
   }
 
   return (
-    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-indigo-800 mb-1">Last Login</h3>
-          <p className="text-lg font-semibold text-indigo-900">
+          <h3 className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
+            <span className="mr-2">�</span> Last Login
+          </h3>
+          <p className="text-lg font-bold text-gray-900">
             {formatLastLogin(loginInfo.lastLogin?.login_time)}
           </p>
           {loginInfo.lastLogin && (
-            <p className="text-xs text-indigo-600 mt-1">
+            <p className="text-xs text-gray-600 mt-1">
               {new Date(loginInfo.lastLogin.login_time).toLocaleString('en-IN', {
                 weekday: 'short',
                 year: 'numeric',
@@ -106,10 +108,10 @@ export default function LastLoginInfo({ userId }) {
           )}
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-indigo-900">
+          <div className="text-3xl font-bold text-gray-900">
             {loginInfo.totalLogins}
           </div>
-          <p className="text-xs text-indigo-600">Total Logins</p>
+          <p className="text-xs text-gray-600">Total Logins</p>
         </div>
       </div>
     </div>

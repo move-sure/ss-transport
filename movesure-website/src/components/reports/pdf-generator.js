@@ -217,79 +217,117 @@ export const generateTransportsReport = async (filters) => {
 
     let startY = 52;
     let cityIndex = 0;
-
-    // Generate table for each city
+    
+    // Prepare all table data at once
+    const allTableData = [];
+    
+    // Generate data for each city
     allCities.forEach((city) => {
       cityIndex++;
       const cityTransports = transportsByCity[city.id] || [];
       
-      // Add city header with index
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(37, 99, 235);
-      const headerText = `${cityIndex}. ${city.city_name} [${city.city_code}]`;
-      doc.text(headerText, 10, startY);
-      
-      startY += 5;
-
-      // Prepare table data
-      let tableData;
+      // Add data with city in first column
       if (cityTransports.length === 0) {
-        // Show "No transport attached" message
-        tableData = [['-', '-', '-', '-', '-', '-', 'No transport attached to this city']];
-      } else {
-        tableData = cityTransports.map((transport, index) => [
-          index + 1,
-          transport.transport_name || '-',
-          transport.address || '-',
-          transport.gst_number || '-',
-          transport.mob_number || '-',
-          transport.branch_owner_name || '-',
-          '-'
+        // Show empty row for cities without transports
+        allTableData.push([
+          cityIndex,
+          city.city_name,
+          city.city_code || '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          ''
         ]);
+      } else {
+        cityTransports.forEach((transport, index) => {
+          allTableData.push([
+            index === 0 ? cityIndex : '',  // Only show city index on first transport row
+            index === 0 ? city.city_name : '',
+            index === 0 ? (city.city_code || '') : '',
+            '',
+            transport.transport_name || '',
+            transport.gst_number || '',
+            '',
+            transport.mob_number || '',
+            '',
+            ''
+          ]);
+        });
       }
+    });
 
-      // Add table
-      autoTable(doc, {
-        startY: startY,
-        head: [['#', 'Transport Name', 'Address', 'GST', 'Mobile', 'Owner', 'Remark']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [37, 99, 235],
-          textColor: 255,
-          fontStyle: 'bold',
-          fontSize: 8,
-          halign: 'center'
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 2.5,
-          halign: 'left',
-          fontStyle: 'bold'
-        },
-        alternateRowStyles: {
-          fillColor: [245, 247, 250]
-        },
-        margin: { left: 10, right: 10 },
-        columnStyles: {
-          0: { cellWidth: 8, halign: 'center' },
-          1: { cellWidth: 55 },
-          2: { cellWidth: 70 },
-          3: { cellWidth: 38 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 40 },
-          6: { cellWidth: 42, halign: 'center', textColor: cityTransports.length === 0 ? [220, 38, 38] : [100, 100, 100] }
+    // Add single table with all data
+    autoTable(doc, {
+      startY: startY,
+      head: [['#', 'City Name', 'City Code', 'Rate', 'Transport Name', 'GST', 'Mobile 1', 'Mobile', 'KAAT', 'Remark']],
+      body: allTableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9,
+        halign: 'center',
+        cellPadding: 2.5
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 2.5,
+        halign: 'left',
+        fontStyle: 'bold',
+        lineWidth: 0.1,
+        lineColor: [200, 200, 200],
+        valign: 'middle',
+        overflow: 'linebreak',
+        cellWidth: 'wrap'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 248, 248]
+      },
+      margin: { left: 3, right: 3 },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center', fontStyle: 'bold', textColor: [37, 99, 235], valign: 'middle', fontSize: 10 },
+        1: { cellWidth: 50, fontStyle: 'bold', textColor: [37, 99, 235], valign: 'middle', fontSize: 10, overflow: 'visible', cellWidth: 'auto', minCellWidth: 50 },
+        2: { cellWidth: 28, halign: 'center', valign: 'middle', fontSize: 10, overflow: 'visible', cellWidth: 'auto', minCellWidth: 28 },
+        3: { cellWidth: 15, halign: 'center', valign: 'middle' },
+        4: { cellWidth: 60 },
+        5: { cellWidth: 40 },
+        6: { cellWidth: 25 },
+        7: { cellWidth: 25 },
+        8: { cellWidth: 15, halign: 'center' },
+        9: { cellWidth: 20, halign: 'center', fontSize: 7 }
+      },
+      didParseCell: function(data) {
+        // Make city name and city code text bigger and fill the cell
+        if (data.column.index === 1 && data.cell.raw && data.cell.raw !== '') {
+          const text = String(data.cell.raw);
+          // Dynamically adjust font size based on text length
+          if (text.length <= 8) {
+            data.cell.styles.fontSize = 12;
+          } else if (text.length <= 12) {
+            data.cell.styles.fontSize = 11;
+          } else if (text.length <= 16) {
+            data.cell.styles.fontSize = 10;
+          } else {
+            data.cell.styles.fontSize = 9;
+          }
         }
-      });
-
-      // Get the final Y position after the table
-      startY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 6 : startY + 30;
-
-      // Add new page if needed
-      if (startY > doc.internal.pageSize.height - 40) {
-        doc.addPage();
-        startY = 20;
+        if (data.column.index === 2 && data.cell.raw && data.cell.raw !== '') {
+          const text = String(data.cell.raw);
+          // Dynamically adjust font size based on text length
+          if (text.length <= 5) {
+            data.cell.styles.fontSize = 12;
+          } else if (text.length <= 8) {
+            data.cell.styles.fontSize = 11;
+          } else if (text.length <= 10) {
+            data.cell.styles.fontSize = 10;
+          } else {
+            data.cell.styles.fontSize = 9;
+          }
+        }
       }
     });
 

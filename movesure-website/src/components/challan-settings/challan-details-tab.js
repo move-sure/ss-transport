@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
 import { format } from 'date-fns';
-import { FileText, Edit2, Truck, Calendar, User } from 'lucide-react';
+import { FileText, Edit2, Truck, Calendar, User, TruckIcon, PackageCheck, Package } from 'lucide-react';
 
 const ChallanDetailsTab = ({ 
   challans, 
@@ -54,13 +54,15 @@ const ChallanDetailsTab = ({
   const getStatusBadge = (challan) => {
     if (challan.is_dispatched) {
       return (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+        <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-300">
+          <PackageCheck className="w-3.5 h-3.5" />
           Dispatched
         </span>
       );
     }
     return (
-      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+      <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
+        <Package className="w-3.5 h-3.5" />
         Pending
       </span>
     );
@@ -204,7 +206,14 @@ const ChallanDetailsTab = ({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {challans.map((challan) => (
-                  <tr key={challan.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={challan.id} 
+                    className={`transition-all duration-200 ${
+                      challan.is_dispatched 
+                        ? 'bg-green-50 hover:bg-green-100 border-l-4 border-green-500' 
+                        : 'bg-orange-50 hover:bg-orange-100 border-l-4 border-orange-500'
+                    }`}
+                  >
                     <td className="px-4 py-4">
                       <div className="text-sm font-medium text-black">
                         Challan: {challan.challan_no}
@@ -266,17 +275,25 @@ const ChallanDetailsTab = ({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => onEdit(challan)}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                          title="Edit"
+                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-all"
+                          title="Edit Challan"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleDispatch(challan.id, challan.is_dispatched)}
-                          className={`p-1 ${challan.is_dispatched ? 'text-yellow-600 hover:text-yellow-800' : 'text-green-600 hover:text-green-800'}`}
-                          title={challan.is_dispatched ? 'Mark as Pending' : 'Mark as Dispatched'}
+                          className={`p-2 rounded-lg transition-all ${
+                            challan.is_dispatched 
+                              ? 'text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50' 
+                              : 'text-green-600 hover:text-green-800 hover:bg-green-50'
+                          }`}
+                          title={challan.is_dispatched ? 'Mark as Pending' : 'Dispatch Challan'}
                         >
-                          <Truck className="w-4 h-4" />
+                          {challan.is_dispatched ? (
+                            <Package className="w-6 h-6" />
+                          ) : (
+                            <TruckIcon className="w-6 h-6" />
+                          )}
                         </button>
                       </div>
                     </td>

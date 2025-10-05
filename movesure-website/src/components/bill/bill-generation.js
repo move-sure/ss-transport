@@ -282,82 +282,64 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
         'Private\nMarks'
       ];
 
-      // Enhanced table creation with dynamic cell sizing for text wrapping
-      const baseCellHeight = 12; // Base cell height
-      const cellPadding = 3;
+      // Compact table creation with smaller row heights for more rows per page
+      const baseCellHeight = 8; // Reduced from 12 to 8 for smaller rows
+      const cellPadding = 2; // Reduced from 3 to 2
       const startX = 10;
       const tableWidth = pageWidth - 20;
-      const columnWidths = [12, 25, 22, 50, 35, 18, 20, 25, 15]; // Added delivery type column
+      const columnWidths = [10, 22, 18, 45, 30, 15, 18, 22, 12]; // Optimized column widths
       
       // Adjust column widths to fit page
       const totalWidth = columnWidths.reduce((a, b) => a + b, 0);
       const scaleFactor = tableWidth / totalWidth;
       const adjustedWidths = columnWidths.map(w => w * scaleFactor);
       
-      // Calculate dynamic row heights based on content
+      // Calculate dynamic row heights based on text wrapping needs
+      const minRowHeight = 10; // Minimum row height
       const rowHeights = tableData.map((row) => {
-        let maxHeight = baseCellHeight;
+        let maxHeight = minRowHeight;
         
-        // Check consignee name (column 3) for text wrapping needs
-        const consigneeName = String(row[3] || '');
-        const maxWidth = adjustedWidths[3] - (2 * cellPadding);
-        
-        pdf.setFontSize(9);
-        const words = consigneeName.split(' ');
-        let lines = 1;
-        let currentLine = '';
-        
-        words.forEach(word => {
-          const testLine = currentLine + (currentLine ? ' ' : '') + word;
-          const testWidth = pdf.getTextWidth(testLine);
+        // Check consignee name (column 3) and destination (column 4) for wrapping
+        [3, 4].forEach(colIndex => {
+          const text = String(row[colIndex] || '');
+          const maxWidth = adjustedWidths[colIndex] - (2 * cellPadding);
           
-          if (testWidth > maxWidth) {
-            lines++;
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
+          pdf.setFontSize(8);
+          const words = text.split(' ');
+          let lines = 1;
+          let currentLine = '';
+          
+          words.forEach(word => {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const testWidth = pdf.getTextWidth(testLine);
+            
+            if (testWidth > maxWidth && currentLine) {
+              lines++;
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          });
+          
+          const requiredHeight = Math.max(minRowHeight, lines * 4 + 2); // 4mm per line + padding
+          maxHeight = Math.max(maxHeight, requiredHeight);
         });
         
-        // Check destination name (column 4) for text wrapping needs
-        const destination = String(row[4] || '');
-        const destMaxWidth = adjustedWidths[4] - (2 * cellPadding);
-        const destWords = destination.split(' ');
-        let destLines = 1;
-        let destCurrentLine = '';
-        
-        destWords.forEach(word => {
-          const testLine = destCurrentLine + (destCurrentLine ? ' ' : '') + word;
-          const testWidth = pdf.getTextWidth(testLine);
-          
-          if (testWidth > destMaxWidth) {
-            destLines++;
-            destCurrentLine = word;
-          } else {
-            destCurrentLine = testLine;
-          }
-        });
-        
-        // Use the maximum lines needed
-        const maxLines = Math.max(lines, destLines);
-        if (maxLines > 1) {
-          maxHeight = baseCellHeight + ((maxLines - 1) * 4); // 4mm per additional line
-        }
-        
-        return Math.min(maxHeight, 24); // Cap at 24mm max height
+        return Math.min(maxHeight, 20); // Cap at 20mm max height
       });
       
-      // Draw table headers with professional styling
+      // Draw table headers with compact professional styling
       pdf.setFillColor(0, 51, 102); // Professional dark blue
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(10);
+      pdf.setFontSize(9); // Reduced from 10 to 9
       pdf.setFont('times', 'bold');
       
-      // Header background with border (use base height for headers)
-      pdf.rect(startX, yPosition, tableWidth, baseCellHeight + 4, 'F');
+      // Header background with border (use compact height for headers)
+      const headerHeight = baseCellHeight + 2; // Reduced from +4 to +2
+      pdf.rect(startX, yPosition, tableWidth, headerHeight, 'F');
       pdf.setLineWidth(0.8);
       pdf.setDrawColor(0, 0, 0);
-      pdf.rect(startX, yPosition, tableWidth, baseCellHeight + 4, 'S');
+      pdf.rect(startX, yPosition, tableWidth, headerHeight, 'S');
       
       // Header vertical borders
       let headerX = startX;
@@ -365,21 +347,21 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
         if (index > 0) {
           pdf.setDrawColor(255, 255, 255);
           pdf.setLineWidth(0.3);
-          pdf.line(headerX, yPosition, headerX, yPosition + baseCellHeight + 4);
+          pdf.line(headerX, yPosition, headerX, yPosition + headerHeight);
         }
         headerX += width;
       });
       
-      // Header text with wrapping support
+      // Header text with compact wrapping support
       headerX = startX;
       tableHeaders.forEach((header, index) => {
         const textX = headerX + adjustedWidths[index] / 2;
-        const baseTextY = yPosition + (baseCellHeight + 4) / 2;
+        const baseTextY = yPosition + headerHeight / 2;
         
-        // Handle multi-line headers
+        // Handle multi-line headers with compact spacing
         if (header.includes('\n')) {
           const lines = header.split('\n');
-          const lineHeight = 3;
+          const lineHeight = 2.5; // Reduced from 3 to 2.5
           const startY = baseTextY - ((lines.length - 1) * lineHeight / 2);
           
           lines.forEach((line, lineIndex) => {
@@ -392,18 +374,18 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
         headerX += adjustedWidths[index];
       });
       
-      yPosition += baseCellHeight + 4;
+      yPosition += headerHeight;
       
-      // Draw table data with dynamic row heights and better styling
+      // Draw table data with compact rows for maximum density
       pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(9);
+      pdf.setFontSize(8); // Reduced from 9 to 8 for more compact rows
       pdf.setFont('times', 'normal');
       
       tableData.forEach((row, rowIndex) => {
         const currentRowHeight = rowHeights[rowIndex];
         
-        // Check if we need a new page (optimized for 10+ rows per page)
-        if (yPosition + currentRowHeight > pageHeight - 50) { // Reduced from 70 to 50 for more rows
+        // Check if we need a new page (optimized for 15+ rows per page)
+        if (yPosition + currentRowHeight > pageHeight - 40) { // Reduced from 50 to 40 for more rows
           pdf.addPage();
           
           // Add logo to new page immediately (no background/border)
@@ -419,10 +401,10 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
           
           // Reset PDF styling for table after logo
           pdf.setTextColor(0, 0, 0);
-          pdf.setFontSize(9);
+          pdf.setFontSize(8); // Keep compact font size
           pdf.setFont('times', 'normal');
           
-          yPosition = 50; // Start below logo with proper margin
+          yPosition = 45; // Start closer to top for more rows
         }
         
         // Alternate row colors
@@ -445,17 +427,17 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
           cellX += width;
         });
         
-        // Cell text with enhanced formatting and text wrapping for consignee & destination
+        // Cell text with full name display using text wrapping
         cellX = startX;
         row.forEach((cell, cellIndex) => {
           let textX, align;
           
           // Enhanced alignment based on column
           if (cellIndex === 0 || cellIndex === 2 || cellIndex === 5) {
-            // Center align for S.No, Date, Payment Mode
+            // Center align for S.No, Date, Delivery Type
             align = 'center';
             textX = cellX + adjustedWidths[cellIndex] / 2;
-          } else if (cellIndex === 6) {
+          } else if (cellIndex === 7) { // Amount column
             // Right align for Amount
             align = 'right';
             textX = cellX + adjustedWidths[cellIndex] - cellPadding;
@@ -466,15 +448,15 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
             textX = cellX + cellPadding;
           }
           
-          // Enhanced text handling with wrapping for consignee (column 3) and destination (column 4)
+          // Full text display with wrapping for consignee (column 3) and destination (column 4)
           let displayText = String(cell || '');
           const maxWidth = adjustedWidths[cellIndex] - (2 * cellPadding);
           
           // Set font before measuring
-          pdf.setFont(cellIndex === 6 ? 'times' : 'times', cellIndex === 6 ? 'bold' : 'normal');
-          pdf.setFontSize(9);
+          pdf.setFont(cellIndex === 7 ? 'times' : 'times', cellIndex === 7 ? 'bold' : 'normal');
+          pdf.setFontSize(8);
           
-          // For consignee (column 3) and destination (column 4) - use text wrapping
+          // For consignee (column 3) and destination (column 4) - use text wrapping to show full names
           if (cellIndex === 3 || cellIndex === 4) {
             const words = displayText.split(' ');
             const lines = [];
@@ -491,10 +473,7 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
                   lines.push(currentLine);
                   currentLine = word;
                 } else {
-                  // Word is too long, truncate it
-                  while (pdf.getTextWidth(word) > maxWidth && word.length > 3) {
-                    word = word.slice(0, -1);
-                  }
+                  // Single word too long, keep it as is
                   lines.push(word);
                 }
               }
@@ -504,36 +483,32 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
               lines.push(currentLine);
             }
             
-            // Draw multiple lines
+            // Draw multiple lines for full name display
             const lineHeight = 4;
             const startY = yPosition + cellPadding + 2;
-            lines.slice(0, Math.floor((currentRowHeight - 4) / lineHeight)).forEach((line, lineIndex) => {
-              pdf.text(line, textX, startY + (lineIndex * lineHeight), { align: align });
+            lines.forEach((line, lineIndex) => {
+              const lineY = startY + (lineIndex * lineHeight);
+              if (lineY < yPosition + currentRowHeight - 2) { // Stay within row bounds
+                pdf.text(line, textX, lineY, { align: align });
+              }
             });
             
           } else {
-            // For other columns, NO TRUNCATION - show full text
-            const textY = yPosition + currentRowHeight / 2 + 2;
-            
-            // Special handling for date column to ensure full visibility
-            if (cellIndex === 2) {
-              pdf.setFontSize(8); // Slightly smaller font for dates if needed
-              const textWidth = pdf.getTextWidth(displayText);
-              if (textWidth > maxWidth) {
-                pdf.setFontSize(7); // Even smaller if still doesn't fit
-              }
+            // For other columns, truncate only if absolutely necessary
+            while (pdf.getTextWidth(displayText) > maxWidth && displayText.length > 5) {
+              displayText = displayText.slice(0, -1);
+            }
+            if (displayText.length < String(cell || '').length && displayText.length > 3) {
+              displayText = displayText.slice(0, -3) + '...';
             }
             
+            // Draw single line text
+            const textY = yPosition + currentRowHeight / 2 + 1.5;
             pdf.text(displayText, textX, textY, { align: align });
-            
-            // Reset font size
-            if (cellIndex === 2) {
-              pdf.setFontSize(9);
-            }
           }
           
           // Reset font for next cell
-          if (cellIndex === 6) {
+          if (cellIndex === 7) {
             pdf.setFont('times', 'normal');
           }
           

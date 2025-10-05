@@ -6,6 +6,7 @@ import supabase from '../../app/utils/supabase';
 import { useInputNavigation } from './input-navigation';
 import EwbValidator from '../ewb/ewb-validator';
 import { getActiveEwbToken } from '../ewb/token-helper';
+import { useConsignorPaymentMode, PaymentModeInfo, useConsignorDeliveryType, DeliveryTypeInfo } from './payment-mode-helper';
 
 const InvoiceDetailsSection = ({ formData, setFormData }) => {
   const [showEwbValidator, setShowEwbValidator] = useState(false);
@@ -22,9 +23,23 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   const invoiceValueRef = useRef(null);
   const eWayBillRef = useRef(null);
   const invoiceDateRef = useRef(null);
-    // Input navigation
+  
+  // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
-    // Initialize EWB list from formData whenever it changes (for edit mode)
+  
+  // Fetch payment mode based on consignor's history
+  const { paymentMode: oldPaymentMode, loading: loadingPaymentMode } = useConsignorPaymentMode(
+    formData.consignor_name, 
+    formData.branch_id
+  );
+  
+  // Fetch delivery type based on consignor's history
+  const { deliveryType: oldDeliveryType, loading: loadingDeliveryType } = useConsignorDeliveryType(
+    formData.consignor_name, 
+    formData.branch_id
+  );
+  
+  // Initialize EWB list from formData whenever it changes (for edit mode)
   useEffect(() => {
     if (formData.e_way_bill && formData.e_way_bill.trim() !== '') {
       const ewbNumbers = formData.e_way_bill.split(',').map(ewb => ewb.trim()).filter(ewb => ewb !== '');
@@ -223,6 +238,30 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
       setValidatingEwbId(null);
     }
   };
+
+  // Auto-populate payment mode from consignor's payment history
+  useEffect(() => {
+    // Only auto-populate when consignor is selected and data is loaded
+    if (formData.consignor_name && !loadingPaymentMode && oldPaymentMode) {
+      // Only update if current payment_mode is default 'to-pay'
+      const currentMode = formData.payment_mode;
+      if (currentMode === 'to-pay' && oldPaymentMode.mode) {
+        setFormData(prev => ({ ...prev, payment_mode: oldPaymentMode.mode }));
+      }
+    }
+  }, [formData.consignor_name, oldPaymentMode, loadingPaymentMode]);
+
+  // Auto-populate delivery type from consignor's delivery history
+  useEffect(() => {
+    // Only auto-populate when consignor is selected and data is loaded
+    if (formData.consignor_name && !loadingDeliveryType && oldDeliveryType) {
+      // Only update if current delivery_type is default 'godown-delivery'
+      const currentType = formData.delivery_type;
+      if (currentType === 'godown-delivery' && oldDeliveryType.type) {
+        setFormData(prev => ({ ...prev, delivery_type: oldDeliveryType.type }));
+      }
+    }
+  }, [formData.consignor_name, oldDeliveryType, loadingDeliveryType]);
 
   // Register inputs for navigation
   useEffect(() => {
@@ -559,49 +598,73 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     <div className="bg-white p-4 sm:p-6 rounded-xl border-2 border-purple-200 shadow-lg">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Row 1 - Main Options */}
-        <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
-            DELIVERY
-          </span>
-          <select
-            ref={deliveryTypeRef}
-            value={formData.delivery_type}
-            onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
-            onFocus={() => {
-              setTimeout(() => {
-                const element = deliveryTypeRef.current;
-                if (element) {
-                  element.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center',
-                    inline: 'nearest'
-                  });
-                }
-              }, 100);
-            }}
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
-            tabIndex={11}
-          >
-            <option value="godown-delivery">Godown</option>
-            <option value="door-delivery">Door</option>
-          </select>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+              DELIVERY
+            </span>
+            <select
+              ref={deliveryTypeRef}
+              value={formData.delivery_type}
+              onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
+              onFocus={() => {
+                setTimeout(() => {
+                  const element = deliveryTypeRef.current;
+                  if (element) {
+                    element.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'center',
+                      inline: 'nearest'
+                    });
+                  }
+                }, 100);
+              }}
+              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
+              tabIndex={11}
+            >
+              <option value="godown-delivery">Godown</option>
+              <option value="door-delivery">Door</option>
+            </select>
+          </div>
+          {/* Smart Delivery Type Status - Shows AI analysis */}
+          {formData.consignor_name && (
+            <div className="ml-[94px] lg:ml-[102px]">
+              <DeliveryTypeInfo 
+                consignorName={formData.consignor_name}
+                branchId={formData.branch_id}
+                currentDeliveryType={formData.delivery_type}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
-            PAYMENT
-          </span>
-          <select
-            ref={paymentModeRef}
-            value={formData.payment_mode}
-            onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
-            tabIndex={12}
-          >
-            <option value="to-pay">To Pay</option>
-            <option value="paid">Paid</option>
-            <option value="freeofcost">FOC</option>
-          </select>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+              PAYMENT
+            </span>
+            <select
+              ref={paymentModeRef}
+              value={formData.payment_mode}
+              onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
+              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
+              tabIndex={12}
+            >
+              <option value="to-pay">To Pay</option>
+              <option value="paid">Paid</option>
+              <option value="freeofcost">FOC</option>
+            </select>
+          </div>
+          {/* Smart Payment Mode Status - Shows AI analysis */}
+          {formData.consignor_name && (
+            <div className="ml-[94px] lg:ml-[102px]">
+              <PaymentModeInfo 
+                consignorName={formData.consignor_name}
+                branchId={formData.branch_id}
+                currentPaymentMode={formData.payment_mode}
+              />
+            </div>
+          )}
         </div>
 
         {/* Simple Content Field */}

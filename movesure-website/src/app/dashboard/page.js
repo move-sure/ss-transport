@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
-import UserStats from '../../components/common/user-stats';
+import BiltyStats from '../../components/common/bilty-stats';
+import BiltyActivityChart from '../../components/common/bilty-activity-chart';
 import UserSessions from '../../components/common/user-sessions';
-import WorkingHoursTracker from '../../components/common/working-hours-tracker';
 import LastLoginInfo from '../../components/common/last-login-info';
 
 export default function DashboardPage() {
@@ -94,12 +94,12 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <main className="w-full py-6 px-4 sm:px-6 lg:px-8">
+        <div className="w-full">
           
           {/* Professional User Card */}
-          <div className="bg-white overflow-hidden shadow-lg rounded-xl mb-8 border border-gray-200">
-            <div className="px-6 py-8 sm:px-8">
+          <div className="bg-white overflow-hidden shadow-sm rounded-lg mb-8 border border-gray-200">
+            <div className="px-6 py-6">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between space-y-6 lg:space-y-0">
                 
                 {/* User Profile Section */}
@@ -110,52 +110,52 @@ export default function DashboardPage() {
                         <Image
                           src={user.image_url}
                           alt="Profile"
-                          width={96}
-                          height={96}
-                          className="h-24 w-24 rounded-full object-cover border-3 border-gray-200 shadow-md"
+                          width={80}
+                          height={80}
+                          className="h-20 w-20 rounded-full object-cover border-2 border-gray-200"
                         />
-                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-3 border-white"></div>
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
                       </>
                     ) : (
-                      <div className="h-24 w-24 rounded-full bg-gray-100 flex items-center justify-center border-3 border-gray-200">
-                        <span className="text-4xl text-gray-400">👤</span>
+                      <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200">
+                        <span className="text-3xl text-gray-400">👤</span>
                       </div>
                     )}
                   </div>
                   
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                    <h1 className="text-xl font-bold text-gray-900 mb-1">
                       {user.name || user.username}
                     </h1>
                     <p className="text-sm text-gray-600 mb-2">@{user.username}</p>
                     {user.post && (
-                      <p className="text-sm font-medium text-gray-700 mb-3">{user.post}</p>
+                      <p className="text-sm font-medium text-gray-700 mb-2">{user.post}</p>
                     )}
                     <div className="flex flex-wrap gap-2">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-800 border border-gray-200'}`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${user.is_active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
                         {user.is_active ? '● Active' : '○ Inactive'}
                       </span>
                       {user.is_staff && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                           Staff Member
                         </span>
                       )}
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
-                        Member since {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
+                        {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                   </div>
                 </div>
                 
                 {/* System Info Grid */}
-                <div className="grid grid-cols-2 gap-4 lg:gap-6">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Current Time Card */}
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                     <div className="flex items-center mb-2">
                       <span className="text-lg mr-2">🕐</span>
                       <p className="text-xs font-medium text-gray-600">Current Time</p>
                     </div>
-                    <p className="text-xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
@@ -164,14 +164,14 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Battery Status Card */}
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                     <div className="flex items-center mb-2">
                       <span className={`text-lg mr-2 ${getBatteryColor()}`}>{getBatteryIcon()}</span>
                       <p className="text-xs font-medium text-gray-600">Battery</p>
                     </div>
                     {batteryInfo.supported && batteryInfo.level !== null ? (
                       <>
-                        <p className={`text-xl font-bold ${getBatteryColor()}`}>
+                        <p className={`text-lg font-bold ${getBatteryColor()}`}>
                           {batteryInfo.level}%
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                       </>
                     ) : (
                       <>
-                        <p className="text-xl font-bold text-gray-400">N/A</p>
+                        <p className="text-lg font-bold text-gray-400">N/A</p>
                         <p className="text-xs text-gray-400 mt-1">Not supported</p>
                       </>
                     )}
@@ -195,12 +195,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Dashboard Stats */}
-          <UserStats userId={user.id} />
+          {/* Bilty Statistics */}
+          <BiltyStats userId={user.id} />
 
-          {/* Working Hours Tracker */}
+          {/* Bilty Activity Chart */}
           <div className="mb-8">
-            <WorkingHoursTracker userId={user.id} />
+            <BiltyActivityChart userId={user.id} />
           </div>
 
           {/* Recent Sessions */}
@@ -211,53 +211,53 @@ export default function DashboardPage() {
 
           {/* Additional Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100">
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Account Status</h3>
-                  <span className="text-3xl">✓</span>
+                  <h3 className="text-base font-semibold text-gray-900">Account Status</h3>
+                  <span className="text-2xl">✓</span>
                 </div>
               </div>
               <div className="p-6">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Status</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <span className="text-gray-600 text-sm">Status</span>
+                    <span className={`px-3 py-1 rounded-md text-xs font-medium ${user.is_active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                       {user.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Role</span>
-                    <span className="font-semibold text-gray-900">{user.post || 'User'}</span>
+                    <span className="text-gray-600 text-sm">Role</span>
+                    <span className="font-medium text-gray-900">{user.post || 'User'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Username</span>
-                    <span className="font-semibold text-gray-900">@{user.username}</span>
+                    <span className="text-gray-600 text-sm">Username</span>
+                    <span className="font-medium text-gray-900">@{user.username}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100">
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Need Help?</h3>
-                  <span className="text-3xl">❓</span>
+                  <h3 className="text-base font-semibold text-gray-900">Need Help?</h3>
+                  <span className="text-2xl">❓</span>
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-600 mb-4">For Any Doubt</p>
-                <div className="bg-purple-50 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-gray-600 mb-2">Contact Support:</p>
+                <p className="text-gray-600 text-sm mb-4">For Any Doubt</p>
+                <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+                  <p className="text-xs text-gray-600 mb-2">Contact Support:</p>
                   <a 
                     href="tel:+917668291228"
-                    className="flex items-center text-purple-700 font-semibold hover:text-purple-800 transition-colors"
+                    className="flex items-center text-gray-900 font-semibold hover:text-gray-700 transition-colors"
                   >
                     <span className="mr-2">📞</span>
                     +91-7668291228
                   </a>
                 </div>
-                <button className="w-full bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
+                <button className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
                   View Help Center
                 </button>
               </div>

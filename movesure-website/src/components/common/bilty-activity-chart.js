@@ -214,7 +214,7 @@ export default function BiltyActivityChart({ userId }) {
 
       {/* Line Chart */}
       <div className="p-6">
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={500}>
           <LineChart data={chartData.data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 

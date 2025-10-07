@@ -97,110 +97,117 @@ export default function DashboardPage() {
       <main className="w-full py-6 px-4 sm:px-6 lg:px-8">
         <div className="w-full">
           
-          {/* Professional User Card */}
-          <div className="bg-white overflow-hidden shadow-sm rounded-lg mb-8 border border-gray-200">
-            <div className="px-6 py-6">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between space-y-6 lg:space-y-0">
-                
+          {/* Top Section: Profile + Stats */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            
+            {/* Left: User Profile Card */}
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-6">
                 {/* User Profile Section */}
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-4 mb-6">
                   <div className="flex-shrink-0 relative">
                     {user.image_url ? (
                       <>
                         <Image
                           src={user.image_url}
                           alt="Profile"
-                          width={80}
-                          height={80}
-                          className="h-20 w-20 rounded-full object-cover border-2 border-gray-200"
+                          width={64}
+                          height={64}
+                          className="h-16 w-16 rounded-full object-cover border-2 border-gray-200"
                         />
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       </>
                     ) : (
-                      <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200">
-                        <span className="text-3xl text-gray-400">👤</span>
+                      <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200">
+                        <span className="text-2xl text-gray-400">👤</span>
                       </div>
                     )}
                   </div>
                   
-                  <div>
-                    <h1 className="text-xl font-bold text-gray-900 mb-1">
+                  <div className="flex-1">
+                    <h1 className="text-lg font-bold text-gray-900 mb-1">
                       {user.name || user.username}
                     </h1>
                     <p className="text-sm text-gray-600 mb-2">@{user.username}</p>
                     {user.post && (
-                      <p className="text-sm font-medium text-gray-700 mb-2">{user.post}</p>
+                      <p className="text-xs font-medium text-gray-700">{user.post}</p>
                     )}
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${user.is_active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
-                        {user.is_active ? '● Active' : '○ Inactive'}
-                      </span>
-                      {user.is_staff && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                          Staff Member
-                        </span>
-                      )}
-                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
-                        {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                      </span>
-                    </div>
                   </div>
+                </div>
+
+                {/* Badges */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${user.is_active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
+                    {user.is_active ? '● Active' : '○ Inactive'}
+                  </span>
+                  {user.is_staff && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      Staff Member
+                    </span>
+                  )}
+                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
+                    {new Date(user.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                  </span>
                 </div>
                 
                 {/* System Info Grid */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 mb-6">
                   {/* Current Time Card */}
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center mb-2">
-                      <span className="text-lg mr-2">🕐</span>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-center mb-1">
+                      <span className="text-base mr-1">🕐</span>
                       <p className="text-xs font-medium text-gray-600">Current Time</p>
                     </div>
-                    <p className="text-lg font-bold text-gray-900">
+                    <p className="text-base font-bold text-gray-900">
                       {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                     </p>
                   </div>
 
                   {/* Battery Status Card */}
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center mb-2">
-                      <span className={`text-lg mr-2 ${getBatteryColor()}`}>{getBatteryIcon()}</span>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-center mb-1">
+                      <span className={`text-base mr-1 ${getBatteryColor()}`}>{getBatteryIcon()}</span>
                       <p className="text-xs font-medium text-gray-600">Battery</p>
                     </div>
                     {batteryInfo.supported && batteryInfo.level !== null ? (
                       <>
-                        <p className={`text-lg font-bold ${getBatteryColor()}`}>
+                        <p className={`text-base font-bold ${getBatteryColor()}`}>
                           {batteryInfo.level}%
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           {batteryInfo.charging ? 'Charging' : 'On Battery'}
                         </p>
                       </>
                     ) : (
                       <>
-                        <p className="text-lg font-bold text-gray-400">N/A</p>
-                        <p className="text-xs text-gray-400 mt-1">Not supported</p>
+                        <p className="text-base font-bold text-gray-400">N/A</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Not supported</p>
                       </>
                     )}
                   </div>
                 </div>
+                
+                {/* Last Login Info */}
+                <div className="border-t border-gray-200 pt-4">
+                  <LastLoginInfo userId={user.id} />
+                </div>
               </div>
-              
-              {/* Last Login Info */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <LastLoginInfo userId={user.id} />
-              </div>
+            </div>
+
+            {/* Right: Bilty Statistics */}
+            <div>
+              <BiltyStats userId={user.id} />
             </div>
           </div>
 
-          {/* Bilty Statistics */}
-          <BiltyStats userId={user.id} />
-
-          {/* Bilty Activity Chart */}
-          <div className="mb-8">
-            <BiltyActivityChart userId={user.id} />
+          {/* Bilty Activity Chart - Centered with max width */}
+          <div className="mb-8 flex justify-center">
+            <div className="w-full max-w-6xl">
+              <BiltyActivityChart userId={user.id} />
+            </div>
           </div>
 
           {/* Recent Sessions */}

@@ -908,6 +908,7 @@ export default function TransitManagement() {
           onRefresh={() => refreshData('all')}
           onPreviewLoadingChallan={handlePreviewLoadingChallan}
           onPreviewChallanBilties={handlePreviewChallanBilties}
+          permanentDetails={permanentDetails}
         />{/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">          {/* Left Panel - Challan Selection - Smaller width */}
           <div className="lg:col-span-3 xl:col-span-3 space-y-4 lg:space-y-6">

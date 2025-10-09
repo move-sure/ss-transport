@@ -3,6 +3,7 @@
 import { 
   FileText, Plus, Download, Building2, ChevronDown, Check, Users, Calendar
 } from 'lucide-react';
+import SampleLoadingChallan from '../transit/SampleLoadingChallan';
 
 const ManualBiltyHeader = ({
   selectedBranch,
@@ -155,6 +156,11 @@ const ManualBiltyHeader = ({
                 <Download className="w-5 h-5" />
                 <span className="hidden sm:inline">Export CSV</span>
               </button>
+              
+              <SampleLoadingChallan 
+                userBranch={selectedBranch}
+                permanentDetails={null}
+              />
             </div>
           </div>
         </div>

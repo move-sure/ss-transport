@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
-import EwbValidatorManual from '../../components/manual/ewb-validator-manual';
 import ManualBiltyForm from '../../components/manual/manual-bilty-form';
 import ManualBiltyTable from '../../components/manual/manual-bilty-table';
 import ManualBiltyHeader from '../../components/manual/manual-bilty-header';
@@ -56,9 +55,6 @@ export default function StationBiltySummaryPage() {
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
-
-  // E-way bill validation state
-  const [showEwbValidator, setShowEwbValidator] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -397,7 +393,6 @@ export default function StationBiltySummaryPage() {
             handleEdit={handleEdit}
             setShowDeleteConfirm={setShowDeleteConfirm}
             setFormData={setFormData}
-            setShowEwbValidator={setShowEwbValidator}
             currentPage={currentPage}
             totalPages={totalPages}
             setCurrentPage={setCurrentPage}
@@ -428,15 +423,7 @@ export default function StationBiltySummaryPage() {
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleDelete={handleDelete}
-      />      {/* E-way Bill Validator Modal */}
-      {showEwbValidator && (
-        <EwbValidatorManual
-          ewbNumber={formData.e_way_bill}
-          isOpen={showEwbValidator}
-          onClose={() => setShowEwbValidator(false)}
-          validationResult={null}
-          onValidationComplete={() => {}}
-        />      )}
+      />
     </div>
   );
 }

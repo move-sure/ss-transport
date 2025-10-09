@@ -3,6 +3,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText, Home } from 'lucide-react';
+import SampleLoadingChallan from './SampleLoadingChallan';
 
 const TransitHeader = ({ 
   userBranch, 
@@ -14,7 +15,8 @@ const TransitHeader = ({
   onRefresh,
   onPreviewLoadingChallan,
   onPreviewChallanBilties,
-  availableCount // filtered count from BiltyList
+  availableCount, // filtered count from BiltyList
+  permanentDetails
 }) => {
   const getCityName = (cityCode) => {
     return cityCode || 'Unknown';
@@ -90,7 +92,12 @@ const TransitHeader = ({
         </div>
         
         {/* Right Section - Action Buttons */}
-        <div className="flex flex-col lg:flex-row gap-2 lg:min-w-[400px]">
+        <div className="flex flex-col lg:flex-row gap-2 lg:min-w-[500px]">
+          <SampleLoadingChallan 
+            userBranch={userBranch}
+            permanentDetails={permanentDetails}
+          />
+          
           <button
             onClick={onPreviewLoadingChallan}
             disabled={bilties.length === 0}

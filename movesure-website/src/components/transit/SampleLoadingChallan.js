@@ -16,7 +16,7 @@ const SampleLoadingChallan = ({ userBranch, permanentDetails }) => {
     // Header Section - Minimal like original
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('LOADING CHALLAN - SAMPLE', pageWidth / 2, 15, { align: 'center' });
+    doc.text('LOADING CHALLAN', pageWidth / 2, 15, { align: 'center' });
     
     // Company Name only - no address or contact
     doc.setFontSize(12);

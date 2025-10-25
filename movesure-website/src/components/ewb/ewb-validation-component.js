@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { CheckCircle, AlertTriangle, Shield, Loader2, RefreshCw, Database } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { CheckCircle, AlertTriangle, Shield, Loader2, RefreshCw, Database, FileStack } from 'lucide-react';
 import { 
   validateEwbNumber, 
   validateMultipleEwbNumbers, 
@@ -11,8 +11,10 @@ import {
 
 const EwbValidationComponent = ({ 
   ewbNumbers = [], 
+  ewbToGrMapping = {},
   onValidationComplete = null,
   showCacheControls = false,
+  onConsolidateClick = null,
   className = ""
 }) => {
   const [validationResults, setValidationResults] = useState({});
@@ -129,6 +131,15 @@ const EwbValidationComponent = ({
     checkCachedData();
   }, [updateCacheStats, checkCachedData]);
 
+  // Check if all EWBs are validated successfully
+  const allValidated = useMemo(() => {
+    if (ewbNumbers.length === 0) return false;
+    return ewbNumbers.every(ewb => {
+      const result = validationResults[ewb];
+      return result && result.success === true;
+    });
+  }, [ewbNumbers, validationResults]);
+
   const getValidationIcon = (result) => {
     if (!result) return null;
     
@@ -196,29 +207,42 @@ const EwbValidationComponent = ({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Control Panel */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+      <div className="flex items-center justify-between p-5 bg-white/80 backdrop-blur rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center gap-4">
-          <Shield className="w-5 h-5 text-blue-600" />
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Shield className="w-5 h-5 text-blue-600" />
+          </div>
           <div>
-            <h3 className="font-medium text-gray-900">EWB Validation</h3>
-            <p className="text-xs text-gray-600">
-              {ewbNumbers.length} EWB number{ewbNumbers.length !== 1 ? 's' : ''} found
+            <h3 className="font-semibold text-slate-900">EWB Validation & Consolidation</h3>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {ewbNumbers.length} E-Way Bill{ewbNumbers.length !== 1 ? 's' : ''} found
+              {allValidated && <span className="ml-2 text-green-600 font-medium">• All Validated ✓</span>}
             </p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           {cacheStats && showCacheControls && (
-            <div className="flex items-center gap-2 text-xs text-gray-600 mr-4">
+            <div className="flex items-center gap-2 text-xs text-slate-600 mr-2 px-3 py-2 bg-slate-100 rounded-lg">
               <Database className="w-4 h-4" />
               <span>Cache: {cacheStats.valid}/{cacheStats.total}</span>
             </div>
           )}
           
+          {allValidated && ewbNumbers.length > 1 && onConsolidateClick && (
+            <button
+              onClick={onConsolidateClick}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2 shadow-sm"
+            >
+              <FileStack className="w-4 h-4" />
+              Consolidate All ({ewbNumbers.length})
+            </button>
+          )}
+          
           <button
             onClick={validateAll}
             disabled={isValidating}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2 shadow-sm"
           >
             {isValidating ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -231,7 +255,7 @@ const EwbValidationComponent = ({
           {showCacheControls && (
             <button
               onClick={handleClearCache}
-              className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm flex items-center gap-2"
+              className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm flex items-center gap-2 shadow-sm"
             >
               <RefreshCw className="w-4 h-4" />
               Clear Cache
@@ -242,88 +266,106 @@ const EwbValidationComponent = ({
 
       {/* Progress Bar */}
       {validationProgress && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <span className="text-sm font-semibold text-blue-900">
                 Validating EWB {validationProgress.current} of {validationProgress.total}
               </span>
             </div>
-            <span className="text-xs text-blue-600">
-              {Math.round((validationProgress.current / validationProgress.total) * 100)}% Complete
+            <span className="text-sm font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+              {Math.round((validationProgress.current / validationProgress.total) * 100)}%
             </span>
           </div>
           
           {validationProgress.ewbNumber && (
-            <div className="mb-2">
+            <div className="mb-3 p-3 bg-white rounded-lg">
               <span className="text-sm text-blue-700 font-medium">Currently validating: </span>
-              <span className="font-mono text-sm font-bold text-blue-900 bg-blue-100 px-2 py-1 rounded">
+              <span className="font-mono text-sm font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-lg ml-2">
                 {formatEwbNumber(validationProgress.ewbNumber)}
               </span>
             </div>
           )}
           
-          <div className="w-full bg-blue-200 rounded-full h-3">
+          <div className="w-full bg-blue-200 rounded-full h-4 overflow-hidden">
             <div 
-              className="bg-blue-600 h-3 rounded-full transition-all duration-500 relative overflow-hidden"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full transition-all duration-500 relative overflow-hidden"
               style={{ width: `${(validationProgress.current / validationProgress.total) * 100}%` }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-40 animate-pulse"></div>
             </div>
           </div>
         </div>
       )}
 
       {/* EWB List */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {ewbNumbers.map((ewbNumber, index) => {
           const result = validationResults[ewbNumber];
           const isCurrentlyValidating = isValidating && validationProgress?.ewbNumber === ewbNumber;
+          const grMappings = ewbToGrMapping[ewbNumber] || [];
           
           return (
             <div 
               key={index}
-              className={`p-4 border rounded-lg transition-all duration-300 ${
+              className={`p-5 border rounded-xl transition-all duration-300 shadow-sm ${
                 result?.success 
-                  ? 'bg-green-50 border-green-200' 
+                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' 
                   : result?.success === false 
-                    ? 'bg-red-50 border-red-200'
+                    ? 'bg-gradient-to-br from-red-50 to-rose-50 border-red-200'
                     : isCurrentlyValidating
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'bg-white border-gray-200 hover:bg-gray-50'
+                      ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+                      : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm font-medium text-gray-900">
-                    {formatEwbNumber(ewbNumber)}
-                  </span>
-                  {isCurrentlyValidating && (
-                    <div className="flex items-center gap-1">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                      <span className="text-xs text-blue-700 font-medium">Validating...</span>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="font-mono text-base font-bold text-slate-900 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                      {formatEwbNumber(ewbNumber)}
+                    </span>
+                    {isCurrentlyValidating && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 rounded-lg">
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        <span className="text-xs text-blue-800 font-semibold">Validating...</span>
+                      </div>
+                    )}
+                    {!isCurrentlyValidating && getValidationIcon(result)}
+                  </div>
+                  
+                  {/* Show GR Numbers */}
+                  {grMappings.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-slate-600">GR No:</span>
+                      {grMappings.map((mapping, idx) => (
+                        <span 
+                          key={idx} 
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-sm"
+                        >
+                          {mapping.gr_no}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            mapping.source === 'bilty' 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {mapping.source === 'bilty' ? 'regular' : 'manual'}
+                          </span>
+                        </span>
+                      ))}
                     </div>
                   )}
-                  {!isCurrentlyValidating && getValidationIcon(result)}
                 </div>
                 
                 <div className="flex items-center gap-2">
                   {getValidationBadge(ewbNumber)}
                   
-                  {/* Quick status display */}
-                  {result?.success && (
-                    <span className="text-xs text-green-700 font-medium">
-                      Status: {result.data?.status || 'success'}
-                    </span>
-                  )}
-                  
                   <button
                     onClick={() => validateSingle(ewbNumber)}
                     disabled={isValidating}
-                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                   >
-                    {isCurrentlyValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Validate'}
+                    {isCurrentlyValidating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Validate'}
                   </button>
                 </div>
               </div>

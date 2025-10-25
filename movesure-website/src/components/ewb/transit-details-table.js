@@ -40,6 +40,40 @@ export default function TransitDetailsTable({ transitDetails }) {
     return [...new Set(ewbNumbers)];
   }, [transitDetails]);
 
+  // Map EWB numbers to GR numbers for display
+  const ewbToGrMapping = useMemo(() => {
+    if (!transitDetails) return {};
+    
+    const mapping = {};
+    transitDetails.forEach(transit => {
+      // Map bilty EWB numbers
+      if (transit.bilty?.e_way_bill) {
+        const biltyEWBs = transit.bilty.e_way_bill.split(',').filter(e => e.trim());
+        biltyEWBs.forEach(ewb => {
+          const trimmedEwb = ewb.trim();
+          if (!mapping[trimmedEwb]) {
+            mapping[trimmedEwb] = [];
+          }
+          mapping[trimmedEwb].push({ gr_no: transit.gr_no, source: 'bilty' });
+        });
+      }
+      
+      // Map station EWB numbers
+      if (transit.station?.e_way_bill) {
+        const stationEWBs = transit.station.e_way_bill.split(',').filter(e => e.trim());
+        stationEWBs.forEach(ewb => {
+          const trimmedEwb = ewb.trim();
+          if (!mapping[trimmedEwb]) {
+            mapping[trimmedEwb] = [];
+          }
+          mapping[trimmedEwb].push({ gr_no: transit.gr_no, source: 'station' });
+        });
+      }
+    });
+    
+    return mapping;
+  }, [transitDetails]);
+
   // Get EWB numbers from selected GRs only
   const selectedEwbNumbers = useMemo(() => {
     if (!transitDetails || selectedGRs.length === 0) return [];
@@ -268,22 +302,12 @@ export default function TransitDetailsTable({ transitDetails }) {
 
         {/* EWB Validation Component */}
         {showValidation && allEwbNumbers.length > 0 && (
-          <div className="p-6 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">EWB Validation & Consolidation</h3>
-              {allEwbNumbers.length > 1 && (
-                <button
-                  onClick={() => setShowConsolidatedModal(true)}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
-                >
-                  <FileStack className="w-4 h-4" />
-                  Consolidate All EWBs ({allEwbNumbers.length})
-                </button>
-              )}
-            </div>
+          <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50">
             <EwbValidationComponent 
               ewbNumbers={allEwbNumbers}
+              ewbToGrMapping={ewbToGrMapping}
               showCacheControls={true}
+              onConsolidateClick={() => setShowConsolidatedModal(true)}
               onValidationComplete={(results) => {
                 // Force re-render to show updated validation status
                 setSelectedGRs([...selectedGRs]);
@@ -308,6 +332,7 @@ export default function TransitDetailsTable({ transitDetails }) {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">E-Way Bill</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Consignor</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">To (Destination)</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Invoice Value</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -393,21 +418,34 @@ export default function TransitDetailsTable({ transitDetails }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {transit.bilty?.consignor_name || 'N/A'}
+                    {transit.bilty?.consignor_name || transit.station?.consignor || 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     <div>
                       {transit.toCity?.city_name ? (
-                        <span className="font-medium text-gray-900">{transit.toCity.city_name}</span>
+                        <>
+                          <span className="font-medium text-gray-900">{transit.toCity.city_name}</span>
+                          {transit.toCity?.city_code && (
+                            <span className="text-xs text-gray-500 ml-1">({transit.toCity.city_code})</span>
+                          )}
+                        </>
+                      ) : transit.station?.station ? (
+                        <span className="font-medium text-gray-900">{transit.station.station}</span>
                       ) : transit.bilty?.to_location ? (
                         <span className="text-gray-700">{transit.bilty.to_location}</span>
                       ) : (
                         <span className="text-gray-500">N/A</span>
                       )}
-                      {transit.toCity?.city_code && (
-                        <span className="text-xs text-gray-500 ml-1">({transit.toCity.city_code})</span>
-                      )}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {transit.bilty?.invoice_value ? (
+                      <span className="font-medium text-gray-900">
+                        ₹{parseFloat(transit.bilty.invoice_value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">N/A</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

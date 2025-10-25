@@ -120,33 +120,67 @@ export default function useChallanData(challanNo) {
         .map(b => b.to_city_id)
         .filter(Boolean);
 
-      // Fetch city details for to_city_id
-      let cityData = [];
-      if (toCityIdsFromBilty.length > 0) {
-        const { data: cities, error: cityError } = await supabase
-          .from('cities')
-          .select('*')
-          .in('id', toCityIdsFromBilty);
+      // Get city codes from station bilty summary records
+      const cityCodes = stationData
+        .map(s => s.station)
+        .filter(Boolean);
 
-        if (cityError) {
-          console.error('City fetch error:', cityError);
-        } else {
-          cityData = cities || [];
-        }
+      // Fetch city details for both to_city_id and city_code
+      let cityData = [];
+      const cityFetchPromises = [];
+      
+      if (toCityIdsFromBilty.length > 0) {
+        cityFetchPromises.push(
+          supabase
+            .from('cities')
+            .select('*')
+            .in('id', toCityIdsFromBilty)
+        );
+      }
+      
+      if (cityCodes.length > 0) {
+        cityFetchPromises.push(
+          supabase
+            .from('cities')
+            .select('*')
+            .in('city_code', cityCodes)
+        );
+      }
+
+      if (cityFetchPromises.length > 0) {
+        const cityResults = await Promise.all(cityFetchPromises);
+        cityResults.forEach(result => {
+          if (result.error) {
+            console.error('City fetch error:', result.error);
+          } else {
+            cityData.push(...(result.data || []));
+          }
+        });
       }
 
       // Map bilty, station, and city data to transit details
       const biltyMap = Object.fromEntries(biltyData.map(b => [b.id, b]));
       const stationMap = Object.fromEntries(stationData.map(s => [s.gr_no, s]));
-      const cityMap = Object.fromEntries(cityData.map(c => [c.id, c]));
+      const cityMapById = Object.fromEntries(cityData.map(c => [c.id, c]));
+      const cityMapByCode = Object.fromEntries(cityData.map(c => [c.city_code, c]));
       
       const enrichedTransitDetails = transitRes.data.map(transit => {
         const biltyRecord = transit.bilty_id ? biltyMap[transit.bilty_id] : null;
+        const stationRecord = stationMap[transit.gr_no] || null;
+        
+        // Determine the destination city
+        let toCity = null;
+        if (biltyRecord?.to_city_id) {
+          toCity = cityMapById[biltyRecord.to_city_id] || null;
+        } else if (stationRecord?.station) {
+          toCity = cityMapByCode[stationRecord.station] || null;
+        }
+        
         return {
           ...transit,
           bilty: biltyRecord,
-          station: stationMap[transit.gr_no] || null,
-          toCity: biltyRecord?.to_city_id ? cityMap[biltyRecord.to_city_id] : null
+          station: stationRecord,
+          toCity: toCity
         };
       });
 

@@ -1031,63 +1031,75 @@ export default function BiltyForm() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
       <Navbar />
       <div className="w-full px-6 py-6">
-        {/* Bill Book Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
-          <div className="flex justify-between items-center">
-            {/* Bill Book Selector */}
-            <div className="relative">
-              <div className="flex items-center gap-3">
-                <span className="text-white font-bold flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  BILL BOOK:
-                </span>
-                <button
-                  onClick={() => setShowBillBookDropdown(!showBillBookDropdown)}
-                  className="bg-white text-purple-600 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors border-2 border-purple-300 flex items-center gap-2 shadow-lg"
-                >
-                  <span>
-                    {selectedBillBook ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''}` : 'Select Bill Book'}
+        {/* Bill Book Header - hidden per request */}
+        {false && (
+          <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
+            <div className="flex justify-between items-center">
+              {/* Bill Book Selector */}
+              <div className="relative">
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-bold flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    BILL BOOK:
                   </span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
+                  <button
+                    onClick={() => setShowBillBookDropdown(!showBillBookDropdown)}
+                    className="bg-white text-purple-600 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors border-2 border-purple-300 flex items-center gap-2 shadow-lg"
+                  >
+                    <span>
+                      {selectedBillBook ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''}` : 'Select Bill Book'}
+                    </span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                {showBillBookDropdown && (
+                  <div className="absolute z-30 left-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                    {billBooks.map((book) => (
+                      <button
+                        key={book.id}
+                        onClick={() => handleBillBookSelect(book)}
+                        className="w-full px-4 py-3 text-left hover:bg-purple-50 border-b border-purple-100 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-b-0"
+                      >
+                        <div className="text-sm font-bold text-black">
+                          {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
+                          {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Next: {generateGRNumber(book)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               
-              {showBillBookDropdown && (
-                <div className="absolute z-30 left-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
-                  {billBooks.map((book) => (
-                    <button
-                      key={book.id}
-                      onClick={() => handleBillBookSelect(book)}
-                      className="w-full px-4 py-3 text-left hover:bg-purple-50 border-b border-purple-100 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-b-0"
-                    >
-                      <div className="text-sm font-bold text-black">
-                        {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
-                        {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        Next: {generateGRNumber(book)}
-                      </div>
-                    </button>
-                  ))}
+              {/* Edit Mode Indicator */}
+              {isEditMode && currentBiltyId && (
+                <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-black px-6 py-3 rounded-xl font-bold text-sm border-2 border-amber-300 shadow-lg">
+                  EDITING: {formData.gr_no}
                 </div>
               )}
             </div>
-            
-            {/* Edit Mode Indicator */}
-            {isEditMode && currentBiltyId && (
-              <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-black px-6 py-3 rounded-xl font-bold text-sm border-2 border-amber-300 shadow-lg">
-                EDITING: {formData.gr_no}
+            {/* Keyboard Shortcuts */}
+            {showShortcuts && (
+              <div className="mt-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20">
+                <div className="text-sm text-white text-center font-medium">
+                  <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
+                </div>
               </div>
             )}
-          </div>          {/* Keyboard Shortcuts */}
-          {showShortcuts && (
-            <div className="mt-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20">
-              <div className="text-sm text-white text-center font-medium">
-                <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
-              </div>
+          </div>
+        )}
+
+        {/* Keyboard Shortcuts (visible even when header hidden) */}
+        {showShortcuts && (
+          <div className="mb-6 rounded-xl border border-purple-200 bg-white/60 p-4 shadow-sm">
+            <div className="text-sm text-purple-700 text-center font-medium">
+              <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Form Sections - Full Width */}
         <div className="bg-white rounded-2xl shadow-2xl border border-purple-200 p-8 space-y-8">

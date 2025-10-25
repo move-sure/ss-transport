@@ -1,17 +1,300 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, User, Send, X, Loader2, CheckCircle, AlertTriangle, Edit3 } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
+
+const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
+
+const createEmptyFormState = () => ({
+  user_gstin: DEFAULT_USER_GSTIN,
+  eway_bill_number: '',
+  transporter_id: '',
+  transporter_name: ''
+});
+
+const parseCityReference = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(/^([^()]+?)(?:\(([^()]+)\))?$/);
+  const cityName = match?.[1]?.trim() || null;
+  const cityCode = match?.[2]?.trim() || null;
+
+  return {
+    cityName,
+    cityCode,
+    raw: trimmed
+  };
+};
 
 const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
-  const [formData, setFormData] = useState({
-    user_gstin: '09COVPS5556J1ZT',
-    eway_bill_number: '',
-    transporter_id: '',
-    transporter_name: ''
-  });
-  
+  const [formData, setFormData] = useState(createEmptyFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [autoFillStatus, setAutoFillStatus] = useState({
+    loading: false,
+    attempted: false,
+    match: null,
+    error: null
+  });
+  const [lastAttemptSignature, setLastAttemptSignature] = useState(null);
+
+  const cityHints = useMemo(() => {
+    if (!grData) return null;
+
+    if (grData.toCity) {
+      return {
+        cityId: grData.toCity.id || null,
+        cityName: grData.toCity.city_name || null,
+        cityCode: grData.toCity.city_code || null,
+        source: 'direct'
+      };
+    }
+
+    const candidates = [
+      grData.station?.station,
+      grData.station?.city_name,
+      grData.bilty?.to_location
+    ];
+
+    for (const value of candidates) {
+      const parsed = parseCityReference(value);
+      if (parsed) {
+        return {
+          cityId: null,
+          cityName: parsed.cityName || null,
+          cityCode: parsed.cityCode || null,
+          source: 'parsed',
+          raw: parsed.raw
+        };
+      }
+    }
+
+    return null;
+  }, [grData]);
+
+  const citySignature = useMemo(() => {
+    if (!cityHints) return null;
+    return [
+      cityHints.cityId || '',
+      cityHints.cityCode || '',
+      (cityHints.cityName || '').toLowerCase()
+    ].join('|');
+  }, [cityHints]);
+
+  // Reset effect - only resets when modal opens or GR changes
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    // Reset everything to initial state
+    setFormData(createEmptyFormState());
+    setResult(null);
+    setError(null);
+    setAutoFillStatus({ loading: false, attempted: false, match: null, error: null });
+    setLastAttemptSignature(null);
+  }, [isOpen, grData?.gr_no]);
+
+  // Auto-fill effect - runs after reset, attempts to fill transporter details
+  useEffect(() => {
+    if (!isOpen || !grData) {
+      return;
+    }
+
+    // If no city hints, mark as attempted and exit
+    if (!cityHints) {
+      if (!autoFillStatus.attempted) {
+        setAutoFillStatus({ loading: false, attempted: true, match: null, error: null });
+      }
+      return;
+    }
+
+    // If already attempted with same signature, don't retry
+    if (autoFillStatus.attempted && lastAttemptSignature === citySignature) {
+      return;
+    }
+
+    // If city changed, reset attempt status
+    if (autoFillStatus.attempted && citySignature && lastAttemptSignature !== citySignature) {
+      setAutoFillStatus({ loading: false, attempted: false, match: null, error: null });
+      setLastAttemptSignature(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const lookupTransporterForCity = async () => {
+      setAutoFillStatus({ loading: true, attempted: true, match: null, error: null });
+      setLastAttemptSignature(citySignature);
+
+      try {
+        const normalizedName = cityHints.cityName ? cityHints.cityName.trim() : null;
+        const normalizedCode = cityHints.cityCode ? cityHints.cityCode.trim() : null;
+        let targetCityId = cityHints.cityId || null;
+        let resolvedCity = null;
+
+        if (!targetCityId) {
+          let cityQuery = supabase
+            .from('cities')
+            .select('id, city_name, city_code')
+            .limit(1);
+
+          if (normalizedCode) {
+            cityQuery = cityQuery.eq('city_code', normalizedCode);
+          } else if (normalizedName) {
+            cityQuery = cityQuery.ilike('city_name', normalizedName);
+          }
+
+          let { data: cityRows, error: cityError } = await cityQuery;
+          if (cityError) throw cityError;
+
+          if (!cityRows || cityRows.length === 0) {
+            if (normalizedName) {
+              const { data: fuzzyRows, error: fuzzyError } = await supabase
+                .from('cities')
+                .select('id, city_name, city_code')
+                .ilike('city_name', `%${normalizedName}%`)
+                .limit(1);
+
+              if (fuzzyError) throw fuzzyError;
+              cityRows = fuzzyRows || [];
+            }
+          }
+
+          const cityRecord = cityRows?.[0];
+          if (!cityRecord) {
+            if (!cancelled) {
+              setAutoFillStatus({ loading: false, attempted: true, match: null, error: null });
+            }
+            return;
+          }
+
+          targetCityId = cityRecord.id;
+          resolvedCity = cityRecord;
+        } else {
+          resolvedCity = {
+            id: targetCityId,
+            city_name: normalizedName || grData.toCity?.city_name || null,
+            city_code: normalizedCode || grData.toCity?.city_code || null
+          };
+        }
+
+        console.log('🔍 Querying transports for city_id:', targetCityId, 'City:', resolvedCity);
+        
+        let { data: transportRows, error: transportError } = await supabase
+          .from('transports')
+          .select('id, transport_name, gst_number, city_id, city_name, mob_number')
+          .eq('city_id', targetCityId)
+          .not('transport_name', 'is', null)
+          .limit(1);
+
+        if (transportError) throw transportError;
+
+        let transportRecord = transportRows?.[0];
+        
+        console.log('📦 Transport query result:', transportRecord);
+        
+        console.log('📦 Transport query result:', transportRecord);
+
+        if (!transportRecord && (normalizedName || resolvedCity?.city_name)) {
+          const fallbackName = resolvedCity?.city_name || normalizedName;
+          console.log('🔄 Trying fallback query with city name:', fallbackName);
+          
+          const { data: fallbackRows, error: fallbackError } = await supabase
+            .from('transports')
+            .select('id, transport_name, gst_number, city_id, city_name, mob_number')
+            .ilike('city_name', `%${fallbackName}%`)
+            .not('transport_name', 'is', null)
+            .not('gst_number', 'is', null)
+            .limit(1);
+
+          if (fallbackError) throw fallbackError;
+          transportRecord = fallbackRows?.[0];
+          
+          console.log('🔄 Fallback query result:', transportRecord);
+        }
+
+        // If still no match, try getting ANY transporter with GST (last resort)
+        if (!transportRecord) {
+          console.log('🆘 No city match, fetching any transporter with GST...');
+          
+          const { data: anyRows, error: anyError } = await supabase
+            .from('transports')
+            .select('id, transport_name, gst_number, city_id, city_name, mob_number')
+            .not('transport_name', 'is', null)
+            .not('gst_number', 'is', null)
+            .limit(1);
+
+          if (anyError) throw anyError;
+          transportRecord = anyRows?.[0];
+          
+          console.log('🆘 Any transporter result:', transportRecord);
+        }
+
+        if (!cancelled) {
+          if (transportRecord && (transportRecord.gst_number || transportRecord.transport_name)) {
+            console.log('✅ Found transporter:', {
+              name: transportRecord.transport_name,
+              gst: transportRecord.gst_number,
+              city: transportRecord.city_name
+            });
+            
+            // Direct state update - set both values explicitly
+            const newTransporterId = transportRecord.gst_number ? transportRecord.gst_number.toUpperCase() : '';
+            const newTransporterName = transportRecord.transport_name || '';
+            
+            console.log('📝 Setting form values:', {
+              transporter_id: newTransporterId,
+              transporter_name: newTransporterName
+            });
+            
+            setFormData(prev => ({
+              ...prev,
+              transporter_id: newTransporterId,
+              transporter_name: newTransporterName
+            }));
+
+            setAutoFillStatus({
+              loading: false,
+              attempted: true,
+              match: {
+                name: transportRecord.transport_name || null,
+                gst: transportRecord.gst_number || null,
+                city: transportRecord.city_name || resolvedCity?.city_name || normalizedName || 'Selected city',
+                phone: transportRecord.mob_number || null
+              },
+              error: null
+            });
+          } else {
+            console.log('❌ No transporter found');
+            setAutoFillStatus({ loading: false, attempted: true, match: null, error: null });
+          }
+        }
+      } catch (lookupError) {
+        console.error('Auto-fill transporter lookup failed:', lookupError);
+        if (!cancelled) {
+          setAutoFillStatus({
+            loading: false,
+            attempted: true,
+            match: null,
+            error: lookupError.message || 'Failed to fetch transporter details'
+          });
+        }
+      }
+    };
+
+    lookupTransporterForCity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isOpen,
+    grData?.gr_no,
+    citySignature
+  ]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -83,19 +366,21 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
     }
   };
 
-  const reset = () => {
+  const reset = (enableAutoFill = true) => {
     setResult(null);
     setError(null);
-    setFormData({
-      user_gstin: '09COVPS5556J1ZT',
-      eway_bill_number: '',
-      transporter_id: '',
-      transporter_name: ''
+    setFormData(createEmptyFormState());
+    setAutoFillStatus({
+      loading: false,
+      attempted: enableAutoFill ? false : true,
+      match: null,
+      error: null
     });
+    setLastAttemptSignature(null);
   };
 
   const handleClose = () => {
-    reset();
+    reset(false);
     onClose();
   };
 
@@ -297,6 +582,44 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
                   <Truck className="w-5 h-5 text-blue-600" />
                   Transporter Information
                 </h3>
+
+                {autoFillStatus.loading && (
+                  <div className="mb-4 flex items-center gap-2 text-sm text-blue-700">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Matching saved transporter for this destination…</span>
+                  </div>
+                )}
+
+                {!autoFillStatus.loading && autoFillStatus.match && (
+                  <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                    <div className="font-medium text-emerald-800">Auto-filled transporter details</div>
+                    <div className="mt-1 text-xs text-emerald-700">
+                      {autoFillStatus.match.city ? `City: ${autoFillStatus.match.city}` : 'City matched'}
+                    </div>
+                    {autoFillStatus.match.gst && (
+                      <div className="mt-1 text-xs text-emerald-700">
+                        GSTIN: <span className="font-mono font-semibold text-emerald-900">{autoFillStatus.match.gst}</span>
+                      </div>
+                    )}
+                    {autoFillStatus.match.phone && (
+                      <div className="mt-1 text-xs text-emerald-600">
+                        Contact: {autoFillStatus.match.phone}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!autoFillStatus.loading && autoFillStatus.attempted && !autoFillStatus.match && !autoFillStatus.error && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                    No saved transporter found for {cityHints?.cityName || 'this city'}. Fill in the details below.
+                  </div>
+                )}
+
+                {!autoFillStatus.loading && autoFillStatus.error && (
+                  <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    Could not auto-fill transporter details. {autoFillStatus.error}
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* GSTIN */}

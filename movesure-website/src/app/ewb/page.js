@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
 import ChallanSelector from '../../components/ewb/challan-selector';
@@ -25,9 +25,12 @@ export default function EWBPage() {
     setSelectedChallan(null);
   };
 
-  if (!authLoading) {
-    requireAuth();
-  }
+  // Move requireAuth to useEffect to avoid setState during render
+  useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, requireAuth]);
 
   if (authLoading) {
     return (

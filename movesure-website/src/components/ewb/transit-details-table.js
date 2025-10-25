@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Shield, CheckCircle, AlertTriangle, Database, FileStack, Edit3 } from 'lucide-react';
 import EWBFilter from './ewb-filter';
 import EWBDetailsModal from './ewb-details-modal';
@@ -16,6 +16,7 @@ export default function TransitDetailsTable({ transitDetails }) {
   const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
   const [showTransporterModal, setShowTransporterModal] = useState(false);
   const [selectedTransporterGR, setSelectedTransporterGR] = useState(null);
+  const [validationMap, setValidationMap] = useState({});
 
   // Get all EWB numbers from transit details
   const allEwbNumbers = useMemo(() => {
@@ -129,6 +130,55 @@ export default function TransitDetailsTable({ transitDetails }) {
       data: null
     };
   };
+
+  useEffect(() => {
+    if (!allEwbNumbers || allEwbNumbers.length === 0) {
+      setValidationMap({});
+      return;
+    }
+
+    setValidationMap(prev => {
+      const next = {};
+
+      allEwbNumbers.forEach(ewbNumber => {
+        const status = getEwbValidationStatus(ewbNumber);
+        if (status.isValidated) {
+          next[ewbNumber] = {
+            isValidated: true,
+            success: status.isValid
+          };
+        } else if (prev[ewbNumber]) {
+          next[ewbNumber] = prev[ewbNumber];
+        }
+      });
+
+      return next;
+    });
+  }, [allEwbNumbers]);
+
+  const handleValidationResults = useCallback((results = []) => {
+    if (!Array.isArray(results) || results.length === 0) return;
+
+    setValidationMap(prev => {
+      const next = { ...prev };
+      results.forEach(({ ewbNumber, success }) => {
+        if (!ewbNumber) return;
+        next[String(ewbNumber).trim()] = {
+          isValidated: true,
+          success: success === true
+        };
+      });
+      return next;
+    });
+  }, []);
+
+  const canConsolidateSelected = useMemo(() => {
+    if (!selectedEwbNumbers || selectedEwbNumbers.length < 2) return false;
+    return selectedEwbNumbers.every(ewb => {
+      const entry = validationMap[String(ewb).trim()];
+      return entry?.isValidated && entry?.success;
+    });
+  }, [selectedEwbNumbers, validationMap]);
 
   // Filter transit details based on E-Way Bill availability
   const filteredTransitDetails = useMemo(() => {
@@ -286,7 +336,7 @@ export default function TransitDetailsTable({ transitDetails }) {
                 >
                   Generate EWB ({getSelectedEWBCount()})
                 </button>
-                {selectedEwbNumbers.length > 0 && (
+                {canConsolidateSelected && (
                   <button
                     onClick={() => setShowConsolidatedModal(true)}
                     className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
@@ -308,10 +358,7 @@ export default function TransitDetailsTable({ transitDetails }) {
               ewbToGrMapping={ewbToGrMapping}
               showCacheControls={true}
               onConsolidateClick={() => setShowConsolidatedModal(true)}
-              onValidationComplete={(results) => {
-                // Force re-render to show updated validation status
-                setSelectedGRs([...selectedGRs]);
-              }}
+              onValidationComplete={handleValidationResults}
             />
           </div>
         )}
@@ -484,7 +531,7 @@ export default function TransitDetailsTable({ transitDetails }) {
                   </span>
                 )}
               </p>
-              {selectedEwbNumbers.length > 1 && (
+              {canConsolidateSelected ? (
                 <button
                   onClick={() => setShowConsolidatedModal(true)}
                   className="px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700 transition-colors flex items-center gap-1"
@@ -492,6 +539,10 @@ export default function TransitDetailsTable({ transitDetails }) {
                   <FileStack className="w-3 h-3" />
                   Quick Consolidate
                 </button>
+              ) : (
+                selectedEwbNumbers.length > 1 && (
+                  <span className="text-xs font-medium text-blue-700">Validate these EWB numbers to enable consolidation.</span>
+                )
               )}
             </div>
           </div>

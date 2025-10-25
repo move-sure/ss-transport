@@ -354,74 +354,76 @@ const ChallanSelector = ({
         </div>
       </div>
 
-      {/* Compact Challan Book Selection - Moved to bottom */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-visible">
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-500 p-3">
-          <h4 className="text-sm font-bold text-white flex items-center gap-2">
-            <Package className="w-4 h-4" />
-            Challan Book
-          </h4>
-        </div>
-        
-        <div className="p-3">
-          <div className="relative" ref={challanBookRef}>
-            <button
-              onClick={() => setShowChallanBookDropdown(!showChallanBookDropdown)}
-              className="w-full px-3 py-2 text-left bg-purple-50 border border-purple-200 rounded-lg hover:border-purple-300 transition-all duration-200 flex items-center justify-between text-sm"
-            >
-              <div className="flex-1 min-w-0">
-                {selectedChallanBook ? (
-                  <div>
-                    <div className="font-bold text-purple-900 text-sm truncate">
-                      Next: {generateChallanNumber(selectedChallanBook)}
+      {/* Compact Challan Book Selection - Hidden per request */}
+      {false && (
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-visible">
+          <div className="bg-gradient-to-r from-purple-500 to-indigo-500 p-3">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Challan Book
+            </h4>
+          </div>
+          
+          <div className="p-3">
+            <div className="relative" ref={challanBookRef}>
+              <button
+                onClick={() => setShowChallanBookDropdown(!showChallanBookDropdown)}
+                className="w-full px-3 py-2 text-left bg-purple-50 border border-purple-200 rounded-lg hover:border-purple-300 transition-all duration-200 flex items-center justify-between text-sm"
+              >
+                <div className="flex-1 min-w-0">
+                  {selectedChallanBook ? (
+                    <div>
+                      <div className="font-bold text-purple-900 text-sm truncate">
+                        Next: {generateChallanNumber(selectedChallanBook)}
+                      </div>
+                      <div className="text-xs text-purple-600 truncate">
+                        To: {getDestinationBranchName(selectedChallanBook.id)}
+                      </div>
                     </div>
-                    <div className="text-xs text-purple-600 truncate">
-                      To: {getDestinationBranchName(selectedChallanBook.id)}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-gray-500 font-medium text-sm">Choose challan book...</div>
-                )}
-              </div>
-              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform flex-shrink-0 ml-2 ${showChallanBookDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {showChallanBookDropdown && (
-              <div className="absolute z-[9999] mt-2 w-full bg-white border border-purple-200 rounded-lg shadow-xl">
-                <div className="max-h-48 overflow-y-auto">
-                  {challanBooks.length > 0 ? (
-                    challanBooks.map((book) => (
-                      <button
-                        key={book.id}
-                        onClick={() => handleChallanBookSelect(book)}
-                        className="w-full px-3 py-2 text-left hover:bg-purple-50 border-b border-gray-100 transition-colors text-sm"
-                      >
-                        <div className="font-bold text-purple-900 text-xs truncate">
-                          {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
-                          {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
-                        </div>
-                        <div className="text-xs text-gray-600 mt-1 truncate">
-                          Next: {generateChallanNumber(book)}
-                        </div>
-                        <div className="text-xs text-purple-600 flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">To: {getDestinationBranchName(book.id)}</span>
-                        </div>
-                      </button>
-                    ))
                   ) : (
-                    <div className="px-4 py-6 text-center text-gray-500">
-                      <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <div className="font-medium text-sm">No challan books</div>
-                      <div className="text-xs">Create one first</div>
-                    </div>
+                    <div className="text-gray-500 font-medium text-sm">Choose challan book...</div>
                   )}
                 </div>
-              </div>
-            )}
+                <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform flex-shrink-0 ml-2 ${showChallanBookDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showChallanBookDropdown && (
+                <div className="absolute z-[9999] mt-2 w-full bg-white border border-purple-200 rounded-lg shadow-xl">
+                  <div className="max-h-48 overflow-y-auto">
+                    {challanBooks.length > 0 ? (
+                      challanBooks.map((book) => (
+                        <button
+                          key={book.id}
+                          onClick={() => handleChallanBookSelect(book)}
+                          className="w-full px-3 py-2 text-left hover:bg-purple-50 border-b border-gray-100 transition-colors text-sm"
+                        >
+                          <div className="font-bold text-purple-900 text-xs truncate">
+                            {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
+                            {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1 truncate">
+                            Next: {generateChallanNumber(book)}
+                          </div>
+                          <div className="text-xs text-purple-600 flex items-center gap-1 mt-1">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">To: {getDestinationBranchName(book.id)}</span>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-center text-gray-500">
+                        <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                        <div className="font-medium text-sm">No challan books</div>
+                        <div className="text-xs">Create one first</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

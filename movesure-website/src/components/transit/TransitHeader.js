@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText, Home } from 'lucide-react';
+import { Truck, Package, AlertCircle, RefreshCw, Eye, FileText } from 'lucide-react';
 import SampleLoadingChallan from './SampleLoadingChallan';
 
 const TransitHeader = ({ 
@@ -18,125 +18,157 @@ const TransitHeader = ({
   availableCount, // filtered count from BiltyList
   permanentDetails
 }) => {
-  const getCityName = (cityCode) => {
-    return cityCode || 'Unknown';
-  };
-
   // Calculate total weight of bilties in challan
-  const getTotalWeight = () => {
-    return transitBilties.reduce((total, bilty) => {
-      return total + (parseFloat(bilty.wt) || 0);
-    }, 0).toFixed(2);
-  };
+  const totalWeightRaw = transitBilties.reduce(
+    (total, bilty) => total + (parseFloat(bilty.wt) || 0),
+    0
+  );
 
-  const handleDashboard = () => {
-    window.location.href = '/dashboard';
-  };
+  const totalWeightRounded = Number(totalWeightRaw.toFixed(2));
+  const weightWholeKg = Number.isInteger(totalWeightRounded)
+    ? totalWeightRounded
+    : totalWeightRounded;
+
+  const tons = Math.floor(totalWeightRounded / 1000);
+  const remainderAfterTons = totalWeightRounded - tons * 1000;
+  const quintals = Math.floor(remainderAfterTons / 100);
+  const remainderAfterQuintals = remainderAfterTons - quintals * 100;
+  const remainingKg = Number(remainderAfterQuintals.toFixed(2));
+
+  const formatWeightValue = (value) =>
+    Number.isInteger(value) ? value.toString() : Number(value.toFixed(2)).toString();
+
+  const weightLabel = `${formatWeightValue(weightWholeKg)} KG`;
+
+  const breakdownParts = [
+    tons > 0 ? `${tons} ton` : null,
+    quintals > 0 ? `${quintals} quintal` : null,
+    remainingKg > 0 || totalWeightRounded === 0
+      ? `${formatWeightValue(remainingKg)} kg`
+      : null
+  ].filter(Boolean);
+
+  const weightBreakdown = breakdownParts.join(' ');
+
+  const now = format(new Date(), 'dd MMM yyyy • HH:mm');
+  const isChallanDispatched = Boolean(selectedChallan?.is_dispatched);
+  const challanNumber = selectedChallan?.challan_no || null;
+  const challanLabel = challanNumber ? `Challan ${challanNumber}` : 'No challan selected';
 
   return (
-    <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg shadow-lg border border-purple-300 p-4 w-full">
-      {/* Improved Full Width Layout */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full">
-        
-        {/* Left Section - Title and Branch Info */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:min-w-[300px]">
-          <div className="flex items-center gap-2 text-white">
-            <div className="bg-white/20 p-2 rounded-lg">
-              <Truck className="w-6 h-6" />
+    <div className="w-full rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 shadow-sm px-3 py-2.5 md:px-4 md:py-3 space-y-2.5">
+      <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8EDFF] text-[#5A39E9]">
+            <Truck className="h-5 w-5" />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <span className="font-medium text-slate-900">{userBranch?.branch_name || 'Unknown Branch'}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="text-slate-500">{user?.username || 'Guest'}</span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-bold">TRANSIT MANAGEMENT</span>
-              <span className="text-xs text-white/80">{userBranch?.branch_name || 'Unknown Branch'}</span>
-            </div>
-          </div>
-          
-          <div className="hidden lg:flex items-center gap-2 text-xs text-white/90 bg-white/10 px-3 py-1.5 rounded-lg">
-            <span className="font-medium">{user?.username}</span>
-            <span>•</span>
-            <span>{format(new Date(), 'dd/MM/yyyy HH:mm')}</span>
+            <p className="mt-1 text-xs text-slate-500">{now}</p>
           </div>
         </div>
-        
-        {/* Center Section - Stats Cards - Full Width Usage */}
-        <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          <div className="bg-green-500/90 hover:bg-green-500 text-white px-3 py-3 rounded-lg text-center transition-colors shadow-sm backdrop-blur-sm">
-            <Package className="w-5 h-5 mx-auto mb-1" />
-            <div className="text-xs opacity-90 mb-1">Available</div>
-            <div className="text-lg font-bold">{availableCount}</div>
-          </div>
-          
-          <div className="bg-yellow-500/90 hover:bg-yellow-500 text-white px-3 py-3 rounded-lg text-center transition-colors shadow-sm backdrop-blur-sm">
-            <Truck className="w-5 h-5 mx-auto mb-1" />
-            <div className="text-xs opacity-90 mb-1">In Transit</div>
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-lg font-bold">{transitBilties.length}</span>
-              {selectedChallan?.is_dispatched && (
-                <span className="px-1 bg-orange-200 text-orange-800 text-xs rounded font-bold">
-                  DISP
-                </span>
-              )}
+
+        <div className="flex flex-col items-start gap-1 text-sm text-slate-500 md:items-end">
+          {challanNumber ? (
+            <div className="inline-flex flex-col items-start rounded-xl bg-[#ede9ff] px-4 py-2 text-[#2f20a0] shadow-sm md:items-end">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#8376d8]">
+                Challan
+              </span>
+              <span className="text-2xl font-bold leading-tight md:text-3xl">{challanNumber}</span>
             </div>
-          </div>
-          
-          <div className="bg-orange-500/90 hover:bg-orange-500 text-white px-3 py-3 rounded-lg text-center transition-colors shadow-sm backdrop-blur-sm">
-            <AlertCircle className="w-5 h-5 mx-auto mb-1" />
-            <div className="text-xs opacity-90 mb-1">Weight (kg)</div>
-            <div className="text-lg font-bold">{getTotalWeight()}</div>
-          </div>
-          
-          <div className="bg-purple-500/90 hover:bg-purple-500 text-white px-3 py-3 rounded-lg text-center transition-colors shadow-sm backdrop-blur-sm">
-            <FileText className="w-5 h-5 mx-auto mb-1" />
-            <div className="text-xs opacity-90 mb-1">Selected</div>
-            <div className="text-lg font-bold">{selectedBilties.length}</div>
-          </div>
+          ) : (
+            <span className="text-base font-semibold text-slate-900 md:text-lg">{challanLabel}</span>
+          )}
+          {isChallanDispatched && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600">
+              <AlertCircle className="h-3.5 w-3.5" /> Dispatched
+            </span>
+          )}
         </div>
-        
-        {/* Right Section - Action Buttons */}
-        <div className="flex flex-col lg:flex-row gap-2 lg:min-w-[500px]">
-          <SampleLoadingChallan 
-            userBranch={userBranch}
-            permanentDetails={permanentDetails}
-          />
-          
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+            <span>Available</span>
+            <Package className="h-4 w-4 text-[#5A39E9]" />
+          </div>
+          <p className="mt-1 text-[24px] font-semibold leading-none text-slate-900">{availableCount ?? 0}</p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+            <span>In Transit</span>
+            <Truck className="h-4 w-4 text-[#5A39E9]" />
+          </div>
+          <p className="mt-1 flex items-center gap-2 text-[24px] font-semibold leading-none text-slate-900">
+            {transitBilties.length}
+            {isChallanDispatched && (
+              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+                DISP
+              </span>
+            )}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+            <span>Weight</span>
+            <AlertCircle className="h-4 w-4 text-[#5A39E9]" />
+          </div>
+          <p className="mt-1 text-[24px] font-semibold leading-none text-slate-900">{weightLabel}</p>
+          {weightBreakdown && (
+            <p className="mt-1 text-[11px] font-medium text-slate-500">{weightBreakdown}</p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+            <span>Selected</span>
+            <FileText className="h-4 w-4 text-[#5A39E9]" />
+          </div>
+          <p className="mt-1 text-[24px] font-semibold leading-none text-slate-900">{selectedBilties.length}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="w-full md:w-auto">
+          <SampleLoadingChallan userBranch={userBranch} permanentDetails={permanentDetails} />
+        </div>
+
+        <div className="flex w-full flex-col gap-2 sm:flex-row">
           <button
             onClick={onPreviewLoadingChallan}
             disabled={bilties.length === 0}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm justify-center lg:flex-1"
-            title="Preview/Download all available bilties as PDF"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#5A39E9] bg-white px-4 py-2.5 text-base font-semibold text-[#5A39E9] transition hover:bg-[#f3f1ff] hover:text-[#4329ce] disabled:cursor-not-allowed disabled:opacity-60"
+            title="Preview or download all available bilties as PDF"
           >
-            <Eye className="w-4 h-4" />
-            <span>Loading Challan</span>
+            <Eye className="h-4 w-4" />
+            Loading Challan
           </button>
-          
+
           <button
             onClick={onPreviewChallanBilties}
             disabled={!selectedChallan || transitBilties.length === 0}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm justify-center lg:flex-1"
-            title={`Preview/Download challan ${selectedChallan?.challan_no || ''} bilties as PDF`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#5A39E9] px-4 py-2.5 text-base font-semibold text-white transition hover:bg-[#4a2dd7] disabled:cursor-not-allowed disabled:bg-opacity-60"
+            title={selectedChallan?.challan_no ? `Preview or download challan ${selectedChallan.challan_no} bilties as PDF` : 'Select a challan first'}
           >
-            <FileText className="w-4 h-4" />
-            <span className="hidden lg:inline">Challan </span>
-            <span>{selectedChallan?.challan_no || 'Print'}</span>
+            <FileText className="h-4 w-4" />
+            {selectedChallan?.challan_no ? `Challan ${selectedChallan.challan_no}` : 'Print Challan'}
           </button>
-          
+
           <button
             onClick={onRefresh}
-            className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm justify-center lg:w-auto"
-            title="Refresh Data"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-base font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+            title="Refresh data"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span className="text-sm font-medium">Refresh</span>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
           </button>
-        </div>
-        
-      </div>
-      
-      {/* Additional Info Row for Mobile */}
-      <div className="lg:hidden mt-3 pt-3 border-t border-white/20">
-        <div className="flex items-center justify-center gap-3 text-xs text-white/90">
-          <span className="font-medium">{user?.username}</span>
-          <span>•</span>
-          <span>{format(new Date(), 'dd/MM/yyyy HH:mm')}</span>
         </div>
       </div>
     </div>

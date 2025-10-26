@@ -32,6 +32,7 @@ export default function BillSearch() {
   const [stationBilties, setStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
   const [branchData, setBranchData] = useState(null);
+  const [branches, setBranches] = useState([]);
   const [error, setError] = useState(null);
   
   // Search and filter state
@@ -62,6 +63,7 @@ export default function BillSearch() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showSelectedPanel, setShowSelectedPanel] = useState(false);
+  const [filteredBiltiesForPrint, setFilteredBiltiesForPrint] = useState(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,6 +159,25 @@ export default function BillSearch() {
         phone: '',
         email: ''
       });
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('is_active', true)
+        .order('branch_name');
+      
+      if (error) {
+        console.log('Error fetching branches:', error);
+        return;
+      }
+      
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
     }
   };
 
@@ -713,6 +734,34 @@ export default function BillSearch() {
     document.body.removeChild(link);
   };
 
+  // Download CSV with optional filtered data
+  const handleDownloadCSVWithFilter = (filteredData = null) => {
+    const dataToDownload = filteredData || getSelectedBiltiesData();
+    if (dataToDownload.length === 0) {
+      const allData = [...searchResults.regular, ...searchResults.station].map(b => ({ ...b, type: b.type || 'regular' }));
+      dataToDownload.push(...allData);
+    }
+    
+    const csvContent = convertToCSV(dataToDownload);
+    
+    if (!csvContent) {
+      alert('No data to download');
+      return;
+    }
+    
+    const fileName = `bilty_export_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.csv`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Helper function to get city name
   const getCityName = (cityId) => {
     const city = cities?.find(c => c.id?.toString() === cityId?.toString());
@@ -806,6 +855,75 @@ export default function BillSearch() {
     }
   };
 
+  // Copy to clipboard with optional filtered data
+  const handleCopyToClipboardWithFilter = async (filteredData = null) => {
+    const dataToUse = filteredData || getSelectedBiltiesData();
+    
+    if (dataToUse.length === 0) {
+      alert('Please select bilties to copy');
+      return;
+    }
+    
+    const headers = [
+      'SN.NO',
+      'GR_NO',
+      'CONSIGNOR',
+      'CONSIGNEE',
+      'CONTENT',
+      'NO_OF_PACKAGES',
+      'WEIGHT',
+      'DELIVERY_TYPE',
+      'TO_PAY',
+      'PAID',
+      'STATION',
+      'PVT_MARK',
+      'DATE'
+    ];
+    
+    const tabContent = [
+      headers.join('\t'),
+      ...dataToUse.map((bilty, index) => {
+        const row = [
+          index + 1,
+          bilty.gr_no || 'N/A',
+          bilty.type === 'station' ? (bilty.consignor || 'N/A') : (bilty.consignor_name || 'N/A'),
+          bilty.type === 'station' ? (bilty.consignee || 'N/A') : (bilty.consignee_name || 'N/A'),
+          bilty.type === 'station' ? (bilty.contents || 'N/A') : (bilty.contain || 'N/A'),
+          bilty.type === 'station' ? (bilty.no_of_packets || 0) : (bilty.no_of_pkg || 0),
+          bilty.type === 'station' ? (bilty.weight || 0) : (bilty.wt || 0),
+          (bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door') ? 'DD' : 'Godown',
+          bilty.type === 'station' 
+            ? (bilty.payment_status === 'to-pay' ? (bilty.amount || 0) : 0)
+            : (bilty.payment_mode === 'to-pay' ? (bilty.total || 0) : 0),
+          bilty.type === 'station' 
+            ? (bilty.payment_status === 'paid' ? (bilty.amount || 0) : 0)
+            : (bilty.payment_mode === 'paid' ? (bilty.total || 0) : 0),
+          bilty.type === 'station' ? (bilty.station || 'N/A') : getCityName(bilty.to_city_id),
+          bilty.pvt_marks || 'N/A',
+          bilty.type === 'station' 
+            ? (bilty.created_at ? new Date(bilty.created_at).toLocaleDateString('en-GB') : 'N/A')
+            : (bilty.bilty_date ? new Date(bilty.bilty_date).toLocaleDateString('en-GB') : 'N/A')
+        ];
+        
+        return row.map(field => {
+          let cleanField = String(field || '').trim();
+          cleanField = cleanField.replace(/[\t\n\r,]/g, ' ');
+          cleanField = cleanField.replace(/\s+/g, ' ');
+          cleanField = cleanField.replace(/[^\w\s\-\.\/]/g, '');
+          return cleanField;
+        }).join('\t');
+      })
+    ].join('\n');
+    
+    try {
+      await navigator.clipboard.writeText(tabContent);
+      alert(`Successfully copied ${dataToUse.length} bilty records to clipboard! You can now paste this data into Excel.`);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      alert('Failed to copy data to clipboard. Please try again.');
+    }
+  };
+
   const handlePrintBilties = () => {
     const selectedData = getSelectedBiltiesData();
     
@@ -814,6 +932,19 @@ export default function BillSearch() {
       return;
     }
     
+    setShowPrintModal(true);
+  };
+
+  // Print bilties with optional filtered data
+  const handlePrintBiltiesWithFilter = (filteredData = null) => {
+    const dataToUse = filteredData || getSelectedBiltiesData();
+    
+    if (dataToUse.length === 0) {
+      alert('Please select bilties to print');
+      return;
+    }
+    
+    setFilteredBiltiesForPrint(dataToUse);
     setShowPrintModal(true);
   };
 
@@ -1145,8 +1276,11 @@ export default function BillSearch() {
       {/* Print Modal */}
       {showPrintModal && (
         <BillGenerator
-          selectedBilties={getSelectedBiltiesData()}
-          onClose={() => setShowPrintModal(false)}
+          selectedBilties={filteredBiltiesForPrint || getSelectedBiltiesData()}
+          onClose={() => {
+            setShowPrintModal(false);
+            setFilteredBiltiesForPrint(null);
+          }}
           cities={cities}
         />
       )}
@@ -1156,11 +1290,13 @@ export default function BillSearch() {
         selectedBilties={getSelectedBiltiesData()}
         onRemoveBilty={handleRemoveBilty}
         onClearAll={handleClearAllSelected}
-        onDownloadCSV={handleDownloadCSV}
-        onCopyToClipboard={handleCopyToClipboard}
-        onPrintBilties={handlePrintBilties}
+        onDownloadCSV={handleDownloadCSVWithFilter}
+        onCopyToClipboard={handleCopyToClipboardWithFilter}
+        onPrintBilties={handlePrintBiltiesWithFilter}
         isOpen={showSelectedPanel}
         onToggle={() => setShowSelectedPanel(!showSelectedPanel)}
+        branches={branches}
+        onFetchBranches={fetchBranches}
       />
     </div>
   );

@@ -485,7 +485,7 @@ const BiltyList = ({
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-[13px] leading-5">
                 <thead className="bg-slate-50">
-                  <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr className="text-xs font-bold uppercase tracking-wide text-slate-700">
                     <th className="w-10 px-2.5 py-2.5 text-left">
                       {!isChallanLocked && (
                         <input
@@ -761,7 +761,7 @@ const BiltyList = ({
           {fullyFilteredBilties.length > 0 ? (
             <table className="min-w-full divide-y divide-slate-200 text-[13px] leading-5">
               <thead className="bg-slate-50">
-                <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   <th className="w-10 px-2.5 py-2.5 text-left">
                     <input
                       type="checkbox"

@@ -896,7 +896,9 @@ export default function TransitManagement() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
-      <div className="p-4 space-y-6">        {/* Header with PDF preview buttons */}        <TransitHeader 
+      <div className="p-4 space-y-6">
+        {/* Header with PDF preview buttons */}
+        <TransitHeader 
           userBranch={userBranch}
           user={user}
           bilties={[...bilties, ...stationBilties]}
@@ -910,8 +912,9 @@ export default function TransitManagement() {
           onPreviewChallanBilties={handlePreviewChallanBilties}
           permanentDetails={permanentDetails}
         />{/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">          {/* Left Panel - Challan Selection - Smaller width */}
-          <div className="lg:col-span-3 xl:col-span-3 space-y-4 lg:space-y-6">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-3 xl:grid-cols-[230px_minmax(0,1fr)] xl:gap-4 2xl:grid-cols-[250px_minmax(0,1fr)] 2xl:gap-5">
+          {/* Left Panel - Challan Selection - Smaller width */}
+          <div className="space-y-4 lg:space-y-4 lg:pr-0 xl:space-y-5">
             <ChallanSelector 
               challans={challans}
               challanBooks={challanBooks}
@@ -927,8 +930,10 @@ export default function TransitManagement() {
               staff={staff}
               transitBilties={transitBilties}
             />
-          </div>{/* Right Panel - Bilty Lists with Table Structure - Larger width */}
-          <div className="lg:col-span-9 xl:col-span-9">            <BiltyList 
+          </div>
+          {/* Right Panel - Bilty Lists with Table Structure - Larger width */}
+          <div className="lg:pl-0 xl:pl-1 2xl:pl-2">
+            <BiltyList 
               bilties={bilties}
               stationBilties={stationBilties}
               transitBilties={transitBilties}
@@ -955,7 +960,8 @@ export default function TransitManagement() {
           onClearAll={() => setSelectedBilties([])}
         />
 
-        {/* PDF Preview Modal */}        <ChallanPDFPreview
+        {/* PDF Preview Modal */}
+        <ChallanPDFPreview
           isOpen={pdfPreviewOpen}
           onClose={closePdfPreview}
           type={pdfPreviewType}

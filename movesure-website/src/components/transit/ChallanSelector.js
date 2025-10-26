@@ -25,7 +25,6 @@ const ChallanSelector = ({
   const challanRef = useRef(null);
   const challanBookRef = useRef(null);
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (challanRef.current && !challanRef.current.contains(event.target)) {
@@ -59,6 +58,15 @@ const ChallanSelector = ({
 
   const { regCount, stnCount, totalCount } = getTransitBiltyCounts();
 
+  const formatDate = (value) => {
+    if (!value) return '-';
+    try {
+      return format(new Date(value), 'dd/MM/yyyy');
+    } catch (error) {
+      return '-';
+    }
+  };
+
   const generateChallanNumber = (challanBook) => {
     if (!challanBook) return '';
     const { prefix, current_number, digits, postfix } = challanBook;
@@ -85,118 +93,108 @@ const ChallanSelector = ({
   };
 
   return (
-    <div className="space-y-4 relative">
-      {/* Challan Selection Card */}
-      <div className="bg-white rounded-xl shadow-lg border border-blue-200 overflow-visible">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
-          <h3 className="text-lg font-bold text-white flex items-center gap-3">
-            <Truck className="w-5 h-5" />
+    <div className="space-y-4 text-[13px] leading-5">
+      <div className="rounded-xl border border-slate-200 bg-white/95 shadow-sm">
+        <div className="border-b border-slate-200 px-3 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <Truck className="h-4 w-4" />
+            </span>
             Select Challan
           </h3>
         </div>
-        
-        <div className="p-4">
+
+  <div className="space-y-4 px-3 py-3">
           <div className="relative" ref={challanRef}>
             <button
-              onClick={() => setShowChallanDropdown(!showChallanDropdown)}
-              className="w-full px-4 py-3 text-left bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg hover:border-blue-300 transition-all duration-200 flex items-center justify-between group"
+              onClick={() => setShowChallanDropdown((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50"
             >
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 {selectedChallan ? (
-                  <div>
-                    <div className="font-bold text-blue-900 text-base">{selectedChallan.challan_no}</div>                  <div className="text-sm text-blue-600">
-                    {format(new Date(selectedChallan.date), 'dd/MM/yyyy')} • {totalCount} bilties
-                    {selectedChallan.is_dispatched && ' • DISPATCHED'}
-                  </div>
-                  </div>
+                  <>
+                    <p className="truncate text-base font-semibold text-slate-900">{selectedChallan.challan_no || 'Challan'}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {formatDate(selectedChallan.date)} • {totalCount} bilties
+                      {selectedChallan.is_dispatched ? ' • Dispatched' : ''}
+                    </p>
+                  </>
                 ) : (
-                  <div className="text-gray-500 font-medium">Choose a challan...</div>
+                  <p className="text-sm font-medium text-slate-400">Choose a challan…</p>
                 )}
               </div>
-              <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform flex-shrink-0 ml-2 ${showChallanDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-indigo-500 transition-transform ${showChallanDropdown ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {showChallanDropdown && (
-              <div className="absolute z-[150000] mt-2 w-full bg-white border-2 border-blue-200 rounded-lg shadow-2xl">
-                <div className="max-h-80 overflow-y-auto overscroll-contain">
+              <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+                <div className="max-h-80 overflow-y-auto">
                   {challans.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-gray-500">
-                      <Truck className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <div className="font-medium">No challans available</div>
-                      <div className="text-sm">Create a challan first</div>
+                    <div className="px-3 py-8 text-center text-slate-500">
+                      <Truck className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-semibold">No challans available</p>
+                      <p className="text-xs text-slate-400">Create a challan to begin assigning bilties.</p>
                     </div>
                   ) : (
                     <>
-                      {/* Active Challans */}
                       {activeChallans.length > 0 && (
                         <div>
-                          <div className="bg-green-50 px-4 py-3 border-b border-green-200 sticky top-0 z-10">
-                            <div className="text-sm font-bold text-green-800 flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4" />
-                              Active Challans ({activeChallans.length})
-                            </div>
+                          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                            <CheckCircle className="h-3 w-3" /> Active ({activeChallans.length})
                           </div>
-                          {activeChallans.map((challan) => (
-                            <button
-                              key={challan.id}
-                              onClick={() => handleChallanSelect(challan)}
-                              className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 transition-colors group"
-                            >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-bold text-blue-900 group-hover:text-blue-600 truncate">
-                                    {challan.challan_no}
-                                  </div>
-                                  <div className="text-sm text-gray-600">
-                                    {format(new Date(challan.date), 'dd/MM/yyyy')}
-                                  </div>                                  <div className="text-xs text-blue-600 flex items-center gap-1 mt-1">
-                                    <Package className="w-3 h-3" />
-                                    {challan.id === selectedChallan?.id ? totalCount : challan.total_bilty_count} bilties
-                                  </div>
+                          {activeChallans.map((challan) => {
+                            const isCurrent = challan.id === selectedChallan?.id;
+
+                            return (
+                              <button
+                                key={challan.id}
+                                onClick={() => handleChallanSelect(challan)}
+                                className={`flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-indigo-50 ${
+                                  isCurrent ? 'bg-indigo-50' : 'bg-white'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-slate-900">{challan.challan_no}</p>
+                                  <p className="text-xs text-slate-500">{formatDate(challan.date)}</p>
+                                  <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-indigo-500">
+                                    <Package className="h-3 w-3" />
+                                    {isCurrent ? totalCount : challan.total_bilty_count || 0} bilties
+                                  </p>
                                 </div>
-                                <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-bold ml-2 flex-shrink-0">
-                                  ACTIVE
-                                </div>
-                              </div>
-                            </button>
-                          ))}
+                                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-600">
+                                  Active
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
 
-                      {/* Dispatched Challans */}
                       {dispatchedChallans.length > 0 && (
                         <div>
-                          <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 sticky top-0 z-10">
-                            <div className="text-sm font-bold text-orange-800 flex items-center gap-2">
-                              <AlertTriangle className="w-4 h-4" />
-                              Dispatched Challans ({dispatchedChallans.length})
-                            </div>
-                          </div>                          {dispatchedChallans.map((challan) => (
+                          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-orange-100 bg-orange-50 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-orange-600">
+                            <AlertTriangle className="h-3 w-3" /> Dispatched ({dispatchedChallans.length})
+                          </div>
+                          {dispatchedChallans.map((challan) => (
                             <button
                               key={challan.id}
                               onClick={() => handleChallanSelect(challan)}
-                              className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-orange-50 border-b border-gray-100 transition-colors group"
+                              className="flex w-full items-start justify-between gap-3 bg-slate-50 px-3 py-2.5 text-left transition hover:bg-orange-50"
                             >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-bold text-gray-700 group-hover:text-orange-600 truncate">
-                                    {challan.challan_no}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {format(new Date(challan.date), 'dd/MM/yyyy')}
-                                    {challan.dispatch_date && (
-                                      <span> • Dispatched: {format(new Date(challan.dispatch_date), 'dd/MM/yyyy')}</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                    <Package className="w-3 h-3" />
-                                    {challan.id === selectedChallan?.id ? totalCount : challan.total_bilty_count} bilties • READ-ONLY
-                                  </div>
-                                </div>
-                                <div className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-bold ml-2 flex-shrink-0">
-                                  DISPATCHED
-                                </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-slate-700">{challan.challan_no}</p>
+                                <p className="text-xs text-slate-500">
+                                  {formatDate(challan.date)}
+                                  {challan.dispatch_date && ` • Dispatched ${formatDate(challan.dispatch_date)}`}
+                                </p>
+                                <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                                  <Package className="h-3 w-3" />
+                                  {challan.total_bilty_count || 0} bilties • read-only
+                                </p>
                               </div>
+                              <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-600">
+                                Dispatched
+                              </span>
                             </button>
                           ))}
                         </div>
@@ -206,98 +204,117 @@ const ChallanSelector = ({
                 </div>
               </div>
             )}
-          </div>          {/* Bilty Summary - Show when challan is selected */}
-          {selectedChallan && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-200">
-              <h4 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Bilty Summary
-              </h4>
-                <div className="grid grid-cols-2 gap-4 mb-4">                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
-                  <div className="text-xs text-gray-600 mb-1">MANUAL BILTIES (MNL)</div>
-                  <div className="text-xl font-bold text-emerald-700">
-                    {stnCount}
-                  </div>
-                </div>
-                <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
-                  <div className="text-xs text-gray-600 mb-1">REGULAR BILTIES (REG)</div>
-                  <div className="text-xl font-bold text-emerald-700">
-                    {regCount}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Total Count */}
-              <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center">
-                <div className="text-xs text-gray-600 mb-1">Total Bilties in Transit</div>
-                <div className="text-2xl font-bold text-emerald-800">
-                  {totalCount}
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
 
-          {/* Challan Details Card - Show when challan is selected */}
-          {selectedChallan && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-              <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
-                <Truck className="w-4 h-4" />
-                Challan Details
-              </h4>
-              
-              <div className="space-y-2 text-sm">
-                {/* Truck Details */}
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                  <span className="text-gray-700 font-medium">Truck:</span>
-                  <span className="text-blue-900 font-bold">
-                    {selectedChallan.truck?.truck_number || 'Not Assigned'}
-                  </span>
-                </div>
+          <div className="relative" ref={challanBookRef}>
+            <button
+              onClick={() => setShowChallanBookDropdown((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50"
+            >
+              <div className="flex-1 min-w-0">
+                {selectedChallanBook ? (
+                  <>
+                    <p className="truncate text-sm font-semibold text-slate-900">Next: {generateChallanNumber(selectedChallanBook)}</p>
+                    <p className="truncate text-xs text-slate-500">To {getDestinationBranchName(selectedChallanBook.id)}</p>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium text-slate-400">Choose a challan book…</p>
+                )}
+              </div>
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-indigo-500 transition-transform ${showChallanBookDropdown ? 'rotate-180' : ''}`} />
+            </button>
 
-                {/* Driver Details */}
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span className="text-gray-700 font-medium">Driver:</span>
-                  <span className="text-green-900 font-bold">
-                    {selectedChallan.driver?.name || 'Not Assigned'}
-                  </span>
-                  {selectedChallan.driver?.mobile_number && (
-                    <span className="text-gray-600 flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      {selectedChallan.driver.mobile_number}
-                    </span>
+            {showChallanBookDropdown && (
+              <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+                <div className="max-h-64 overflow-y-auto">
+                  {challanBooks.length > 0 ? (
+                    challanBooks.map((book) => (
+                      <button
+                        key={book.id}
+                        onClick={() => handleChallanBookSelect(book)}
+                        className="flex w-full flex-col gap-1 px-3 py-2.5 text-left transition hover:bg-indigo-50"
+                      >
+                        <p className="truncate text-xs font-semibold text-slate-900">
+                          {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} -
+                          {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                        </p>
+                        <p className="text-xs text-slate-500">Next: {generateChallanNumber(book)}</p>
+                        <p className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500">
+                          <MapPin className="h-3 w-3" /> To {getDestinationBranchName(book.id)}
+                        </p>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-5 text-center text-slate-500">
+                      <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-semibold">No challan books found</p>
+                      <p className="text-xs text-slate-400">Create a challan book to continue.</p>
+                    </div>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
 
-                {/* Owner Details */}
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                  <span className="text-gray-700 font-medium">Owner:</span>
-                  <span className="text-purple-900 font-bold">
-                    {selectedChallan.owner?.name || 'Not Assigned'}
-                  </span>
-                  {selectedChallan.owner?.mobile_number && (
-                    <span className="text-gray-600 flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      {selectedChallan.owner.mobile_number}
-                    </span>
-                  )}
+          {selectedChallan && (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-purple-500">Manual</p>
+                  <p className="text-xl font-semibold text-slate-900">{stnCount}</p>
+                  <p className="text-xs text-slate-500">MNL bilties</p>
                 </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-500">Regular</p>
+                  <p className="text-xl font-semibold text-slate-900">{regCount}</p>
+                  <p className="text-xs text-slate-500">REG bilties</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-indigo-50/80 p-3 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-600">Total</p>
+                  <p className="text-xl font-semibold text-slate-900">{totalCount}</p>
+                  <p className="text-xs text-slate-500">In transit</p>
+                </div>
+              </div>
 
-                {/* Status and Date */}
-                <div className="pt-2 border-t border-blue-200 mt-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">
-                      Created: {format(new Date(selectedChallan.date), 'dd/MM/yyyy')}
-                    </span>
-                    <span className={`px-2 py-1 rounded-full font-bold ${
-                      selectedChallan.is_dispatched 
-                        ? 'bg-orange-100 text-orange-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {selectedChallan.is_dispatched ? 'DISPATCHED' : 'ACTIVE'}
-                    </span>
+              <div className="rounded-lg border border-slate-200 bg-white/80 p-4 text-sm text-slate-600">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                  <span className="font-semibold text-slate-900">Challan overview</span>
+                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                    selectedChallan.is_dispatched ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    {selectedChallan.is_dispatched ? 'Dispatched' : 'Active'}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-indigo-500" />
+                    <span className="font-medium text-slate-700">Truck</span>
+                    <span className="text-slate-500">{selectedChallan.truck?.truck_number || 'Not assigned'}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <User className="h-4 w-4 text-emerald-500" />
+                    <span className="font-medium text-slate-700">Driver</span>
+                    <span className="text-slate-500">{selectedChallan.driver?.name || 'Not assigned'}</span>
+                    {selectedChallan.driver?.mobile_number && (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <Phone className="h-3 w-3" />
+                        {selectedChallan.driver.mobile_number}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-purple-500" />
+                    <span className="font-medium text-slate-700">Owner</span>
+                    <span className="text-slate-500">{selectedChallan.owner?.name || 'Not assigned'}</span>
+                    {selectedChallan.owner?.mobile_number && (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <Phone className="h-3 w-3" />
+                        {selectedChallan.owner.mobile_number}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    Created on {formatDate(selectedChallan.date)}
                   </div>
                 </div>
               </div>
@@ -306,124 +323,46 @@ const ChallanSelector = ({
         </div>
       </div>
 
-      {/* Add to Transit Button */}
-      <div className="bg-white rounded-xl shadow-lg border border-green-200 overflow-hidden">
-        <div className="p-4">
+      <div className="rounded-xl border border-slate-200 bg-white/95 shadow-sm">
+        <div className="px-3 py-3">
           <button
             onClick={onAddToTransit}
             disabled={!selectedChallan || !selectedChallanBook || selectedBiltiesCount === 0 || saving || selectedChallan?.is_dispatched}
-            className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-bold text-base hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
           >
-            <Plus className="w-5 h-5" />
-            {saving ? 'Adding to Transit...' : `Add ${selectedBiltiesCount} Bilties to Transit`}
+            <Plus className="h-4 w-4" />
+            {saving ? 'Adding to transit…' : `Add ${selectedBiltiesCount} bilties to transit`}
           </button>
-          
-          {/* Status Messages */}
-          <div className="mt-3 space-y-1">
+
+          <div className="mt-3 space-y-2 text-sm">
             {!selectedChallan && (
-              <div className="text-sm text-red-600 flex items-center gap-2">
-                <X className="w-4 h-4" />
-                Select a challan
-              </div>
+              <p className="flex items-center gap-2 text-rose-500">
+                <X className="h-4 w-4" /> Select a challan first
+              </p>
             )}
             {selectedChallan?.is_dispatched && (
-              <div className="text-sm text-orange-600 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                Cannot add to dispatched challan
-              </div>
+              <p className="flex items-center gap-2 text-orange-500">
+                <AlertTriangle className="h-4 w-4" /> Cannot add to a dispatched challan
+              </p>
             )}
             {!selectedChallanBook && (
-              <div className="text-sm text-red-600 flex items-center gap-2">
-                <X className="w-4 h-4" />
-                Select a challan book below
-              </div>
+              <p className="flex items-center gap-2 text-rose-500">
+                <X className="h-4 w-4" /> Select a challan book
+              </p>
             )}
             {selectedBiltiesCount === 0 && (
-              <div className="text-sm text-red-600 flex items-center gap-2">
-                <X className="w-4 h-4" />
-                Select at least one bilty
-              </div>
+              <p className="flex items-center gap-2 text-rose-500">
+                <X className="h-4 w-4" /> Choose at least one bilty
+              </p>
             )}
             {selectedChallan && !selectedChallan.is_dispatched && selectedChallanBook && selectedBiltiesCount > 0 && (
-              <div className="text-sm text-green-600 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                Ready to add to transit
-              </div>
+              <p className="flex items-center gap-2 text-emerald-600">
+                <CheckCircle className="h-4 w-4" /> Ready to add to transit
+              </p>
             )}
           </div>
         </div>
       </div>
-
-      {/* Compact Challan Book Selection - Hidden per request */}
-      {false && (
-        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-visible">
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-500 p-3">
-            <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Challan Book
-            </h4>
-          </div>
-          
-          <div className="p-3">
-            <div className="relative" ref={challanBookRef}>
-              <button
-                onClick={() => setShowChallanBookDropdown(!showChallanBookDropdown)}
-                className="w-full px-3 py-2 text-left bg-purple-50 border border-purple-200 rounded-lg hover:border-purple-300 transition-all duration-200 flex items-center justify-between text-sm"
-              >
-                <div className="flex-1 min-w-0">
-                  {selectedChallanBook ? (
-                    <div>
-                      <div className="font-bold text-purple-900 text-sm truncate">
-                        Next: {generateChallanNumber(selectedChallanBook)}
-                      </div>
-                      <div className="text-xs text-purple-600 truncate">
-                        To: {getDestinationBranchName(selectedChallanBook.id)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-gray-500 font-medium text-sm">Choose challan book...</div>
-                  )}
-                </div>
-                <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform flex-shrink-0 ml-2 ${showChallanBookDropdown ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {showChallanBookDropdown && (
-                <div className="absolute z-[9999] mt-2 w-full bg-white border border-purple-200 rounded-lg shadow-xl">
-                  <div className="max-h-48 overflow-y-auto">
-                    {challanBooks.length > 0 ? (
-                      challanBooks.map((book) => (
-                        <button
-                          key={book.id}
-                          onClick={() => handleChallanBookSelect(book)}
-                          className="w-full px-3 py-2 text-left hover:bg-purple-50 border-b border-gray-100 transition-colors text-sm"
-                        >
-                          <div className="font-bold text-purple-900 text-xs truncate">
-                            {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
-                            {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
-                          </div>
-                          <div className="text-xs text-gray-600 mt-1 truncate">
-                            Next: {generateChallanNumber(book)}
-                          </div>
-                          <div className="text-xs text-purple-600 flex items-center gap-1 mt-1">
-                            <MapPin className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">To: {getDestinationBranchName(book.id)}</span>
-                          </div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-6 text-center text-gray-500">
-                        <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                        <div className="font-medium text-sm">No challan books</div>
-                        <div className="text-xs">Create one first</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

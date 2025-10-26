@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Search, Package, Calendar, CreditCard, Trash2, CheckSquare, Square, Truck, Plus, X, Eye, RefreshCw } from 'lucide-react';
+import { Search, Package, Trash2, CheckSquare, Square, Truck, Plus, X, RefreshCw, Download, Lock } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 const BiltyList = ({ 
@@ -294,29 +294,23 @@ const BiltyList = ({
     return cities.sort();
   };
 
-  const getAvailableBiltyTypes = (biltiesArray) => {
-    if (!biltiesArray || biltiesArray.length === 0) return [];
-    const types = [...new Set(biltiesArray.map(bilty => bilty.bilty_type).filter(Boolean))];
-    return types.sort();
-  };
-
   const availableCities = getAvailableCities([...(bilties || []), ...(stationBilties || [])]);
   const transitCities = getAvailableCities(transitBilties || []);
-  const availableBiltyTypes = getAvailableBiltyTypes([...(bilties || []), ...(stationBilties || [])]);
-  const transitBiltyTypes = getAvailableBiltyTypes(transitBilties || []);
   const getPaymentModeColor = (mode) => {
     switch (mode) {
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'border border-emerald-200 bg-emerald-50 text-emerald-600';
       case 'to-pay':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'border border-amber-200 bg-amber-50 text-amber-600';
       case 'freeofcost':
       case 'foc':
-        return 'bg-blue-100 text-blue-800';
+        return 'border border-sky-200 bg-sky-50 text-sky-600';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'border border-slate-200 bg-slate-50 text-slate-600';
     }
   };
+
+  const isChallanLocked = Boolean(selectedChallan?.is_dispatched);
 
   // CSV export for transit bilties
   const handleExportTransitCSV = () => {
@@ -359,97 +353,110 @@ const BiltyList = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Challan Bilties Section - Show when challan is selected */}
+    <div className="space-y-5 w-full">
       {selectedChallan && (
-        <div className="bg-white rounded-lg shadow-md border border-yellow-300 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-yellow-500 to-amber-500 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Truck className="w-5 h-5" />
-                Challan: {selectedChallan.challan_no} ({filteredTransitBilties.length})
-                {selectedChallan.is_dispatched && (
-                  <span className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-                    <Eye className="w-3 h-3" />
-                    DISPATCHED
+        <div className="rounded-xl border border-slate-200 bg-white/95 shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                <Truck className="h-4 w-4" />
+              </span>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                  <span>{selectedChallan.challan_no ? `Challan ${selectedChallan.challan_no}` : 'Challan'}</span>
+                  <span className="text-xs font-medium text-slate-500">({filteredTransitBilties.length} bilties)</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-600">
+                    <Package className="h-3 w-3" />
+                    {filteredTransitBilties.length} in transit
                   </span>
-                )}
-              </h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onRefresh?.('transit')}
-                  disabled={saving}
-                  className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
-                  title="Refresh transit bilties"
-                >
-                  <RefreshCw className={`w-3 h-3 ${saving ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-                <button
-                  onClick={handleExportTransitCSV}
-                  disabled={!filteredTransitBilties.length}
-                  className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
-                  title="Export transit bilties to CSV"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v12m0 0l-4-4m4 4l4-4m-8 8h8" /></svg>
-                  Export CSV
-                </button>
-                {!selectedChallan.is_dispatched && filteredTransitBilties.length > 0 && (
-                  <>                    <button
-                      onClick={handleSelectAllTransit}
-                      disabled={selectedChallan?.is_dispatched}
-                      className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={selectedChallan?.is_dispatched ? "Cannot select bilties in dispatched challan" : "Select/Deselect all"}
-                    >
-                      {selectedTransitBilties.length === filteredTransitBilties.length && filteredTransitBilties.length > 0 ? (
-                        <CheckSquare className="w-3 h-3" />
-                      ) : (
-                        <Square className="w-3 h-3" />
-                      )}
-                      {selectedChallan?.is_dispatched ? 'All (Locked)' : 'All'}
-                    </button><button
-                      onClick={onBulkRemoveFromTransit}
-                      disabled={selectedTransitBilties.length === 0 || saving || selectedChallan?.is_dispatched}
-                      className="bg-red-600 text-white px-3 py-1 rounded text-sm font-bold border border-red-700 flex items-center gap-1 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={selectedChallan?.is_dispatched ? "Cannot remove from dispatched challan" : "Remove selected bilties"}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      {selectedChallan?.is_dispatched ? 'Locked' : `Remove (${selectedTransitBilties.length})`}
-                    </button>
-                  </>
-                )}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                    <CheckSquare className="h-3 w-3" />
+                    {selectedTransitBilties.length} selected
+                  </span>
+                  {isChallanLocked && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-orange-600">
+                      <Lock className="h-3 w-3" />
+                      Dispatched
+                    </span>
+                  )}
+                </div>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => onRefresh?.('transit')}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Refresh transit bilties"
+              >
+                <RefreshCw className={`h-3 w-3 ${saving ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <button
+                onClick={handleExportTransitCSV}
+                disabled={!filteredTransitBilties.length}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Export transit bilties to CSV"
+              >
+                <Download className="h-3 w-3" />
+                Export
+              </button>
+              {!isChallanLocked && filteredTransitBilties.length > 0 && (
+                <>
+                  <button
+                    onClick={handleSelectAllTransit}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50"
+                    title="Select or deselect all"
+                  >
+                    {selectedTransitBilties.length === filteredTransitBilties.length && filteredTransitBilties.length > 0 ? (
+                      <CheckSquare className="h-3 w-3" />
+                    ) : (
+                      <Square className="h-3 w-3" />
+                    )}
+                    All
+                  </button>
+                  <button
+                    onClick={onBulkRemoveFromTransit}
+                    disabled={selectedTransitBilties.length === 0 || saving}
+                    className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    title="Remove selected bilties from transit"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Remove ({selectedTransitBilties.length})
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Transit Bilties Filters */}
-          <div className="p-2 border-b border-yellow-200 bg-yellow-50">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-5">
               <div className="relative">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search transit..."
                   value={transitSearchTerm}
                   onChange={(e) => setTransitSearchTerm(e.target.value)}
-                  className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 text-black bg-white"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
               </div>
               <select
                 value={transitFilterPaymentMode}
                 onChange={(e) => setTransitFilterPaymentMode(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 text-black bg-white"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               >
                 <option value="all">All Payments</option>
                 <option value="paid">Paid</option>
                 <option value="to-pay">To Pay</option>
-                <option value="freeofcost">Free</option>
+                <option value="freeofcost">Free of Cost</option>
               </select>
               <select
                 value={transitFilterCity}
                 onChange={(e) => setTransitFilterCity(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 text-black bg-white"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               >
                 <option value="all">All Cities</option>
                 {transitCities.map(city => (
@@ -459,68 +466,78 @@ const BiltyList = ({
               <select
                 value={transitFilterBiltyType}
                 onChange={(e) => setTransitFilterBiltyType(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 text-black bg-white"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               >
                 <option value="all">All Types</option>
-                <option value="regular">REG</option>
-                <option value="station">MNL</option>
+                <option value="regular">Regular</option>
+                <option value="station">Manual</option>
               </select>
               <input
                 type="date"
                 value={transitFilterDate}
                 onChange={(e) => setTransitFilterDate(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-yellow-500 text-black bg-white"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
             </div>
           </div>
 
-          {/* Transit Bilties Table */}
           {filteredTransitBilties.length > 0 ? (
-            <div className="overflow-x-auto min-w-full">
-              <table className="w-full text-sm min-w-max">
-                <thead className="bg-yellow-50 sticky top-0 z-10">
-                  <tr>
-                    {!selectedChallan.is_dispatched && (
-                      <th className="px-2 py-2 text-left font-medium text-yellow-800 w-8">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-[13px] leading-5">
+                <thead className="bg-slate-50">
+                  <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="w-10 px-2.5 py-2.5 text-left">
+                      {!isChallanLocked && (
                         <input
                           type="checkbox"
                           checked={selectedTransitBilties.length === filteredTransitBilties.length && filteredTransitBilties.length > 0}
                           onChange={handleSelectAllTransit}
-                          className="rounded border-gray-300"
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
-                      </th>
-                    )}
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-12">#</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Type</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-24">GR No</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">Date</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-28">Consignor</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-28">Consignee</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-26">Content</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-22">Destination</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">PVT Marks</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Payment</th>                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-12">Pkgs</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Weight</th>
-                    <th className="px-2 py-2 text-left font-medium text-yellow-800 w-20">Amount</th>
-                    {!selectedChallan?.is_dispatched && (
-                      <th className="px-2 py-2 text-left font-medium text-yellow-800 w-16">Action</th>
+                      )}
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left">#</th>
+                    <th className="px-2.5 py-2.5 text-left">Type</th>
+                    <th className="px-2.5 py-2.5 text-left">GR No</th>
+                    <th className="px-2.5 py-2.5 text-left">Date</th>
+                    <th className="px-2.5 py-2.5 text-left">Consignor</th>
+                    <th className="px-2.5 py-2.5 text-left">Consignee</th>
+                    <th className="px-2.5 py-2.5 text-left">Content</th>
+                    <th className="px-2.5 py-2.5 text-left">Destination</th>
+                    <th className="px-2.5 py-2.5 text-left">PVT Marks</th>
+                    <th className="px-2.5 py-2.5 text-left">Payment</th>
+                    <th className="px-2.5 py-2.5 text-left">Pkgs</th>
+                    <th className="px-2.5 py-2.5 text-left">Weight</th>
+                    <th className="px-2.5 py-2.5 text-left">Amount</th>
+                    {!isChallanLocked && (
+                      <th className="px-2.5 py-2.5 text-left">Action</th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-yellow-200">                  {filteredTransitBilties.map((bilty, index) => {
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filteredTransitBilties.map((bilty, index) => {
                     const isSelected = selectedTransitBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
-                    const isDispatched = bilty.is_dispatched || selectedChallan?.is_dispatched;
-                    
+                    const isRowLocked = isChallanLocked || bilty.is_dispatched;
+
                     return (
-                      <tr 
-                        key={`transit-${bilty.id}-${bilty.bilty_type}`} 
-                        className={`hover:bg-yellow-50 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-yellow-100' : ''
-                        } ${isDispatched ? 'bg-gray-50 opacity-75' : ''}`}
-                        onClick={() => !isDispatched && handleTransitBiltySelect(bilty)}
+                      <tr
+                        key={`transit-${bilty.id}-${bilty.bilty_type}`}
+                        className={`transition-colors ${
+                          isRowLocked ? 'cursor-not-allowed bg-slate-50/70 opacity-70' : 'cursor-pointer hover:bg-slate-50'
+                        } ${isSelected ? 'bg-indigo-50 ring-1 ring-indigo-100' : ''}`}
+                        onClick={() => {
+                          if (!isRowLocked) {
+                            handleTransitBiltySelect(bilty);
+                          }
+                        }}
                       >
-                        {!isDispatched && (
-                          <td className="px-2 py-2">
+                        <td className="px-2.5 py-2.5">
+                          {isRowLocked ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-600">
+                              <Lock className="h-3 w-3" />
+                              Locked
+                            </span>
+                          ) : (
                             <input
                               type="checkbox"
                               checked={!!isSelected}
@@ -528,68 +545,69 @@ const BiltyList = ({
                                 e.stopPropagation();
                                 handleTransitBiltySelect(bilty);
                               }}
-                              className="rounded border-gray-300"
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                          </td>
-                        )}
-                        {isDispatched && (
-                          <td className="px-2 py-2">
-                            <span className="text-orange-600 text-xs font-bold">🔒</span>
-                          </td>
-                        )}
-                        <td className="px-2 py-2 text-gray-900">{index + 1}</td>
-                        <td className="px-2 py-2">
-                          <span className={`px-1 py-0.5 text-xs font-bold rounded ${
-                            bilty.bilty_type === 'station' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          )}
+                        </td>
+                        <td className="px-2.5 py-2.5 text-slate-700">{index + 1}</td>
+                        <td className="px-2.5 py-2.5">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            bilty.bilty_type === 'station' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
                           }`}>
                             {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
                           </span>
-                          {isDispatched && (
-                            <span className="ml-1 px-1 py-0.5 text-xs font-bold rounded bg-orange-100 text-orange-800">
-                              DISP
-                            </span>
-                          )}
-                        </td><td className="px-2 py-2">
-                          <div className="font-bold text-yellow-800 truncate">{bilty.gr_no}</div>
                         </td>
-                        <td className="px-2 py-2 text-gray-600">
-                          {bilty.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
-                           bilty.created_at ? format(new Date(bilty.created_at), 'dd/MM') : '-'}
+                        <td className="px-2.5 py-2.5">
+                          <span className="font-semibold text-slate-900">{bilty.gr_no || '-'}</span>
                         </td>
-                        <td className="px-2 py-2 text-gray-900 truncate max-w-28" title={bilty.consignor_name || bilty.consignor}>
-                          {bilty.consignor_name || bilty.consignor}
+                        <td className="px-2.5 py-2.5 text-slate-600">
+                          {bilty.bilty_date
+                            ? format(new Date(bilty.bilty_date), 'dd/MM')
+                            : bilty.created_at
+                              ? format(new Date(bilty.created_at), 'dd/MM')
+                              : '-'}
                         </td>
-                        <td className="px-2 py-2 text-gray-900 truncate max-w-28" title={bilty.consignee_name || bilty.consignee}>
-                          {bilty.consignee_name || bilty.consignee}
+                        <td className="px-2.5 py-2.5 text-slate-700" title={bilty.consignor_name || bilty.consignor}>
+                          {bilty.consignor_name || bilty.consignor || '-'}
                         </td>
-                        <td className="px-2 py-2 text-gray-600 truncate max-w-26" title={bilty.contain || bilty.contents}>
+                        <td className="px-2.5 py-2.5 text-slate-700" title={bilty.consignee_name || bilty.consignee}>
+                          {bilty.consignee_name || bilty.consignee || '-'}
+                        </td>
+                        <td className="px-2.5 py-2.5 text-slate-500" title={bilty.contain || bilty.contents}>
                           {bilty.contain || bilty.contents || '-'}
                         </td>
-                        <td className="px-2 py-2 text-gray-600 truncate max-w-22">
+                        <td className="px-2.5 py-2.5 text-slate-500">
                           {getBiltyDisplayCity(bilty)}
-                        </td>                        <td className="px-2 py-2 text-gray-600 truncate max-w-20" title={bilty.pvt_marks}>
+                        </td>
+                        <td className="px-2.5 py-2.5 text-slate-500" title={bilty.pvt_marks}>
                           {bilty.pvt_marks || '-'}
                         </td>
-                        <td className="px-2 py-2">
-                          <span className={`px-1 py-0.5 text-xs font-bold rounded ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
-                            {(bilty.payment_mode || bilty.payment_status) === 'paid' ? 'PD' : 
-                             (bilty.payment_mode || bilty.payment_status) === 'to-pay' ? 'TP' : 
-                             (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc' ? 'FC' : 'N/A'}
+                        <td className="px-2.5 py-2.5">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
+                            {(bilty.payment_mode || bilty.payment_status) === 'paid'
+                              ? 'Paid'
+                              : (bilty.payment_mode || bilty.payment_status) === 'to-pay'
+                                ? 'To Pay'
+                                : (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc'
+                                  ? 'FOC'
+                                  : 'N/A'}
                           </span>
-                        </td>                        <td className="px-2 py-2 text-gray-900">{bilty.no_of_pkg || bilty.no_of_packets}</td>
-                        <td className="px-2 py-2 text-gray-900">{bilty.wt || bilty.weight || 0}</td>
-                        <td className="px-2 py-2 font-bold text-gray-900">₹{bilty.total || bilty.amount}</td>
-                        {!isDispatched && (
-                          <td className="px-2 py-2">
+                        </td>
+                        <td className="px-2.5 py-2.5 text-slate-700">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</td>
+                        <td className="px-2.5 py-2.5 text-slate-700">{bilty.wt || bilty.weight || 0}</td>
+                        <td className="px-2.5 py-2.5 font-semibold text-slate-900">₹{bilty.total || bilty.amount || 0}</td>
+                        {!isChallanLocked && (
+                          <td className="px-2.5 py-2.5">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onRemoveBiltyFromTransit?.(bilty);
                               }}
-                              className="bg-red-500 hover:bg-red-600 text-white rounded p-1 transition-colors"
-                              title="Remove from Transit"
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-600 transition hover:border-rose-400 hover:bg-rose-50"
+                              title="Remove from transit"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="h-3 w-3" />
+                              Remove
                             </button>
                           </td>
                         )}
@@ -600,97 +618,106 @@ const BiltyList = ({
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <Truck className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <div className="text-lg font-semibold mb-1">No Transit Bilties Found</div>
-              <div className="text-gray-400 text-sm">
+            <div className="px-6 py-8 text-center text-slate-500">
+              <Truck className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-semibold">No transit bilties</p>
+              <p className="text-xs text-slate-400">
                 {transitSearchTerm || transitFilterPaymentMode !== 'all' || transitFilterDate || transitFilterCity !== 'all' || transitFilterBiltyType !== 'all'
-                  ? 'Try adjusting your filters'
-                  : 'No bilties in this challan'
-                }
-              </div>
+                  ? 'Try adjusting your filters to see more results.'
+                  : 'Add bilties to this challan to see them here.'}
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Regular Available Bilties Section */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
-          <div className="flex items-center justify-between">            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Available Bilties ({fullyFilteredBilties.length})
-              {totalAvailableCount > 0 && (
-                <span className="text-blue-200 text-sm font-normal">
-                  • Total: {totalAvailableCount}
-                </span>
-              )}
-            </h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onRefresh?.('bilties')}
-                disabled={saving}
-                className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
-                title="Refresh available bilties"
-              >
-                <RefreshCw className={`w-3 h-3 ${saving ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-              <button
-                onClick={handleSelectAll}
-                disabled={selectedChallan?.is_dispatched}
-                className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
-              >
-                {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 ? (
-                  <CheckSquare className="w-3 h-3" />
-                ) : (
-                  <Square className="w-3 h-3" />
+      <div className="rounded-xl border border-slate-200 bg-white/95 shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <Package className="h-4 w-4" />
+            </span>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                <span>Available Bilties</span>
+                <span className="text-xs font-medium text-slate-500">{fullyFilteredBilties.length} filtered</span>
+                {totalAvailableCount > 0 && (
+                  <span className="text-xs font-medium text-slate-400">Total pool: {totalAvailableCount}</span>
                 )}
-                {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 
-                  ? 'Deselect All' 
-                  : `Select All (${fullyFilteredBilties.length})`
-                }
-              </button>
-              <button
-                onClick={() => onAddBiltyToTransit?.(selectedBilties)}
-                disabled={selectedBilties.length === 0 || !selectedChallan || selectedChallan?.is_dispatched}
-                className="bg-white/20 text-white px-3 py-1 rounded text-sm font-bold border border-white/30 flex items-center gap-1 hover:bg-white/30 transition-colors disabled:opacity-50"
-              >
-                <Plus className="w-3 h-3" />
-                Add ({selectedBilties.length})
-              </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600">
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-600">
+                  <CheckSquare className="h-3 w-3" />
+                  {selectedBilties.length} selected
+                </span>
+                {isChallanLocked && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-orange-600">
+                    <Lock className="h-3 w-3" />
+                    Dispatched challan
+                  </span>
+                )}
+              </div>
             </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onRefresh?.('bilties')}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Refresh available bilties"
+            >
+              <RefreshCw className={`h-3 w-3 ${saving ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={handleSelectAll}
+              disabled={isChallanLocked || fullyFilteredBilties.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 ? (
+                <CheckSquare className="h-3 w-3" />
+              ) : (
+                <Square className="h-3 w-3" />
+              )}
+              {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 ? 'Deselect All' : 'Select All'}
+            </button>
+            <button
+              onClick={() => onAddBiltyToTransit?.(selectedBilties)}
+              disabled={selectedBilties.length === 0 || !selectedChallan || isChallanLocked}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            >
+              <Plus className="h-3 w-3" />
+              Add ({selectedBilties.length})
+            </button>
           </div>
         </div>
 
-        {/* Available Bilties Filters */}
-        <div className="p-2 border-b border-blue-200 bg-blue-50">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-5">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search available..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black bg-white"
+                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
             </div>
             <select
               value={filterPaymentMode}
               onChange={(e) => setFilterPaymentMode(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black bg-white"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             >
               <option value="all">All Payments</option>
               <option value="paid">Paid</option>
               <option value="to-pay">To Pay</option>
-              <option value="freeofcost">Free</option>
+              <option value="freeofcost">Free of Cost</option>
             </select>
             <select
               value={filterCity}
               onChange={(e) => setFilterCity(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black bg-white"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             >
               <option value="all">All Cities</option>
               {availableCities.map(city => (
@@ -700,168 +727,165 @@ const BiltyList = ({
             <select
               value={filterBiltyType}
               onChange={(e) => setFilterBiltyType(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black bg-white"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             >
               <option value="all">All Types</option>
-              <option value="regular">REG</option>
-              <option value="station">MNL</option>
+              <option value="regular">Regular</option>
+              <option value="station">Manual</option>
             </select>
             <input
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black bg-white"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
         </div>
 
-        {/* Selection Summary */}
         {selectedBilties.length > 0 && (
-          <div className="p-3 border-b border-gray-200 bg-blue-50">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-blue-800 font-medium">{selectedBilties.length} bilties selected</span>
+          <div className="border-b border-indigo-100 bg-indigo-50/70 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-semibold text-indigo-700">{selectedBilties.length} bilties selected</span>
               <button
                 onClick={() => setSelectedBilties([])}
-                className="flex items-center gap-1 text-red-600 hover:text-red-700 font-medium text-sm transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-rose-600 transition hover:text-rose-700"
               >
-                <Trash2 className="w-3 h-3" />
-                Clear Selection
+                <Trash2 className="h-4 w-4" />
+                Clear selection
               </button>
             </div>
           </div>
         )}
 
-        {/* Available Bilties Table */}
-        <div className="overflow-x-auto min-w-full">
+  <div className="overflow-x-auto">
           {fullyFilteredBilties.length > 0 ? (
-            <table className="w-full text-sm min-w-max">
-              <thead className="bg-blue-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-3 py-2 text-left w-8">
-                    <button
-                      onClick={handleSelectAll}
-                      disabled={selectedChallan?.is_dispatched}
-                      className="flex items-center gap-1 text-blue-800 font-medium disabled:opacity-50 text-sm"
-                    >
-                      {selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0 ? (
-                        <CheckSquare className="w-4 h-4" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                    </button>
+            <table className="min-w-full divide-y divide-slate-200 text-[13px] leading-5">
+              <thead className="bg-slate-50">
+                <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="w-10 px-2.5 py-2.5 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0}
+                      onChange={handleSelectAll}
+                      disabled={isChallanLocked}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-12">#</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Type</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-24">GR No</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">Date</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-28">Consignor</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-28">Consignee</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-26">Content</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-22">Destination</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">PVT Marks</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Payment</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-12">Pkgs</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-16">Weight</th>
-                  <th className="px-3 py-2 text-left font-medium text-blue-800 w-20">Amount</th>
+                  <th className="px-2.5 py-2.5 text-left">#</th>
+                  <th className="px-2.5 py-2.5 text-left">Type</th>
+                  <th className="px-2.5 py-2.5 text-left">GR No</th>
+                  <th className="px-2.5 py-2.5 text-left">Date</th>
+                  <th className="px-2.5 py-2.5 text-left">Consignor</th>
+                  <th className="px-2.5 py-2.5 text-left">Consignee</th>
+                  <th className="px-2.5 py-2.5 text-left">Content</th>
+                  <th className="px-2.5 py-2.5 text-left">Destination</th>
+                  <th className="px-2.5 py-2.5 text-left">PVT Marks</th>
+                  <th className="px-2.5 py-2.5 text-left">Payment</th>
+                  <th className="px-2.5 py-2.5 text-left">Pkgs</th>
+                  <th className="px-2.5 py-2.5 text-left">Weight</th>
+                  <th className="px-2.5 py-2.5 text-left">Amount</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">                {fullyFilteredBilties.map((bilty, index) => {
-                  const isSelected = selectedBilties.find(b => b.id === bilty.id);
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {fullyFilteredBilties.map((bilty, index) => {
+                  const isSelected = selectedBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
+
                   return (
-                    <tr 
-                      key={bilty.id} 
-                      className={`transition-colors cursor-pointer ${
-                        isSelected 
-                          ? 'bg-blue-100 border-l-4 border-blue-500' 
-                          : 'hover:bg-gray-50'
-                      } ${selectedChallan?.is_dispatched ? 'opacity-50' : ''}`}
-                      onClick={() => !selectedChallan?.is_dispatched && handleBiltySelect(bilty)}
-                      onDoubleClick={() => handleBiltyDoubleClick(bilty)}
-                      title={selectedChallan?.is_dispatched ? "Cannot modify dispatched challan" : "Double-click to add to challan"}
+                    <tr
+                      key={`${bilty.id}-${bilty.gr_no}`}
+                      className={`transition-colors ${
+                        isChallanLocked ? 'cursor-not-allowed bg-slate-50/70 opacity-70' : 'cursor-pointer hover:bg-slate-50'
+                      } ${isSelected ? 'bg-indigo-50 ring-1 ring-indigo-100' : ''}`}
+                      onClick={() => {
+                        if (!isChallanLocked) {
+                          handleBiltySelect(bilty);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        if (!isChallanLocked) {
+                          handleBiltyDoubleClick(bilty);
+                        }
+                      }}
+                      title={isChallanLocked ? 'Cannot modify a dispatched challan' : 'Double-click to add to the selected challan'}
                     >
-                      <td className="px-3 py-2">
-                        <button
-                          onClick={(e) => {
+                      <td className="px-2.5 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={!!isSelected}
+                          onChange={(e) => {
                             e.stopPropagation();
-                            if (!selectedChallan?.is_dispatched) {
+                            if (!isChallanLocked) {
                               handleBiltySelect(bilty);
                             }
                           }}
-                          disabled={selectedChallan?.is_dispatched}
-                          className="disabled:opacity-50"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-blue-600" />
-                          ) : (
-                            <Square className="w-4 h-4 text-gray-400" />
-                          )}
-                        </button>
+                          disabled={isChallanLocked}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
                       </td>
-                      <td className="px-3 py-2 text-gray-900">{index + 1}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-1 text-xs font-bold rounded ${
-                          bilty.bilty_type === 'station' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      <td className="px-2.5 py-2.5 text-slate-700">{index + 1}</td>
+                      <td className="px-2.5 py-2.5">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          bilty.bilty_type === 'station' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
                         }`}>
                           {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
                         </span>
-                      </td>                      <td className="px-3 py-2">
-                        <div className="font-bold text-blue-800 truncate">{bilty.gr_no}</div>
                       </td>
-                      <td className="px-3 py-2 text-gray-600">
-                        {bilty.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
-                         bilty.created_at ? format(new Date(bilty.created_at), 'dd/MM') : '-'}
+                      <td className="px-2.5 py-2.5">
+                        <span className="font-semibold text-slate-900">{bilty.gr_no || '-'}</span>
                       </td>
-                      <td className="px-3 py-2 text-gray-900 truncate max-w-28" title={bilty.consignor_name || bilty.consignor}>
-                        {bilty.consignor_name || bilty.consignor}
+                      <td className="px-2.5 py-2.5 text-slate-600">
+                        {bilty.bilty_date
+                          ? format(new Date(bilty.bilty_date), 'dd/MM')
+                          : bilty.created_at
+                            ? format(new Date(bilty.created_at), 'dd/MM')
+                            : '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-900 truncate max-w-28" title={bilty.consignee_name || bilty.consignee}>
-                        {bilty.consignee_name || bilty.consignee}
+                      <td className="px-2.5 py-2.5 text-slate-700" title={bilty.consignor_name || bilty.consignor}>
+                        {bilty.consignor_name || bilty.consignor || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-600 truncate max-w-26" title={bilty.contain || bilty.contents}>
+                      <td className="px-2.5 py-2.5 text-slate-700" title={bilty.consignee_name || bilty.consignee}>
+                        {bilty.consignee_name || bilty.consignee || '-'}
+                      </td>
+                      <td className="px-2.5 py-2.5 text-slate-500" title={bilty.contain || bilty.contents}>
                         {bilty.contain || bilty.contents || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-600 truncate max-w-22">
+                      <td className="px-2.5 py-2.5 text-slate-500">
                         {getBiltyDisplayCity(bilty)}
-                      </td>                      <td className="px-3 py-2 text-gray-600 truncate max-w-20" title={bilty.pvt_marks}>
+                      </td>
+                      <td className="px-2.5 py-2.5 text-slate-500" title={bilty.pvt_marks}>
                         {bilty.pvt_marks || '-'}
                       </td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-1 text-xs font-bold rounded ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
-                          {(bilty.payment_mode || bilty.payment_status) === 'paid' ? 'PD' : 
-                           (bilty.payment_mode || bilty.payment_status) === 'to-pay' ? 'TP' : 
-                           (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc' ? 'FC' : 'N/A'}
+                      <td className="px-2.5 py-2.5">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
+                          {(bilty.payment_mode || bilty.payment_status) === 'paid'
+                            ? 'Paid'
+                            : (bilty.payment_mode || bilty.payment_status) === 'to-pay'
+                              ? 'To Pay'
+                              : (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc'
+                                ? 'FOC'
+                                : 'N/A'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-gray-900">{bilty.no_of_pkg || bilty.no_of_packets}</td>
-                      <td className="px-3 py-2 text-gray-900">{bilty.wt || bilty.weight || 0}</td>
-                      <td className="px-3 py-2 font-bold text-gray-900">₹{bilty.total || bilty.amount}</td>
+                      <td className="px-2.5 py-2.5 text-slate-700">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</td>
+                      <td className="px-2.5 py-2.5 text-slate-700">{bilty.wt || bilty.weight || 0}</td>
+                      <td className="px-2.5 py-2.5 font-semibold text-slate-900">₹{bilty.total || bilty.amount || 0}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <div className="text-lg font-semibold mb-1">No Bilties Found</div>
-              <div className="text-gray-400 text-sm">
-                {searchTerm || filterPaymentMode !== 'all' || filterDate || filterCity !== 'all' || filterBiltyType !== 'all'
-                  ? 'Try adjusting your filters'
-                  : 'No available bilties'
-                }
-              </div>
+            <div className="px-6 py-8 text-center text-slate-500">
+              <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-semibold">No bilties match the current filters</p>
+              <p className="text-xs text-slate-400">Adjust your filters or refresh the list to load the latest data.</p>
             </div>
           )}
         </div>
 
-        {/* Compact Footer */}
-        <div className="bg-blue-50 p-3 border-t border-blue-200">
-          <div className="text-sm text-blue-800">
-            <strong>Tip:</strong> Click to select, double-click to add to challan
-            {selectedChallan?.is_dispatched && (
-              <span className="ml-2 text-red-600 font-bold">• Cannot modify dispatched challan</span>
-            )}
-          </div>
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          Tip: click once to select, double-click to add to the selected challan.
+          {isChallanLocked && <span className="ml-2 font-semibold text-orange-500">Dispatched challans are read-only.</span>}
         </div>
       </div>
     </div>

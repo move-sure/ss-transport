@@ -30,62 +30,69 @@ function formatDateTime(value) {
 }
 
 export default function ChallanDetailsView({ challanDetails }) {
+  const branchLabel = challanDetails?.branch?.branch_name
+    || challanDetails?.branch?.name
+    || challanDetails?.branch?.code
+    || 'N/A';
+
+  const detailBlocks = useMemo(() => {
+    if (!challanDetails) return [];
+
+    return [
+      {
+        label: 'Challan Number',
+        value: challanDetails.challan_no || 'N/A',
+        accent: 'from-blue-500/10 to-blue-500/20',
+      },
+      {
+        label: 'Branch',
+        value: branchLabel,
+        helper: challanDetails.branch?.code && challanDetails.branch?.branch_name ? challanDetails.branch.code : null,
+        accent: 'from-emerald-500/10 to-emerald-500/20',
+      },
+      {
+        label: 'Challan Date',
+        value: formatDate(challanDetails.date),
+        accent: 'from-purple-500/10 to-purple-500/20',
+      },
+      {
+        label: 'Truck Number',
+        value: challanDetails.truck?.truck_number || 'Not Assigned',
+        helper: challanDetails.truck?.owner || null,
+        accent: 'from-amber-500/10 to-amber-500/20',
+      },
+      {
+        label: 'Driver',
+        value: challanDetails.driver?.driver_name || challanDetails.driver?.name || 'Not Assigned',
+        helper: challanDetails.driver?.phone || null,
+        accent: 'from-rose-500/10 to-rose-500/20',
+      },
+      {
+        label: 'Owner',
+        value: challanDetails.owner?.owner_name || challanDetails.owner?.name || 'Not Assigned',
+        helper: challanDetails.owner?.phone || null,
+        accent: 'from-indigo-500/10 to-indigo-500/20',
+      },
+      {
+        label: 'Total Bilties',
+        value: challanDetails.total_bilty_count || 0,
+        accent: 'from-pink-500/10 to-pink-500/20',
+      },
+      {
+        label: 'Dispatch Status',
+        value: challanDetails.is_dispatched ? 'Dispatched' : 'Pending Dispatch',
+        helper: challanDetails.is_dispatched && challanDetails.dispatch_date
+          ? formatDateTime(challanDetails.dispatch_date)
+          : 'Awaiting confirmation',
+        accent: challanDetails.is_dispatched
+          ? 'from-green-500/10 to-green-500/20'
+          : 'from-yellow-500/10 to-yellow-500/20',
+        valueClassName: challanDetails.is_dispatched ? 'text-emerald-600' : 'text-amber-600'
+      }
+    ];
+  }, [branchLabel, challanDetails]);
+
   if (!challanDetails) return null;
-
-  const branchLabel = challanDetails.branch?.branch_name || challanDetails.branch?.name || challanDetails.branch?.code || 'N/A';
-
-  const detailBlocks = useMemo(() => ([
-    {
-      label: 'Challan Number',
-      value: challanDetails.challan_no || 'N/A',
-      accent: 'from-blue-500/10 to-blue-500/20',
-    },
-    {
-      label: 'Branch',
-      value: branchLabel,
-      helper: challanDetails.branch?.code && challanDetails.branch?.branch_name ? challanDetails.branch.code : null,
-      accent: 'from-emerald-500/10 to-emerald-500/20',
-    },
-    {
-      label: 'Challan Date',
-      value: formatDate(challanDetails.date),
-      accent: 'from-purple-500/10 to-purple-500/20',
-    },
-    {
-      label: 'Truck Number',
-      value: challanDetails.truck?.truck_number || 'Not Assigned',
-      helper: challanDetails.truck?.owner || null,
-      accent: 'from-amber-500/10 to-amber-500/20',
-    },
-    {
-      label: 'Driver',
-      value: challanDetails.driver?.driver_name || challanDetails.driver?.name || 'Not Assigned',
-      helper: challanDetails.driver?.phone || null,
-      accent: 'from-rose-500/10 to-rose-500/20',
-    },
-    {
-      label: 'Owner',
-      value: challanDetails.owner?.owner_name || challanDetails.owner?.name || 'Not Assigned',
-      helper: challanDetails.owner?.phone || null,
-      accent: 'from-indigo-500/10 to-indigo-500/20',
-    },
-    {
-      label: 'Total Bilties',
-      value: challanDetails.total_bilty_count || 0,
-      accent: 'from-pink-500/10 to-pink-500/20',
-    },
-    {
-      label: 'Dispatch Status',
-      value: challanDetails.is_dispatched ? 'Dispatched' : 'Pending Dispatch',
-      helper: challanDetails.is_dispatched && challanDetails.dispatch_date
-        ? formatDateTime(challanDetails.dispatch_date)
-        : 'Awaiting confirmation',
-      accent: challanDetails.is_dispatched
-        ? 'from-green-500/10 to-green-500/20'
-        : 'from-yellow-500/10 to-yellow-500/20',
-      valueClassName: challanDetails.is_dispatched ? 'text-emerald-600' : 'text-amber-600'
-    }
-  ]), [branchLabel, challanDetails]);
 
   return (
     <section className="w-full rounded-3xl bg-white shadow-lg border border-slate-200 overflow-hidden">

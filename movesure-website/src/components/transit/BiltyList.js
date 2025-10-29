@@ -312,6 +312,18 @@ const BiltyList = ({
 
   const isChallanLocked = Boolean(selectedChallan?.is_dispatched);
 
+  // Builds consistent row styling so selection visibly highlights the full row.
+  const getRowClassNames = (isSelected, isLocked) => {
+    const baseClasses = 'transition-colors border-b border-slate-200 last:border-b-0';
+    const stateClasses = isLocked
+      ? 'cursor-not-allowed bg-slate-50/70 opacity-70'
+      : 'cursor-pointer bg-white hover:bg-indigo-50';
+    const selectedClasses = isSelected
+      ? 'selected-row border-indigo-300 ring-1 ring-indigo-200 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.25)]'
+      : '';
+    return `${baseClasses} ${stateClasses} ${selectedClasses}`.trim();
+  };
+
   // CSV export for transit bilties
   const handleExportTransitCSV = () => {
     if (!selectedChallan || !filteredTransitBilties.length) {
@@ -483,7 +495,7 @@ const BiltyList = ({
 
           {filteredTransitBilties.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-[13px] leading-5">
+              <table className="min-w-full border border-slate-200 text-[13px] leading-5">
                 <thead className="bg-slate-50">
                   <tr className="text-xs font-bold uppercase tracking-wide text-slate-700">
                     <th className="w-10 px-2.5 py-2.5 text-left">
@@ -514,7 +526,7 @@ const BiltyList = ({
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
+                <tbody className="divide-y divide-slate-200 bg-white [&_.selected-row>td]:bg-indigo-100/80">
                   {filteredTransitBilties.map((bilty, index) => {
                     const isSelected = selectedTransitBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
                     const isRowLocked = isChallanLocked || bilty.is_dispatched;
@@ -522,9 +534,7 @@ const BiltyList = ({
                     return (
                       <tr
                         key={`transit-${bilty.id}-${bilty.bilty_type}`}
-                        className={`transition-colors ${
-                          isRowLocked ? 'cursor-not-allowed bg-slate-50/70 opacity-70' : 'cursor-pointer hover:bg-slate-50'
-                        } ${isSelected ? 'bg-indigo-50 ring-1 ring-indigo-100' : ''}`}
+                        className={getRowClassNames(Boolean(isSelected), isRowLocked)}
                         onClick={() => {
                           if (!isRowLocked) {
                             handleTransitBiltySelect(bilty);
@@ -759,7 +769,7 @@ const BiltyList = ({
 
   <div className="overflow-x-auto">
           {fullyFilteredBilties.length > 0 ? (
-            <table className="min-w-full divide-y divide-slate-200 text-[13px] leading-5">
+            <table className="min-w-full border border-slate-200 text-[13px] leading-5">
               <thead className="bg-slate-50">
                 <tr className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   <th className="w-10 px-2.5 py-2.5 text-left">
@@ -786,16 +796,14 @@ const BiltyList = ({
                   <th className="px-2.5 py-2.5 text-left">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-slate-200 bg-white [&_.selected-row>td]:bg-indigo-100/80">
                 {fullyFilteredBilties.map((bilty, index) => {
                   const isSelected = selectedBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
 
                   return (
                     <tr
                       key={`${bilty.id}-${bilty.gr_no}`}
-                      className={`transition-colors ${
-                        isChallanLocked ? 'cursor-not-allowed bg-slate-50/70 opacity-70' : 'cursor-pointer hover:bg-slate-50'
-                      } ${isSelected ? 'bg-indigo-50 ring-1 ring-indigo-100' : ''}`}
+                      className={getRowClassNames(Boolean(isSelected), isChallanLocked)}
                       onClick={() => {
                         if (!isChallanLocked) {
                           handleBiltySelect(bilty);

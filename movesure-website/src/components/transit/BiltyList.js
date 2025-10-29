@@ -319,7 +319,7 @@ const BiltyList = ({
       ? 'cursor-not-allowed bg-slate-50/70 opacity-70'
       : 'cursor-pointer bg-white hover:bg-indigo-50';
     const selectedClasses = isSelected
-      ? 'selected-row border-indigo-300 ring-1 ring-indigo-200 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.25)]'
+      ? 'selected-row border-indigo-300 ring-1 ring-indigo-200 bg-indigo-50 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.25)]'
       : '';
     return `${baseClasses} ${stateClasses} ${selectedClasses}`.trim();
   };
@@ -555,6 +555,7 @@ const BiltyList = ({
                                 e.stopPropagation();
                                 handleTransitBiltySelect(bilty);
                               }}
+                              onClick={(e) => e.stopPropagation()}
                               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                             />
                           )}
@@ -826,6 +827,7 @@ const BiltyList = ({
                               handleBiltySelect(bilty);
                             }
                           }}
+                          onClick={(e) => e.stopPropagation()}
                           disabled={isChallanLocked}
                           className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />

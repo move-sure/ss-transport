@@ -256,7 +256,7 @@ const SelectedBiltiesPanel = memo(({
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-blue-900">Selected bilties</h3>
+                <h3 className="text-lg font-semibold text-blue-900">BILL PANEL</h3>
                 <p className="text-sm text-blue-500/80">Review consignments before generating a bill.</p>
               </div>
             </div>

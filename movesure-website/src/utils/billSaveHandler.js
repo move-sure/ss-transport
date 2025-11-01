@@ -1,4 +1,4 @@
-import supabase from '@/app/utils/supabase';
+import supabase from '../app/utils/supabase';
 import { generatePortraitBillPDF } from '@/components/bill/portrait-bill-generator';
 import { generateLandscapeBillPDF } from '@/components/bill/landscape-bill-generator';
 
@@ -23,7 +23,7 @@ export const saveBillToSupabase = async (
   if (setIsSaving) setIsSaving(true);
 
   try {
-    // Validate inputs
+    // ✅ Validate inputs
     if (!bilties || bilties.length === 0) {
       throw new Error('No bilties provided');
     }
@@ -31,14 +31,32 @@ export const saveBillToSupabase = async (
       throw new Error('User not authenticated');
     }
 
-    console.log('Starting bill save process...', { 
+    // ✅ Verify authentication session
+    let userSession = null;
+    if (typeof window !== 'undefined') {
+      const sessionStr = localStorage.getItem('userSession');
+      if (!sessionStr) {
+        throw new Error('⚠️ No active session found. Please login again.');
+      }
+      userSession = JSON.parse(sessionStr);
+      
+      // Check if token is expired
+      const now = new Date();
+      const expiresAt = new Date(userSession.expiresAt);
+      if (now > expiresAt) {
+        throw new Error('⚠️ Session expired. Please login again.');
+      }
+    }
+
+    console.log('✅ Starting bill save process...', { 
       biltiesCount: bilties.length, 
       billOptions,
       userId: user.id,
-      branchId: user.branch_id
+      branchId: user.branch_id,
+      hasValidSession: !!userSession
     });
 
-    // Generate PDF based on template
+    // ✅ Generate PDF based on template
     const template = billOptions?.printTemplate || 'portrait';
     let pdfResult;
 
@@ -50,21 +68,28 @@ export const saveBillToSupabase = async (
 
     const pdfBlob = pdfResult.blob;
     if (!pdfBlob) {
-      throw new Error('Failed to generate PDF blob');
+      throw new Error('❌ Failed to generate PDF blob');
     }
 
-    console.log('PDF generated successfully, blob size:', pdfBlob.size);
+    console.log('✅ PDF generated successfully, blob size:', pdfBlob.size);
 
-    // Generate filename
+    // ✅ Generate filename
     const billTypeLabel = billOptions?.customName || billOptions?.billType || 'statement';
     const dateStr = new Date().toISOString().slice(0, 10);
     const timeStr = new Date().toISOString().slice(11, 19).replace(/:/g, '-');
     const filename = `${billTypeLabel}_${dateStr}_${timeStr}.pdf`;
     const filepath = `${user.id || 'default'}/${filename}`;
 
-    console.log('Uploading PDF to Supabase storage...', filepath);
+    console.log('📤 Uploading PDF to Supabase storage...', filepath);
+    console.log('📋 User info for upload:', { 
+      userId: user.id, 
+      username: user.username,
+      branchId: user.branch_id 
+    });
 
     // Upload PDF to Supabase storage bucket
+    // Note: Supabase uses the anon key by default. For RLS to work properly,
+    // you need to ensure your storage policies allow uploads based on user context
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('bill')
       .upload(filepath, pdfBlob, {
@@ -73,21 +98,42 @@ export const saveBillToSupabase = async (
       });
 
     if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw new Error(`Upload failed: ${uploadError.message}`);
+      console.error('❌ Upload error:', uploadError);
+      console.error('❌ Full error details:', JSON.stringify(uploadError, null, 2));
+      
+      // Enhanced error messages for common RLS issues
+      if (uploadError.message?.includes('row-level security') || 
+          uploadError.message?.includes('policy') ||
+          uploadError.message?.includes('violates') ||
+          uploadError.statusCode === '42501') {
+        throw new Error(
+          `🚨 STORAGE PERMISSION ERROR\n\n` +
+          `The storage bucket needs RLS policies to allow uploads.\n\n` +
+          `TO FIX: Go to Supabase Dashboard → Storage → Policies → bill bucket\n` +
+          `Create a policy: INSERT with "bucket_id = 'bill'"\n\n` +
+          `See URGENT_FIX_STORAGE.md for detailed instructions.\n\n` +
+          `Technical: ${uploadError.message}`
+        );
+      } else if (uploadError.message?.includes('duplicate')) {
+        throw new Error(`⚠️ File already exists: ${filename}. Please try again.`);
+      } else if (uploadError.message?.includes('not found') || uploadError.statusCode === '404') {
+        throw new Error(`⚠️ Storage bucket 'bill' not found. Please create it in Supabase Dashboard.`);
+      } else {
+        throw new Error(`❌ Upload failed: ${uploadError.message}`);
+      }
     }
 
-    console.log('PDF uploaded successfully:', uploadData);
+    console.log('✅ PDF uploaded successfully:', uploadData);
 
-    // Get public URL
+    // ✅ Get public URL
     const { data: urlData } = supabase.storage
       .from('bill')
       .getPublicUrl(filepath);
 
     const publicUrl = urlData.publicUrl;
-    console.log('Public URL generated:', publicUrl);
+    console.log('✅ Public URL generated:', publicUrl);
 
-    // Calculate totals
+    // ✅ Calculate totals
     const totalAmount = bilties.reduce((sum, bilty) => 
       sum + parseFloat(bilty.total || bilty.amount || 0), 0
     );
@@ -98,9 +144,9 @@ export const saveBillToSupabase = async (
       .filter(b => (b.payment_mode || b.payment_status || '').toLowerCase() === 'to-pay')
       .reduce((sum, bilty) => sum + parseFloat(bilty.total || bilty.amount || 0), 0);
 
-    console.log('Calculated totals:', { totalAmount, paidAmount, toPayAmount });
+    console.log('✅ Calculated totals:', { totalAmount, paidAmount, toPayAmount });
 
-    // Prepare bill record data
+    // ✅ Prepare bill record data
     const billRecord = {
       bill_type: billOptions?.customName ? 'custom' : (billOptions?.billType || 'consignor'),
       bill_name: billOptions?.customName || null,
@@ -119,7 +165,7 @@ export const saveBillToSupabase = async (
       pdf_filename: filename
     };
 
-    console.log('Saving bill record to database...', billRecord);
+    console.log('💾 Saving bill record to database...', billRecord);
 
     // Save bill record to database
     const { data: billData, error: dbError } = await supabase
@@ -128,25 +174,42 @@ export const saveBillToSupabase = async (
       .select();
 
     if (dbError) {
-      console.error('Database error:', dbError);
-      throw new Error(`Database error: ${dbError.message}`);
+      console.error('❌ Database error:', dbError);
+      console.error('❌ Full error details:', JSON.stringify(dbError, null, 2));
+      
+      // Enhanced error messages for common database issues
+      if (dbError.code === '23505' || dbError.message?.includes('duplicate')) {
+        throw new Error(`⚠️ Duplicate entry: This bill may already exist. Please check and try again.`);
+      } else if (dbError.code === '23503' || dbError.message?.includes('foreign key')) {
+        throw new Error(`⚠️ Invalid reference: Referenced data is invalid. Please contact admin.`);
+      } else if (dbError.code === '23502' || dbError.message?.includes('null value')) {
+        throw new Error(`⚠️ Missing required data: ${dbError.message}`);
+      } else if (dbError.code === '23514' || dbError.message?.includes('check constraint')) {
+        throw new Error(`⚠️ Invalid data: Bill type or template value is invalid. Please check your selections.`);
+      } else if (dbError.message?.includes('column') && dbError.message?.includes('does not exist')) {
+        throw new Error(`⚠️ Database schema mismatch: ${dbError.message}. Please refresh the page.`);
+      } else {
+        throw new Error(`❌ Database error: ${dbError.message}`);
+      }
     }
 
-    console.log('Bill saved successfully to database:', billData);
+    console.log('✅ Bill saved successfully to database:', billData);
+
+    console.log('✅✅✅ Bill save process completed successfully!');
 
     return {
       success: true,
       pdfUrl: pdfResult.url,
       publicUrl: publicUrl,
       billData: billData[0],
-      message: 'Bill saved successfully!'
+      message: '✅ Bill saved successfully!'
     };
 
   } catch (error) {
-    console.error('Error in saveBillToSupabase:', error);
+    console.error('❌ Error in saveBillToSupabase:', error);
     return {
       success: false,
-      error: error.message || 'Failed to save bill',
+      error: error.message || '❌ Failed to save bill',
       pdfUrl: null
     };
   } finally {

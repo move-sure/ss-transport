@@ -17,7 +17,7 @@ const getEmbeddedLogo = () => {
   return null;
 };
 
-const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
+const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates = null }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
 
@@ -232,10 +232,19 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [] }) => {
       pdf.setTextColor(40, 40, 40);
       pdf.text(consignorName, 55, yPosition + 6);
       
-      // Date range with better formatting
-      const dates = selectedBilties.map(b => new Date(b.bilty_date || b.created_at)).filter(d => !isNaN(d));
-      const minDate = dates.length > 0 ? new Date(Math.min(...dates)) : new Date();
-      const maxDate = dates.length > 0 ? new Date(Math.max(...dates)) : new Date();
+      // Date range with better formatting - Use filter dates if provided, otherwise use bilty dates
+      let minDate, maxDate;
+      
+      if (filterDates && filterDates.dateFrom && filterDates.dateTo) {
+        // Use filter dates from search filters
+        minDate = new Date(filterDates.dateFrom);
+        maxDate = new Date(filterDates.dateTo);
+      } else {
+        // Fallback to bilty dates
+        const dates = selectedBilties.map(b => new Date(b.bilty_date || b.created_at)).filter(d => !isNaN(d));
+        minDate = dates.length > 0 ? new Date(Math.min(...dates)) : new Date();
+        maxDate = dates.length > 0 ? new Date(Math.max(...dates)) : new Date();
+      }
       
       pdf.setFontSize(10);
       pdf.setFont('times', 'normal');

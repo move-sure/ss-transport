@@ -1057,17 +1057,22 @@ export default function BillSearch() {
 
   // Handle select all after getPaginatedData is defined
   const handleSelectAll = useCallback(() => {
-    const currentPageBilties = getPaginatedData.map(b => ({ ...b, type: b.type }));
-    const currentPageIds = currentPageBilties.map(b => `${b.type}-${b.id}`);
+    // Get ALL filtered bilties, not just current page
+    const allFilteredBilties = [
+      ...searchResults.regular.map(b => ({ ...b, type: 'regular' })),
+      ...searchResults.station.map(b => ({ ...b, type: 'station' }))
+    ];
     
-    // Check if all current page items are selected
-    const allCurrentPageSelected = currentPageIds.every(id => selectedBilties.includes(id));
+    const allFilteredIds = allFilteredBilties.map(b => `${b.type}-${b.id}`);
     
-    if (allCurrentPageSelected) {
-      // Remove all current page bilties from localStorage
+    // Check if all filtered items are selected
+    const allFilteredSelected = allFilteredIds.every(id => selectedBilties.includes(id));
+    
+    if (allFilteredSelected) {
+      // Remove all filtered bilties from localStorage
       const storedBilties = getSelectedBilties();
       const updatedBilties = storedBilties.filter(
-        b => !currentPageIds.includes(`${b.type}-${b.id}`)
+        b => !allFilteredIds.includes(`${b.type}-${b.id}`)
       );
       import('@/utils/biltyStorage').then(({ saveSelectedBilties }) => {
         saveSelectedBilties(updatedBilties);
@@ -1075,14 +1080,14 @@ export default function BillSearch() {
       const updatedIds = updatedBilties.map(b => `${b.type}-${b.id}`);
       setSelectedBilties(updatedIds);
     } else {
-      // Add all current page bilties to localStorage
+      // Add all filtered bilties to localStorage
       import('@/utils/biltyStorage').then(({ addMultipleBilties }) => {
-        const updatedBilties = addMultipleBilties(currentPageBilties);
+        const updatedBilties = addMultipleBilties(allFilteredBilties);
         const updatedIds = updatedBilties.map(b => `${b.type}-${b.id}`);
         setSelectedBilties(updatedIds);
       });
     }
-  }, [getPaginatedData, selectedBilties]);
+  }, [searchResults.regular, searchResults.station, selectedBilties]);
 
   if (!user) {
     return (
@@ -1282,6 +1287,7 @@ export default function BillSearch() {
             setFilteredBiltiesForPrint(null);
           }}
           cities={cities}
+          filterDates={searchFilters}
         />
       )}
 

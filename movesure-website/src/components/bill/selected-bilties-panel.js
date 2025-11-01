@@ -25,6 +25,8 @@ const SelectedBiltiesPanel = memo(({
   const [customName, setCustomName] = useState('');
   const [removedBiltyIds, setRemovedBiltyIds] = useState(new Set());
   const [showBlockedModal, setShowBlockedModal] = useState(false);
+  // Temporary amount overrides for printing only
+  const [amountOverrides, setAmountOverrides] = useState({});
 
   // Fetch branches on mount
   useEffect(() => {
@@ -71,14 +73,31 @@ const SelectedBiltiesPanel = memo(({
 
   const filteredBilties = getFilteredBilties();
 
-  // Calculate totals for filtered bilties
+  // Get effective amount (override or original)
+  const getEffectiveAmount = (bilty) => {
+    const biltyKey = `${bilty.type}-${bilty.id}`;
+    return amountOverrides[biltyKey] !== undefined 
+      ? parseFloat(amountOverrides[biltyKey]) 
+      : parseFloat(bilty.total || bilty.amount || 0);
+  };
+
+  // Handle amount change
+  const handleAmountChange = (bilty, newAmount) => {
+    const biltyKey = `${bilty.type}-${bilty.id}`;
+    setAmountOverrides(prev => ({
+      ...prev,
+      [biltyKey]: newAmount
+    }));
+  };
+
+  // Calculate totals for filtered bilties (using overridden amounts)
   const calculateTotals = () => {
     let totalAmount = 0;
     let paidAmount = 0;
     let toPayAmount = 0;
 
     filteredBilties.forEach(bilty => {
-      const amount = parseFloat(bilty.total || bilty.amount || 0);
+      const amount = getEffectiveAmount(bilty);
       totalAmount += amount;
       
       const paymentStatus = bilty.payment_mode || bilty.payment_status || '';
@@ -143,7 +162,19 @@ const SelectedBiltiesPanel = memo(({
       alert('No bilties match the selected filters');
       return;
     }
-    onPrintBilties(filteredBilties, { billType, customName });
+    // Apply amount overrides to bilties before printing
+    const biltiesWithOverrides = filteredBilties.map(bilty => {
+      const biltyKey = `${bilty.type}-${bilty.id}`;
+      if (amountOverrides[biltyKey] !== undefined) {
+        return {
+          ...bilty,
+          total: amountOverrides[biltyKey],
+          amount: amountOverrides[biltyKey]
+        };
+      }
+      return bilty;
+    });
+    onPrintBilties(biltiesWithOverrides, { billType, customName });
   };
 
   // Handle download CSV with filters
@@ -469,9 +500,41 @@ const SelectedBiltiesPanel = memo(({
                         }`}>
                           {(bilty.payment_mode || bilty.payment_status || 'N/A').toUpperCase()}
                         </span>
-                        <span className={`text-sm font-bold ${isDeleted ? 'text-gray-500' : 'text-gray-900'}`}>
-                          {formatCurrency(bilty.total || bilty.amount)}
-                        </span>
+                        {/* Editable Amount Input */}
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-medium text-gray-500">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={getEffectiveAmount(bilty)}
+                            onChange={(e) => handleAmountChange(bilty, e.target.value)}
+                            disabled={isDeleted}
+                            className={`w-24 px-2 py-1 text-sm font-bold text-right border-2 rounded-md transition-all focus:outline-none focus:ring-2 ${
+                              isDeleted 
+                                ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
+                                : amountOverrides[`${bilty.type}-${bilty.id}`] !== undefined
+                                  ? 'border-orange-400 bg-orange-50 text-orange-700 focus:ring-orange-300'
+                                  : 'border-gray-300 bg-white text-gray-900 focus:ring-blue-300'
+                            }`}
+                            title={isDeleted ? 'Cannot edit deleted bilty' : 'Click to edit amount for printing (temporary)'}
+                          />
+                          {amountOverrides[`${bilty.type}-${bilty.id}`] !== undefined && !isDeleted && (
+                            <button
+                              onClick={() => {
+                                const biltyKey = `${bilty.type}-${bilty.id}`;
+                                setAmountOverrides(prev => {
+                                  const newOverrides = { ...prev };
+                                  delete newOverrides[biltyKey];
+                                  return newOverrides;
+                                });
+                              }}
+                              className="text-xs text-orange-600 hover:text-orange-800 font-medium"
+                              title="Reset to original amount"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

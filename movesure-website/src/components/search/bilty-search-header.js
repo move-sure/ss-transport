@@ -29,6 +29,7 @@ const BiltySearchHeader = ({
     return city ? city.city_name : 'N/A';
   };
 
+  /*
   // Copy function for tab-separated format (Excel-friendly)
   const handleCopy = () => {
     if (selectedBilties.size === 0) {
@@ -112,6 +113,16 @@ const BiltySearchHeader = ({
       alert('Failed to copy data to clipboard. Please try again.');
     });
   };
+  */
+
+  const handleCopyClick = () => {
+    if (selectedBilties.size === 0) {
+      alert('Please select bilties to copy');
+      return;
+    }
+
+    setShowBlockedModal(true);
+  };
   return (
     <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 rounded-2xl shadow-2xl p-6">
       {/* Main Header */}
@@ -129,7 +140,7 @@ const BiltySearchHeader = ({
         <div className="flex items-center gap-3">
           {/* Copy Button */}
           <button
-            onClick={handleCopy}
+            onClick={handleCopyClick}
             disabled={selectedCount === 0}
             className={`px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg ${
               selectedCount > 0

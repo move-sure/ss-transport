@@ -188,7 +188,7 @@ const SummaryCards = ({ totals }) => (
   </div>
 );
 
-const BillsTable = ({ bills }) => (
+const BillsTable = ({ bills, onDelete, deletingBillId }) => (
   <div className="overflow-hidden border border-gray-100 rounded-2xl shadow-sm">
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-100">
@@ -316,22 +316,46 @@ const BillsTable = ({ bills }) => (
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  {bill.pdf_url ? (
-                    <a
-                      href={bill.pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 shadow hover:shadow-lg transition-all"
+                  <div className="flex items-center justify-center gap-2">
+                    {bill.pdf_url ? (
+                      <a
+                        href={bill.pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 shadow hover:shadow-lg transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View PDF
+                      </a>
+                    ) : (
+                      <span className="text-xs font-medium text-gray-400">PDF unavailable</span>
+                    )}
+                    <button
+                      onClick={() => onDelete(bill.id, bill.bill_name || bill.bill_type || 'this bill')}
+                      disabled={deletingBillId === bill.id}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-full bg-gradient-to-r from-red-600 to-rose-600 shadow hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Delete bill"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      View PDF
-                    </a>
-                  ) : (
-                    <span className="text-xs font-medium text-gray-400">PDF unavailable</span>
-                  )}
+                      {deletingBillId === bill.id ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
@@ -342,7 +366,7 @@ const BillsTable = ({ bills }) => (
   </div>
 );
 
-const MonthFolder = ({ label, bills }) => {
+const MonthFolder = ({ label, bills, onDelete, deletingBillId }) => {
   const monthMetrics = metrics(bills);
 
   return (
@@ -372,13 +396,64 @@ const MonthFolder = ({ label, bills }) => {
           </span>
         </div>
       </div>
-      <BillsTable bills={bills} />
+      <BillsTable bills={bills} onDelete={onDelete} deletingBillId={deletingBillId} />
     </article>
   );
 };
 
 const RecentBillsList = ({ recentBills, loadingRecentBills, onRefresh }) => {
   const [selectedMonth, setSelectedMonth] = useState('all');
+  const [deletingBillId, setDeletingBillId] = useState(null);
+
+  const handleDeleteBill = async (billId, billName) => {
+    if (!confirm(`Are you sure you want to delete the bill "${billName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingBillId(billId);
+
+    try {
+      const supabase = (await import('@/app/utils/supabase')).default;
+
+      // Delete the bill from monthly_bill table
+      const { error: deleteError } = await supabase
+        .from('monthly_bill')
+        .delete()
+        .eq('id', billId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Optionally delete the PDF from storage if pdf_url exists
+      const billToDelete = recentBills.find(b => b.id === billId);
+      if (billToDelete?.pdf_url) {
+        try {
+          // Extract file path from URL
+          const urlParts = billToDelete.pdf_url.split('/bill/');
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1].split('?')[0]; // Remove query params
+            await supabase.storage.from('bill').remove([filePath]);
+          }
+        } catch (storageError) {
+          console.warn('Failed to delete PDF from storage:', storageError);
+          // Continue even if storage deletion fails
+        }
+      }
+
+      alert('Bill deleted successfully!');
+      
+      // Refresh the list
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Error deleting bill:', error);
+      alert(`Failed to delete bill: ${error.message}`);
+    } finally {
+      setDeletingBillId(null);
+    }
+  };
 
   const grouped = useMemo(() => groupBillsByMonth(recentBills), [recentBills]);
 
@@ -483,7 +558,13 @@ const RecentBillsList = ({ recentBills, loadingRecentBills, onRefresh }) => {
       <SummaryCards totals={totals} />
 
       {filteredEntries.map((entry) => (
-        <MonthFolder key={entry.key} label={entry.label} bills={entry.bills} />
+        <MonthFolder 
+          key={entry.key} 
+          label={entry.label} 
+          bills={entry.bills} 
+          onDelete={handleDeleteBill}
+          deletingBillId={deletingBillId}
+        />
       ))}
     </section>
   );

@@ -604,12 +604,18 @@ export default function BillSearch() {
   };
 
   const handleFilterChange = (filterName, value) => {
-    const newFilters = {
-      ...searchFilters,
-      [filterName]: value
-    };
-    
-    setSearchFilters(newFilters);
+    // Support batch updates - accept object for multiple filter changes
+    if (typeof filterName === 'object') {
+      setSearchFilters(prevFilters => ({
+        ...prevFilters,
+        ...filterName
+      }));
+    } else {
+      setSearchFilters(prevFilters => ({
+        ...prevFilters,
+        [filterName]: value
+      }));
+    }
     // Removed auto search on filter change - only search when user clicks search button
   };
 

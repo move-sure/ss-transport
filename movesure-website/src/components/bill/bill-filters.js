@@ -83,10 +83,63 @@ export default function BillFilterPanel({
     { value: 'station', label: 'Station Summary' }
   ];
 
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Handle month selection - BUTTON VERSION (TRUE BATCH UPDATE)
+  const handleMonthSelect = (monthNum) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const monthStr = String(monthNum).padStart(2, '0');
+    
+    // Calculate first day: Year-Month-01
+    const firstDay = `${year}-${monthStr}-01`;
+    
+    // Calculate last day by getting the number of days in the month
+    const lastDayOfMonth = new Date(year, monthNum, 0).getDate();
+    const lastDay = `${year}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}`;
+    
+    console.log('📅 Month Selected:', monthNum, '('+monthNames[monthNum-1]+')');
+    console.log('📅 Date From:', firstDay);
+    console.log('📅 Date To:', lastDay);
+    
+    // BATCH UPDATE - Pass both dates as an object in a single call
+    onFilterChange({
+      dateFrom: firstDay,
+      dateTo: lastDay
+    });
+  };
+
+  // Get current month value for default
+  const getCurrentMonth = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
   return (
     <div className="bg-white shadow rounded-lg p-6 mb-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         
+        {/* Monthly Buttons - FULL WIDTH */}
+        <div className="space-y-2 md:col-span-2 lg:col-span-4">
+          <label className="block text-sm font-medium text-gray-700">
+            📅 Quick Month Select
+          </label>
+          <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+            {monthNames.map((month, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => handleMonthSelect(index + 1)}
+                className="px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95 text-sm"
+              >
+                {month}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Bilty Type Filter */}
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">

@@ -8,6 +8,8 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       throw new Error('No bilties selected for PDF generation');
     }
 
+    const primaryColor = { r: 13, g: 71, b: 161 };
+
     const getCityName = (cityId) => {
       const city = cities?.find(c => c.id?.toString() === cityId?.toString());
       return city ? city.city_name : 'N/A';
@@ -58,6 +60,16 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     const contentWidth = pageWidth - (2 * margin);
     let yPosition = 15;
 
+    const drawPageBorder = () => {
+      pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      pdf.setLineWidth(0.8);
+      pdf.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight - margin);
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.2);
+    };
+
+    drawPageBorder();
+
     // Add logo
     let logoDataUrl = null;
     try {
@@ -81,13 +93,14 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     // Company Name
     pdf.setFontSize(20);
     pdf.setFont('times', 'bold');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('S S TRANSPORT', pageWidth / 2, yPosition, { align: 'center' });
+    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.text('S S TRANSPORT CORPORATION', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 7;
 
     // Address
     pdf.setFontSize(10);
     pdf.setFont('times', 'normal');
+    pdf.setTextColor(0, 0, 0);
     pdf.text('Gandhi Park, GT. ROAD, ALIGARH-202001', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 6;
 
@@ -96,15 +109,28 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     pdf.text('Phone: 8077834769, 7668291228 | Customer Care: 9690293140', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 5;
     pdf.text('GST No: 09COVPS5556J1ZT', pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 5;
+    yPosition += 4;
 
-    // Monthly Statement Title
+    pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.setLineWidth(0.4);
+    pdf.line(margin + 2, yPosition, pageWidth - margin - 2, yPosition);
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.2);
+    yPosition += 6;
+
     pdf.setFontSize(14);
     pdf.setFont('times', 'bold');
+    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.text('Monthly Consignment Statement', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 6;
+
     const billTypeLabel = billOptions?.customName || 
       (billOptions?.billType === 'consignor' ? 'CONSIGNOR' : 
        billOptions?.billType === 'consignee' ? 'CONSIGNEE' : 'TRANSPORT');
-    pdf.text(`Monthly ${billTypeLabel} Statement`, pageWidth / 2, yPosition, { align: 'center' });
+
+    pdf.setFontSize(11);
+    pdf.text(`Bill Type: ${billTypeLabel}`, pageWidth / 2, yPosition, { align: 'center' });
+    pdf.setTextColor(0, 0, 0);
     yPosition += 8;
 
     // Period
@@ -139,9 +165,12 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       totalTableWidth * 0.06   // Challan No (6%)
     ];
 
-    pdf.setFontSize(8);
-    pdf.setFont('times', 'bold');
-    pdf.setFillColor(200, 200, 200);
+  const headerFillColor = { r: 220, g: 233, b: 255 };
+  const summaryFillColor = { r: 235, g: 242, b: 255 };
+
+  pdf.setFontSize(8);
+  pdf.setFont('times', 'bold');
+  pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
     const totalWidth = colWidths.reduce((a, b) => a + b, 0);
     pdf.rect(tableStartX, tableStartY, totalWidth, 8, 'F');
 
@@ -184,13 +213,14 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
 
     selectedBilties.forEach((bilty) => {
       if (yPosition > maxPageHeight) {
-        pdf.addPage();
+  pdf.addPage();
+  drawPageBorder();
         yPosition = 10;
         
         // Re-add header on new page (no logo on subsequent pages)
-        pdf.setFontSize(8);
-        pdf.setFont('times', 'bold');
-        pdf.setFillColor(200, 200, 200);
+  pdf.setFontSize(8);
+  pdf.setFont('times', 'bold');
+  pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
         pdf.rect(tableStartX, yPosition, totalWidth, 8, 'F');
         
         currentX = tableStartX + 2;
@@ -318,7 +348,7 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, summaryBoxHeight);
 
     // Summary Title
-    pdf.setFillColor(230, 230, 230);
+  pdf.setFillColor(summaryFillColor.r, summaryFillColor.g, summaryFillColor.b);
     pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, 10, 'F');
     pdf.setFont('times', 'bold');
     pdf.setFontSize(11);

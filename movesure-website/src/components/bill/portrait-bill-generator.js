@@ -8,6 +8,8 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       throw new Error('No bilties selected for PDF generation');
     }
 
+    const primaryColor = { r: 13, g: 71, b: 161 };
+
     const getCityName = (cityId) => {
       const city = cities?.find(c => c.id?.toString() === cityId?.toString());
       return city ? city.city_name : 'N/A';
@@ -58,6 +60,16 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     const contentWidth = pageWidth - (2 * margin);
     let yPosition = 15;
 
+    const drawPageBorder = () => {
+      pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      pdf.setLineWidth(0.8);
+      pdf.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight - margin);
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.2);
+    };
+
+    drawPageBorder();
+
     let logoDataUrl = null;
     try {
       const response = await fetch('/logo.png');
@@ -87,13 +99,14 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
 
     pdf.setFontSize(20);
     pdf.setFont('times', 'bold');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('S S TRANSPORT', pageWidth / 2, yPosition, { align: 'center' });
+    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.text('S S TRANSPORT CORPORATION', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 7;
 
     // Address
     pdf.setFontSize(10);
     pdf.setFont('times', 'normal');
+    pdf.setTextColor(0, 0, 0);
     pdf.text('Gandhi Park, GT. ROAD, ALIGARH-202001', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 6;
 
@@ -102,15 +115,29 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     pdf.text('Phone: 8077834769, 7668291228 | Customer Care: 9690293140', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 5;
     pdf.text('GST No: 09COVPS5556J1ZT', pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 8;
+    yPosition += 4;
+
+    pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.setLineWidth(0.4);
+    pdf.line(margin + 2, yPosition, pageWidth - margin - 2, yPosition);
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.2);
+    yPosition += 6;
 
     pdf.setFontSize(14);
     pdf.setFont('times', 'bold');
+    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.text('Monthly Consignment Statement', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 6;
+
     const billTypeLabel = billOptions?.customName || 
       (billOptions?.billType === 'consignor' ? 'CONSIGNOR' : 
        billOptions?.billType === 'consignee' ? 'CONSIGNEE' : 'TRANSPORT');
-    pdf.text(`Monthly ${billTypeLabel} Statement`, pageWidth / 2, yPosition, { align: 'center' });
-    yPosition += 8;
+
+    pdf.setFontSize(11);
+    pdf.text(`Bill Type: ${billTypeLabel}`, pageWidth / 2, yPosition, { align: 'center' });
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 10;
 
     const fromDate = filterDates?.dateFrom ? new Date(filterDates.dateFrom).toLocaleDateString('en-IN') : 
       (selectedBilties[0]?.bilty_date ? formatDate(selectedBilties[0].bilty_date) : 'N/A');
@@ -137,9 +164,12 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       totalTableWidth * 0.11   // Amount (11%)
     ];
 
-    pdf.setFontSize(9);
-    pdf.setFont('times', 'bold');
-    pdf.setFillColor(200, 200, 200);
+  const headerFillColor = { r: 220, g: 233, b: 255 };
+  const summaryFillColor = { r: 235, g: 242, b: 255 };
+
+  pdf.setFontSize(9);
+  pdf.setFont('times', 'bold');
+  pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
     pdf.rect(tableStartX, tableStartY, colWidths.reduce((a, b) => a + b, 0), 8, 'F');
 
     let currentX = tableStartX + 2;
@@ -170,13 +200,14 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
 
     selectedBilties.forEach((bilty) => {
       if (yPosition > maxPageHeight) {
-        pdf.addPage();
+  pdf.addPage();
+  drawPageBorder();
         yPosition = 10;
         
         // Re-add header on new page (no logo on subsequent pages)
-        pdf.setFontSize(9);
-        pdf.setFont('times', 'bold');
-        pdf.setFillColor(200, 200, 200);
+  pdf.setFontSize(9);
+  pdf.setFont('times', 'bold');
+  pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
         pdf.rect(tableStartX, yPosition, colWidths.reduce((a, b) => a + b, 0), 8, 'F');
         
         currentX = tableStartX + 2;
@@ -256,7 +287,7 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, summaryBoxHeight);
 
     // Summary Title
-    pdf.setFillColor(230, 230, 230);
+  pdf.setFillColor(summaryFillColor.r, summaryFillColor.g, summaryFillColor.b);
     pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, 10, 'F');
     pdf.setFont('times', 'bold');
     pdf.setFontSize(11);

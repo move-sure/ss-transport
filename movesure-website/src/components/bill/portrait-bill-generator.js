@@ -237,32 +237,81 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       serialNumber++;
     });
 
-    yPosition += 3;
-    pdf.setFont('times', 'bold');
-    pdf.setFontSize(10);
-    pdf.text('Total Amount:', tableStartX + 2, yPosition + 5);
-    pdf.text(formatCurrency(totals.totalAmount), tableStartX + 150, yPosition + 5);
-
-    // Signature Section
-    yPosition += 15;
-    if (yPosition > maxPageHeight - 30) {
+    // Check if we need a new page for summary
+    yPosition += 5;
+    if (yPosition > maxPageHeight - 80) {
       pdf.addPage();
       yPosition = 15;
     }
-    
-    pdf.setFont('times', 'normal');
-    pdf.setFontSize(10);
-    
-    // Signature line and name
-    const signatureX = pageWidth - 70;
-    pdf.line(signatureX, yPosition, signatureX + 50, yPosition);
-    yPosition += 6;
+
+    // Summary Box (Centered)
+    const summaryBoxWidth = 100;
+    const summaryBoxX = (pageWidth - summaryBoxWidth) / 2;
+    const summaryBoxY = yPosition;
+    const summaryBoxHeight = 55;
+
+    // Draw summary box with border
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.5);
+    pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, summaryBoxHeight);
+
+    // Summary Title
+    pdf.setFillColor(230, 230, 230);
+    pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, 10, 'F');
     pdf.setFont('times', 'bold');
-    pdf.text('Rajeev Singh', signatureX + 25, yPosition, { align: 'center' });
-    yPosition += 5;
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('CONSIGNMENT SUMMARY', summaryBoxX + summaryBoxWidth / 2, summaryBoxY + 7, { align: 'center' });
+
+    // Summary Content
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(10);
+    let summaryY = summaryBoxY + 18;
+
+    pdf.text('Total Consignments:', summaryBoxX + 5, summaryY);
+    pdf.text(selectedBilties.length.toString(), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    summaryY += 10;
+    pdf.text('Total Amount:', summaryBoxX + 5, summaryY);
+    pdf.text('Rs.' + formatCurrency(totals.totalAmount), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    summaryY += 10;
+    pdf.text('Paid Amount:', summaryBoxX + 5, summaryY);
+    pdf.text('Rs.' + formatCurrency(totals.paidAmount), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    summaryY += 10;
+    pdf.text('To Pay Amount:', summaryBoxX + 5, summaryY);
+    pdf.text('Rs.' + formatCurrency(totals.toPayAmount), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    // Signature Section
+    yPosition = summaryBoxY + summaryBoxHeight + 10;
+
+    // Company Seal & Signature Box (Left side)
+    const sealBoxX = margin + 5;
+    const sealBoxY = yPosition;
+    const boxWidth = (contentWidth / 2) - 10;
+    const boxHeight = 40;
+
+    pdf.rect(sealBoxX, sealBoxY, boxWidth, boxHeight);
+    
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(10);
+    pdf.text('Company Seal & Signature', sealBoxX + boxWidth / 2, sealBoxY + boxHeight - 8, { align: 'center' });
+
+    // Owner Signature Box (Right side)
+    const ownerBoxX = sealBoxX + boxWidth + 10;
+    const ownerBoxY = sealBoxY;
+
+    pdf.rect(ownerBoxX, ownerBoxY, boxWidth, boxHeight);
+    
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(11);
+    pdf.text('Rajeev Singh', ownerBoxX + boxWidth / 2, ownerBoxY + 12, { align: 'center' });
+    
     pdf.setFont('times', 'normal');
     pdf.setFontSize(9);
-    pdf.text('Authorized Signatory', signatureX + 25, yPosition, { align: 'center' });
+    pdf.text('Owner - S S TRANSPORT CORPORATION', ownerBoxX + boxWidth / 2, ownerBoxY + 20, { align: 'center' });
+    pdf.text('Mobile: 8077834769', ownerBoxX + boxWidth / 2, ownerBoxY + 27, { align: 'center' });
 
     const pageCount = pdf.internal.getNumberOfPages();
     
@@ -274,10 +323,16 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
         pdf.addImage(logoDataUrl, 'PNG', 8, 15, 30, 20);
       }
       
+      // Page number
       pdf.setFontSize(9);
       pdf.setFont('times', 'normal');
       pdf.setTextColor(100, 100, 100);
       pdf.text('Page ' + i + ' of ' + pageCount, pageWidth - 25, 12);
+      
+      // Footer text
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text('Thank you for your business!', pageWidth / 2, pageHeight - 5, { align: 'center' });
     }
 
     const pdfBlob = pdf.output('blob');

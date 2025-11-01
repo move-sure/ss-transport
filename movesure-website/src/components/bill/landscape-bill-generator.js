@@ -299,35 +299,82 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       serialNumber++;
     });
 
-    // Total Row
-    yPosition += 3;
-    pdf.setFont('times', 'bold');
-    pdf.setFontSize(10);
-    pdf.text('Total Amount:', tableStartX + totalWidth - 50, yPosition + 5);
-    pdf.text(formatCurrency(totals.totalAmount), tableStartX + totalWidth - 20, yPosition + 5);
-
-    // Signature Section
-    yPosition += 15;
-    if (yPosition > maxPageHeight - 30) {
+    // Check if we need a new page for summary
+    yPosition += 5;
+    if (yPosition > maxPageHeight - 80) {
       pdf.addPage();
       yPosition = 15;
     }
-    
-    pdf.setFont('times', 'normal');
-    pdf.setFontSize(10);
-    
-    // Signature line and name
-    const signatureX = tableStartX + totalWidth - 60;
-    pdf.line(signatureX, yPosition, signatureX + 50, yPosition);
-    yPosition += 6;
+
+    // Summary Box
+    const summaryBoxX = tableStartX;
+    const summaryBoxY = yPosition;
+    const summaryBoxWidth = 100;
+    const summaryBoxHeight = 55;
+
+    // Draw summary box with border
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.5);
+    pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, summaryBoxHeight);
+
+    // Summary Title
+    pdf.setFillColor(230, 230, 230);
+    pdf.rect(summaryBoxX, summaryBoxY, summaryBoxWidth, 10, 'F');
     pdf.setFont('times', 'bold');
-    pdf.text('Rajeev Singh', signatureX + 25, yPosition, { align: 'center' });
-    yPosition += 5;
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('CONSIGNMENT SUMMARY', summaryBoxX + summaryBoxWidth / 2, summaryBoxY + 7, { align: 'center' });
+
+    // Summary Content
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(10);
+    let summaryY = summaryBoxY + 18;
+
+    pdf.text('Total Consignments:', summaryBoxX + 5, summaryY);
+    pdf.text(selectedBilties.length.toString(), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    summaryY += 10;
+    pdf.text('Total Amount:', summaryBoxX + 5, summaryY);
+    pdf.text('Rs.' + formatCurrency(totals.totalAmount), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    summaryY += 10;
+    pdf.text('Paid Amount:', summaryBoxX + 5, summaryY);
+    pdf.text('Rs.' + formatCurrency(totals.paidAmount), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    summaryY += 10;
+    pdf.text('To Pay Amount:', summaryBoxX + 5, summaryY);
+    pdf.text('Rs.' + formatCurrency(totals.toPayAmount), summaryBoxX + summaryBoxWidth - 5, summaryY, { align: 'right' });
+
+    // Company Seal & Signature Box (Left side)
+    const sealBoxX = summaryBoxX;
+    const sealBoxY = summaryBoxY + summaryBoxHeight + 10;
+    const sealBoxWidth = (contentWidth / 2) - 5;
+    const sealBoxHeight = 40;
+
+    pdf.rect(sealBoxX, sealBoxY, sealBoxWidth, sealBoxHeight);
+    
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(10);
+    pdf.text('Company Seal & Signature', sealBoxX + sealBoxWidth / 2, sealBoxY + sealBoxHeight - 8, { align: 'center' });
+
+    // Owner Signature Box (Right side)
+    const ownerBoxX = sealBoxX + sealBoxWidth + 10;
+    const ownerBoxY = sealBoxY;
+    const ownerBoxWidth = sealBoxWidth;
+    const ownerBoxHeight = sealBoxHeight;
+
+    pdf.rect(ownerBoxX, ownerBoxY, ownerBoxWidth, ownerBoxHeight);
+    
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(11);
+    pdf.text('Rajeev Singh', ownerBoxX + ownerBoxWidth / 2, ownerBoxY + 12, { align: 'center' });
+    
     pdf.setFont('times', 'normal');
     pdf.setFontSize(9);
-    pdf.text('Authorized Signatory', signatureX + 25, yPosition, { align: 'center' });
+    pdf.text('Owner - S S TRANSPORT CORPORATION', ownerBoxX + ownerBoxWidth / 2, ownerBoxY + 20, { align: 'center' });
+    pdf.text('Mobile: 8077834769', ownerBoxX + ownerBoxWidth / 2, ownerBoxY + 27, { align: 'center' });
 
-    // Add page numbers and logo only on first page
+    // Add page numbers, footer text and logo
     const pageCount = pdf.internal.getNumberOfPages();
     
     for (let i = 1; i <= pageCount; i++) {
@@ -338,10 +385,16 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
         pdf.addImage(logoDataUrl, 'PNG', 8, 15, 30, 20);
       }
       
+      // Page number
       pdf.setFontSize(9);
       pdf.setFont('times', 'normal');
       pdf.setTextColor(100, 100, 100);
       pdf.text('Page ' + i + ' of ' + pageCount, pageWidth - 25, 12);
+      
+      // Footer text
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text('Thank you for your business!', pageWidth / 2, pageHeight - 5, { align: 'center' });
     }
 
     // Generate PDF

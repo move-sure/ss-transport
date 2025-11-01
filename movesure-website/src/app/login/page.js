@@ -18,11 +18,36 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  const featureHighlights = [
+    {
+      Icon: Shield,
+      title: 'Enterprise Security',
+      description: 'Role-based controls with encryption across every touchpoint.'
+    },
+    {
+      Icon: Globe,
+      title: 'Unified Visibility',
+      description: 'Real-time fleet telemetry and exception handling in one place.'
+    },
+    {
+      Icon: Clock,
+      title: 'Faster Turnarounds',
+      description: 'AI assisted workflows that clear dispatch backlogs 4x quicker.'
+    }
+  ];
+
+  const quickStats = [
+    { value: '12k+', label: 'Monthly Shipments' },
+    { value: '98%', label: 'On-time Promise' },
+    { value: '250+', label: 'Enterprise Clients' }
+  ];
+
+  const currentYear = new Date().getFullYear();
+
   // Redirect if already authenticated
   useEffect(() => {
     if (initialized && !loading && isAuthenticated) {
       console.log('Already authenticated, redirecting to dashboard');
-      setIsRedirecting(true);
       router.push('/dashboard');
     }
   }, [initialized, loading, isAuthenticated, router]);
@@ -134,10 +159,7 @@ export default function LoginPage() {
 
       console.log('Login successful, redirecting to dashboard');
       setIsRedirecting(true);
-
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1000);
+      router.push('/dashboard');
 
     } catch (error) {
       console.error('Login error:', error);
@@ -149,174 +171,197 @@ export default function LoginPage() {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-black">
-        <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-300 border-t-white mx-auto"></div>
-            <Truck className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-black" />
-          </div>
-          <p className="mt-6 text-white text-xl font-semibold">Initializing Movesure.io...</p>
+      <div className="h-[100dvh] bg-slate-950 flex flex-col items-center justify-center text-white">
+        <div className="relative">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-500/40 border-t-blue-400"></div>
+          <Truck className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-blue-200" />
         </div>
+        <p className="mt-4 text-base font-semibold text-blue-100">Loading...</p>
       </div>
     );
   }
 
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-green-300 border-t-white mx-auto"></div>
-            <ArrowRight className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white animate-pulse" />
-          </div>
-          <p className="mt-6 text-white text-xl font-semibold">Redirecting to Dashboard...</p>
-          <p className="mt-2 text-green-200 text-sm">Welcome back! Setting up your workspace...</p>
+      <div className="h-[100dvh] bg-slate-950 flex flex-col items-center justify-center text-white">
+        <div className="relative">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-emerald-500/40 border-t-emerald-400"></div>
+          <ArrowRight className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-emerald-300 animate-pulse" />
         </div>
+        <p className="mt-4 text-base font-semibold text-emerald-200">Redirecting...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden text-black">
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full mix-blend-overlay filter blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-96 h-96 bg-blue-300 rounded-full mix-blend-overlay filter blur-xl animate-pulse delay-1000"></div>
+    <div className="relative h-[100dvh] overflow-hidden bg-slate-950 text-white">
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-slate-950 to-black opacity-90"></div>
+        <div className="absolute -left-20 top-0 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.32),_transparent_65%)] blur-3xl"></div>
+        <div className="absolute right-0 top-32 h-[26rem] w-[26rem] translate-x-24 rounded-full bg-[radial-gradient(circle_at_center,_rgba(14,165,233,0.3),_transparent_60%)] blur-3xl"></div>
+        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[24rem] -translate-x-1/2 translate-y-1/3 rounded-full bg-[radial-gradient(circle_at_bottom,_rgba(56,189,248,0.25),_transparent_70%)] blur-3xl"></div>
       </div>
 
-      <div className="relative z-10 min-h-screen flex">
-        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 text-black">
-          <div className="max-w-md text-center">
-            <div className="flex items-center justify-center mb-8">
-              <div className="relative">
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm p-6 rounded-2xl border border-white border-opacity-30">
-                  <Truck className="w-16 h-16 text-black" />
+      <div className="relative z-10 flex h-full flex-col lg:flex-row">
+        <section className="hidden h-full w-full overflow-y-auto px-10 py-14 lg:flex lg:w-1/2 xl:px-14 xl:py-16">
+          <div className="mx-auto flex h-full max-w-xl flex-col justify-center gap-10 pb-16">
+            <div className="space-y-8">
+              <div className="flex items-center gap-3 text-white">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
+                  <Truck className="h-6 w-6 text-blue-200" />
                 </div>
-                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-400 to-red-500 p-2 rounded-lg">
-                  <span className="text-xs font-bold text-white">AI</span>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.35em] text-blue-200">movesure.io</p>
+                  <p className="text-xs uppercase tracking-[0.45em] text-white/60">Transport Cloud</p>
                 </div>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.2em] text-slate-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                Logistics Intelligence
+              </div>
+              <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
+                Access the movesure.io command center
+              </h1>
+              <p className="mt-4 text-base text-slate-300 sm:text-lg">
+                Coordinate fleets, paperwork, and billing from one secure, AI-guided workspace. Built for scale and trusted by fast-moving transport teams.
+              </p>
+
+              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {featureHighlights.map(({ Icon, title, description }) => (
+                  <div
+                    key={title}
+                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-400 hover:bg-white/10"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-blue-200">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mt-3 text-base font-semibold text-white">{title}</h3>
+                    <p className="mt-1.5 text-sm text-slate-300">{description}</p>
+                    <ArrowRight className="absolute -right-8 -top-8 h-14 w-14 text-blue-400/30 transition-transform duration-300 group-hover:translate-x-3 group-hover:-translate-y-3" />
+                  </div>
+                ))}
               </div>
             </div>
-            
-            <h1 className="text-4xl font-bold mb-4 text-white">
-              movesure.io
-            </h1>
-            
-            <p className="text-xl text-blue-100 mb-8">
-              Leading Transport Management System
-            </p>
-            
-            <div className="space-y-4 text-left">
-              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
-                <Shield className="w-6 h-6 text-green-400" />
-                <span className="text-black">Secure & Encrypted</span>
-              </div>
-              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
-                <Globe className="w-6 h-6 text-blue-400" />
-                <span className="text-black">Real-time Tracking</span>
-              </div>
-              <div className="flex items-center gap-3 bg-white bg-opacity-10 backdrop-blur-sm p-4 rounded-lg">
-                <Clock className="w-6 h-6 text-purple-400" />
-                <span className="text-black">24/7 Operations</span>
-              </div>
+
+            <div className="grid grid-cols-3 gap-3 rounded-3xl border border-white/5 bg-white/5 p-5 backdrop-blur-sm">
+              {quickStats.map(({ value, label }) => (
+                <div key={label} className="flex flex-col gap-2">
+                  <span className="text-2xl font-semibold text-white sm:text-3xl">{value}</span>
+                  <span className="text-[0.65rem] uppercase tracking-[0.25em] text-slate-400">{label}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8">
-          <div className="w-full max-w-md">
-            <div className="lg:hidden text-center mb-8">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm p-4 rounded-xl border border-white border-opacity-30">
-                  <Truck className="w-12 h-12 text-white" />
-                </div>
+        <section className="flex h-full w-full items-center justify-center px-6 py-10 sm:px-10 lg:sticky lg:top-0 lg:w-1/2 lg:px-16 lg:py-12">
+          <div className="flex w-full max-w-md flex-col gap-8 lg:h-screen lg:justify-center">
+            <div className="text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-400"></span>
+                Secure Login
               </div>
-              <h1 className="text-2xl font-bold text-white">movesure.io</h1>
+              <h2 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">Welcome back</h2>
+              <p className="mt-2 text-sm text-slate-300 sm:text-base">
+                Sign in to orchestrate deliveries, finance, and customer commitments in real time.
+              </p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
-                <p className="text-gray-600">Sign in to access your dashboard</p>
+            <div className="relative rounded-3xl border border-white/10 bg-white/90 p-8 text-slate-900 shadow-2xl backdrop-blur-xl sm:p-10">
+              <div className="absolute -top-12 right-8 hidden rounded-full border border-white/10 bg-white/10 p-5 text-white backdrop-blur-xl lg:block">
+                <Truck className="h-8 w-8 text-blue-600" />
               </div>
 
-              <div className="space-y-6">
+              <form className="space-y-6" onSubmit={handleSubmit}>
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span className="text-black font-medium">{error}</span>
+                      <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                      <span className="font-medium">{error}</span>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-600" htmlFor="username">
                       Username
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400" />
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <User className="h-5 w-5" />
                       </div>
                       <input
+                        id="username"
                         name="username"
                         type="text"
                         required
                         value={formData.username}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-black font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                        autoComplete="username"
+                        className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                         placeholder="Enter your username"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-600" htmlFor="password">
                       Password
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock className="h-5 w-5 text-gray-400" />
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <Lock className="h-5 w-5" />
                       </div>
                       <input
+                        id="password"
                         name="password"
                         type="password"
                         required
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-black font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                        autoComplete="current-password"
+                        className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                         placeholder="Enter your password"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
                       />
                     </div>
                   </div>
                 </div>
 
                 <button
-                  onClick={handleSubmit}
+                  type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-lg shadow-lg transform transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 py-3 text-sm font-semibold text-white shadow-lg transition hover:from-blue-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoading ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span className="text-white font-semibold">Authenticating...</span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></div>
+                      <span>Authenticating...</span>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-white font-semibold">Sign In</span>
-                      <ArrowRight className="w-5 h-5 text-white" />
-                    </div>
+                    <>
+                      <span>Sign in</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
                   )}
                 </button>
-              </div>
+              </form>
 
-              <div className="mt-8 text-center">
-                <div className="text-gray-600">
-                  Dont have an account?{' '}
+              <div className="mt-8 flex flex-col gap-4 text-sm text-slate-500">
+                <div>
+                  Need help?{' '}
+                  <a
+                    href="mailto:support@movesure.io"
+                    className="font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Contact support
+                  </a>
+                </div>
+                <div>
+                  Don&apos;t have an account?{' '}
                   <button
                     onClick={() => router.push('/register')}
-                    className="text-blue-600 font-semibold hover:text-blue-700 transition-colors duration-200 underline underline-offset-2"
+                    className="font-semibold text-blue-600 hover:text-blue-700"
                   >
                     Register here
                   </button>
@@ -324,12 +369,15 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="text-center mt-8 text-white text-sm">
-              <p>© 2024 movesure.io. All rights reserved.</p>
-              <p className="mt-1">Powered by Advanced AI Technology</p>
+            <div className="mt-auto flex flex-col items-center gap-4 text-center text-xs text-slate-400 sm:flex-row sm:justify-between sm:text-left">
+              <div>© {currentYear} movesure.io. All rights reserved.</div>
+              <div className="inline-flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                Operational excellence monitored 24/7
+              </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

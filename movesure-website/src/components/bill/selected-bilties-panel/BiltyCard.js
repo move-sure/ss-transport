@@ -82,6 +82,18 @@ const BiltyCard = ({ bilty, index, isDeleted, onRemove, formatCurrency }) => {
                 <span className="font-medium">Date:</span>{' '}
                 {formatDate(bilty.bilty_date || bilty.created_at)}
               </div>
+              <div>
+                <span className="font-medium">No. of Pkg:</span>{' '}
+                <span className="font-semibold text-blue-600">
+                  {bilty.no_of_pkg || bilty.no_of_packets || 0}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium">Weight:</span>{' '}
+                <span className="font-semibold text-green-600">
+                  {bilty.wt || bilty.weight || 0} kg
+                </span>
+              </div>
             </div>
 
             <div className="mt-2 flex items-center justify-between">

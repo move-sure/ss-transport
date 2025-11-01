@@ -106,6 +106,20 @@ const BillSearchTable = memo(({
         </td>
         
         <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-center">
+            <div className="font-semibold text-blue-600">{bilty.no_of_pkg || 0}</div>
+            <div className="text-xs text-gray-500">pkgs</div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-center">
+            <div className="font-semibold text-green-600">{bilty.wt || 0}</div>
+            <div className="text-xs text-gray-500">kg</div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
             bilty.delivery_type === 'door-delivery' || bilty.delivery_type === 'door' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
           }`}>
@@ -210,7 +224,20 @@ const BillSearchTable = memo(({
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="text-xs text-gray-900">
             <div className="font-medium">{bilty.station_city_name || bilty.station || 'N/A'}</div>
-            <div className="text-xs text-gray-500">{bilty.no_of_packets || 0} pkts • {bilty.weight || 0} kg</div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-center">
+            <div className="font-semibold text-blue-600">{bilty.no_of_packets || 0}</div>
+            <div className="text-xs text-gray-500">pkgs</div>
+          </div>
+        </td>
+        
+        <td className="px-3 py-2 whitespace-nowrap">
+          <div className="text-xs text-center">
+            <div className="font-semibold text-green-600">{bilty.weight || 0}</div>
+            <div className="text-xs text-gray-500">kg</div>
           </div>
         </td>
         
@@ -265,7 +292,7 @@ const BillSearchTable = memo(({
     if (!paginatedData || paginatedData.length === 0) {
       return (
         <tr>
-          <td colSpan="11" className="px-6 py-12 text-center">
+          <td colSpan="13" className="px-6 py-12 text-center">
             <div className="text-gray-500">
               <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No bilties found</h3>
@@ -342,6 +369,12 @@ const BillSearchTable = memo(({
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Destination/Station
+              </th>
+              <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Packages
+              </th>
+              <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Weight
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Delivery Type

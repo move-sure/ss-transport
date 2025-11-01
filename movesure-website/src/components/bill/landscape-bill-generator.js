@@ -118,21 +118,25 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     pdf.text(`Period: ${fromDate} to ${toDate}`, pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 8;
 
-    // Table Headers (Landscape - with Consignor AND Private Marks columns)
+    // Table Headers (Landscape - with all columns including Delivery Type and Payment Mode)
     const tableStartY = yPosition;
     // Dynamic column widths based on content width
     const tableStartX = margin;
     const totalTableWidth = contentWidth;
     const colWidths = [
-      totalTableWidth * 0.04,  // S.No (4%)
-      totalTableWidth * 0.07,  // Date (7%)
-      totalTableWidth * 0.09,  // GR No (9%)
-      totalTableWidth * 0.19,  // Consignor (19%)
-      totalTableWidth * 0.19,  // Consignee (19%)
-      totalTableWidth * 0.15,  // City (15%)
-      totalTableWidth * 0.09,  // Pvt Marks (9%)
-      totalTableWidth * 0.08,  // No. of Pkg (8%)
-      totalTableWidth * 0.10   // Amount (10%)
+      totalTableWidth * 0.03,  // S.No (3%)
+      totalTableWidth * 0.06,  // Date (6%)
+      totalTableWidth * 0.07,  // GR No (7%)
+      totalTableWidth * 0.14,  // Consignor (14%)
+      totalTableWidth * 0.14,  // Consignee (14%)
+      totalTableWidth * 0.11,  // City (11%)
+      totalTableWidth * 0.06,  // No. of Pkg (6%)
+      totalTableWidth * 0.06,  // Weight (6%)
+      totalTableWidth * 0.06,  // Delivery Type (6%)
+      totalTableWidth * 0.06,  // Payment Mode (6%)
+      totalTableWidth * 0.08,  // Amount (8%)
+      totalTableWidth * 0.07,  // Pvt Marks (7%)
+      totalTableWidth * 0.06   // Challan No (6%)
     ];
 
     pdf.setFontSize(8);
@@ -154,11 +158,19 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     currentX += colWidths[4];
     pdf.text('City', currentX, tableStartY + 6);
     currentX += colWidths[5];
-    pdf.text('Pvt Marks', currentX, tableStartY + 6);
+    pdf.text('No.Pkg', currentX, tableStartY + 6);
     currentX += colWidths[6];
-    pdf.text('No. Pkg', currentX, tableStartY + 6);
+    pdf.text('Wt', currentX, tableStartY + 6);
     currentX += colWidths[7];
+    pdf.text('Del.Type', currentX, tableStartY + 6);
+    currentX += colWidths[8];
+    pdf.text('Pay.Mode', currentX, tableStartY + 6);
+    currentX += colWidths[9];
     pdf.text('Amount', currentX, tableStartY + 6);
+    currentX += colWidths[10];
+    pdf.text('Pvt Marks', currentX, tableStartY + 6);
+    currentX += colWidths[11];
+    pdf.text('Challan', currentX, tableStartY + 6);
 
     yPosition = tableStartY + 8;
 
@@ -194,11 +206,19 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
         currentX += colWidths[4];
         pdf.text('City', currentX, yPosition + 6);
         currentX += colWidths[5];
-        pdf.text('Pvt Marks', currentX, yPosition + 6);
+        pdf.text('No.Pkg', currentX, yPosition + 6);
         currentX += colWidths[6];
-        pdf.text('No. Pkg', currentX, yPosition + 6);
+        pdf.text('Wt', currentX, yPosition + 6);
         currentX += colWidths[7];
+        pdf.text('Del.Type', currentX, yPosition + 6);
+        currentX += colWidths[8];
+        pdf.text('Pay.Mode', currentX, yPosition + 6);
+        currentX += colWidths[9];
         pdf.text('Amount', currentX, yPosition + 6);
+        currentX += colWidths[10];
+        pdf.text('Pvt Marks', currentX, yPosition + 6);
+        currentX += colWidths[11];
+        pdf.text('Challan', currentX, yPosition + 6);
         
         yPosition += 8;
         pdf.setFont('times', 'normal');
@@ -221,32 +241,56 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       
       // Consignor
       const consignor = bilty.consignor_name || bilty.consignor || 'N/A';
-      pdf.text(consignor.substring(0, 22), currentX, yPosition + 5);
+      pdf.text(consignor.substring(0, 16), currentX, yPosition + 5);
       currentX += colWidths[3];
       
       // Consignee
       const consignee = bilty.consignee_name || bilty.consignee || 'N/A';
-      pdf.text(consignee.substring(0, 18), currentX, yPosition + 5);
+      pdf.text(consignee.substring(0, 16), currentX, yPosition + 5);
       currentX += colWidths[4];
       
       // City
       const city = bilty.to_city_name || bilty.station_city_name || getCityName(bilty.to_city) || 'N/A';
-      pdf.text(city.substring(0, 20), currentX, yPosition + 5);
+      pdf.text(city.substring(0, 12), currentX, yPosition + 5);
       currentX += colWidths[5];
-      
-      // Private Marks
-      const pvtMarks = bilty.pvt_marks || bilty.private_marks || '-';
-      pdf.text(pvtMarks.substring(0, 10), currentX, yPosition + 5);
-      currentX += colWidths[6];
       
       // No. of Packages
       const noPkg = (bilty.no_of_pkg || bilty.no_of_packets || '0').toString();
       pdf.text(noPkg, currentX, yPosition + 5);
+      currentX += colWidths[6];
+      
+      // Weight
+      const weight = (bilty.wt || bilty.weight || '0').toString();
+      pdf.text(weight, currentX, yPosition + 5);
       currentX += colWidths[7];
+      
+      // Delivery Type
+      const deliveryType = bilty.delivery_type || bilty.delivery || 'N/A';
+      const deliveryText = deliveryType === 'door-delivery' || deliveryType === 'door' ? 'DD' : 
+                          deliveryType === 'godown' ? 'GD' : 
+                          deliveryType.toUpperCase().substring(0, 3);
+      pdf.text(deliveryText, currentX, yPosition + 5);
+      currentX += colWidths[8];
+      
+      // Payment Mode
+      const paymentMode = bilty.payment_mode || bilty.payment_status || 'N/A';
+      const paymentText = paymentMode.toUpperCase().substring(0, 6);
+      pdf.text(paymentText, currentX, yPosition + 5);
+      currentX += colWidths[9];
       
       // Amount
       const amount = formatCurrency(bilty.total || bilty.amount);
       pdf.text(amount, currentX, yPosition + 5);
+      currentX += colWidths[10];
+      
+      // Private Marks
+      const pvtMarks = bilty.pvt_marks || bilty.private_marks || '-';
+      pdf.text(pvtMarks.substring(0, 8), currentX, yPosition + 5);
+      currentX += colWidths[11];
+      
+      // Challan No
+      const challanNo = bilty.challan_no || '-';
+      pdf.text(challanNo.substring(0, 8), currentX, yPosition + 5);
 
       // Row border
       pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'S');

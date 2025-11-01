@@ -165,14 +165,25 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       totalTableWidth * 0.06   // Challan No (6%)
     ];
 
-  const headerFillColor = { r: 220, g: 233, b: 255 };
-  const summaryFillColor = { r: 235, g: 242, b: 255 };
+    const drawColumnDividers = (startX, startY, height, widths) => {
+      let dividerX = startX;
+      pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      widths.slice(0, -1).forEach(width => {
+        dividerX += width;
+        pdf.line(dividerX, startY, dividerX, startY + height);
+      });
+      pdf.setDrawColor(0, 0, 0);
+    };
 
-  pdf.setFontSize(8);
-  pdf.setFont('times', 'bold');
-  pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
+    const headerFillColor = { r: 220, g: 233, b: 255 };
+    const summaryFillColor = { r: 235, g: 242, b: 255 };
+
+    pdf.setFontSize(8);
+    pdf.setFont('times', 'bold');
+    pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
     const totalWidth = colWidths.reduce((a, b) => a + b, 0);
     pdf.rect(tableStartX, tableStartY, totalWidth, 8, 'F');
+    drawColumnDividers(tableStartX, tableStartY, 8, colWidths);
 
     let currentX = tableStartX + 2;
     pdf.text('S.No', currentX, tableStartY + 6);
@@ -222,6 +233,7 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
   pdf.setFont('times', 'bold');
   pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
         pdf.rect(tableStartX, yPosition, totalWidth, 8, 'F');
+  drawColumnDividers(tableStartX, yPosition, 8, colWidths);
         
         currentX = tableStartX + 2;
         pdf.text('S.No', currentX, yPosition + 6);
@@ -322,10 +334,11 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       const challanNo = bilty.challan_no || '-';
       pdf.text(challanNo.substring(0, 8), currentX, yPosition + 5);
 
-      // Row border
-      pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'S');
+  // Row border
+  pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'S');
+  drawColumnDividers(tableStartX, yPosition, rowHeight, colWidths);
       
-      yPosition += rowHeight;
+  yPosition += rowHeight;
       serialNumber++;
     });
 

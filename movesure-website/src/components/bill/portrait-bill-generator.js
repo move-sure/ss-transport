@@ -164,13 +164,24 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       totalTableWidth * 0.11   // Amount (11%)
     ];
 
-  const headerFillColor = { r: 220, g: 233, b: 255 };
-  const summaryFillColor = { r: 235, g: 242, b: 255 };
+    const drawColumnDividers = (startX, startY, height, widths) => {
+      let dividerX = startX;
+      pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      widths.slice(0, -1).forEach(width => {
+        dividerX += width;
+        pdf.line(dividerX, startY, dividerX, startY + height);
+      });
+      pdf.setDrawColor(0, 0, 0);
+    };
 
-  pdf.setFontSize(9);
-  pdf.setFont('times', 'bold');
-  pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
+    const headerFillColor = { r: 220, g: 233, b: 255 };
+    const summaryFillColor = { r: 235, g: 242, b: 255 };
+
+    pdf.setFontSize(9);
+    pdf.setFont('times', 'bold');
+    pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
     pdf.rect(tableStartX, tableStartY, colWidths.reduce((a, b) => a + b, 0), 8, 'F');
+    drawColumnDividers(tableStartX, tableStartY, 8, colWidths);
 
     let currentX = tableStartX + 2;
     pdf.text('S.No', currentX, tableStartY + 6);
@@ -209,6 +220,7 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
   pdf.setFont('times', 'bold');
   pdf.setFillColor(headerFillColor.r, headerFillColor.g, headerFillColor.b);
         pdf.rect(tableStartX, yPosition, colWidths.reduce((a, b) => a + b, 0), 8, 'F');
+  drawColumnDividers(tableStartX, yPosition, 8, colWidths);
         
         currentX = tableStartX + 2;
         pdf.text('S.No', currentX, yPosition + 6);
@@ -262,9 +274,10 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       const amount = formatCurrency(bilty.total || bilty.amount);
       pdf.text(amount, currentX, yPosition + 5);
 
-      pdf.rect(tableStartX, yPosition, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'S');
+  pdf.rect(tableStartX, yPosition, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'S');
+  drawColumnDividers(tableStartX, yPosition, rowHeight, colWidths);
       
-      yPosition += rowHeight;
+  yPosition += rowHeight;
       serialNumber++;
     });
 

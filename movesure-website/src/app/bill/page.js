@@ -11,6 +11,7 @@ import BillFilterPanel from '../../components/bill/bill-filters';
 import BillSearchTable from '../../components/bill/bill-search-table';
 import BillGenerator from '../../components/bill/bill-generation';
 import SelectedBiltiesPanel from '../../components/bill/selected-bilties-panel';
+import RecentBillsList from '../../components/bill/recent-bills-list';
 import {
   getSelectedBilties,
   toggleSelectedBilty,
@@ -66,6 +67,11 @@ export default function BillSearch() {
   const [showSelectedPanel, setShowSelectedPanel] = useState(false);
   const [filteredBiltiesForPrint, setFilteredBiltiesForPrint] = useState(null);
   
+  // Recent Bills state
+  const [showRecentBills, setShowRecentBills] = useState(false);
+  const [recentBills, setRecentBills] = useState([]);
+  const [loadingRecentBills, setLoadingRecentBills] = useState(false);
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -108,6 +114,41 @@ export default function BillSearch() {
       setError('Failed to load data. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch recent bills
+  const fetchRecentBills = async () => {
+    try {
+      setLoadingRecentBills(true);
+      
+      const { data, error } = await supabase
+        .from('monthly_bill')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      setRecentBills(data || []);
+    } catch (error) {
+      console.error('Error fetching recent bills:', error);
+      setError('Failed to load recent bills');
+    } finally {
+      setLoadingRecentBills(false);
+    }
+  };
+
+  // Toggle between search and recent bills
+  const handleToggleRecentBills = () => {
+    const newShowRecentBills = !showRecentBills;
+    setShowRecentBills(newShowRecentBills);
+    
+    if (newShowRecentBills) {
+      // Close search when opening recent bills
+      setShowFilters(false);
+      setHasSearched(false);
+      fetchRecentBills();
     }
   };
 
@@ -621,6 +662,10 @@ export default function BillSearch() {
   };
 
   const handleSearch = () => {
+    // Close recent bills when searching
+    if (showRecentBills) {
+      setShowRecentBills(false);
+    }
     performSearch();
   };
 
@@ -1173,6 +1218,37 @@ export default function BillSearch() {
           onLoadMore={loadMoreResults}
         />
 
+        {/* Toggle Button for Search/Recent Bills */}
+        <div className="mb-6 flex justify-center">
+          <div className="inline-flex rounded-lg shadow-sm" role="group">
+            <button
+              type="button"
+              onClick={() => {
+                setShowRecentBills(false);
+                setShowFilters(true);
+              }}
+              className={`px-6 py-3 text-sm font-medium rounded-l-lg border ${
+                !showRecentBills
+                  ? 'bg-blue-600 text-white border-blue-600 z-10'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              } focus:z-10 focus:ring-2 focus:ring-blue-500 transition-all`}
+            >
+              🔍 Search Bilties
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleRecentBills}
+              className={`px-6 py-3 text-sm font-medium rounded-r-lg border-t border-r border-b ${
+                showRecentBills
+                  ? 'bg-blue-600 text-white border-blue-600 z-10'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              } focus:z-10 focus:ring-2 focus:ring-blue-500 transition-all`}
+            >
+              📄 Recent Bills
+            </button>
+          </div>
+        </div>
+
         {showFilters && (
           <BillFilterPanel
             filters={searchFilters}
@@ -1193,6 +1269,15 @@ export default function BillSearch() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Recent Bills Section */}
+        {showRecentBills && (
+          <RecentBillsList
+            recentBills={recentBills}
+            loadingRecentBills={loadingRecentBills}
+            onRefresh={fetchRecentBills}
+          />
         )}
 
         {hasSearched && (

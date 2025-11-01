@@ -27,6 +27,8 @@ const SelectedBiltiesPanel = memo(({
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   // Temporary amount overrides for printing only
   const [amountOverrides, setAmountOverrides] = useState({});
+  // Print template selection
+  const [printTemplate, setPrintTemplate] = useState('portrait'); // 'portrait' or 'landscape'
 
   // Fetch branches on mount
   useEffect(() => {
@@ -174,7 +176,7 @@ const SelectedBiltiesPanel = memo(({
       }
       return bilty;
     });
-    onPrintBilties(biltiesWithOverrides, { billType, customName });
+    onPrintBilties(biltiesWithOverrides, { billType, customName, printTemplate });
   };
 
   // Handle download CSV with filters
@@ -570,6 +572,47 @@ const SelectedBiltiesPanel = memo(({
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Bill Options</h3>
                 <p className="text-xs text-gray-500">Customize your bill before printing</p>
+              </div>
+            </div>
+
+            {/* Print Template Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Print Template
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setPrintTemplate('portrait')}
+                  className={`p-4 border-2 rounded-xl transition-all hover:shadow-md ${
+                    printTemplate === 'portrait' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className={`mx-auto w-12 h-16 border-2 rounded mb-2 ${
+                      printTemplate === 'portrait' ? 'border-blue-500' : 'border-gray-400'
+                    }`}></div>
+                    <span className="text-xs font-semibold text-gray-900">Portrait</span>
+                    <p className="text-[10px] text-gray-500 mt-1">Standard</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setPrintTemplate('landscape')}
+                  className={`p-4 border-2 rounded-xl transition-all hover:shadow-md ${
+                    printTemplate === 'landscape' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className={`mx-auto w-16 h-12 border-2 rounded mb-2 ${
+                      printTemplate === 'landscape' ? 'border-blue-500' : 'border-gray-400'
+                    }`}></div>
+                    <span className="text-xs font-semibold text-gray-900">Landscape</span>
+                    <p className="text-[10px] text-gray-500 mt-1">+ Consignor</p>
+                  </div>
+                </button>
               </div>
             </div>
 

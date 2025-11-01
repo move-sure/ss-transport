@@ -130,12 +130,20 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     pdf.text('Monthly Consignment Statement', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 6;
 
-    const billTypeLabel = billOptions?.customName || 
-      (billOptions?.billType === 'consignor' ? 'CONSIGNOR' : 
-       billOptions?.billType === 'consignee' ? 'CONSIGNEE' : 'TRANSPORT');
+    // Get the actual name based on bill type
+    let billTypeLabel = '';
+    if (billOptions?.customName) {
+      billTypeLabel = billOptions.customName;
+    } else if (billOptions?.billType === 'consignor') {
+      billTypeLabel = selectedBilties[0]?.consignor_name || selectedBilties[0]?.consignor || 'CONSIGNOR';
+    } else if (billOptions?.billType === 'consignee') {
+      billTypeLabel = selectedBilties[0]?.consignee_name || selectedBilties[0]?.consignee || 'CONSIGNEE';
+    } else {
+      billTypeLabel = selectedBilties[0]?.transport_name || 'TRANSPORT';
+    }
 
     pdf.setFontSize(11);
-    pdf.text(`Bill Type: ${billTypeLabel}`, pageWidth / 2, yPosition, { align: 'center' });
+    pdf.text(`Bill To: ${billTypeLabel}`, pageWidth / 2, yPosition, { align: 'center' });
     pdf.setTextColor(0, 0, 0);
     yPosition += 10;
 

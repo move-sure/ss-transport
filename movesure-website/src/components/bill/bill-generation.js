@@ -17,7 +17,7 @@ const getEmbeddedLogo = () => {
   return null;
 };
 
-const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates = null }) => {
+const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates = null, billOptions = null }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
 
@@ -211,13 +211,39 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates
       pdf.text('Consignment Details for Payment Processing', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 10; // Reduced spacing
 
-      // Get first consignor name (since all bills are for one client)
+      // Get bill type and name from bill options or use defaults
+      const billType = billOptions?.billType || 'consignor';
+      const customName = billOptions?.customName || '';
+      
+      // Get the appropriate name based on bill type
       const firstBilty = selectedBilties[0];
-      const consignorName = firstBilty.type === 'station' ? 
-        (firstBilty.consignor || 'N/A') : 
-        (firstBilty.consignor_name || 'N/A');
+      let billName = '';
+      let billTypeLabel = 'CONSIGNOR';
+      
+      if (customName) {
+        // Use custom name if provided
+        billName = customName;
+        billTypeLabel = billType.toUpperCase();
+      } else {
+        // Use default names based on bill type
+        if (billType === 'consignee') {
+          billTypeLabel = 'CONSIGNEE';
+          billName = firstBilty.type === 'station' ? 
+            (firstBilty.consignee || 'N/A') : 
+            (firstBilty.consignee_name || 'N/A');
+        } else if (billType === 'transport') {
+          billTypeLabel = 'TRANSPORT';
+          billName = firstBilty.transport_name || 'N/A';
+        } else {
+          // Default to consignor
+          billTypeLabel = 'CONSIGNOR';
+          billName = firstBilty.type === 'station' ? 
+            (firstBilty.consignor || 'N/A') : 
+            (firstBilty.consignor_name || 'N/A');
+        }
+      }
 
-      // Consignor details box with professional styling
+      // Bill details box with professional styling
       pdf.setFillColor(245, 248, 252); // Light blue-gray background
       pdf.rect(15, yPosition - 3, pageWidth - 30, 22, 'F');
       pdf.setLineWidth(0.8);
@@ -227,10 +253,10 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates
       pdf.setFontSize(13);
       pdf.setFont('times', 'bold');
       pdf.setTextColor(0, 51, 102);
-      pdf.text('CONSIGNOR: ', 20, yPosition + 6);
+      pdf.text(billTypeLabel + ': ', 20, yPosition + 6);
       pdf.setFont('times', 'normal');
       pdf.setTextColor(40, 40, 40);
-      pdf.text(consignorName, 55, yPosition + 6);
+      pdf.text(billName, 55, yPosition + 6);
       
       // Date range with better formatting - Use filter dates if provided, otherwise use bilty dates
       let minDate, maxDate;

@@ -19,6 +19,12 @@ const SelectedBiltiesPanel = memo(({
   const [paymentFilter, setPaymentFilter] = useState('all'); // 'all', 'paid', 'to-pay'
   const [selectedBranches, setSelectedBranches] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Bill type and name selection state
+  const [billType, setBillType] = useState('consignor'); // 'consignor', 'consignee', 'transport'
+  const [customName, setCustomName] = useState('');
+  const [removedBiltyIds, setRemovedBiltyIds] = useState(new Set());
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
 
   // Fetch branches on mount
   useEffect(() => {
@@ -116,13 +122,28 @@ const SelectedBiltiesPanel = memo(({
     }
   };
 
-  // Handle print with filters
-  const handlePrintFiltered = () => {
+  // Handle remove bilty - keep in UI but mark as deleted
+  const handleRemoveBiltyWithAnimation = (bilty) => {
+    const biltyKey = `${bilty.type}-${bilty.id}`;
+    setRemovedBiltyIds(prev => new Set([...prev, biltyKey]));
+    // Actually remove from parent after delay
+    setTimeout(() => {
+      onRemoveBilty(bilty);
+    }, 3000);
+  };
+
+  // Handle blocked actions
+  const handleBlockedAction = () => {
+    setShowBlockedModal(true);
+  };
+
+  // Handle confirm print with bill options (directly from panel)
+  const handleConfirmPrint = () => {
     if (filteredBilties.length === 0) {
       alert('No bilties match the selected filters');
       return;
     }
-    onPrintBilties(filteredBilties);
+    onPrintBilties(filteredBilties, { billType, customName });
   };
 
   // Handle download CSV with filters
@@ -156,19 +177,35 @@ const SelectedBiltiesPanel = memo(({
   }
 
   return (
-    <div className="fixed bottom-0 right-0 w-full md:w-2/3 lg:w-1/2 xl:w-1/3 h-2/3 bg-white shadow-2xl rounded-tl-2xl z-50 flex flex-col border-l-4 border-blue-600">
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm backdrop-saturate-150 z-50" onClick={onToggle}></div>
+      
+      {/* Centered Panel - Much Bigger */}
+      <div className="fixed inset-0 flex items-center justify-center z-[51] pointer-events-none">
+        <div className="w-[95vw] h-[90vh] bg-white shadow-2xl rounded-2xl pointer-events-auto flex flex-col border-4 border-blue-600" onClick={(e) => e.stopPropagation()}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-tl-2xl flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <FileText className="h-6 w-6" />
-          <div>
-            <h3 className="text-lg font-bold">Selected Bilties</h3>
-            <p className="text-xs text-blue-100">
-              {selectedBilties.length} items selected
-              {(paymentFilter !== 'all' || selectedBranches.length > 0) && 
-                ` • ${filteredBilties.length} filtered`
-              }
-            </p>
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-3">
+            <FileText className="h-6 w-6" />
+            <div>
+              <h3 className="text-lg font-bold">Selected Bilties</h3>
+              <p className="text-xs text-blue-100">Manage and customize your bill</p>
+            </div>
+          </div>
+          {/* Total and Filtered Counts */}
+          <div className="flex items-center space-x-4 pl-6 border-l border-blue-400">
+            <div className="text-center">
+              <p className="text-2xl font-bold">{selectedBilties.length}</p>
+              <p className="text-xs text-blue-100">Total Selected</p>
+            </div>
+            {(paymentFilter !== 'all' || selectedBranches.length > 0) && (
+              <div className="text-center">
+                <p className="text-2xl font-bold text-yellow-300">{filteredBilties.length}</p>
+                <p className="text-xs text-blue-100">Filtered</p>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -305,22 +342,15 @@ const SelectedBiltiesPanel = memo(({
       {filteredBilties.length > 0 && (
         <div className="px-6 py-3 border-b border-gray-200 bg-white flex flex-wrap gap-2">
           <button
-            onClick={handlePrintFiltered}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            <span>Print</span>
-          </button>
-          <button
-            onClick={handleDownloadCSVFiltered}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+            onClick={handleBlockedAction}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition-colors text-sm cursor-not-allowed"
           >
             <Download className="h-3.5 w-3.5" />
             <span>CSV</span>
           </button>
           <button
-            onClick={handleCopyFiltered}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+            onClick={handleBlockedAction}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition-colors text-sm cursor-not-allowed"
           >
             <Copy className="h-3.5 w-3.5" />
             <span>Copy</span>
@@ -335,93 +365,266 @@ const SelectedBiltiesPanel = memo(({
         </div>
       )}
 
-      {/* Selected Bilties List */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {filteredBilties.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <FileText className="h-16 w-16 mb-3" />
-            <p className="text-sm font-medium">
-              {selectedBilties.length === 0 ? 'No bilties selected' : 'No bilties match the filters'}
-            </p>
-            <p className="text-xs mt-1">
-              {selectedBilties.length === 0 
-                ? 'Search and select bilties to add them here'
-                : 'Try adjusting your filters'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredBilties.map((bilty, index) => (
+      {/* Main Content Area - Two Columns */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* Left Column - Selected Bilties List */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 border-r border-gray-200">
+          {filteredBilties.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <FileText className="h-16 w-16 mb-3" />
+              <p className="text-sm font-medium">
+                {selectedBilties.length === 0 ? 'No bilties selected' : 'No bilties match the filters'}
+              </p>
+              <p className="text-xs mt-1">
+                {selectedBilties.length === 0 
+                  ? 'Search and select bilties to add them here'
+                  : 'Try adjusting your filters'
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredBilties.map((bilty, index) => {
+                const biltyKey = `${bilty.type}-${bilty.id}`;
+                const isDeleted = removedBiltyIds.has(biltyKey);
+                
+                return (
               <div
-                key={`${bilty.type}-${bilty.id}`}
-                className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow"
+                key={biltyKey}
+                className={`relative border rounded-lg p-3 transition-all duration-300 ${
+                  isDeleted 
+                    ? 'border-red-500 bg-red-50 opacity-60' 
+                    : 'bg-white border-gray-200 hover:shadow-md'
+                }`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      {bilty.type === 'regular' ? (
-                        <FileText className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Building className="h-4 w-4 text-purple-500" />
-                      )}
-                      <span className="font-bold text-sm text-gray-900">{bilty.gr_no}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        bilty.type === 'regular' 
-                          ? 'bg-blue-100 text-blue-700' 
-                          : 'bg-purple-100 text-purple-700'
-                      }`}>
-                        {bilty.type === 'regular' ? 'Regular' : 'Station'}
-                      </span>
+                {/* Deleted Overlay */}
+                {isDeleted && (
+                  <>
+                    <div className="absolute inset-0 bg-red-500 opacity-10 rounded-lg pointer-events-none"></div>
+                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
+                      DELETED
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-full h-0.5 bg-red-500 transform rotate-0"></div>
+                    </div>
+                  </>
+                )}
+                
+                <div className={`flex items-start justify-between relative ${isDeleted ? 'line-through' : ''}`}>
+                  {/* Index Number */}
+                  <div className="flex items-center space-x-3 flex-1">
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-md ${
+                      isDeleted 
+                        ? 'bg-gray-400 text-white' 
+                        : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
+                    }`}>
+                      {index + 1}
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div>
-                        <span className="font-medium">From:</span>{' '}
-                        {bilty.consignor_name || bilty.consignor || 'N/A'}
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        {bilty.type === 'regular' ? (
+                          <FileText className={`h-4 w-4 ${isDeleted ? 'text-gray-400' : 'text-blue-500'}`} />
+                        ) : (
+                          <Building className={`h-4 w-4 ${isDeleted ? 'text-gray-400' : 'text-purple-500'}`} />
+                        )}
+                        <span className={`font-bold text-sm ${isDeleted ? 'text-gray-500' : 'text-gray-900'}`}>{bilty.gr_no}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          isDeleted 
+                            ? 'bg-gray-200 text-gray-500'
+                            : bilty.type === 'regular' 
+                              ? 'bg-blue-100 text-blue-700' 
+                              : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {bilty.type === 'regular' ? 'Regular' : 'Station'}
+                        </span>
                       </div>
-                      <div>
-                        <span className="font-medium">To:</span>{' '}
-                        {bilty.consignee_name || bilty.consignee || 'N/A'}
+                    
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                        <div>
+                          <span className="font-medium">From:</span>{' '}
+                          {bilty.consignor_name || bilty.consignor || 'N/A'}
+                        </div>
+                        <div>
+                          <span className="font-medium">To:</span>{' '}
+                          {bilty.consignee_name || bilty.consignee || 'N/A'}
+                        </div>
+                        <div>
+                          <span className="font-medium">City:</span>{' '}
+                          {bilty.to_city_name || bilty.station || 'N/A'}
+                        </div>
+                        <div>
+                          <span className="font-medium">Date:</span>{' '}
+                          {formatDate(bilty.bilty_date || bilty.created_at)}
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-medium">City:</span>{' '}
-                        {bilty.to_city_name || bilty.station || 'N/A'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Date:</span>{' '}
-                        {formatDate(bilty.bilty_date || bilty.created_at)}
-                      </div>
-                    </div>
 
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                        (bilty.payment_mode || bilty.payment_status) === 'paid' 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {(bilty.payment_mode || bilty.payment_status || 'N/A').toUpperCase()}
-                      </span>
-                      <span className="text-sm font-bold text-gray-900">
-                        {formatCurrency(bilty.total || bilty.amount)}
-                      </span>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          isDeleted
+                            ? 'bg-gray-200 text-gray-500'
+                            : (bilty.payment_mode || bilty.payment_status) === 'paid' 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {(bilty.payment_mode || bilty.payment_status || 'N/A').toUpperCase()}
+                        </span>
+                        <span className={`text-sm font-bold ${isDeleted ? 'text-gray-500' : 'text-gray-900'}`}>
+                          {formatCurrency(bilty.total || bilty.amount)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => onRemoveBilty(bilty)}
-                    className="ml-3 p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                    title="Remove bilty"
+                    onClick={() => handleRemoveBiltyWithAnimation(bilty)}
+                    disabled={isDeleted}
+                    className={`ml-3 p-1.5 rounded-full transition-colors ${
+                      isDeleted 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'text-red-500 hover:bg-red-50'
+                    }`}
+                    title={isDeleted ? 'Already deleted' : 'Remove bilty'}
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-            ))}
+                );
+              })}
           </div>
         )}
+        </div>
+
+        {/* Right Column - Bill Options */}
+        <div className="w-[400px] bg-gradient-to-br from-purple-50 to-indigo-50 p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-purple-200">
+            {/* Bill Options Header */}
+            <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-purple-200">
+              <div className="p-3 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl">
+                <Printer className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Bill Options</h3>
+                <p className="text-xs text-gray-500">Customize your bill before printing</p>
+              </div>
+            </div>
+
+            {/* Bill Type Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Bill Type
+              </label>
+              <div className="space-y-3">
+                <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md ${billType === 'consignor' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}`}>
+                  <input
+                    type="radio"
+                    name="billType"
+                    value="consignor"
+                    checked={billType === 'consignor'}
+                    onChange={(e) => setBillType(e.target.value)}
+                    className="w-5 h-5 text-purple-600 focus:ring-purple-500 focus:ring-2"
+                  />
+                  <span className="ml-3 text-sm font-semibold text-gray-900">Consignor Bill</span>
+                </label>
+                <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md ${billType === 'consignee' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}`}>
+                  <input
+                    type="radio"
+                    name="billType"
+                    value="consignee"
+                    checked={billType === 'consignee'}
+                    onChange={(e) => setBillType(e.target.value)}
+                    className="w-5 h-5 text-purple-600 focus:ring-purple-500 focus:ring-2"
+                  />
+                  <span className="ml-3 text-sm font-semibold text-gray-900">Consignee Bill</span>
+                </label>
+                <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md ${billType === 'transport' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}`}>
+                  <input
+                    type="radio"
+                    name="billType"
+                    value="transport"
+                    checked={billType === 'transport'}
+                    onChange={(e) => setBillType(e.target.value)}
+                    className="w-5 h-5 text-purple-600 focus:ring-purple-500 focus:ring-2"
+                  />
+                  <span className="ml-3 text-sm font-semibold text-gray-900">Transport Bill</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Custom Name Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Custom Name (Optional)
+              </label>
+              <input
+                type="text"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Enter custom name for the bill"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-sm font-medium"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Leave empty to use default name from bill type
+              </p>
+            </div>
+
+            {/* Print Button */}
+            <button
+              onClick={handleConfirmPrint}
+              disabled={filteredBilties.length === 0}
+              className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            >
+              <Printer className="h-5 w-5" />
+              <span>Print Bill Now</span>
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+        </div>
+      </div>
+
+      {/* Blocked Feature Modal */}
+      {showBlockedModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md backdrop-saturate-150 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border-4 border-red-500">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white rounded-full">
+                  <X className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Feature Blocked</h3>
+                  <p className="text-xs text-red-100">This action is temporarily disabled</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBlockedModal(false)}
+                className="p-2 hover:bg-red-500 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-4">
+                <p className="text-sm font-semibold text-red-900 mb-2">
+                  Contact EKLAVYA SINGH to enable this feature
+                </p>
+                <p className="text-xs text-red-700">
+                  CSV download and copy features are currently disabled. Please use the print option to generate bills.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBlockedModal(false)}
+                className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-lg hover:from-red-700 hover:to-red-800 transition-all"
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 });
 

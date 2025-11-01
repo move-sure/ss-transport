@@ -935,8 +935,8 @@ export default function BillSearch() {
     setShowPrintModal(true);
   };
 
-  // Print bilties with optional filtered data
-  const handlePrintBiltiesWithFilter = (filteredData = null) => {
+  // Print bilties with optional filtered data and bill options
+  const handlePrintBiltiesWithFilter = (filteredData = null, billOptions = null) => {
     const dataToUse = filteredData || getSelectedBiltiesData();
     
     if (dataToUse.length === 0) {
@@ -944,7 +944,12 @@ export default function BillSearch() {
       return;
     }
     
-    setFilteredBiltiesForPrint(dataToUse);
+    // Store bill options if provided
+    if (billOptions) {
+      setFilteredBiltiesForPrint({ bilties: dataToUse, billOptions });
+    } else {
+      setFilteredBiltiesForPrint(dataToUse);
+    }
     setShowPrintModal(true);
   };
 
@@ -1281,7 +1286,12 @@ export default function BillSearch() {
       {/* Print Modal */}
       {showPrintModal && (
         <BillGenerator
-          selectedBilties={filteredBiltiesForPrint || getSelectedBiltiesData()}
+          selectedBilties={
+            filteredBiltiesForPrint?.bilties 
+              ? filteredBiltiesForPrint.bilties 
+              : (Array.isArray(filteredBiltiesForPrint) ? filteredBiltiesForPrint : getSelectedBiltiesData())
+          }
+          billOptions={filteredBiltiesForPrint?.billOptions}
           onClose={() => {
             setShowPrintModal(false);
             setFilteredBiltiesForPrint(null);

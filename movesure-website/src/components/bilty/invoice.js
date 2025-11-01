@@ -9,6 +9,9 @@ import { useConsignorPaymentMode, PaymentModeInfo, useConsignorDeliveryType, Del
 const InvoiceDetailsSection = ({ formData, setFormData }) => {
   // Multiple EWB State
   const [ewbList, setEwbList] = useState([]);
+  
+  // Track focus state for date input to force re-render
+  const [isDateFocused, setIsDateFocused] = useState(false);
 
   const contentInputRef = useRef(null);
   const paymentModeRef = useRef(null);
@@ -535,7 +538,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               ref={invoiceDateRef}
               value={(() => {
                 // Display logic based on focus state
-                if (document.activeElement === invoiceDateRef.current) {
+                if (isDateFocused) {
                   // When focused, show input-friendly format
                   if (formData.invoice_date) {
                     const [year, month, day] = formData.invoice_date.split('-');
@@ -627,23 +630,19 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                   }
                 }
               }}
-              onFocus={() => {
-                // Force re-render to show input format
+              onFocus={(e) => {
+                // Update focus state first to trigger re-render
+                setIsDateFocused(true);
+                // Select all text after a tiny delay to ensure value has updated
                 setTimeout(() => {
-                  if (invoiceDateRef.current) {
-                    invoiceDateRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-                  }
-                }, 10);
+                  e.target.select();
+                }, 0);
               }}
               onBlur={() => {
-                // Force re-render to show display format
-                setTimeout(() => {
-                  if (invoiceDateRef.current) {
-                    invoiceDateRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-                  }
-                }, 10);
+                // Update focus state to show formatted display
+                setIsDateFocused(false);
               }}
-              placeholder={document.activeElement === invoiceDateRef.current ? 
+              placeholder={isDateFocused ? 
                 "18, 25/1, 1/1/2026" : 
                 "📅 Invoice date"
               }

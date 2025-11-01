@@ -1,13 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Save } from 'lucide-react';
 import { generatePortraitBillPDF } from './portrait-bill-generator';
 import { generateLandscapeBillPDF } from './landscape-bill-generator';
+import supabase from '@/app/utils/supabase';
+import { useAuth } from '@/app/utils/auth';
 
 const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates = null, billOptions = null }) => {
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfBlob, setPdfBlob] = useState(null);
 
   // Format currency helper for display
   const formatCurrency = (amount) => {
@@ -51,14 +56,19 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates
       // Check template selection
       const template = billOptions?.printTemplate || 'portrait';
       
-      let url;
+      let url, blob;
       if (template === 'landscape') {
-        url = await generateLandscapeBillPDF(selectedBilties, cities, filterDates, billOptions);
+        const result = await generateLandscapeBillPDF(selectedBilties, cities, filterDates, billOptions, true);
+        url = result.url;
+        blob = result.blob;
       } else {
-        url = await generatePortraitBillPDF(selectedBilties, cities, filterDates, billOptions);
+        const result = await generatePortraitBillPDF(selectedBilties, cities, filterDates, billOptions, true);
+        url = result.url;
+        blob = result.blob;
       }
       
       setPdfUrl(url);
+      setPdfBlob(blob);
       console.log('PDF generated successfully!');
       
     } catch (error) {
@@ -96,6 +106,89 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates
       printWindow.onload = () => {
         printWindow.print();
       };
+    }
+  };
+
+  const saveAndPrintPDF = async () => {
+    if (!pdfBlob || !user) {
+      alert('Unable to save PDF. Please try again.');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      // Generate filename
+      const billTypeLabel = billOptions?.customName || billOptions?.billType || 'statement';
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const timeStr = new Date().toISOString().slice(11, 19).replace(/:/g, '-');
+      const filename = `${billTypeLabel}_${dateStr}_${timeStr}.pdf`;
+      const filepath = `${user.branch_id || 'default'}/${filename}`;
+
+      // Upload PDF to Supabase storage bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('bill')
+        .upload(filepath, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('bill')
+        .getPublicUrl(filepath);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Calculate totals
+      const { totalAmount, paidAmount, toPayAmount } = calculateTotals();
+
+      // Prepare bill record data
+      const billRecord = {
+        branch_id: user.branch_id || null,
+        staff_id: user.id || null,
+        bill_type: billOptions?.customName ? 'custom' : (billOptions?.billType || 'consignor'),
+        bill_name: billOptions?.customName || null,
+        date_from: filterDates?.dateFrom || selectedBilties[0]?.bilty_date || new Date().toISOString().slice(0, 10),
+        date_to: filterDates?.dateTo || selectedBilties[selectedBilties.length - 1]?.bilty_date || new Date().toISOString().slice(0, 10),
+        consignor_name: filterDates?.consignorName || null,
+        consignee_name: filterDates?.consigneeName || null,
+        city_name: filterDates?.cityName || null,
+        payment_mode: filterDates?.paymentMode || null,
+        total_bilties: selectedBilties.length,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        topay_amount: toPayAmount,
+        pdf_template: billOptions?.printTemplate || 'portrait',
+        pdf_url: publicUrl,
+        pdf_filename: filename
+      };
+
+      // Save bill record to database
+      const { data: billData, error: dbError } = await supabase
+        .from('monthly_bill')
+        .insert([billRecord])
+        .select();
+
+      if (dbError) {
+        throw new Error(`Database error: ${dbError.message}`);
+      }
+
+      console.log('Bill saved successfully:', billData);
+      alert('Bill saved successfully! Now printing...');
+      
+      // Print after saving
+      printPDF();
+      
+    } catch (error) {
+      console.error('Error saving bill:', error);
+      alert(`Error saving bill: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -187,10 +280,28 @@ const BillGenerator = ({ selectedBilties = [], onClose, cities = [], filterDates
                 <div className="flex space-x-3">
                   <button
                     onClick={printPDF}
-                    className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    disabled={isSaving}
+                    className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Printer className="h-5 w-5" />
-                    <span className="font-medium">Print Statement</span>
+                    <span className="font-medium">Print Only</span>
+                  </button>
+                  <button
+                    onClick={saveAndPrintPDF}
+                    disabled={isSaving}
+                    className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span className="font-medium">Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-5 w-5" />
+                        <span className="font-medium">Save & Print</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

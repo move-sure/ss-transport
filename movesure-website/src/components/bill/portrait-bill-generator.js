@@ -2,7 +2,7 @@
 
 import { jsPDF } from 'jspdf';
 
-export const generatePortraitBillPDF = async (selectedBilties, cities, filterDates, billOptions) => {
+export const generatePortraitBillPDF = async (selectedBilties, cities, filterDates, billOptions, returnBlob = false) => {
   try {
     if (!selectedBilties || selectedBilties.length === 0) {
       throw new Error('No bilties selected for PDF generation');
@@ -127,13 +127,14 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     const tableStartX = margin;
     const totalTableWidth = contentWidth;
     const colWidths = [
-      totalTableWidth * 0.07,  // S.No (7%)
-      totalTableWidth * 0.12,  // Date (12%)
-      totalTableWidth * 0.13,  // GR No (13%)
-      totalTableWidth * 0.23,  // Consignee (23%)
-      totalTableWidth * 0.20,  // City (20%)
-      totalTableWidth * 0.13,  // Pvt Marks (13%)
-      totalTableWidth * 0.12   // Amount (12%)
+      totalTableWidth * 0.06,  // S.No (6%)
+      totalTableWidth * 0.11,  // Date (11%)
+      totalTableWidth * 0.12,  // GR No (12%)
+      totalTableWidth * 0.21,  // Consignee (21%)
+      totalTableWidth * 0.18,  // City (18%)
+      totalTableWidth * 0.12,  // Pvt Marks (12%)
+      totalTableWidth * 0.09,  // No. of Pkg (9%)
+      totalTableWidth * 0.11   // Amount (11%)
     ];
 
     pdf.setFontSize(9);
@@ -154,6 +155,8 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     currentX += colWidths[4];
     pdf.text('Pvt Marks', currentX, tableStartY + 6);
     currentX += colWidths[5];
+    pdf.text('No. Pkg', currentX, tableStartY + 6);
+    currentX += colWidths[6];
     pdf.text('Amount', currentX, tableStartY + 6);
 
     yPosition = tableStartY + 8;
@@ -189,6 +192,8 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
         currentX += colWidths[4];
         pdf.text('Pvt Marks', currentX, yPosition + 6);
         currentX += colWidths[5];
+        pdf.text('No. Pkg', currentX, yPosition + 6);
+        currentX += colWidths[6];
         pdf.text('Amount', currentX, yPosition + 6);
         
         yPosition += 8;
@@ -218,6 +223,10 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       const pvtMarks = bilty.pvt_marks || bilty.private_marks || '-';
       pdf.text(pvtMarks.substring(0, 10), currentX, yPosition + 5);
       currentX += colWidths[5];
+      
+      const noPkg = (bilty.no_of_pkg || bilty.no_of_packets || '0').toString();
+      pdf.text(noPkg, currentX, yPosition + 5);
+      currentX += colWidths[6];
       
       const amount = formatCurrency(bilty.total || bilty.amount);
       pdf.text(amount, currentX, yPosition + 5);
@@ -275,6 +284,10 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
     const url = URL.createObjectURL(pdfBlob);
     
     console.log('Portrait PDF generated successfully!');
+    
+    if (returnBlob) {
+      return { url, blob: pdfBlob };
+    }
     return url;
     
   } catch (error) {

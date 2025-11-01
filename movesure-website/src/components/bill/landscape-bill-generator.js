@@ -2,7 +2,7 @@
 
 import { jsPDF } from 'jspdf';
 
-export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDates, billOptions) => {
+export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDates, billOptions, returnBlob = false) => {
   try {
     if (!selectedBilties || selectedBilties.length === 0) {
       throw new Error('No bilties selected for PDF generation');
@@ -124,13 +124,14 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     const tableStartX = margin;
     const totalTableWidth = contentWidth;
     const colWidths = [
-      totalTableWidth * 0.05,  // S.No (5%)
-      totalTableWidth * 0.08,  // Date (8%)
-      totalTableWidth * 0.10,  // GR No (10%)
-      totalTableWidth * 0.20,  // Consignor (20%)
-      totalTableWidth * 0.20,  // Consignee (20%)
-      totalTableWidth * 0.17,  // City (17%)
-      totalTableWidth * 0.10,  // Pvt Marks (10%)
+      totalTableWidth * 0.04,  // S.No (4%)
+      totalTableWidth * 0.07,  // Date (7%)
+      totalTableWidth * 0.09,  // GR No (9%)
+      totalTableWidth * 0.19,  // Consignor (19%)
+      totalTableWidth * 0.19,  // Consignee (19%)
+      totalTableWidth * 0.15,  // City (15%)
+      totalTableWidth * 0.09,  // Pvt Marks (9%)
+      totalTableWidth * 0.08,  // No. of Pkg (8%)
       totalTableWidth * 0.10   // Amount (10%)
     ];
 
@@ -155,6 +156,8 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     currentX += colWidths[5];
     pdf.text('Pvt Marks', currentX, tableStartY + 6);
     currentX += colWidths[6];
+    pdf.text('No. Pkg', currentX, tableStartY + 6);
+    currentX += colWidths[7];
     pdf.text('Amount', currentX, tableStartY + 6);
 
     yPosition = tableStartY + 8;
@@ -193,6 +196,8 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
         currentX += colWidths[5];
         pdf.text('Pvt Marks', currentX, yPosition + 6);
         currentX += colWidths[6];
+        pdf.text('No. Pkg', currentX, yPosition + 6);
+        currentX += colWidths[7];
         pdf.text('Amount', currentX, yPosition + 6);
         
         yPosition += 8;
@@ -229,10 +234,15 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       pdf.text(city.substring(0, 20), currentX, yPosition + 5);
       currentX += colWidths[5];
       
-      // Private Marks (NEW COLUMN)
+      // Private Marks
       const pvtMarks = bilty.pvt_marks || bilty.private_marks || '-';
       pdf.text(pvtMarks.substring(0, 10), currentX, yPosition + 5);
       currentX += colWidths[6];
+      
+      // No. of Packages
+      const noPkg = (bilty.no_of_pkg || bilty.no_of_packets || '0').toString();
+      pdf.text(noPkg, currentX, yPosition + 5);
+      currentX += colWidths[7];
       
       // Amount
       const amount = formatCurrency(bilty.total || bilty.amount);
@@ -295,6 +305,10 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     const url = URL.createObjectURL(pdfBlob);
 
     console.log('Landscape PDF generated successfully!');
+    
+    if (returnBlob) {
+      return { url, blob: pdfBlob };
+    }
     return url;
     
   } catch (error) {

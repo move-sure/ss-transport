@@ -18,6 +18,7 @@ import {
   getSelectedBiltyIds,
   isBiltySelected
 } from '../../utils/biltyStorage';
+import { saveBillToSupabase } from '../../utils/billSaveHandler';
 
 export default function BillSearch() {
   const { user, requireAuth } = useAuth();
@@ -959,6 +960,45 @@ export default function BillSearch() {
     setShowPrintModal(true);
   };
 
+  // Save and print bilties with Supabase
+  const handleSaveAndPrintBilties = async (filteredData = null, billOptions = null, setIsSaving = null) => {
+    const dataToUse = filteredData || getSelectedBiltiesData();
+    
+    if (dataToUse.length === 0) {
+      alert('Please select bilties to print');
+      return;
+    }
+
+    console.log('handleSaveAndPrintBilties called', { 
+      dataCount: dataToUse.length, 
+      billOptions 
+    });
+
+    // Save to Supabase
+    const result = await saveBillToSupabase(
+      dataToUse,
+      billOptions,
+      user,
+      searchFilters,
+      cities,
+      setIsSaving
+    );
+
+    if (result.success) {
+      alert(result.message);
+      
+      // Then open print modal
+      if (billOptions) {
+        setFilteredBiltiesForPrint({ bilties: dataToUse, billOptions });
+      } else {
+        setFilteredBiltiesForPrint(dataToUse);
+      }
+      setShowPrintModal(true);
+    } else {
+      alert(`Error: ${result.error}`);
+    }
+  };
+
   const handleRemoveBilty = (bilty) => {
     import('@/utils/biltyStorage').then(({ removeSelectedBilty }) => {
       const updatedBilties = removeSelectedBilty(bilty);
@@ -1315,6 +1355,7 @@ export default function BillSearch() {
         onDownloadCSV={handleDownloadCSVWithFilter}
         onCopyToClipboard={handleCopyToClipboardWithFilter}
         onPrintBilties={handlePrintBiltiesWithFilter}
+        onSaveAndPrint={handleSaveAndPrintBilties}
         isOpen={showSelectedPanel}
         onToggle={() => setShowSelectedPanel(!showSelectedPanel)}
         branches={branches}

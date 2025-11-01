@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Printer } from 'lucide-react';
+import { Printer, Save } from 'lucide-react';
 
 const BillOptions = ({ 
   billType, 
@@ -9,7 +9,9 @@ const BillOptions = ({
   customName, 
   setCustomName, 
   onPrint,
-  disabled 
+  onSaveAndPrint,
+  disabled,
+  isSaving 
 }) => {
   return (
     <div className="w-[400px] bg-gradient-to-br from-purple-50 to-indigo-50 p-6 overflow-y-auto">
@@ -84,15 +86,37 @@ const BillOptions = ({
           </p>
         </div>
 
-        {/* Print Button */}
-        <button
-          onClick={onPrint}
-          disabled={disabled}
-          className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-        >
-          <Printer className="h-5 w-5" />
-          <span>Print Bill Now</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="space-y-3">
+          {/* Print Only Button */}
+          <button
+            onClick={onPrint}
+            disabled={disabled || isSaving}
+            className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
+            <Printer className="h-5 w-5" />
+            <span>Print Only</span>
+          </button>
+
+          {/* Save & Print Button */}
+          <button
+            onClick={onSaveAndPrint}
+            disabled={disabled || isSaving}
+            className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-green-600 to-green-700 rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
+            {isSaving ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                <span>Save & Print</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

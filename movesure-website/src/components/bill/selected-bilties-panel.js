@@ -1,8 +1,10 @@
 'use client';
 
 import React, { memo, useState, useEffect } from 'react';
-import { X, Trash2, FileText, Building, Download, Copy, Printer, Filter } from 'lucide-react';
+import { X, Trash2, FileText, Building, Download, Copy, Printer, Filter, Save } from 'lucide-react';
 import { format } from 'date-fns';
+import supabase from '@/app/utils/supabase';
+import { useAuth } from '@/app/utils/auth';
 
 const SelectedBiltiesPanel = memo(({ 
   selectedBilties = [], 
@@ -11,11 +13,13 @@ const SelectedBiltiesPanel = memo(({
   onDownloadCSV,
   onCopyToClipboard,
   onPrintBilties,
+  onSaveAndPrint,
   isOpen,
   onToggle,
   branches = [],
   onFetchBranches
 }) => {
+  const { user } = useAuth();
   const [paymentFilter, setPaymentFilter] = useState('all'); // 'all', 'paid', 'to-pay'
   const [selectedBranches, setSelectedBranches] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -25,6 +29,7 @@ const SelectedBiltiesPanel = memo(({
   const [customName, setCustomName] = useState('');
   const [removedBiltyIds, setRemovedBiltyIds] = useState(new Set());
   const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   // Temporary amount overrides for printing only
   const [amountOverrides, setAmountOverrides] = useState({});
   // Print template selection
@@ -177,6 +182,30 @@ const SelectedBiltiesPanel = memo(({
       return bilty;
     });
     onPrintBilties(biltiesWithOverrides, { billType, customName, printTemplate });
+  };
+
+  // Handle save and print
+  const handleSaveAndPrintClick = () => {
+    if (filteredBilties.length === 0) {
+      alert('No bilties match the selected filters');
+      return;
+    }
+    // Apply amount overrides to bilties before saving
+    const biltiesWithOverrides = filteredBilties.map(bilty => {
+      const biltyKey = `${bilty.type}-${bilty.id}`;
+      if (amountOverrides[biltyKey] !== undefined) {
+        return {
+          ...bilty,
+          total: amountOverrides[biltyKey],
+          amount: amountOverrides[biltyKey]
+        };
+      }
+      return bilty;
+    });
+    
+    if (onSaveAndPrint) {
+      onSaveAndPrint(biltiesWithOverrides, { billType, customName, printTemplate }, setIsSaving);
+    }
   };
 
   // Handle download CSV with filters
@@ -687,15 +716,37 @@ const SelectedBiltiesPanel = memo(({
               </p>
             </div>
 
-            {/* Print Button */}
-            <button
-              onClick={handleConfirmPrint}
-              disabled={filteredBilties.length === 0}
-              className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              <Printer className="h-5 w-5" />
-              <span>Print Bill Now</span>
-            </button>
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              {/* Print Only Button */}
+              <button
+                onClick={handleConfirmPrint}
+                disabled={filteredBilties.length === 0 || isSaving}
+                className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                <Printer className="h-5 w-5" />
+                <span>Print Only</span>
+              </button>
+
+              {/* Save & Print Button */}
+              <button
+                onClick={handleSaveAndPrintClick}
+                disabled={filteredBilties.length === 0 || isSaving}
+                className="w-full py-4 text-sm font-bold text-white bg-gradient-to-r from-green-600 to-green-700 rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-5 w-5" />
+                    <span>Save & Print</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -93,9 +93,9 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
 
     // Contact info
     pdf.setFontSize(9);
-    pdf.text('Phone: 9414081901, 9252253901 | Customer Care: 9690293140', pageWidth / 2, yPosition, { align: 'center' });
+    pdf.text('Phone: 8077834769, 7668291228 | Customer Care: 9690293140', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 5;
-    pdf.text('GST No: 08AALPN9411A1ZL', pageWidth / 2, yPosition, { align: 'center' });
+    pdf.text('GST No: 09COVPS5556J1ZT', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 5;
 
     // Monthly Statement Title

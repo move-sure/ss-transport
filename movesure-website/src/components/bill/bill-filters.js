@@ -248,6 +248,33 @@ export default function BillFilterPanel({
           />
         </div>
 
+        {/* Weight Filter with Operator */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Weight (kg)
+          </label>
+          <div className="flex gap-2">
+            <select
+              value={filters.weightOperator || 'equal'}
+              onChange={(e) => handleInputChange('weightOperator', e.target.value)}
+              className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="equal">Equal</option>
+              <option value="more-than">More Than</option>
+              <option value="less-than">Less Than</option>
+            </select>
+            <input
+              type="number"
+              value={filters.weight || ''}
+              onChange={(e) => handleInputChange('weight', e.target.value)}
+              placeholder="Enter weight"
+              min="0"
+              step="0.01"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
         {/* City Name Filter with Autocomplete */}
         <div className="space-y-1 relative" ref={cityDropdownRef}>
           <label className="block text-sm font-medium text-gray-700">
@@ -378,6 +405,14 @@ export default function BillFilterPanel({
             case 'pvtMarks':
               displayKey = 'Private Marks';
               break;
+            case 'weight':
+              displayKey = 'Weight';
+              const operator = filters.weightOperator || 'equal';
+              const operatorSymbol = operator === 'more-than' ? '>' : operator === 'less-than' ? '<' : '=';
+              displayValue = operatorSymbol + ' ' + value + ' kg';
+              break;
+            case 'weightOperator':
+              return null; // Don't show operator separately, it's included in weight display
             case 'cityName':
               displayKey = 'Destination City';
               break;

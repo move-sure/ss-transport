@@ -45,6 +45,8 @@ export default function BillSearch() {
     consignorName: '',
     consigneeName: '',
     pvtMarks: '',
+    weight: '',
+    weightOperator: 'equal', // 'equal', 'more-than', 'less-than'
     cityName: '',
     paymentMode: '',
     eWayBill: '',
@@ -340,6 +342,20 @@ export default function BillSearch() {
         query = query.ilike('pvt_marks', `%${filters.pvtMarks.trim()}%`);
       }
 
+      // Handle weight filter with comparison operators
+      if (filters.weight && !isNaN(parseFloat(filters.weight))) {
+        const weightValue = parseFloat(filters.weight);
+        const operator = filters.weightOperator || 'equal';
+        
+        if (operator === 'more-than') {
+          query = query.gt('wt', weightValue);
+        } else if (operator === 'less-than') {
+          query = query.lt('wt', weightValue);
+        } else { // equal
+          query = query.eq('wt', weightValue);
+        }
+      }
+
       // Handle city name filter - get city IDs that match the name
       if (filters.cityName?.trim()) {
         try {
@@ -511,6 +527,20 @@ export default function BillSearch() {
         query = query.ilike('pvt_marks', `%${filters.pvtMarks.trim()}%`);
       }
 
+      // Handle weight filter with comparison operators for station bilties
+      if (filters.weight && !isNaN(parseFloat(filters.weight))) {
+        const weightValue = parseFloat(filters.weight);
+        const operator = filters.weightOperator || 'equal';
+        
+        if (operator === 'more-than') {
+          query = query.gt('weight', weightValue);
+        } else if (operator === 'less-than') {
+          query = query.lt('weight', weightValue);
+        } else { // equal
+          query = query.eq('weight', weightValue);
+        }
+      }
+
       // Handle city name filter for station bilties - search by both city name and city code
       if (filters.cityName?.trim()) {
         // First get matching city codes for the entered city name
@@ -677,6 +707,8 @@ export default function BillSearch() {
       consignorName: '',
       consigneeName: '',
       pvtMarks: '',
+      weight: '',
+      weightOperator: 'equal',
       cityName: '',
       paymentMode: '',
       eWayBill: '',

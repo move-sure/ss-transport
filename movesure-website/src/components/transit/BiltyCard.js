@@ -20,10 +20,24 @@ const BiltyCard = ({
       case 'to-pay':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'freeofcost':
+      case 'foc':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getPaymentModeDisplay = (bilty) => {
+    const paymentMode = bilty.payment_mode || bilty.payment_status || '';
+    const deliveryType = bilty.delivery_type || '';
+    
+    // If door delivery, append "/DD" suffix
+    if (deliveryType.toLowerCase().includes('door')) {
+      return `${paymentMode.toUpperCase()}/DD`;
+    }
+    
+    // For godown or any other delivery type, just show payment mode
+    return paymentMode.toUpperCase();
   };
 
   return (
@@ -85,9 +99,9 @@ const BiltyCard = ({
           </div>
         </div>
         <div className="text-right">
-          <div className="font-bold text-gray-900">₹{bilty.total}</div>
-          <span className={`text-xs px-2 py-1 rounded-full font-bold ${getPaymentModeColor(bilty.payment_mode)}`}>
-            {bilty.payment_mode?.toUpperCase()}
+          <div className="font-bold text-gray-900">₹{bilty.total || bilty.amount || 0}</div>
+          <span className={`text-xs px-2 py-1 rounded-full font-bold ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
+            {getPaymentModeDisplay(bilty)}
           </span>
         </div>
       </div>

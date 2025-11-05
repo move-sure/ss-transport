@@ -310,6 +310,19 @@ const BiltyList = ({
     }
   };
 
+  const getPaymentModeDisplay = (bilty) => {
+    const paymentMode = bilty.payment_mode || bilty.payment_status || '';
+    const deliveryType = bilty.delivery_type || '';
+    
+    // If door delivery, append "/DD" suffix
+    if (deliveryType.toLowerCase().includes('door')) {
+      return `${paymentMode.toUpperCase()}/DD`;
+    }
+    
+    // For godown or any other delivery type, just show payment mode
+    return paymentMode.toUpperCase();
+  };
+
   const isChallanLocked = Boolean(selectedChallan?.is_dispatched);
 
   // Builds consistent row styling so selection visibly highlights the full row.
@@ -595,13 +608,7 @@ const BiltyList = ({
                         </td>
                         <td className="px-2.5 py-2.5">
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
-                            {(bilty.payment_mode || bilty.payment_status) === 'paid'
-                              ? 'Paid'
-                              : (bilty.payment_mode || bilty.payment_status) === 'to-pay'
-                                ? 'To Pay'
-                                : (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc'
-                                  ? 'FOC'
-                                  : 'N/A'}
+                            {getPaymentModeDisplay(bilty)}
                           </span>
                         </td>
                         <td className="px-2.5 py-2.5 text-slate-700">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</td>
@@ -867,13 +874,7 @@ const BiltyList = ({
                       </td>
                       <td className="px-2.5 py-2.5">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${getPaymentModeColor(bilty.payment_mode || bilty.payment_status)}`}>
-                          {(bilty.payment_mode || bilty.payment_status) === 'paid'
-                            ? 'Paid'
-                            : (bilty.payment_mode || bilty.payment_status) === 'to-pay'
-                              ? 'To Pay'
-                              : (bilty.payment_mode || bilty.payment_status) === 'freeofcost' || (bilty.payment_mode || bilty.payment_status) === 'foc'
-                                ? 'FOC'
-                                : 'N/A'}
+                          {getPaymentModeDisplay(bilty)}
                         </span>
                       </td>
                       <td className="px-2.5 py-2.5 text-slate-700">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</td>

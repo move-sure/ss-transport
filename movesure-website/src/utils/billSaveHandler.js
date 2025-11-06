@@ -146,10 +146,33 @@ export const saveBillToSupabase = async (
 
     console.log('✅ Calculated totals:', { totalAmount, paidAmount, toPayAmount });
 
+    // ✅ Determine bill name based on bill type and custom name
+    let billName = billOptions?.customName;
+    
+    // If no custom name is provided, use the first bilty's relevant party name
+    if (!billName && bilties.length > 0) {
+      const billType = billOptions?.billType || 'consignor';
+      const firstBilty = bilties[0];
+      
+      switch (billType) {
+        case 'consignor':
+          billName = firstBilty.consignor_name || firstBilty.consignor || 'Consignor';
+          break;
+        case 'consignee':
+          billName = firstBilty.consignee_name || firstBilty.consignee || 'Consignee';
+          break;
+        case 'transport':
+          billName = firstBilty.transport_name || 'Transport';
+          break;
+        default:
+          billName = billType;
+      }
+    }
+
     // ✅ Prepare bill record data
     const billRecord = {
       bill_type: billOptions?.customName ? 'custom' : (billOptions?.billType || 'consignor'),
-      bill_name: billOptions?.customName || null,
+      bill_name: billName,
       date_from: filterDates?.dateFrom || bilties[0]?.bilty_date || new Date().toISOString().slice(0, 10),
       date_to: filterDates?.dateTo || bilties[bilties.length - 1]?.bilty_date || new Date().toISOString().slice(0, 10),
       consignor_name: filterDates?.consignorName || null,

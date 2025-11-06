@@ -395,15 +395,17 @@ const SelectedBiltiesPanel = memo(({
           {filteredBilties.length > 0 && (
             <section className="flex flex-wrap items-center gap-2 border-b border-blue-100 bg-white px-7 py-3 text-xs font-semibold text-blue-600">
               <button
-                onClick={handleBlockedAction}
-                className="flex items-center gap-2 rounded-full border border-blue-100 px-3 py-1.5 transition hover:border-blue-200 hover:text-blue-800"
+                onClick={handleDownloadCSVFiltered}
+                className="flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+                title="Download filtered bilties as CSV"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span>CSV export</span>
               </button>
               <button
-                onClick={handleBlockedAction}
-                className="flex items-center gap-2 rounded-full border border-blue-100 px-3 py-1.5 transition hover:border-blue-200 hover:text-blue-800"
+                onClick={handleCopyFiltered}
+                className="flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+                title="Copy filtered bilties to clipboard"
               >
                 <Copy className="h-3.5 w-3.5" />
                 <span>Copy table</span>

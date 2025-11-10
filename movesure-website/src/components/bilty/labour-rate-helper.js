@@ -89,7 +89,7 @@ export const LabourRateInfo = ({ consignorName, branchId, currentLabourRate }) =
 
   return (
     <div className="mt-1 text-xs">
-      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md border border-blue-200">
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-200">
         <svg 
           className="w-3 h-3" 
           fill="none" 
@@ -104,7 +104,7 @@ export const LabourRateInfo = ({ consignorName, branchId, currentLabourRate }) =
           />
         </svg>
         <span className="font-semibold">OLD RATE: ₹{labourRate.rate}</span>
-        <span className="text-blue-600">
+        <span className="text-indigo-600">
           (from {new Date(labourRate.date).toLocaleDateString('en-IN')})
         </span>
       </span>

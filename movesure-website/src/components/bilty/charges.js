@@ -447,7 +447,7 @@ const PackageChargesSection = ({
 
 return (
     <>
-      <div className="bg-white p-6 rounded-xl border-2 border-purple-200 shadow-lg">
+      <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div 
           className="grid grid-cols-12 gap-6"
           onKeyDown={(e) => {
@@ -459,14 +459,14 @@ return (
         >
           {/* Package Details - Left Side (8 columns) */}
           <div className="col-span-8">
-            <div className="bg-white rounded-lg p-4 border-2 border-purple-200 shadow-md">
-              <h4 className="text-sm font-bold text-black mb-3 text-center bg-gradient-to-r from-purple-100 to-blue-100 py-2 rounded">
+            <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-200 shadow-sm">
+              <h4 className="text-sm font-bold text-slate-800 mb-3 text-center bg-indigo-50 border border-indigo-100 py-2 rounded">
                 PACKAGE DETAILS
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 {/* Private Marks - First */}
                 <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                     PVT MARKS
                   </span>
                   <input
@@ -474,7 +474,7 @@ return (
                     value={formData.pvt_marks || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, pvt_marks: e.target.value.toUpperCase() }))}
                     ref={(el) => setInputRef(18, el)}
-                    className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all text-input-focus"
+                    className="flex-1 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all text-input-focus"
                     placeholder="Private marks"
                     tabIndex={18}
                     style={{ textTransform: 'uppercase' }}
@@ -483,7 +483,7 @@ return (
 
                 {/* Weight - Second */}
                 <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                     WEIGHT
                   </span>
                   <input
@@ -493,7 +493,7 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, wt: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(19, el)}
-                    className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
+                    className="flex-1 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                     placeholder="0"
                     tabIndex={19}
                   />
@@ -502,7 +502,7 @@ return (
                 {/* Packages & Rate - Combined Row */}
                 <div className="flex flex-col gap-1 col-span-2">
                   <div className="flex items-center gap-3">
-                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                    <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
                       PACKAGES
                     </span>
                     <input
@@ -511,12 +511,12 @@ return (
                       onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
                       onFocus={(e) => e.target.select()}
                       ref={(el) => setInputRef(20, el)}
-                      className="w-32 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
+                      className="w-32 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                       placeholder="0"
                       tabIndex={20}
                     />
                     
-                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px] ml-4">
+                    <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px] ml-4">
                       RATE
                     </span>
                     <div className="relative flex-1">
@@ -528,13 +528,13 @@ return (
                         onChange={handleRateChange}
                         onFocus={(e) => e.target.select()}
                         ref={(el) => setInputRef(21, el)}
-                        className="w-full px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus pr-8"
+                        className="w-full px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-8"
                         placeholder="₹ Rate per kg"
                         tabIndex={21}
                       />
                       {isSavingRate && (
                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       )}
                     </div>
@@ -558,7 +558,7 @@ return (
                 {/* Labour Rate - Fifth */}
                 <div className="flex flex-col gap-1 col-span-2">
                   <div className="flex items-center gap-3">
-                    <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
+                    <span className="bg-indigo-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
                       LABOUR RATE
                     </span>
                     <input
@@ -583,7 +583,7 @@ return (
                       }}
                       onFocus={(e) => e.target.select()}
                       ref={(el) => setInputRef(22, el)}
-                      className="w-32 px-3 py-2 text-black font-semibold border-2 border-orange-300 rounded-lg bg-white shadow-sm hover:border-orange-400 transition-all number-input-focus"
+                      className="w-32 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                       placeholder="20"
                       tabIndex={22}
                     />
@@ -596,7 +596,7 @@ return (
                   {!isEditMode && formData.consignor_name && (
                     <div className="mr-[400px]">
                       {loadingLabourRate ? (
-                        <div className="flex items-center gap-2 px-2 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 text-xs font-medium animate-pulse">
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 text-xs font-medium animate-pulse">
                           <svg className="w-2 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -604,7 +604,7 @@ return (
                           <span>🤖 MoveSure AI fetching old labour rate...</span>
                         </div>
                       ) : oldLabourRate && oldLabourRate.rate ? (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg border border-green-300 text-xs font-semibold shadow-sm">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg border border-slate-300 text-xs font-semibold shadow-sm">
                           <svg className="w-2 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
@@ -627,14 +627,14 @@ return (
 
           {/* Charges Section - Right Side (4 columns) */}
           <div className="col-span-4">
-            <div className="bg-white rounded-lg border-2 border-purple-300 p-4 shadow-lg h-full">
-              <h4 className="text-sm font-bold text-black mb-4 text-center bg-gradient-to-r from-purple-100 to-blue-100 py-2 rounded">
+            <div className="bg-white rounded-lg border border-slate-300 p-4 shadow-lg h-full">
+              <h4 className="text-sm font-bold text-slate-800 mb-4 text-center bg-indigo-50 border border-indigo-100 py-2 rounded">
                 CHARGES BREAKDOWN
               </h4>
               <div className="space-y-3">
                 {/* Freight Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
                     FREIGHT
                   </span>
                   <input
@@ -643,14 +643,14 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, freight_amount: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(23, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
+                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={23}
                   />
                 </div>
 
                 {/* Labour Charge with Rate Display */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                     LABOUR
                   </span>
                   <div className="flex flex-col items-end">
@@ -683,7 +683,7 @@ return (
                         }
                       }}
                       ref={(el) => setInputRef(24, el)}
-                      className="w-24 px-2 py-2 text-black font-bold border-2 border-orange-300 rounded text-center bg-white hover:border-orange-400 number-input-focus transition-all duration-200"
+                      className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                       tabIndex={24}
                       title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
                     />
@@ -695,7 +695,7 @@ return (
 
                 {/* Bill Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
                     BILL CHR
                   </span>
                   <input
@@ -704,14 +704,14 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, bill_charge: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(25, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
+                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={25}
                   />
                 </div>
 
                 {/* Toll Charge - Moved before PF Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
                     TOLL
                   </span>
                   <input
@@ -725,7 +725,7 @@ return (
                     }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(26, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border-2 border-green-300 rounded text-center bg-white hover:border-green-400 number-input-focus transition-all duration-200"
+                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     placeholder="20"
                     tabIndex={26}
                   />
@@ -733,7 +733,7 @@ return (
 
                 {/* PF Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
                     PF CHR
                   </span>
                   <input
@@ -742,14 +742,14 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, pf_charge: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(27, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
+                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={27}
                   />
                 </div>
 
                 {/* Other Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
                     OTHER
                   </span>
                   <input
@@ -758,15 +758,15 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(28, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border-2 border-purple-300 rounded text-center bg-white hover:border-purple-400 number-input-focus transition-all duration-200"
+                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={28}
                   />
                 </div>
 
                 {/* Total Amount */}
-                <div className="border-t-2 border-purple-300 pt-3 mt-4">
+                <div className="border-t-2 border-slate-300 pt-3 mt-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="bg-gradient-to-r from-purple-800 to-purple-600 text-white px-3 py-3 text-sm font-bold rounded shadow-lg whitespace-nowrap">
+                    <span className="bg-indigo-600 text-white px-3 py-3 text-sm font-bold rounded shadow-lg whitespace-nowrap">
                       TOTAL
                     </span>
                     <input
@@ -774,7 +774,7 @@ return (
                       value={formData.total || 0}
                       readOnly
                       ref={(el) => setInputRef(29, el)}
-                      className="w-24 px-2 py-3 text-black font-bold border-4 border-purple-400 rounded bg-purple-50 text-center text-lg shadow-lg bilty-input-focus transition-all duration-200"
+                      className="w-24 px-2 py-3 text-black font-bold border-2 border-indigo-400 rounded-lg bg-indigo-50 focus:border-indigo-500 focus:ring-0 text-center text-lg shadow-lg bilty-input-focus transition-all duration-200"
                       tabIndex={29}
                     />
                   </div>
@@ -830,7 +830,7 @@ return (
                   </p>
                   <p className="text-red-700">
                     <strong>Or call: </strong>
-                    <a href="tel:7668291228" className="text-blue-600 underline font-bold">
+                    <a href="tel:7668291228" className="text-indigo-600 underline font-bold">
                       7668291228
                     </a>
                   </p>

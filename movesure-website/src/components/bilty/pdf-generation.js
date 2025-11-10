@@ -1067,13 +1067,13 @@ const PDFGenerator = ({
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-50 to-blue-50 z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-12 text-center border border-purple-200">
-          <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="fixed inset-0 bg-slate-50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-12 text-center border border-slate-200">
+          <div className="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <RefreshCw className="animate-spin h-8 w-8 text-white" />
           </div>
           <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
-          <div className="w-16 h-0.5 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full mb-4"></div>
+          <div className="w-16 h-0.5 bg-indigo-500 mx-auto rounded-full mb-4"></div>
           <p className="text-lg font-semibold text-black mb-2">Loading Bill Details...</p>
           <p className="text-sm text-gray-600">Please wait while we prepare your document</p>
         </div>
@@ -1108,7 +1108,7 @@ const PDFGenerator = ({
               {/* Movesure Print Title */}
               <div className="text-center">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Movesure Print</h1>
-                <p className="text-sm text-blue-600 font-medium">Professional Bilty Document</p>
+                <p className="text-sm text-indigo-600 font-medium">Professional Bilty Document</p>
               </div>
             </div>
           </div>
@@ -1273,7 +1273,7 @@ const PDFGenerator = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full m-4 flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
         {/* Desktop Header */}
-        <div className="flex items-center justify-between p-4 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-indigo-600 text-white rounded-t-xl">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-lg">
               <FileText className="w-5 h-5" />
@@ -1327,7 +1327,7 @@ const PDFGenerator = ({
           <div className="w-1/4 p-4 bg-white border-r border-gray-200 overflow-y-auto">
             <div className="space-y-4">
               {/* Quick Document Info */}
-              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-3 border border-purple-200">
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                 <div className="text-center mb-3">
                   <div className="text-sm font-bold text-purple-600">GR: {biltyData.gr_no}</div>
                   <div className="text-xs text-gray-600">{new Date(biltyData.bilty_date).toLocaleDateString('en-GB')}</div>
@@ -1354,7 +1354,7 @@ const PDFGenerator = ({
                 <button
                   onClick={() => loadAllDataAndGeneratePreview()}
                   disabled={isGenerating}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-500 text-white px-3 py-3 rounded-lg hover:from-purple-700 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-semibold"
+                  className="w-full bg-indigo-500 text-white px-3 py-3 rounded-lg hover:from-purple-700 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-semibold"
                 >
                   <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
                   {isGenerating ? 'Generating...' : 'Generate PDF'}
@@ -1424,7 +1424,7 @@ const PDFGenerator = ({
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center p-8">
-                    <div className="bg-gradient-to-r from-purple-600 to-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="bg-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                       <FileText className="w-8 h-8 text-white" />
                     </div>
                     <div className="text-lg font-bold text-gray-800 mb-2">PDF Preview</div>
@@ -1443,7 +1443,7 @@ const PDFGenerator = ({
                     {!isGenerating && !pdfUrl && (
                       <button
                         onClick={() => loadAllDataAndGeneratePreview()}
-                        className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-600 transition-all font-semibold flex items-center gap-2 mx-auto"
+                        className="bg-indigo-500 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-600 transition-all font-semibold flex items-center gap-2 mx-auto"
                       >
                         <RefreshCw className="w-4 h-4" />
                         Generate PDF

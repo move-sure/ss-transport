@@ -30,7 +30,7 @@ const PrintBilty = ({
         <div className="flex gap-2">
           <button
             onClick={handlePrint}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
           >
             Print
           </button>

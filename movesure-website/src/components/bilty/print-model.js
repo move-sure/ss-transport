@@ -213,12 +213,12 @@ const PrintModal = ({
         {/* Header with movesure.io branding */}
         <div className="text-center mb-6">
           <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
-          <div className="w-16 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full"></div>
+          <div className="w-16 h-1 bg-indigo-500 mx-auto rounded-full"></div>
         </div>
 
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-semibold flex items-center gap-3 text-black">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
             Bilty Saved Successfully!
@@ -232,9 +232,9 @@ const PrintModal = ({
         </div>
 
         <div className="mb-8">
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 mb-6 border border-purple-200">
+          <div className="bg-slate-50 rounded-xl p-6 mb-6 border border-slate-200">
             <div className="text-lg font-bold text-black mb-3 text-center">
-              GR Number: <span className="text-purple-600">{biltyData?.gr_no}</span>
+              GR Number: <span className="text-indigo-600">{biltyData?.gr_no}</span>
             </div>
             <div className="text-sm text-gray-700 space-y-2">
               <div className="flex justify-between">
@@ -251,7 +251,7 @@ const PrintModal = ({
               </div>
               <div className="flex justify-between border-t pt-2 mt-3">
                 <span className="font-bold">Total Amount:</span> 
-                <span className="font-bold text-purple-600 text-lg">₹{biltyData?.total}</span>
+                <span className="font-bold text-indigo-600 text-lg">₹{biltyData?.total}</span>
               </div>
             </div>
           </div>
@@ -265,7 +265,7 @@ const PrintModal = ({
             {/* Print Only Button */}
             <button
               onClick={handlePrint}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-500 text-white px-6 py-4 rounded-xl hover:from-purple-700 hover:to-blue-600 focus:outline-none focus:ring-4 focus:ring-purple-300 flex items-center justify-center gap-3 shadow-lg transition-all transform hover:scale-[1.02] font-semibold"
+              className="w-full bg-indigo-500 text-white px-6 py-4 rounded-xl hover:bg-indigo-600 focus:outline-none focus:ring-4 focus:ring-indigo-300 flex items-center justify-center gap-3 shadow-lg transition-all transform hover:scale-[1.02] font-semibold"
             >
               <Printer className="w-6 h-6" />
               <div>
@@ -312,7 +312,7 @@ const PrintModal = ({
             {/* Save Only Button */}
             <button
               onClick={onSaveOnly}
-              className="w-full bg-white border-2 border-purple-600 text-purple-600 px-6 py-4 rounded-xl hover:bg-purple-50 focus:outline-none focus:ring-4 focus:ring-purple-300 flex items-center justify-center gap-3 shadow-md transition-all transform hover:scale-[1.02] font-semibold"
+              className="w-full bg-white border border-indigo-600 text-indigo-600 px-6 py-4 rounded-xl hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 flex items-center justify-center gap-3 shadow-md transition-all transform hover:scale-[1.02] font-semibold"
             >
               <Save className="w-6 h-6" />
               <div>

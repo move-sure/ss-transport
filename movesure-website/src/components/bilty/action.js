@@ -10,7 +10,7 @@ const ActionButtonsSection = ({
   showShortcuts = false
 }) => {
   return (
-    <div className="flex justify-between items-center mt-6 p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl border-2 border-purple-200 shadow-lg">
+    <div className="flex justify-between items-center mt-6 p-6 bg-white/95 rounded-2xl border border-slate-200 shadow-sm">
       {/* Left side - Draft button */}
       <div className="flex gap-4">        <button
           type="button"

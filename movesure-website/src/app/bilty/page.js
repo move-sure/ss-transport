@@ -1010,15 +1010,15 @@ export default function BiltyForm() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Navbar />
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <div className="w-16 h-16 bg-gradient-to-r from-indigo-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
               <FileText className="w-8 h-8 text-black" />
             </div>
             <div className="text-2xl font-bold text-black mb-2">movesure.io</div>
-            <div className="w-20 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full mb-4"></div>
+            <div className="w-20 h-1 bg-gradient-to-r from-indigo-600 to-blue-500 mx-auto rounded-full mb-4"></div>
             <div className="text-lg font-semibold text-black">Loading Bilty Form...</div>
             <div className="text-sm text-gray-600 mt-2">Preparing your workspace...</div>
           </div>
@@ -1028,12 +1028,12 @@ export default function BiltyForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
       <div className="w-full px-6 py-6">
         {/* Bill Book Header - hidden per request */}
         {false && (
-          <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl shadow-2xl p-6 mb-6 border border-purple-200">
+          <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-xl p-6 mb-6 border border-indigo-200">
             <div className="flex justify-between items-center">
               {/* Bill Book Selector */}
               <div className="relative">
@@ -1044,7 +1044,7 @@ export default function BiltyForm() {
                   </span>
                   <button
                     onClick={() => setShowBillBookDropdown(!showBillBookDropdown)}
-                    className="bg-white text-purple-600 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors border-2 border-purple-300 flex items-center gap-2 shadow-lg"
+                    className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-semibold hover:bg-slate-50 transition-colors border border-indigo-200 flex items-center gap-2 shadow-sm"
                   >
                     <span>
                       {selectedBillBook ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''}` : 'Select Bill Book'}
@@ -1054,12 +1054,12 @@ export default function BiltyForm() {
                 </div>
                 
                 {showBillBookDropdown && (
-                  <div className="absolute z-30 left-0 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                  <div className="absolute z-30 left-0 mt-2 w-80 bg-white border border-indigo-100 rounded-xl shadow-xl max-h-64 overflow-y-auto">
                     {billBooks.map((book) => (
                       <button
                         key={book.id}
                         onClick={() => handleBillBookSelect(book)}
-                        className="w-full px-4 py-3 text-left hover:bg-purple-50 border-b border-purple-100 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-b-0"
+                        className="w-full px-4 py-3 text-left hover:bg-indigo-50 border-b border-indigo-100 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-b-0"
                       >
                         <div className="text-sm font-bold text-black">
                           {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
@@ -1094,15 +1094,15 @@ export default function BiltyForm() {
 
         {/* Keyboard Shortcuts (visible even when header hidden) */}
         {showShortcuts && (
-          <div className="mb-6 rounded-xl border border-purple-200 bg-white/60 p-4 shadow-sm">
-            <div className="text-sm text-purple-700 text-center font-medium">
-              <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
+          <div className="mb-6 rounded-xl border border-indigo-100 bg-white/70 p-4 shadow-sm">
+            <div className="text-sm text-indigo-600 text-center font-medium">
+              <span className="font-semibold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
             </div>
           </div>
         )}
 
         {/* Form Sections - Full Width */}
-        <div className="bg-white rounded-2xl shadow-2xl border border-purple-200 p-8 space-y-8">
+  <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 space-y-8">
           {/* Row 1: GR Number Management */}
           <GRNumberSection 
             formData={formData}

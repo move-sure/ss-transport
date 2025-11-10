@@ -326,7 +326,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               value={localInputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              className="ewb-input flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="ewb-input flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
               placeholder="🚛 Type E-way bill (e.g., 4521-1235-5451) - Press comma/+ or click + to add"
               tabIndex={16}
               maxLength={14}
@@ -336,7 +336,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             {localInputValue.trim() && localInputValue.replace(/\D/g, '').length === 12 && (
               <button
                 onClick={handleAddClick}
-                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md text-sm font-semibold"
+                className="px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md text-sm font-semibold"
                 title="Add E-way bill"
                 type="button"
               >
@@ -352,11 +352,11 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         {/* EWB List */}
         {ewbList.length > 0 && (
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-purple-700 mb-2">
+            <div className="text-xs font-semibold text-indigo-700 mb-2">
               E-way Bills ({ewbList.length})
             </div>
             {ewbList.map((ewb) => (
-              <div key={ewb.id} className="bg-white border-2 border-purple-200 rounded-lg p-3 shadow-sm">
+              <div key={ewb.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 flex-1">
                     {/* EWB Number */}
@@ -396,12 +396,12 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   };
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-xl border-2 border-purple-200 shadow-lg">
+    <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Row 1 - Main Options */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+            <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
               DELIVERY
             </span>
             <select
@@ -420,7 +420,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                   }
                 }, 100);
               }}
-              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
               tabIndex={11}
             >
               <option value="godown-delivery">Godown</option>
@@ -441,14 +441,14 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
 
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+            <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
               PAYMENT
             </span>
             <select
               ref={paymentModeRef}
               value={formData.payment_mode}
               onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
               tabIndex={12}
             >
               <option value="to-pay">To Pay</option>
@@ -470,7 +470,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
 
         {/* Simple Content Field */}
         <div className="flex items-center gap-3 lg:col-span-1">
-          <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
             CONTENT
           </span>
           <input
@@ -479,7 +479,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             value={formData.contain || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, contain: e.target.value.toUpperCase() }))}
             placeholder="📦 Goods description..."
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 text-sm lg:text-base"
+            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
             tabIndex={13}
             style={{ textTransform: 'uppercase' }}
           />
@@ -487,7 +487,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
 
         {/* Row 2 - Invoice Details */}
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
             INV NO
           </span>
           <input
@@ -495,14 +495,14 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={invoiceNoRef}
             value={formData.invoice_no || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value.toUpperCase() }))}
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 text-sm lg:text-base"
+            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
             placeholder="📄 Invoice number"
             tabIndex={14}
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
             INV VAL
           </span>
           <input
@@ -511,15 +511,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             value={formData.invoice_value || 0}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
             onFocus={(e) => e.target.select()}
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 number-input-focus transition-all duration-200 text-sm lg:text-base"
+            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200 text-sm lg:text-base"
             placeholder="💰 Invoice value"
             tabIndex={15}
           />
         </div>        {/* Enhanced E-WAY Bill with multiple entries */}
         <div className="lg:col-span-3">
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-4 shadow-inner">
+          <div className="bg-slate-50/50 border border-slate-200 rounded-lg p-4 shadow-inner">
             <div className="flex items-start gap-3">
-              <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+              <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
                 E-WAY
               </span>
               <div className="flex-1">
@@ -529,7 +529,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           </div>
         </div>{/* Row 3 - Invoice Date */}
         <div className="flex items-center gap-3 lg:col-span-1 lg:col-start-2">
-          <span className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-3 lg:px-4 py-2 text-xs lg:text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
             INV DATE
           </span>
           <div className="flex items-center gap-2 flex-1">
@@ -647,7 +647,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 "📅 Invoice date"
               }
               maxLength={10}
-              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 text-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
               tabIndex={17}
             />
             
@@ -672,7 +672,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               />
               <button
                 type="button"
-                className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-md border-2 border-purple-300 hover:border-purple-400"
+                className="flex items-center justify-center w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md border border-slate-300 hover:border-indigo-300 focus:border-indigo-400 focus:ring-0"
                 title="Open calendar picker"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -284,13 +284,13 @@ const CityTransportSection = ({
   }, []);
 
   return (
-    <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-md">
+    <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
       {/* Main City Section */}
       <div className="grid grid-cols-12 gap-4 items-center">
         {/* To City - Takes full width */}
         <div className="col-span-12">
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
+            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg min-w-24 text-center shadow-sm">
               TO CITY
             </span>
             <div className="relative flex-1" ref={cityRef}>              <input
@@ -301,14 +301,14 @@ const CityTransportSection = ({
                 onFocus={() => setShowCityDropdown(true)}
                 onKeyDown={handleKeyDown}
                 placeholder="🔍 Search city... (Start typing city name or code)"
-                className="w-full px-4 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm city-input-focus focus-pulse transition-all duration-200 hover:border-blue-400 dropdown-input"
+                className="w-full px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                 tabIndex={1}
                 aria-expanded={showCityDropdown}
                 role="combobox"
               />
                 {showCityDropdown && (
-                <div className="absolute z-30 mt-2 w-96 bg-white border-2 border-blue-200 rounded-lg shadow-xl max-h-64 overflow-y-auto dropdown-open">
-                  <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold">
+                <div className="absolute z-30 mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
                     CITY WISE AUTO FILL DETAILS HERE
                   </div>
                   {filteredCities.length > 0 ? (
@@ -316,12 +316,12 @@ const CityTransportSection = ({
                       <button
                         key={city.id}
                         onClick={() => handleCitySelect(city)}
-                        className={`w-full px-4 py-3 text-left hover:bg-blue-50 text-sm transition-colors ${
-                          index === selectedIndex ? 'bg-blue-100' : ''
+                        className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-xs border-b border-slate-100 transition-colors ${
+                          index === selectedIndex ? 'bg-indigo-100' : ''
                         }`}
                       >
-                        <div className="font-bold text-gray-800">{city.city_name}</div>
-                        <div className="text-xs text-gray-600">Code: {city.city_code}</div>
+                        <div className="font-semibold text-slate-800">{city.city_name}</div>
+                        <div className="text-xs text-slate-600">Code: {city.city_code}</div>
                       </button>
                     ))
                   ) : (
@@ -337,17 +337,18 @@ const CityTransportSection = ({
       </div>
 
       {/* Transport Details - Always Visible */}
-      <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
-        <h4 className="text-sm font-bold text-gray-800 mb-3 bg-blue-100 px-3 py-2 rounded text-center">
+      <div className="mt-4 p-4 bg-slate-50/50 rounded-lg border border-slate-200 shadow-sm">
+        <h4 className="text-xs font-semibold text-slate-700 mb-3 bg-indigo-50 px-3 py-2 rounded text-center border border-indigo-100">
           TRANSPORT DETAILS (Auto-filled from city selection)
         </h4>
         <div className="grid grid-cols-12 gap-4 items-center">
           {/* Transport Name */}
           <div className="col-span-6">
             <div className="flex items-center gap-3">
-              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg min-w-24 text-center shadow-md">
+              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg min-w-24 text-center shadow-sm">
                 TRANSPORT
-              </span>              <input
+              </span>
+              <input
                 type="text"
                 ref={transportNameRef}
                 value={formData.transport_name}
@@ -358,7 +359,7 @@ const CityTransportSection = ({
                     handleEnter(e, 2);
                   }
                 }}
-                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
+                className="flex-1 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                 placeholder="Transport name"
                 tabIndex={2}
               />
@@ -368,9 +369,10 @@ const CityTransportSection = ({
           {/* Transport GST */}
           <div className="col-span-3">
             <div className="flex items-center gap-2">
-              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
+              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-sm">
                 GST
-              </span>              <input
+              </span>
+              <input
                 type="text"
                 ref={transportGstRef}
                 value={formData.transport_gst}
@@ -381,7 +383,7 @@ const CityTransportSection = ({
                     handleEnter(e, 3);
                   }
                 }}
-                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
+                className="flex-1 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                 placeholder="GST number"
                 tabIndex={3}
               />
@@ -391,9 +393,10 @@ const CityTransportSection = ({
           {/* Transport Phone */}
           <div className="col-span-3">
             <div className="flex items-center gap-2">
-              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-md">
+              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-sm">
                 PHONE
-              </span>              <input
+              </span>
+              <input
                 type="text"
                 ref={transportNumberRef}
                 value={formData.transport_number}
@@ -404,7 +407,7 @@ const CityTransportSection = ({
                     handleEnter(e, 4);
                   }
                 }}
-                className="flex-1 px-3 py-2 text-gray-800 font-semibold border-2 border-blue-300 rounded-lg bg-white shadow-sm text-input-focus transition-all duration-200 hover:border-blue-400"
+                className="flex-1 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                 placeholder="Phone number"
                 tabIndex={4}
               />

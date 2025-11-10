@@ -689,12 +689,12 @@ const ConsignorConsigneeSection = ({
     }
   };
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl border-2 border-purple-200 shadow-lg">
+    <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
       {/* Consignor Section */}
       <div className="space-y-4">
         {/* Consignor Name */}
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
+          <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap min-w-28 text-center shadow-sm">
             CONSIGNOR
           </span>
           <div className="relative flex-1" ref={consignorRef}>
@@ -733,7 +733,7 @@ const ConsignorConsigneeSection = ({
                   }, 150); // Small delay to allow dropdown clicks
                 }}                onKeyDown={handleConsignorKeyDown}
                 placeholder="👤 Start typing consignor name..."
-                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input uppercase"
+                className="w-full px-3 py-2.5 pr-10 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 uppercase"
                 tabIndex={5}
                 aria-expanded={showConsignorDropdown ? 'true' : 'false'}
                 role="combobox"
@@ -741,14 +741,15 @@ const ConsignorConsigneeSection = ({
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
               )}
               {!isSearching && consignorSearch && (
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500" />
               )}
-            </div>                {showConsignorDropdown && (
-                <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dropdown-open autocomplete-open">
+            </div>
+            {showConsignorDropdown && (
+                <div className="absolute z-30 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {/* Add New Consignor Button - Always at top */}
                   <button
                     onClick={() => {
@@ -756,9 +757,9 @@ const ConsignorConsigneeSection = ({
                       setShowAddConsignor(true);
                       setShowConsignorDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left hover:bg-green-50 text-xs transition-colors border-b-2 border-green-200 bg-green-25"
+                    className="w-full px-3 py-2 text-left hover:bg-emerald-50 text-xs transition-colors border-b border-slate-100 bg-white"
                   >
-                    <div className="flex items-center gap-2 font-bold text-green-700">
+                    <div className="flex items-center gap-2 font-semibold text-emerald-600">
                       <Plus className="w-4 h-4" />
                       <span className="text-xs">Add {consignorSearch} as New Consignor</span>
                     </div>
@@ -766,7 +767,7 @@ const ConsignorConsigneeSection = ({
                   
                   {/* Search Results Header */}
                   {searchResults.consignors && searchResults.consignors.length > 0 && (
-                    <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold">
+                    <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
                       EXISTING CONSIGNORS ({searchResults.consignors.filter(c => 
                         c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase())
                       ).length})
@@ -784,8 +785,8 @@ const ConsignorConsigneeSection = ({
                         key={consignor.id}
                         data-index={index}
                         onClick={() => handleConsignorSelect(consignor)}
-                        className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
-                          index === consignorSelectedIndex ? 'bg-purple-100' : ''
+                        className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-sm transition-colors border-b border-slate-100 ${
+                          index === consignorSelectedIndex ? 'bg-indigo-50' : ''
                         }`}
                       >
                         <div className="font-medium text-black">{consignor.company_name}</div>
@@ -812,7 +813,7 @@ const ConsignorConsigneeSection = ({
         {/* Consignor GST and Phone */}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
               GST NO
             </span>              <input
                 type="text"
@@ -825,13 +826,13 @@ const ConsignorConsigneeSection = ({
                     handleEnter(e, 6);
                   }
                 }}
-                className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+                className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                 placeholder="📄 Consignor GST (auto-saves)"
                 tabIndex={6}
               />
           </div>
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
               PHONE
             </span>            <input
               type="text"
@@ -844,7 +845,7 @@ const ConsignorConsigneeSection = ({
                   handleEnter(e, 7);
                 }
               }}
-              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
               placeholder="📞 Consignor Phone (auto-saves)"
               tabIndex={7}
             />
@@ -856,7 +857,7 @@ const ConsignorConsigneeSection = ({
       <div className="mt-8 space-y-4">
         {/* Consignee Name */}
         <div className="flex items-center gap-3">
-          <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap min-w-28 text-center shadow-lg">
+          <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap min-w-28 text-center shadow-lg">
             CONSIGNEE
           </span>
           <div className="relative flex-1" ref={consigneeRef}>
@@ -883,7 +884,7 @@ const ConsignorConsigneeSection = ({
                     setConsigneeSelectedIndex(-1);
                   }, 150); // Small delay to allow dropdown clicks
                 }}onKeyDown={handleConsigneeKeyDown}                placeholder="🏢 Start typing consignee name..."
-                className="w-full px-4 py-3 pr-10 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400 dropdown-input uppercase"
+                className="w-full px-4 py-3 pr-10 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 dropdown-input uppercase"
                 tabIndex={8}
                 aria-expanded={showConsigneeDropdown}
                 role="combobox"
@@ -891,15 +892,15 @@ const ConsignorConsigneeSection = ({
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
               )}
               {!isSearching && consigneeSearch && (
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-600" />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-600" />
               )}
             </div>
               {showConsigneeDropdown && (
-              <div className="absolute z-30 mt-2 w-80 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dropdown-open autocomplete-open">
+              <div className="absolute z-30 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto dropdown-open autocomplete-open">
                 {/* Add New Consignee Button - Always at top */}
                 <button
                   onClick={() => {
@@ -917,7 +918,7 @@ const ConsignorConsigneeSection = ({
                 
                 {/* Search Results Header */}
                 {searchResults.consignees && searchResults.consignees.length > 0 && (
-                  <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold">
+                  <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
                     EXISTING CONSIGNEES ({searchResults.consignees.filter(c => 
                       c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase())
                     ).length})
@@ -935,8 +936,8 @@ const ConsignorConsigneeSection = ({
                       key={consignee.id}
                       data-index={index}
                       onClick={() => handleConsigneeSelect(consignee)}
-                      className={`w-full px-4 py-3 text-left hover:bg-purple-50 text-sm transition-colors border-b border-purple-100 ${
-                        index === consigneeSelectedIndex ? 'bg-purple-100' : ''
+                      className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-sm transition-colors border-b border-slate-100 ${
+                        index === consigneeSelectedIndex ? 'bg-indigo-50' : ''
                       }`}
                     >
                       <div className="font-medium text-black">{consignee.company_name}</div>
@@ -963,7 +964,7 @@ const ConsignorConsigneeSection = ({
         {/* Consignee GST and Phone */}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
               GST NO
             </span>            <input
               type="text"
@@ -976,13 +977,13 @@ const ConsignorConsigneeSection = ({
                   handleEnter(e, 9);
                 }
               }}
-              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
               placeholder="📄 Consignee GST (auto-saves)"
               tabIndex={9}
             />
           </div>
           <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap text-center shadow-lg">
+            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
               PHONE
             </span>            <input
               type="text"
@@ -995,7 +996,7 @@ const ConsignorConsigneeSection = ({
                   handleEnter(e, 10);
                 }
               }}
-              className="flex-1 px-4 py-3 text-sm text-black font-semibold border-2 border-purple-300 rounded-xl bg-white shadow-md placeholder-gray-500 text-input-focus transition-all duration-200 hover:border-purple-400"
+              className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
               placeholder="📞 Consignee Phone (auto-saves)"
               tabIndex={10}
             />

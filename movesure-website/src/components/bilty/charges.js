@@ -466,11 +466,11 @@ return (
         >
           {/* Package Details - Left Side (7 columns) */}
           <div className="col-span-7">
-            <div className="bg-slate-50/50 rounded-lg p-2.5 border border-slate-200 shadow-sm">
-              <div className="grid grid-cols-2 gap-2">
-                {/* Private Marks - First */}
-                <div className="flex items-center gap-2">
-                  <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px]">
+            <div className="bg-white rounded-lg border border-slate-300 p-2.5 shadow-lg h-full">
+              <div className="space-y-1.5">
+                {/* Private Marks */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
                     PVT MARKS
                   </span>
                   <input
@@ -478,153 +478,165 @@ return (
                     value={formData.pvt_marks || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, pvt_marks: e.target.value.toUpperCase() }))}
                     ref={(el) => setInputRef(18, el)}
-                    className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all text-input-focus"
+                    className="w-32 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all text-input-focus"
                     placeholder="Private marks"
                     tabIndex={18}
                     style={{ textTransform: 'uppercase' }}
                   />
                 </div>
 
-                {/* Weight - Second */}
-                <div className="flex items-center gap-2">
-                  <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px]">
+                {/* Weight */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
                     WEIGHT
                   </span>
                   <input
-                    type="number"
-                    step="0.001"
-                    value={formData.wt || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, wt: parseFloat(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.wt || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, wt: value ? parseFloat(value) : 0 }));
+                    }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(19, el)}
-                    className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                    className="w-32 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                     placeholder="0"
                     tabIndex={19}
                   />
                 </div>
 
-                {/* Packages & Rate - Combined Row */}
-                <div className="flex flex-col gap-1 col-span-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px]">
-                      PACKAGES
-                    </span>
-                    <input
-                      type="number"
-                      value={formData.no_of_pkg || 0}
-                      onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
-                      onFocus={(e) => e.target.select()}
-                      ref={(el) => setInputRef(20, el)}
-                      className="w-24 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
-                      placeholder="0"
-                      tabIndex={20}
-                    />
-                    
-                    <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px] ml-2">
-                      RATE
-                    </span>
-                    <div className="relative flex-1">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.rate || ''}
-                        onChange={handleRateChange}
-                        onFocus={(e) => e.target.select()}
-                        ref={(el) => setInputRef(21, el)}
-                        className="w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-8"
-                        placeholder="₹ Rate per kg"
-                        tabIndex={21}
-                      />
-                      {isSavingRate && (
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Historical Rate Info - Below the inputs */}
-                  {formData.consignor_name && formData.to_city_id && (
-                    <div className="ml-[120px]">
-                      <HistoricalRateInfo
-                        consignorName={formData.consignor_name}
-                        consigneeName={formData.consignee_name}
-                        toCityId={formData.to_city_id}
-                        branchId={formData.branch_id}
-                        currentRate={formData.rate}
-                        onApplyRate={handleApplyHistoricalRate}
-                      />
-                    </div>
-                  )}
+                {/* Packages */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
+                    PACKAGES
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.no_of_pkg || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      setFormData(prev => ({ ...prev, no_of_pkg: value ? parseInt(value) : 0 }));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    ref={(el) => setInputRef(20, el)}
+                    className="w-32 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                    placeholder="0"
+                    tabIndex={20}
+                  />
                 </div>
 
-                {/* Labour Rate - Fifth */}
-                <div className="flex flex-col gap-1 col-span-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[95px]">
-                      LABOUR RATE
-                    </span>
+                {/* Rate */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
+                    RATE
+                  </span>
+                  <div className="relative w-32">
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.rate || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        const newRate = value ? parseFloat(value) : 0;
+                        setFormData(prev => ({ ...prev, rate: newRate }));
+                        
+                        // Debounce the save operation
+                        if (window.rateSaveTimeout) {
+                          clearTimeout(window.rateSaveTimeout);
+                        }
+                        if (formData.to_city_id && formData.branch_id && newRate > 0) {
+                          window.rateSaveTimeout = setTimeout(async () => {
+                            await saveRateAutomatically(newRate);
+                          }, 1000);
+                        }
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      ref={(el) => setInputRef(21, el)}
+                      className="w-full px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-7"
+                      placeholder="0"
+                      tabIndex={21}
+                    />
+                    {isSavingRate && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Labour Rate */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
+                    LABOUR RATE
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      inputMode="decimal"
                       value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : ''}
                       onChange={(e) => {
-                        const inputValue = e.target.value;
-                        // Handle empty string, 0, and valid numbers properly
-                        let value;
-                        if (inputValue === '') {
-                          value = 0; // Empty input should be 0
-                        } else {
-                          value = parseFloat(inputValue);
-                          // If parseFloat returns NaN, default to 0
-                          if (isNaN(value)) {
-                            value = 0;
-                          }
-                        }
-                        setFormData(prev => ({ ...prev, labour_rate: value }));
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        setFormData(prev => ({ ...prev, labour_rate: value ? parseFloat(value) : 0 }));
                       }}
                       onFocus={(e) => e.target.select()}
                       ref={(el) => setInputRef(22, el)}
-                      className="w-24 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                      className="w-24 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                       placeholder="20"
                       tabIndex={22}
                     />
-                    <span className="text-xs text-gray-600 font-medium">₹/pkg</span>
-                    <span className="text-xs text-gray-500 ml-auto">
-                      Total: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
-                    </span>
+                    <span className="text-xs text-gray-600 font-medium whitespace-nowrap">₹/pkg</span>
                   </div>
-                  {/* Smart Labour Rate Status - Shows if using old rate or default */}
-                  {!isEditMode && formData.consignor_name && (
-                    <div className="mr-[400px]">
-                      {loadingLabourRate ? (
-                        <div className="flex items-center gap-2 px-2 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 text-xs font-medium animate-pulse">
-                          <svg className="w-2 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>🤖 MoveSure AI fetching old labour rate...</span>
-                        </div>
-                      ) : oldLabourRate && oldLabourRate.rate ? (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-lg border border-slate-300 text-xs font-semibold shadow-sm">
-                          <svg className="w-2 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>🤖 MoveSure AI Auto-Applied: ₹{oldLabourRate.rate} (from {new Date(oldLabourRate.date).toLocaleDateString('en-IN')})</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded-lg border border-gray-300 text-xs font-medium">
-                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>💼 Using Default Rate (₹20) - No previous rate found</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
+                
+                {/* Labour Rate Total */}
+                <div className="text-right text-xs text-gray-500 -mt-1">
+                  Total: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
+                </div>
+                
+                {/* Historical Rate Info - Below all inputs */}
+                {formData.consignor_name && formData.to_city_id && (
+                  <div className="pt-1">
+                    <HistoricalRateInfo
+                      consignorName={formData.consignor_name}
+                      consigneeName={formData.consignee_name}
+                      toCityId={formData.to_city_id}
+                      branchId={formData.branch_id}
+                      currentRate={formData.rate}
+                      onApplyRate={handleApplyHistoricalRate}
+                    />
+                  </div>
+                )}
+                
+                {/* Old Labour Rate Info - Below all inputs */}
+                {!isEditMode && formData.consignor_name && (
+                  <div>
+                    {loadingLabourRate ? (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded border border-indigo-200 text-[10px] font-medium animate-pulse">
+                        <svg className="w-2 h-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>🤖 Fetching...</span>
+                      </div>
+                    ) : oldLabourRate && oldLabourRate.rate ? (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded border border-slate-300 text-[10px] font-semibold">
+                        <svg className="w-2 h-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>🤖 Auto: ₹{oldLabourRate.rate} ({new Date(oldLabourRate.date).toLocaleDateString('en-IN')})</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded border border-gray-300 text-[10px] font-medium">
+                        <svg className="w-2 h-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>💼 Default: ₹20</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -633,18 +645,23 @@ return (
           <div className="col-span-5">
             <div className="bg-white rounded-lg border border-slate-300 p-2.5 shadow-lg h-full">
               <div className="space-y-1.5">
-                {/* Line 640 omitted */}
+                {/* Freight */}
                 <div className="flex items-center justify-between gap-2">
                   <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     FREIGHT
                   </span>
                   <input
-                    type="number"
-                    value={formData.freight_amount || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, freight_amount: parseFloat(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.freight_amount || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, freight_amount: value ? parseFloat(value) : 0 }));
+                    }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(23, el)}
                     className="w-20 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    placeholder="0"
                     tabIndex={23}
                   />
                 </div>
@@ -656,20 +673,19 @@ return (
                   </span>
                   <div className="flex flex-col items-end">
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.labour_charge || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.labour_charge || ''}
                       onChange={(e) => {
                         // Allow manual override of labour charge
-                        const value = parseFloat(e.target.value) || 0;
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
                         
                         // Clear the auto-calculation timeout to prevent override
                         if (labourChargeTimeoutRef.current) {
                           clearTimeout(labourChargeTimeoutRef.current);
                         }
                         
-                        setFormData(prev => ({ ...prev, labour_charge: value }));
+                        setFormData(prev => ({ ...prev, labour_charge: value ? parseFloat(value) : 0 }));
                       }}
                       onFocus={(e) => e.target.select()}
                       onBlur={() => {
@@ -679,12 +695,13 @@ return (
                         const calculatedLabourCharge = packages * labourRate;
                         
                         // If the user cleared the field, use auto-calculation
-                        if (formData.labour_charge === undefined || formData.labour_charge === null || formData.labour_charge === '') {
+                        if (!formData.labour_charge) {
                           setFormData(prev => ({ ...prev, labour_charge: calculatedLabourCharge }));
                         }
                       }}
                       ref={(el) => setInputRef(24, el)}
                       className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                      placeholder="0"
                       tabIndex={24}
                       title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
                     />
@@ -700,12 +717,17 @@ return (
                     BILL CHR
                   </span>
                   <input
-                    type="number"
-                    value={formData.bill_charge || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, bill_charge: parseFloat(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.bill_charge || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, bill_charge: value ? parseFloat(value) : 0 }));
+                    }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(25, el)}
                     className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    placeholder="0"
                     tabIndex={25}
                   />
                 </div>
@@ -716,13 +738,12 @@ return (
                     TOLL
                   </span>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     value={formData.toll_charge !== undefined && formData.toll_charge !== null ? formData.toll_charge : ''}
                     onChange={(e) => {
-                      const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                      setFormData(prev => ({ ...prev, toll_charge: value }));
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, toll_charge: value ? parseFloat(value) : 0 }));
                     }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(26, el)}
@@ -738,12 +759,17 @@ return (
                     PF CHR
                   </span>
                   <input
-                    type="number"
-                    value={formData.pf_charge || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, pf_charge: parseFloat(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.pf_charge || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, pf_charge: value ? parseFloat(value) : 0 }));
+                    }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(27, el)}
                     className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    placeholder="0"
                     tabIndex={27}
                   />
                 </div>
@@ -754,12 +780,17 @@ return (
                     OTHER
                   </span>
                   <input
-                    type="number"
-                    value={formData.other_charge || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.other_charge || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, other_charge: value ? parseFloat(value) : 0 }));
+                    }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(28, el)}
                     className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    placeholder="0"
                     tabIndex={28}
                   />
                 </div>

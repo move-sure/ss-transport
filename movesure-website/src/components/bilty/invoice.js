@@ -465,7 +465,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
           />
         </div>
 
-        {/* Row 2 - Invoice Details */}
+        {/* Row 2 - Invoice Details with Date */}
         <div className="flex items-center gap-2">
           <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             INV NO
@@ -486,35 +486,26 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             INV VAL
           </span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             ref={invoiceValueRef}
-            value={formData.invoice_value || 0}
-            onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
+            value={formData.invoice_value || ''}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9.]/g, '');
+              setFormData(prev => ({ ...prev, invoice_value: value ? parseFloat(value) : 0 }));
+            }}
             onFocus={(e) => e.target.select()}
             className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
-            placeholder="💰 Invoice value"
+            placeholder="0"
             tabIndex={15}
           />
         </div>
-        
-        {/* Row 3 - E-WAY Bill and Invoice Date in one row */}
-        <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* E-WAY Bill */}
-          <div className="flex items-start gap-2">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[50px]">
-              EWB
-            </span>
-            <div className="flex-1">
-              <MultipleEwbSection />
-            </div>
-          </div>
-          
-          {/* Invoice Date - Aligned */}
-          <div className="flex items-center gap-2">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[65px]">
-              INV DATE
-            </span>
-            <div className="flex items-center gap-2 flex-1">
+
+        <div className="flex items-center gap-2">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[65px]">
+            INV DATE
+          </span>
+          <div className="flex items-center gap-2 flex-1">
             <input
               type="text"
               ref={invoiceDateRef}
@@ -529,9 +520,9 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                     const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
                     
                     if (year === currentYear && month === currentMonth) {
-                      return parseInt(day).toString(); // Show just day for current month
+                      return parseInt(day).toString();
                     } else {
-                      return `${parseInt(day)}/${parseInt(month)}/${year}`; // Show full date for other months
+                      return `${parseInt(day)}/${parseInt(month)}/${year}`;
                     }
                   }
                   return '';
@@ -547,13 +538,12 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 }
               })()}
               onChange={(e) => {
-                let value = e.target.value.replace(/[^0-9\/]/g, ''); // Only allow numbers and slash
+                let value = e.target.value.replace(/[^0-9\/]/g, '');
                 
                 const currentDate = new Date();
                 const currentYear = currentDate.getFullYear();
                 const currentMonth = currentDate.getMonth() + 1;
                 
-                // If just numbers (1-31), assume current month/year
                 if (/^\d{1,2}$/.test(value)) {
                   const day = parseInt(value);
                   if (day >= 1 && day <= 31) {
@@ -561,7 +551,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
                 }
-                // If DD/MM format, use current year
                 else if (/^\d{1,2}\/\d{1,2}$/.test(value)) {
                   const [day, month] = value.split('/').map(n => parseInt(n));
                   if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
@@ -569,7 +558,6 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
                 }
-                // If DD/MM/YYYY format
                 else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
                   const [day, month, year] = value.split('/').map(n => parseInt(n));
                   if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
@@ -579,54 +567,39 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 }
               }}
               onKeyDown={(e) => {
-                // Handle special keys for quick date entry
                 if (e.key === 'Enter' || e.key === 'Tab') {
                   const value = e.target.value;
                   
-                  // If empty, set today's date
                   if (!value.trim()) {
                     const today = new Date();
                     const formattedDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
-                  // Special shortcuts
                   else if (value === 't' || value === 'today') {
-                    e.preventDefault();
                     const today = new Date();
                     const formattedDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
                   else if (value === 'y' || value === 'yesterday') {
-                    e.preventDefault();
                     const yesterday = new Date();
                     yesterday.setDate(yesterday.getDate() - 1);
                     const formattedDate = `${yesterday.getFullYear()}-${(yesterday.getMonth() + 1).toString().padStart(2, '0')}-${yesterday.getDate().toString().padStart(2, '0')}`;
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
-                  else if (value === 'n' || value === 'next') {
-                    e.preventDefault();
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const formattedDate = `${tomorrow.getFullYear()}-${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}-${tomorrow.getDate().toString().padStart(2, '0')}`;
-                    setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
-                  }
                 }
               }}
               onFocus={(e) => {
-                // Update focus state first to trigger re-render
                 setIsDateFocused(true);
-                // Select all text after a tiny delay to ensure value has updated
                 setTimeout(() => {
                   e.target.select();
                 }, 0);
               }}
               onBlur={() => {
-                // Update focus state to show formatted display
                 setIsDateFocused(false);
               }}
               placeholder={isDateFocused ? 
                 "18, 25/1, 1/1/2026" : 
-                "📅 Invoice date"
+                "📅 Date"
               }
               maxLength={10}
               className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
@@ -640,10 +613,9 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 onChange={(e) => {
                   if (e.target.value) {
                     setFormData(prev => ({ ...prev, invoice_date: e.target.value }));
-                    // Force text input to update display
                     setTimeout(() => {
                       if (invoiceDateRef.current) {
-                        invoiceDateRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                        invoiceDateRef.current.blur();
                       }
                     }, 10);
                   }
@@ -664,6 +636,17 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             </div>
           </div>
         </div>
+        
+        {/* Row 3 - E-WAY Bill (Full Width) */}
+        <div className="lg:col-span-3">
+          <div className="flex items-start gap-2">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[50px]">
+              EWB
+            </span>
+            <div className="flex-1">
+              <MultipleEwbSection />
+            </div>
+          </div>
         </div>
       </div>
     </div>

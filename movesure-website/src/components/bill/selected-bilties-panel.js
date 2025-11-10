@@ -57,6 +57,22 @@ const SelectedBiltiesPanel = memo(({
     }
   };
 
+  const getPaymentModeDisplay = (bilty) => {
+    const paymentMode = bilty.payment_mode || bilty.payment_status || '';
+    const deliveryType = bilty.delivery_type || '';
+    
+    // If door delivery, append "/DD" suffix
+    if (deliveryType && (
+      deliveryType.toLowerCase().includes('door') || 
+      deliveryType.toLowerCase() === 'dd'
+    )) {
+      return `${paymentMode.toUpperCase()}/DD`;
+    }
+    
+    // For godown or any other delivery type, just show payment mode
+    return paymentMode.toUpperCase();
+  };
+
   // Filter bilties based on payment mode and branches
   const getFilteredBilties = () => {
     let filtered = [...selectedBilties];
@@ -437,7 +453,7 @@ const SelectedBiltiesPanel = memo(({
                   {filteredBilties.map((bilty, index) => {
                     const biltyKey = `${bilty.type}-${bilty.id}`;
                     const isDeleted = removedBiltyIds.has(biltyKey);
-                    const paymentLabel = (bilty.payment_mode || bilty.payment_status || 'N/A').toUpperCase();
+                    const paymentLabel = getPaymentModeDisplay(bilty);
 
                     return (
                       <div
@@ -502,9 +518,13 @@ const SelectedBiltiesPanel = memo(({
                                 <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                                   isDeleted
                                     ? 'bg-slate-200 text-slate-500'
-                                    : paymentLabel === 'PAID'
+                                    : paymentLabel.includes('PAID')
                                       ? 'bg-emerald-100 text-emerald-700'
-                                      : 'bg-amber-100 text-amber-700'
+                                      : paymentLabel.includes('TO-PAY')
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : paymentLabel.includes('FOC')
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-slate-100 text-slate-700'
                                 }`}
                                 >
                                   {paymentLabel}

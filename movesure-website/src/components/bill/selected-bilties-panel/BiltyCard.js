@@ -14,6 +14,29 @@ const BiltyCard = ({ bilty, index, isDeleted, onRemove, formatCurrency }) => {
     }
   };
 
+  const getPaymentModeDisplay = (bilty) => {
+    const paymentMode = bilty.payment_mode || bilty.payment_status || '';
+    const deliveryType = bilty.delivery_type || '';
+    
+    console.log('Bilty delivery info:', { 
+      gr_no: bilty.gr_no, 
+      delivery_type: bilty.delivery_type,
+      payment_mode: bilty.payment_mode 
+    });
+    
+    // If door delivery, append "/DD" suffix
+    // Check for various door delivery formats: 'door', 'door-delivery', 'DD'
+    if (deliveryType && (
+      deliveryType.toLowerCase().includes('door') || 
+      deliveryType.toLowerCase() === 'dd'
+    )) {
+      return `${paymentMode.toUpperCase()}/DD`;
+    }
+    
+    // For godown or any other delivery type, just show payment mode
+    return paymentMode.toUpperCase();
+  };
+
   return (
     <div
       className={`relative border rounded-lg p-3 transition-all duration-300 ${
@@ -102,9 +125,13 @@ const BiltyCard = ({ bilty, index, isDeleted, onRemove, formatCurrency }) => {
                   ? 'bg-gray-200 text-gray-500'
                   : (bilty.payment_mode || bilty.payment_status) === 'paid' 
                     ? 'bg-green-100 text-green-700' 
-                    : 'bg-yellow-100 text-yellow-700'
+                    : (bilty.payment_mode || bilty.payment_status) === 'to-pay'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : (bilty.payment_mode || bilty.payment_status) === 'foc'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700'
               }`}>
-                {(bilty.payment_mode || bilty.payment_status || 'N/A').toUpperCase()}
+                {getPaymentModeDisplay(bilty)}
               </span>
               <span className={`text-sm font-bold ${isDeleted ? 'text-gray-500' : 'text-gray-900'}`}>
                 {formatCurrency(bilty.total || bilty.amount)}

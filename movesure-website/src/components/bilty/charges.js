@@ -532,7 +532,7 @@ return (
                   <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
                     LABOUR RATE
                   </span>
-                  <div className="relative w-32">
+                  <div className="flex items-center gap-1 relative w-32">
                     <input
                       type="text"
                       inputMode="decimal"
@@ -547,6 +547,7 @@ return (
                       placeholder="20"
                       tabIndex={21}
                     />
+                    <span className="text-xs text-gray-600 font-medium whitespace-nowrap">₹/pkg</span>
                   </div>
                 </div>
 
@@ -705,7 +706,7 @@ return (
                       title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
                     />
                     <span className="text-[10px] text-gray-500 mt-0.5">
-                      @₹{formData.labour_rate || 0}
+                      @₹{formData.labour_rate || 0}/pkg
                     </span>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Phone } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
 import supabase from '../../app/utils/supabase';
 
@@ -284,29 +284,30 @@ const CityTransportSection = ({
   }, []);
 
   return (
-    <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
-      {/* Main City Section */}
-      <div className="grid grid-cols-12 gap-4 items-center">
-        {/* To City - Takes full width */}
-        <div className="col-span-12">
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg min-w-24 text-center shadow-sm">
+    <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm">
+      {/* Single Row Layout - City and Transport Details */}
+      <div className="grid grid-cols-12 gap-3 items-center">
+        {/* To City */}
+        <div className="col-span-3">
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[65px] text-center shadow-sm">
               TO CITY
             </span>
-            <div className="relative flex-1" ref={cityRef}>              <input
+            <div className="relative flex-1" ref={cityRef}>
+              <input
                 type="text"
                 ref={cityInputRef}
                 value={citySearch}
                 onChange={handleInputChange}
                 onFocus={() => setShowCityDropdown(true)}
                 onKeyDown={handleKeyDown}
-                placeholder="🔍 Search city... (Start typing city name or code)"
-                className="w-full px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+                placeholder="🔍 City..."
+                className="w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                 tabIndex={1}
                 aria-expanded={showCityDropdown}
                 role="combobox"
               />
-                {showCityDropdown && (
+              {showCityDropdown && (
                 <div className="absolute z-30 mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                   <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
                     CITY WISE AUTO FILL DETAILS HERE
@@ -334,84 +335,77 @@ const CityTransportSection = ({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Transport Details - Always Visible */}
-      <div className="mt-4 p-4 bg-slate-50/50 rounded-lg border border-slate-200 shadow-sm">
-        <h4 className="text-xs font-semibold text-slate-700 mb-3 bg-indigo-50 px-3 py-2 rounded text-center border border-indigo-100">
-          TRANSPORT DETAILS (Auto-filled from city selection)
-        </h4>
-        <div className="grid grid-cols-12 gap-4 items-center">
-          {/* Transport Name */}
-          <div className="col-span-6">
-            <div className="flex items-center gap-3">
-              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg min-w-24 text-center shadow-sm">
-                TRANSPORT
-              </span>
-              <input
-                type="text"
-                ref={transportNameRef}
-                value={formData.transport_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleEnter(e, 2);
-                  }
-                }}
-                className="flex-1 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-                placeholder="Transport name"
-                tabIndex={2}
-              />
-            </div>
+        {/* Transport Name */}
+        <div className="col-span-4">
+          <div className="flex items-center gap-1">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[40px] text-center shadow-sm">
+              TRP
+            </span>
+            <input
+              type="text"
+              ref={transportNameRef}
+              value={formData.transport_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleEnter(e, 2);
+                }
+              }}
+              className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+              placeholder="Transport name"
+              tabIndex={2}
+            />
           </div>
+        </div>
 
-          {/* Transport GST */}
-          <div className="col-span-3">
-            <div className="flex items-center gap-2">
-              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-sm">
-                GST
-              </span>
-              <input
-                type="text"
-                ref={transportGstRef}
-                value={formData.transport_gst}
-                onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value.toUpperCase() }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleEnter(e, 3);
-                  }
-                }}
-                className="flex-1 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-                placeholder="GST number"
-                tabIndex={3}
-              />
-            </div>
+        {/* Transport GST */}
+        <div className="col-span-3">
+          <div className="flex items-center gap-1">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[45px] text-center shadow-sm">
+              GST
+            </span>
+            <input
+              type="text"
+              ref={transportGstRef}
+              value={formData.transport_gst}
+              onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value.toUpperCase() }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleEnter(e, 3);
+                }
+              }}
+              className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+              placeholder="GST"
+              tabIndex={3}
+            />
           </div>
+        </div>
 
-          {/* Transport Phone */}
-          <div className="col-span-3">
-            <div className="flex items-center gap-2">
-              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-sm">
-                PHONE
-              </span>
-              <input
-                type="text"
-                ref={transportNumberRef}
-                value={formData.transport_number}
-                onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value.toUpperCase() }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleEnter(e, 4);
-                  }
-                }}
-                className="flex-1 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-                placeholder="Phone number"
-                tabIndex={4}
-              />
-            </div>
+        {/* Transport Phone */}
+        <div className="col-span-2">
+          <div className="flex items-center gap-1">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[32px] flex items-center justify-center shadow-sm">
+              <Phone className="w-3.5 h-3.5" />
+            </span>
+            <input
+              type="text"
+              ref={transportNumberRef}
+              value={formData.transport_number}
+              onChange={(e) => setFormData(prev => ({ ...prev, transport_number: e.target.value.toUpperCase() }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleEnter(e, 4);
+                }
+              }}
+              maxLength={10}
+              className="w-24 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+              placeholder="Phone"
+              tabIndex={4}
+            />
           </div>
         </div>
       </div>

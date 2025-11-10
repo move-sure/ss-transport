@@ -15,7 +15,6 @@ import CityTransportSection from '../../components/bilty/city-transport';
 import ConsignorConsigneeSection from '../../components/bilty/consignor-consignee';
 import InvoiceDetailsSection from '../../components/bilty/invoice';
 import PackageChargesSection from '../../components/bilty/charges';
-import ActionButtonsSection from '../../components/bilty/action';
 import PrintModal from '../../components/bilty/print-model';
 import PrintBilty from '../../components/bilty/print-bilty';
 
@@ -1030,7 +1029,7 @@ export default function BiltyForm() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
-      <div className="w-full px-6 py-6">
+      <div className="w-full px-4 py-3">
         {/* Bill Book Header - hidden per request */}
         {false && (
           <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-xl p-6 mb-6 border border-indigo-200">
@@ -1101,8 +1100,8 @@ export default function BiltyForm() {
           </div>
         )}
 
-        {/* Form Sections - Full Width */}
-  <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 space-y-8">
+        {/* Form Sections - Compact Layout */}
+  <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 space-y-4">
           {/* Row 1: GR Number Management */}
           <GRNumberSection 
             formData={formData}
@@ -1151,16 +1150,10 @@ export default function BiltyForm() {
             setFormData={setFormData}
             rates={rates}
             onSave={handleSave}
+            onSaveDraft={() => handleSave(true)}
+            onReset={resetForm}
             saving={saving}
             isEditMode={isEditMode}
-            showShortcuts={showShortcuts}
-          />
-
-          {/* Row 6: Action Buttons */}
-          <ActionButtonsSection
-            onReset={resetForm}
-            onSaveDraft={() => handleSave(true)}
-            saving={saving}
             showShortcuts={showShortcuts}
           />
         </div>

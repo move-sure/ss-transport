@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useInputNavigation } from './input-navigation';
-import { Save } from 'lucide-react';
+import { Save, FileText, RotateCcw } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { LabourRateInfo, useConsignorLabourRate } from './labour-rate-helper';
 import { HistoricalRateInfo, useHistoricalRate } from './rate-helper';
@@ -12,6 +12,8 @@ const PackageChargesSection = ({
   setFormData, 
   rates, 
   onSave, 
+  onSaveDraft,
+  onReset,
   saving = false, 
   isEditMode = false, 
   showShortcuts = false
@@ -452,9 +454,9 @@ const PackageChargesSection = ({
 
 return (
     <>
-      <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm relative">
         <div 
-          className="grid grid-cols-12 gap-6"
+          className="grid grid-cols-12 gap-2"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -462,16 +464,13 @@ return (
             }
           }}
         >
-          {/* Package Details - Left Side (8 columns) */}
-          <div className="col-span-8">
-            <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-200 shadow-sm">
-              <h4 className="text-sm font-bold text-slate-800 mb-3 text-center bg-indigo-50 border border-indigo-100 py-2 rounded">
-                PACKAGE DETAILS
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
+          {/* Package Details - Left Side (7 columns) */}
+          <div className="col-span-7">
+            <div className="bg-slate-50/50 rounded-lg p-2.5 border border-slate-200 shadow-sm">
+              <div className="grid grid-cols-2 gap-2">
                 {/* Private Marks - First */}
-                <div className="flex items-center gap-3">
-                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                <div className="flex items-center gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px]">
                     PVT MARKS
                   </span>
                   <input
@@ -479,7 +478,7 @@ return (
                     value={formData.pvt_marks || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, pvt_marks: e.target.value.toUpperCase() }))}
                     ref={(el) => setInputRef(18, el)}
-                    className="flex-1 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all text-input-focus"
+                    className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all text-input-focus"
                     placeholder="Private marks"
                     tabIndex={18}
                     style={{ textTransform: 'uppercase' }}
@@ -487,8 +486,8 @@ return (
                 </div>
 
                 {/* Weight - Second */}
-                <div className="flex items-center gap-3">
-                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                <div className="flex items-center gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px]">
                     WEIGHT
                   </span>
                   <input
@@ -498,7 +497,7 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, wt: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(19, el)}
-                    className="flex-1 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                    className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                     placeholder="0"
                     tabIndex={19}
                   />
@@ -506,8 +505,8 @@ return (
 
                 {/* Packages & Rate - Combined Row */}
                 <div className="flex flex-col gap-1 col-span-2">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px]">
                       PACKAGES
                     </span>
                     <input
@@ -516,12 +515,12 @@ return (
                       onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
                       onFocus={(e) => e.target.select()}
                       ref={(el) => setInputRef(20, el)}
-                      className="w-32 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                      className="w-24 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                       placeholder="0"
                       tabIndex={20}
                     />
                     
-                    <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px] ml-4">
+                    <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[75px] ml-2">
                       RATE
                     </span>
                     <div className="relative flex-1">
@@ -533,7 +532,7 @@ return (
                         onChange={handleRateChange}
                         onFocus={(e) => e.target.select()}
                         ref={(el) => setInputRef(21, el)}
-                        className="w-full px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-8"
+                        className="w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-8"
                         placeholder="₹ Rate per kg"
                         tabIndex={21}
                       />
@@ -562,8 +561,8 @@ return (
 
                 {/* Labour Rate - Fifth */}
                 <div className="flex flex-col gap-1 col-span-2">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-indigo-500 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[120px]">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[95px]">
                       LABOUR RATE
                     </span>
                     <input
@@ -588,13 +587,13 @@ return (
                       }}
                       onFocus={(e) => e.target.select()}
                       ref={(el) => setInputRef(22, el)}
-                      className="w-32 px-3 py-2 text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                      className="w-24 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                       placeholder="20"
                       tabIndex={22}
                     />
-                    <span className="text-sm text-gray-600 font-medium">₹ per package</span>
+                    <span className="text-xs text-gray-600 font-medium">₹/pkg</span>
                     <span className="text-xs text-gray-500 ml-auto">
-                      Total Labour: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
+                      Total: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
                     </span>
                   </div>
                   {/* Smart Labour Rate Status - Shows if using old rate or default */}
@@ -630,16 +629,13 @@ return (
             </div>
           </div>
 
-          {/* Charges Section - Right Side (4 columns) */}
-          <div className="col-span-4">
-            <div className="bg-white rounded-lg border border-slate-300 p-4 shadow-lg h-full">
-              <h4 className="text-sm font-bold text-slate-800 mb-4 text-center bg-indigo-50 border border-indigo-100 py-2 rounded">
-                CHARGES BREAKDOWN
-              </h4>
-              <div className="space-y-3">
-                {/* Freight Charge */}
+          {/* Charges Section - Right Side (5 columns) */}
+          <div className="col-span-5">
+            <div className="bg-white rounded-lg border border-slate-300 p-2.5 shadow-lg h-full">
+              <div className="space-y-1.5">
+                {/* Line 640 omitted */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     FREIGHT
                   </span>
                   <input
@@ -648,14 +644,14 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, freight_amount: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(23, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    className="w-20 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={23}
                   />
                 </div>
 
                 {/* Labour Charge with Rate Display */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     LABOUR
                   </span>
                   <div className="flex flex-col items-end">
@@ -688,11 +684,11 @@ return (
                         }
                       }}
                       ref={(el) => setInputRef(24, el)}
-                      className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                      className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                       tabIndex={24}
                       title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
                     />
-                    <span className="text-xs text-gray-500 mt-1">
+                    <span className="text-[10px] text-gray-500 mt-0.5">
                       @₹{formData.labour_rate || 0}/pkg
                     </span>
                   </div>
@@ -700,7 +696,7 @@ return (
 
                 {/* Bill Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     BILL CHR
                   </span>
                   <input
@@ -709,14 +705,14 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, bill_charge: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(25, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={25}
                   />
                 </div>
 
                 {/* Toll Charge - Moved before PF Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-3 py-2 text-xs font-bold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     TOLL
                   </span>
                   <input
@@ -730,7 +726,7 @@ return (
                     }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(26, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     placeholder="20"
                     tabIndex={26}
                   />
@@ -738,7 +734,7 @@ return (
 
                 {/* PF Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     PF CHR
                   </span>
                   <input
@@ -747,14 +743,14 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, pf_charge: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(27, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={27}
                   />
                 </div>
 
                 {/* Other Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded shadow-lg whitespace-nowrap">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                     OTHER
                   </span>
                   <input
@@ -763,15 +759,15 @@ return (
                     onChange={(e) => setFormData(prev => ({ ...prev, other_charge: parseFloat(e.target.value) || 0 }))}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(28, el)}
-                    className="w-24 px-2 py-2 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
                     tabIndex={28}
                   />
                 </div>
 
                 {/* Total Amount */}
-                <div className="border-t-2 border-slate-300 pt-3 mt-4">
+                <div className="border-t-2 border-slate-300 pt-2 mt-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="bg-indigo-600 text-white px-3 py-3 text-sm font-bold rounded shadow-lg whitespace-nowrap">
+                    <span className="bg-indigo-600 text-white px-2 py-1.5 text-sm font-bold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
                       TOTAL
                     </span>
                     <input
@@ -779,13 +775,13 @@ return (
                       value={formData.total || 0}
                       readOnly
                       ref={(el) => setInputRef(29, el)}
-                      className="w-24 px-2 py-3 text-black font-bold border-2 border-indigo-400 rounded-lg bg-indigo-50 focus:border-indigo-500 focus:ring-0 text-center text-lg shadow-lg bilty-input-focus transition-all duration-200"
+                      className="w-24 px-2 py-1.5 text-black font-bold border-2 border-indigo-400 rounded-lg bg-indigo-50 focus:border-indigo-500 focus:ring-0 text-center text-lg shadow-lg bilty-input-focus transition-all duration-200"
                       tabIndex={29}
                     />
                   </div>
 
                   {/* SAVE & PRINT Button */}
-                  <div className="mt-4 flex justify-center">
+                  <div className="mt-3 flex justify-center">
                     <button
                       type="button"
                       onClick={() => handleSafeSave(false)}
@@ -799,10 +795,10 @@ return (
                       }}
                       disabled={saving}
                       ref={(el) => setInputRef(30, el)}
-                      className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-lg font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-3 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
+                      className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl text-base font-bold hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 flex items-center gap-2 shadow-xl transition-all transform hover:scale-105 border-2 border-emerald-400"
                       tabIndex={30}
                     >
-                      <Save className="w-5 h-5" />
+                      <Save className="w-4 h-4" />
                       {saving ? 'SAVING...' : isEditMode ? 'UPDATE & PRINT' : 'SAVE & PRINT'} 
                       {showShortcuts && ' (Ctrl+S or Tab)'}
                     </button>
@@ -811,6 +807,29 @@ return (
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Draft and Reset Buttons - Bottom Left */}
+        <div className="absolute bottom-3 left-3 flex gap-2">
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            disabled={saving}
+            tabIndex="-1"
+            className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg text-xs font-bold hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-all border border-amber-400"
+          >
+            <FileText className="w-3 h-3" />
+            DRAFT
+          </button>
+          <button
+            type="button"
+            onClick={onReset}
+            tabIndex="-1"
+            className="px-3 py-1.5 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg text-xs font-bold hover:from-gray-600 hover:to-gray-700 flex items-center gap-1.5 shadow-sm transition-all border border-gray-400"
+          >
+            <RotateCcw className="w-3 h-3" />
+            RESET
+          </button>
         </div>
       </div>
 

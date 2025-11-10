@@ -313,82 +313,62 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     return (
       <div className="w-full">
         {/* Single EWB Input */}
-        <div className="mb-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              ref={(el) => {
-                if (el) {
-                  eWayBillRef.current = el;
-                  inputRefs.current = el;
-                }
-              }}
-              value={localInputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              className="ewb-input flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
-              placeholder="🚛 Type E-way bill (e.g., 4521-1235-5451) - Press comma/+ or click + to add"
-              tabIndex={16}
-              maxLength={14}
-              autoComplete="off"
-            />
-              {/* Add Button - shows when there's exactly 12 digits */}
-            {localInputValue.trim() && localInputValue.replace(/\D/g, '').length === 12 && (
-              <button
-                onClick={handleAddClick}
-                className="px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md text-sm font-semibold"
-                title="Add E-way bill"
-                type="button"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            )}
-          </div>          {/* Helper text */}
-          <div className="mt-1 text-xs text-gray-600">
-            💡 Type 12-digit E-way bill number and press <kbd className="bg-gray-100 px-1 rounded">comma</kbd>, <kbd className="bg-gray-100 px-1 rounded">+</kbd>, <kbd className="bg-gray-100 px-1 rounded">Enter</kbd> or click <kbd className="bg-gray-100 px-1 rounded">+</kbd> button to add
-          </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            ref={(el) => {
+              if (el) {
+                eWayBillRef.current = el;
+                inputRefs.current = el;
+              }
+            }}
+            value={localInputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            className="ewb-input flex-1 px-2 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm"
+            placeholder="🚛 E-way bill (e.g., 4521-1235-5451)"
+            tabIndex={16}
+            maxLength={14}
+            autoComplete="off"
+          />
+            {/* Add Button - shows when there's exactly 12 digits */}
+          {localInputValue.trim() && localInputValue.replace(/\D/g, '').length === 12 && (
+            <button
+              onClick={handleAddClick}
+              className="px-2 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md text-sm font-semibold"
+              title="Add E-way bill"
+              type="button"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
         </div>
-
-        {/* EWB List */}
+        
+        {/* EWB List - Compact Grid Layout */}
         {ewbList.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-xs font-semibold text-indigo-700 mb-2">
-              E-way Bills ({ewbList.length})
+          <div className="mt-1.5">
+            <div className="text-[10px] font-semibold text-indigo-700 mb-1">
+              Added ({ewbList.length})
             </div>
-            {ewbList.map((ewb) => (
-              <div key={ewb.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3 flex-1">
-                    {/* EWB Number */}
-                    <div className="flex-1">
-                      <div className="text-sm font-bold text-gray-800">{ewb.number}</div>
-                      <div className="text-xs text-emerald-600 mt-1">
-                        E-way bill added successfully
-                      </div>
-                    </div>
-
-                    {/* Status Indicator */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 text-emerald-600">
-                        <span className="text-xs font-semibold">Added</span>
-                      </div>
-                    </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
+              {ewbList.map((ewb) => (
+                <div key={ewb.id} className="bg-slate-50 border border-slate-200 rounded-md p-1.5 shadow-sm flex items-center justify-between gap-1">
+                  {/* EWB Number - Compact */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-gray-800 truncate">{ewb.number}</div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1">
-                    {/* Remove Button */}
-                    <button
-                      onClick={() => removeEwbFromList(ewb.id)}
-                      className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-all text-xs font-semibold"
-                      title="Remove E-way bill"
-                    >
-                      <XCircle className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {/* Remove Button - Small */}
+                  <button
+                    onClick={() => removeEwbFromList(ewb.id)}
+                    className="flex-shrink-0 p-0.5 bg-red-500 text-white rounded hover:bg-red-600 transition-all"
+                    title="Remove"
+                  >
+                    <XCircle className="w-3 h-3" />
+                  </button>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -396,12 +376,12 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
   };
 
   return (
-    <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+    <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
         {/* Row 1 - Main Options */}
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[80px]">
               DELIVERY
             </span>
             <select
@@ -420,7 +400,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                   }
                 }, 100);
               }}
-              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="flex-1 px-2 lg:px-3 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm"
               tabIndex={11}
             >
               <option value="godown-delivery">Godown</option>
@@ -440,15 +420,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         </div>
 
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
               PAYMENT
             </span>
             <select
               ref={paymentModeRef}
               value={formData.payment_mode}
               onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200"
               tabIndex={12}
             >
               <option value="to-pay">To Pay</option>
@@ -469,8 +449,8 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         </div>
 
         {/* Simple Content Field */}
-        <div className="flex items-center gap-3 lg:col-span-1">
-          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+        <div className="flex items-center gap-2 lg:col-span-1">
+          <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             CONTENT
           </span>
           <input
@@ -479,15 +459,15 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             value={formData.contain || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, contain: e.target.value.toUpperCase() }))}
             placeholder="📦 Goods description..."
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
+            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
             tabIndex={13}
             style={{ textTransform: 'uppercase' }}
           />
         </div>
 
         {/* Row 2 - Invoice Details */}
-        <div className="flex items-center gap-3">
-          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+        <div className="flex items-center gap-2">
+          <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             INV NO
           </span>
           <input
@@ -495,14 +475,14 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             ref={invoiceNoRef}
             value={formData.invoice_no || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value.toUpperCase() }))}
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
+            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
             placeholder="📄 Invoice number"
             tabIndex={14}
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
+        <div className="flex items-center gap-2">
+          <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             INV VAL
           </span>
           <input
@@ -511,28 +491,30 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             value={formData.invoice_value || 0}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_value: parseFloat(e.target.value) || 0 }))}
             onFocus={(e) => e.target.select()}
-            className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200 text-sm lg:text-base"
+            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
             placeholder="💰 Invoice value"
             tabIndex={15}
           />
-        </div>        {/* Enhanced E-WAY Bill with multiple entries */}
-        <div className="lg:col-span-3">
-          <div className="bg-slate-50/50 border border-slate-200 rounded-lg p-4 shadow-inner">
-            <div className="flex items-start gap-3">
-              <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
-                E-WAY
-              </span>
-              <div className="flex-1">
-                <MultipleEwbSection />
-              </div>
+        </div>
+        
+        {/* Row 3 - E-WAY Bill and Invoice Date in one row */}
+        <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* E-WAY Bill */}
+          <div className="flex items-start gap-2">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[50px]">
+              EWB
+            </span>
+            <div className="flex-1">
+              <MultipleEwbSection />
             </div>
           </div>
-        </div>{/* Row 3 - Invoice Date */}
-        <div className="flex items-center gap-3 lg:col-span-1 lg:col-start-2">
-          <span className="bg-indigo-500 text-white px-3 lg:px-4 py-2.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[80px] lg:min-w-[90px]">
-            INV DATE
-          </span>
-          <div className="flex items-center gap-2 flex-1">
+          
+          {/* Invoice Date - Aligned */}
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[65px]">
+              INV DATE
+            </span>
+            <div className="flex items-center gap-2 flex-1">
             <input
               type="text"
               ref={invoiceDateRef}
@@ -647,7 +629,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 "📅 Invoice date"
               }
               maxLength={10}
-              className="flex-1 px-3 lg:px-4 py-2 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm lg:text-base"
+              className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
               tabIndex={17}
             />
             
@@ -672,7 +654,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               />
               <button
                 type="button"
-                className="flex items-center justify-center w-10 h-10 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md border border-slate-300 hover:border-indigo-300 focus:border-indigo-400 focus:ring-0"
+                className="flex items-center justify-center w-9 h-9 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md border border-slate-300 hover:border-indigo-300 focus:border-indigo-400 focus:ring-0"
                 title="Open calendar picker"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -681,6 +663,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

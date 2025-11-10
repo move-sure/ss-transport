@@ -210,16 +210,16 @@ const GRNumberSection = ({
   }, [grSearch]);
 
   return (
-  <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
+  <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm">
       {/* Responsive layout for edit mode */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
         {/* Main form controls */}
-        <div className="flex flex-col xl:flex-row xl:items-center gap-4 flex-1">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-2 flex-1">
           {/* Mode Buttons */}
           <div className="flex gap-2">
             <button
               onClick={handleNewMode}
-              className={`px-6 py-2.5 text-xs font-semibold rounded-lg border transition-all shadow-sm ${
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-sm ${
                 !isEditMode 
                   ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600' 
                   : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50'
@@ -230,7 +230,7 @@ const GRNumberSection = ({
             </button>
             <button
               onClick={toggleEditMode}
-              className={`px-6 py-2.5 text-xs font-semibold rounded-lg border transition-all shadow-sm ${
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-sm ${
                 isEditMode 
                   ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-500' 
                   : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'
@@ -242,8 +242,8 @@ const GRNumberSection = ({
           </div>
 
           {/* GR Number Input Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <span className={`px-4 py-2.5 text-xs font-semibold rounded-lg min-w-24 text-center shadow-sm whitespace-nowrap ${
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className={`px-3 py-1.5 text-xs font-semibold rounded-lg min-w-20 text-center shadow-sm whitespace-nowrap ${
               isEditMode && currentEditingGR 
                 ? 'bg-indigo-600 text-white border border-indigo-500' 
                 : 'bg-indigo-500 text-white'
@@ -259,7 +259,7 @@ const GRNumberSection = ({
                       <input
                         type="text"
                         value={currentEditingGR}
-                        className="w-full sm:w-48 px-3 py-2.5 text-indigo-700 text-sm font-semibold border border-indigo-200 rounded-lg bg-indigo-50/80 shadow-inner cursor-not-allowed"
+                        className="w-full sm:w-40 px-2 py-1.5 text-indigo-700 text-sm font-semibold border border-indigo-200 rounded-lg bg-indigo-50/80 shadow-inner cursor-not-allowed"
                         readOnly
                         tabIndex={-1}
                       />
@@ -285,7 +285,7 @@ const GRNumberSection = ({
                         setShowGRDropdown(true);
                         setDisplayLimit(50); // Reset display limit when opening dropdown
                       }}                      onKeyDown={handleKeyDown}
-                      className="w-full sm:w-48 px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+                      className="w-full sm:w-40 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
                       placeholder="🔍 Search GR..."
                       tabIndex={-1}
                     />
@@ -294,7 +294,7 @@ const GRNumberSection = ({
               ) : (                <input
                   type="text"
                   value={formData.gr_no}
-                  className="w-full sm:w-48 px-3 py-2.5 text-black text-sm font-bold border-2 border-gray-300 rounded-lg bg-gray-100 shadow-md transition-all duration-200"
+                  className="w-full sm:w-40 px-2 py-1.5 text-black text-sm font-bold border-2 border-gray-300 rounded-lg bg-gray-100 shadow-md transition-all duration-200"
                   readOnly
                   tabIndex={-1}
                 />
@@ -367,9 +367,9 @@ const GRNumberSection = ({
           </div>
 
           {/* Date Fields */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex items-center gap-2">
-              <span className="bg-indigo-500 text-white px-3 py-2.5 text-xs font-semibold rounded-lg text-center shadow-sm whitespace-nowrap">
+              <span className="bg-indigo-500 text-white px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-sm whitespace-nowrap">
                 BILTY DATE
               </span>
               <input
@@ -378,7 +378,7 @@ const GRNumberSection = ({
                 value={formData.bilty_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, bilty_date: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} // Prevent Enter navigation
-                className="px-3 py-2.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0"
+                className="px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0"
               />
             </div>
           </div>

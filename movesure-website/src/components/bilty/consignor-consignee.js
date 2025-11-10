@@ -689,65 +689,66 @@ const ConsignorConsigneeSection = ({
     }
   };
   return (
-    <div className="bg-white/95 p-6 rounded-2xl border border-slate-200 shadow-sm">
-      {/* Consignor Section */}
-      <div className="space-y-4">
-        {/* Consignor Name */}
-        <div className="flex items-center gap-3">
-          <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap min-w-28 text-center shadow-sm">
+    <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm space-y-3">
+      {/* Consignor Section - Single Row */}
+      <div className="grid grid-cols-12 gap-2 items-center">
+        {/* Consignor Label */}
+        <div className="col-span-1">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
             CONSIGNOR
           </span>
-          <div className="relative flex-1" ref={consignorRef}>
-            <div className="relative">              <input
-                type="text"
-                ref={consignorInputRef}
-                value={consignorSearch || ''}
-                onChange={(e) => {
-                  console.log('🎯 Consignor input onChange triggered with value:', e.target.value);
-                  handleConsignorSearchChange(e.target.value);
-                }}                onFocus={() => {
-                  console.log('🎯 Consignor input focused');
-                  // Auto-scroll to show consignor section properly
-                  setTimeout(() => {
-                    const element = consignorInputRef.current;
-                    if (element) {
-                      element.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start',
-                        inline: 'nearest'
-                      });
-                    }
-                  }, 100);
-                  
-                  // Only show dropdown if search is valid and we have results
-                  if (consignorSearch && consignorSearch.length >= 2) {
-                    searchDatabase(consignorSearch, 'consignors');
-                  }
-                }}
-                onBlur={() => {
-                  console.log('🎯 Consignor input blurred');
-                  // Close dropdown when input loses focus
-                  setTimeout(() => {
-                    setShowConsignorDropdown(false);
-                    setConsignorSelectedIndex(-1);
-                  }, 150); // Small delay to allow dropdown clicks
-                }}                onKeyDown={handleConsignorKeyDown}
-                placeholder="👤 Start typing consignor name..."
-                className="w-full px-3 py-2.5 pr-10 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 uppercase"
-                tabIndex={5}
-                aria-expanded={showConsignorDropdown ? 'true' : 'false'}
-                role="combobox"
-                style={{ textTransform: 'uppercase' }}
-              />
-              {isSearching && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-              {!isSearching && consignorSearch && (
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500" />
-              )}
+        </div>
+        
+        {/* Consignor Name */}
+        <div className="col-span-5 relative" ref={consignorRef}>
+          <input
+            type="text"
+            ref={consignorInputRef}
+            value={consignorSearch || ''}
+            onChange={(e) => {
+              console.log('🎯 Consignor input onChange triggered with value:', e.target.value);
+              handleConsignorSearchChange(e.target.value);
+            }}
+            onFocus={() => {
+              console.log('🎯 Consignor input focused');
+              setTimeout(() => {
+                const element = consignorInputRef.current;
+                if (element) {
+                  element.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                  });
+                }
+              }, 100);
+              
+              if (consignorSearch && consignorSearch.length >= 2) {
+                searchDatabase(consignorSearch, 'consignors');
+              }
+            }}
+            onBlur={() => {
+              console.log('🎯 Consignor input blurred');
+              setTimeout(() => {
+                setShowConsignorDropdown(false);
+                setConsignorSelectedIndex(-1);
+              }, 150);
+            }}
+            onKeyDown={handleConsignorKeyDown}
+            placeholder="Name..."
+            className="w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 uppercase"
+            tabIndex={5}
+            aria-expanded={showConsignorDropdown ? 'true' : 'false'}
+            role="combobox"
+            style={{ textTransform: 'uppercase' }}
+          />
+          {isSearching && (
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
+          )}
+          {!isSearching && consignorSearch && (
+            <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500" />
+          )}
             {showConsignorDropdown && (
                 <div className="absolute z-30 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {/* Add New Consignor Button - Always at top */}
@@ -805,100 +806,103 @@ const ConsignorConsigneeSection = ({
                       {isSearching ? 'Searching...' : `Type to search existing consignors`}
                     </div>
                   )}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-
-        {/* Consignor GST and Phone */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
-              GST NO
-            </span>              <input
-                type="text"
-                ref={consignorGstRef}
-                value={formData.consignor_gst || ''}
-                onChange={handleConsignorGSTChange}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleEnter(e, 6);
-                  }
-                }}
-                className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-                placeholder="📄 Consignor GST (auto-saves)"
-                tabIndex={6}
-              />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
-              PHONE
-            </span>            <input
-              type="text"
-              ref={consignorPhoneRef}
-              value={formData.consignor_number || ''}
-              onChange={handleConsignorNumberChange}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleEnter(e, 7);
-                }
-              }}
-              className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-              placeholder="📞 Consignor Phone (auto-saves)"
-              tabIndex={7}
-            />
-          </div>
+        
+        {/* Consignor GST */}
+        <div className="col-span-3 flex items-center gap-1">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+            GST
+          </span>
+          <input
+            type="text"
+            ref={consignorGstRef}
+            value={formData.consignor_gst || ''}
+            onChange={handleConsignorGSTChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleEnter(e, 6);
+              }
+            }}
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            placeholder="GST..."
+            tabIndex={6}
+          />
+        </div>
+        
+        {/* Consignor Phone */}
+        <div className="col-span-3 flex items-center gap-1">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+            PHONE
+          </span>
+          <input
+            type="text"
+            ref={consignorPhoneRef}
+            value={formData.consignor_number || ''}
+            onChange={handleConsignorNumberChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleEnter(e, 7);
+              }
+            }}
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            placeholder="Phone..."
+            tabIndex={7}
+          />
         </div>
       </div>
 
-      {/* Consignee Section */}
-      <div className="mt-8 space-y-4">
-        {/* Consignee Name */}
-        <div className="flex items-center gap-3">
-          <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap min-w-28 text-center shadow-lg">
+      {/* Consignee Section - Single Row */}
+      <div className="grid grid-cols-12 gap-2 items-center">
+        {/* Consignee Label */}
+        <div className="col-span-1">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
             CONSIGNEE
           </span>
-          <div className="relative flex-1" ref={consigneeRef}>
-            <div className="relative">
-              <input
-                type="text"
-                ref={consigneeInputRef}
-                value={consigneeSearch || ''}
-                onChange={(e) => {
-                  console.log('🎯 Consignee input onChange triggered with value:', e.target.value);
-                  handleConsigneeSearchChange(e.target.value);
-                }}                onFocus={() => {
-                  console.log('🎯 Consignee input focused');
-                  // Only show dropdown if search is valid and we have results
-                  if (consigneeSearch && consigneeSearch.length >= 2) {
-                    searchDatabase(consigneeSearch, 'consignees');
-                  }
-                }}
-                onBlur={() => {
-                  console.log('🎯 Consignee input blurred');
-                  // Close dropdown when input loses focus
-                  setTimeout(() => {
-                    setShowConsigneeDropdown(false);
-                    setConsigneeSelectedIndex(-1);
-                  }, 150); // Small delay to allow dropdown clicks
-                }}onKeyDown={handleConsigneeKeyDown}                placeholder="🏢 Start typing consignee name..."
-                className="w-full px-4 py-3 pr-10 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 dropdown-input uppercase"
-                tabIndex={8}
-                aria-expanded={showConsigneeDropdown}
-                role="combobox"
-                style={{ textTransform: 'uppercase' }}
-              />
-              {isSearching && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-              {!isSearching && consigneeSearch && (
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-600" />
-              )}
+        </div>
+        
+        {/* Consignee Name */}
+        <div className="col-span-5 relative" ref={consigneeRef}>
+          <input
+            type="text"
+            ref={consigneeInputRef}
+            value={consigneeSearch || ''}
+            onChange={(e) => {
+              console.log('🎯 Consignee input onChange triggered with value:', e.target.value);
+              handleConsigneeSearchChange(e.target.value);
+            }}
+            onFocus={() => {
+              console.log('🎯 Consignee input focused');
+              if (consigneeSearch && consigneeSearch.length >= 2) {
+                searchDatabase(consigneeSearch, 'consignees');
+              }
+            }}
+            onBlur={() => {
+              console.log('🎯 Consignee input blurred');
+              setTimeout(() => {
+                setShowConsigneeDropdown(false);
+                setConsigneeSelectedIndex(-1);
+              }, 150);
+            }}
+            onKeyDown={handleConsigneeKeyDown}
+            placeholder="Name..."
+            className="w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 dropdown-input uppercase"
+            tabIndex={8}
+            aria-expanded={showConsigneeDropdown}
+            role="combobox"
+            style={{ textTransform: 'uppercase' }}
+          />
+          {isSearching && (
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
+          )}
+          {!isSearching && consigneeSearch && (
+            <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-600" />
+          )}
               {showConsigneeDropdown && (
               <div className="absolute z-30 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto dropdown-open autocomplete-open">
                 {/* Add New Consignee Button - Always at top */}
@@ -956,51 +960,52 @@ const ConsignorConsigneeSection = ({
                     {isSearching ? 'Searching...' : `Type to search existing consignees`}
                   </div>
                 )}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
-        {/* Consignee GST and Phone */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
-              GST NO
-            </span>            <input
-              type="text"
-              ref={consigneeGstRef}
-              value={formData.consignee_gst || ''}
-              onChange={handleConsigneeGSTChange}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleEnter(e, 9);
-                }
-              }}
-              className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-              placeholder="📄 Consignee GST (auto-saves)"
-              tabIndex={9}
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-lg">
-              PHONE
-            </span>            <input
-              type="text"
-              ref={consigneePhoneRef}
-              value={formData.consignee_number || ''}
-              onChange={handleConsigneeNumberChange}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleEnter(e, 10);
-                }
-              }}
-              className="flex-1 px-4 py-3 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-gray-500 text-input-focus focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-              placeholder="📞 Consignee Phone (auto-saves)"
-              tabIndex={10}
-            />
-          </div>
+        
+        {/* Consignee GST */}
+        <div className="col-span-3 flex items-center gap-1">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+            GST
+          </span>
+          <input
+            type="text"
+            ref={consigneeGstRef}
+            value={formData.consignee_gst || ''}
+            onChange={handleConsigneeGSTChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleEnter(e, 9);
+              }
+            }}
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            placeholder="GST..."
+            tabIndex={9}
+          />
+        </div>
+        
+        {/* Consignee Phone */}
+        <div className="col-span-3 flex items-center gap-1">
+          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+            PHONE
+          </span>
+          <input
+            type="text"
+            ref={consigneePhoneRef}
+            value={formData.consignee_number || ''}
+            onChange={handleConsigneeNumberChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleEnter(e, 10);
+              }
+            }}
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            placeholder="Phone..."
+            tabIndex={10}
+          />
         </div>
       </div>
 

@@ -168,9 +168,8 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       totalTableWidth * 0.06,  // Weight (6%)
       totalTableWidth * 0.06,  // Delivery Type (6%)
       totalTableWidth * 0.06,  // Payment Mode (6%)
-      totalTableWidth * 0.08,  // Amount (8%)
-      totalTableWidth * 0.07,  // Pvt Marks (7%)
-      totalTableWidth * 0.06   // Challan No (6%)
+      totalTableWidth * 0.09,  // Amount (9%)
+      totalTableWidth * 0.13   // Pvt Marks (13%)
     ];
 
     const drawColumnDividers = (startX, startY, height, widths) => {
@@ -217,8 +216,6 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     pdf.text('Amount', currentX, tableStartY + 6);
     currentX += colWidths[10];
     pdf.text('Pvt Marks', currentX, tableStartY + 6);
-    currentX += colWidths[11];
-    pdf.text('Challan', currentX, tableStartY + 6);
 
     yPosition = tableStartY + 8;
 
@@ -267,8 +264,6 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
         pdf.text('Amount', currentX, yPosition + 6);
         currentX += colWidths[10];
         pdf.text('Pvt Marks', currentX, yPosition + 6);
-        currentX += colWidths[11];
-        pdf.text('Challan', currentX, yPosition + 6);
         
         yPosition += 8;
         pdf.setFont('times', 'normal');
@@ -335,12 +330,7 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       
       // Private Marks
       const pvtMarks = bilty.pvt_marks || bilty.private_marks || '-';
-      pdf.text(pvtMarks.substring(0, 8), currentX, yPosition + 5);
-      currentX += colWidths[11];
-      
-      // Challan No
-      const challanNo = bilty.challan_no || '-';
-      pdf.text(challanNo.substring(0, 8), currentX, yPosition + 5);
+      pdf.text(pvtMarks.substring(0, 15), currentX, yPosition + 5);
 
   // Row border
   pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'S');
@@ -349,6 +339,19 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
   yPosition += rowHeight;
       serialNumber++;
     });
+
+    // Add Total Row at the bottom of the table (only in amount column)
+    pdf.setFont('times', 'bold');
+    
+    // Draw only the amount column cell with background
+    const amountColX = tableStartX + colWidths.slice(0, 10).reduce((a, b) => a + b, 0);
+    pdf.setFillColor(summaryFillColor.r, summaryFillColor.g, summaryFillColor.b);
+    pdf.rect(amountColX, yPosition, colWidths[10], rowHeight, 'FD');
+    
+    // Add total amount text in the amount column
+    pdf.text('Rs.' + formatCurrency(totals.totalAmount), amountColX + 2, yPosition + 5);
+    
+    yPosition += rowHeight;
 
     // Check if we need a new page for summary
     yPosition += 5;

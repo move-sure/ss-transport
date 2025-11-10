@@ -289,6 +289,19 @@ export const generatePortraitBillPDF = async (selectedBilties, cities, filterDat
       serialNumber++;
     });
 
+    // Add Total Row at the bottom of the table (only in amount column)
+    pdf.setFont('times', 'bold');
+    
+    // Draw only the amount column cell with background
+    const amountColX = tableStartX + colWidths.slice(0, 7).reduce((a, b) => a + b, 0);
+    pdf.setFillColor(summaryFillColor.r, summaryFillColor.g, summaryFillColor.b);
+    pdf.rect(amountColX, yPosition, colWidths[7], rowHeight, 'FD');
+    
+    // Add total amount text in the amount column
+    pdf.text('Rs.' + formatCurrency(totals.totalAmount), amountColX + 2, yPosition + 5);
+    
+    yPosition += rowHeight;
+
     // Check if we need a new page for summary
     yPosition += 5;
     if (yPosition > maxPageHeight - 80) {

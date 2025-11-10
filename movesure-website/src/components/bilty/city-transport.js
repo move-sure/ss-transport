@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
+import supabase from '../../app/utils/supabase';
 
 const CityTransportSection = ({ 
   formData, 
@@ -85,45 +86,95 @@ const CityTransportSection = ({
     const cityTransports = transports.filter(t => t.city_id === city.id);
     const transport = cityTransports[0] || null;
     
-    // Enhanced rate lookup for this city - prioritize consignor-specific rates
-    const cityRates = rates.filter(r => r.city_id === city.id);
-    let selectedRate = null;
-    
-    // If consignor is already selected, try to find consignor-specific rate first
-    if (formData.consignor_name) {
-      console.log('🔍 Looking for consignor-specific rate for:', formData.consignor_name);
+    // Enhanced rate lookup with historical data priority
+    const fetchRateForCity = async () => {
+      let selectedRate = null;
       
-      // Find consignor-specific rates (non-default rates)
-      const consignorSpecificRates = cityRates.filter(r => !r.is_default && r.consignor_id);
-      
-      if (consignorSpecificRates.length > 0) {
-        console.log('✅ Found consignor-specific rates for this city:', consignorSpecificRates.length);
-        selectedRate = consignorSpecificRates[0]; // Use the first consignor-specific rate
+      // PRIORITY 1: Check historical bilty data if consignor is selected
+      if (formData.consignor_name && formData.branch_id) {
+        try {
+          console.log('🔍 Checking historical rates for:', formData.consignor_name, 'to city:', city.city_name);
+          
+          // Query last 20 bilties for this consignor + city combination
+          const { data: historicalBilties, error } = await supabase
+            .from('bilty')
+            .select('rate')
+            .eq('consignor_name', formData.consignor_name)
+            .eq('to_city_id', city.id)
+            .eq('branch_id', formData.branch_id)
+            .eq('is_active', true)
+            .not('rate', 'is', null)
+            .gt('rate', 0)
+            .order('bilty_date', { ascending: false })
+            .limit(20);
+          
+          if (!error && historicalBilties && historicalBilties.length > 0) {
+            // Calculate most common rate
+            const rateCounts = {};
+            historicalBilties.forEach(bilty => {
+              const rate = parseFloat(bilty.rate);
+              rateCounts[rate] = (rateCounts[rate] || 0) + 1;
+            });
+            
+            // Find most common rate
+            let mostCommonRate = null;
+            let maxCount = 0;
+            Object.entries(rateCounts).forEach(([rate, count]) => {
+              if (count > maxCount) {
+                maxCount = count;
+                mostCommonRate = parseFloat(rate);
+              }
+            });
+            
+            if (mostCommonRate) {
+              selectedRate = mostCommonRate;
+              console.log('✅ Using historical rate from bilty table:', selectedRate, `(used ${maxCount}/${historicalBilties.length} times)`);
+            }
+          }
+        } catch (error) {
+          console.warn('Error fetching historical rate:', error);
+        }
       }
-    }
-    
-    // If no consignor-specific rate found, fall back to default rate
-    if (!selectedRate) {
-      console.log('🔍 Looking for default rate for city:', city.city_name);
-      selectedRate = cityRates.find(r => r.is_default) || cityRates[0];
       
-      if (selectedRate) {
-        console.log('✅ Using default rate:', selectedRate.rate);
-      } else {
-        console.log('⚠️ No rate found for this city');
+      // PRIORITY 2: If no historical rate, check rates table for consignor-specific rate
+      if (!selectedRate && formData.consignor_name) {
+        console.log('🔍 Looking for consignor-specific rate in rates table');
+        const cityRates = rates.filter(r => r.city_id === city.id);
+        const consignorSpecificRates = cityRates.filter(r => !r.is_default && r.consignor_id);
+        
+        if (consignorSpecificRates.length > 0) {
+          selectedRate = consignorSpecificRates[0].rate;
+          console.log('✅ Using consignor-specific rate from rates table:', selectedRate);
+        }
       }
-    } else {
-      console.log('✅ Using consignor-specific rate:', selectedRate.rate);
-    }
+      
+      // PRIORITY 3: Fall back to default rate from rates table
+      if (!selectedRate) {
+        console.log('🔍 Looking for default rate in rates table');
+        const cityRates = rates.filter(r => r.city_id === city.id);
+        const defaultRate = cityRates.find(r => r.is_default) || cityRates[0];
+        
+        if (defaultRate) {
+          selectedRate = defaultRate.rate;
+          console.log('✅ Using default rate from rates table:', selectedRate);
+        } else {
+          console.log('⚠️ No rate found for this city');
+        }
+      }
+      
+      // Update form data
+      setFormData(prev => ({
+        ...prev,
+        to_city_id: city.id,
+        transport_name: transport?.transport_name || '',
+        transport_gst: transport?.gst_number || '',
+        transport_number: transport?.mob_number || '',
+        rate: selectedRate || prev.rate || 0
+      }));
+    };
     
-    setFormData(prev => ({
-      ...prev,
-      to_city_id: city.id,
-      transport_name: transport?.transport_name || '',
-      transport_gst: transport?.gst_number || '',
-      transport_number: transport?.mob_number || '',
-      rate: selectedRate?.rate || prev.rate || 0
-    }));
+    // Execute the rate fetching
+    fetchRateForCity();
   };  const handleKeyDown = (e) => {
     // Handle dropdown navigation
     if (showCityDropdown && filteredCities.length > 0) {

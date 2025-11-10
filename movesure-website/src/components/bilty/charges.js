@@ -5,6 +5,7 @@ import { useInputNavigation } from './input-navigation';
 import { Save } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { LabourRateInfo, useConsignorLabourRate } from './labour-rate-helper';
+import { HistoricalRateInfo, useHistoricalRate } from './rate-helper';
 
 const PackageChargesSection = ({ 
   formData, 
@@ -27,6 +28,14 @@ const PackageChargesSection = ({
   // Fetch old labour rate for consignor
   const { labourRate: oldLabourRate, loading: loadingLabourRate } = useConsignorLabourRate(
     formData.consignor_name, 
+    formData.branch_id
+  );
+
+  // Fetch historical rate from bilty table
+  const { historicalRate, loading: loadingHistoricalRate } = useHistoricalRate(
+    formData.consignor_name,
+    formData.consignee_name,
+    formData.to_city_id,
     formData.branch_id
   );  // Validation function to check required fields and duplicate GR numbers
   const validateBeforeSaveOrPrint = async (isDraft = false) => {
@@ -272,73 +281,9 @@ const PackageChargesSection = ({
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
       formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
   useEffect(() => {
-    const checkRateInfo = async () => {
-      if (!formData.rate || !formData.to_city_id || !formData.branch_id) {
-        setRateInfo(null);
-        return;
-      }
-
-      try {
-        // Check if there's a consignor-specific rate
-        if (formData.consignor_name) {
-          // Find consignor ID
-          const { data: consignor } = await supabase
-            .from('consignors')
-            .select('id, company_name')
-            .ilike('company_name', formData.consignor_name.trim())
-            .single();
-
-          if (consignor) {
-            // Check for consignor-specific rate
-            const { data: consignorRate } = await supabase
-              .from('rates')
-              .select('rate')
-              .eq('branch_id', formData.branch_id)
-              .eq('city_id', formData.to_city_id)
-              .eq('consignor_id', consignor.id)
-              .single();
-
-            if (consignorRate && parseFloat(consignorRate.rate) === parseFloat(formData.rate)) {
-              setRateInfo({
-                type: 'consignor',
-                message: `✅ Consignor-specific rate for ${formData.consignor_name}`
-              });
-              return;
-            }
-          }
-        }
-
-        // Check for default rate
-        const { data: defaultRate } = await supabase
-          .from('rates')
-          .select('rate')
-          .eq('branch_id', formData.branch_id)
-          .eq('city_id', formData.to_city_id)
-          .is('consignor_id', null)
-          .single();
-
-        if (defaultRate && parseFloat(defaultRate.rate) === parseFloat(formData.rate)) {
-          setRateInfo({
-            type: 'default',
-            message: '✅ Default rate for this city'
-          });
-        } else {
-          setRateInfo({
-            type: 'custom',
-            message: '⚠️ Custom rate - will be saved if different from existing'
-          });
-        }
-
-      } catch (error) {
-        console.error('Error checking rate info:', error);
-        setRateInfo({
-          type: 'custom',
-          message: '⚠️ Custom rate - will be saved automatically'
-        });
-      }
-    };
-
-    checkRateInfo();
+    // REMOVED - Now only using historical rate from rate-helper.js
+    // No need to check rates table separately
+    setRateInfo(null);
   }, [formData.rate, formData.consignor_name, formData.to_city_id, formData.branch_id]);
 
   // Handle rate change with auto-save functionality
@@ -466,6 +411,24 @@ const PackageChargesSection = ({
     }
   }, [formData.consignor_name, oldLabourRate, loadingLabourRate, isEditMode]);
 
+  // Auto-apply historical rate when available (in new bilty mode only)
+  useEffect(() => {
+    if (!isEditMode && historicalRate && !loadingHistoricalRate) {
+      // Only auto-apply if current rate is 0 or not set
+      const currentRate = formData.rate;
+      if (currentRate === undefined || currentRate === null || currentRate === 0) {
+        console.log('🎯 Auto-applying historical rate:', historicalRate.rate);
+        setFormData(prev => ({ ...prev, rate: historicalRate.rate }));
+      }
+    }
+  }, [historicalRate, loadingHistoricalRate, isEditMode]);
+
+  // Handler to manually apply historical rate
+  const handleApplyHistoricalRate = (rate) => {
+    console.log('✅ Manually applying historical rate:', rate);
+    setFormData(prev => ({ ...prev, rate: rate }));
+  };
+
   // Initialize labour rate and toll charge if not set (only for new bilty, not editing)
   useEffect(() => {
     const updates = {};
@@ -536,64 +499,60 @@ return (
                   />
                 </div>
 
-                {/* No of Packages - Third */}
-                <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
-                    PACKAGES
-                  </span>
-                  <input
-                    type="number"
-                    value={formData.no_of_pkg || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
-                    onFocus={(e) => e.target.select()}
-                    ref={(el) => setInputRef(20, el)}
-                    className="flex-1 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
-                    placeholder="0"
-                    tabIndex={20}
-                  />
-                </div>
-
-                {/* Rate per kg - Fourth */}
-                <div className="flex items-center gap-3">
-                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
-                    RATE
-                  </span>
-                  <div className="flex-1">
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.rate || ''}
-                          onChange={handleRateChange}
-                          onFocus={(e) => e.target.select()}
-                          ref={(el) => setInputRef(21, el)}
-                          className="w-full px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus pr-8"
-                          placeholder="₹ Rate per kg"
-                          tabIndex={21}
-                        />
-                        {isSavingRate && (
-                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                          </div>
-                        )}
-                      </div>
-                      {rateInfo && (
-                        <div className={`text-xs px-3 py-2 rounded-lg ${
-                          rateInfo.type === 'consignor' 
-                            ? 'bg-blue-100 text-blue-800 border border-blue-200' 
-                            : rateInfo.type === 'default'
-                            ? 'bg-green-100 text-green-800 border border-green-200'
-                            : rateInfo.type === 'error'
-                            ? 'bg-red-100 text-red-800 border border-red-200'
-                            : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                        }`}>
-                          {rateInfo.message}
+                {/* Packages & Rate - Combined Row */}
+                <div className="flex flex-col gap-1 col-span-2">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px]">
+                      PACKAGES
+                    </span>
+                    <input
+                      type="number"
+                      value={formData.no_of_pkg || 0}
+                      onChange={(e) => setFormData(prev => ({ ...prev, no_of_pkg: parseInt(e.target.value) || 0 }))}
+                      onFocus={(e) => e.target.select()}
+                      ref={(el) => setInputRef(20, el)}
+                      className="w-32 px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus"
+                      placeholder="0"
+                      tabIndex={20}
+                    />
+                    
+                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-2 text-sm font-bold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[90px] ml-4">
+                      RATE
+                    </span>
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.rate || ''}
+                        onChange={handleRateChange}
+                        onFocus={(e) => e.target.select()}
+                        ref={(el) => setInputRef(21, el)}
+                        className="w-full px-3 py-2 text-black font-semibold border-2 border-purple-300 rounded-lg bg-white shadow-sm hover:border-purple-400 transition-all number-input-focus pr-8"
+                        placeholder="₹ Rate per kg"
+                        tabIndex={21}
+                      />
+                      {isSavingRate && (
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       )}
                     </div>
                   </div>
+                  
+                  {/* Historical Rate Info - Below the inputs */}
+                  {formData.consignor_name && formData.to_city_id && (
+                    <div className="ml-[120px]">
+                      <HistoricalRateInfo
+                        consignorName={formData.consignor_name}
+                        consigneeName={formData.consignee_name}
+                        toCityId={formData.to_city_id}
+                        branchId={formData.branch_id}
+                        currentRate={formData.rate}
+                        onApplyRate={handleApplyHistoricalRate}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Labour Rate - Fifth */}

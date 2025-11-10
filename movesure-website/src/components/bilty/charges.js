@@ -485,27 +485,6 @@ return (
                   />
                 </div>
 
-                {/* Weight */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
-                    WEIGHT
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={formData.wt || ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setFormData(prev => ({ ...prev, wt: value ? parseFloat(value) : 0 }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    ref={(el) => setInputRef(19, el)}
-                    className="w-32 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
-                    placeholder="0"
-                    tabIndex={19}
-                  />
-                </div>
-
                 {/* Packages */}
                 <div className="flex items-center justify-between gap-2">
                   <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
@@ -520,11 +499,55 @@ return (
                       setFormData(prev => ({ ...prev, no_of_pkg: value ? parseInt(value) : 0 }));
                     }}
                     onFocus={(e) => e.target.select()}
+                    ref={(el) => setInputRef(19, el)}
+                    className="w-32 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                    placeholder="0"
+                    tabIndex={19}
+                  />
+                </div>
+
+                {/* Weight */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
+                    WEIGHT
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.wt || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setFormData(prev => ({ ...prev, wt: value ? parseFloat(value) : 0 }));
+                    }}
+                    onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(20, el)}
                     className="w-32 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
                     placeholder="0"
                     tabIndex={20}
                   />
+                </div>
+
+                {/* Labour Rate */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
+                    LABOUR RATE
+                  </span>
+                  <div className="relative w-32">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        setFormData(prev => ({ ...prev, labour_rate: value ? parseFloat(value) : 0 }));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      ref={(el) => setInputRef(21, el)}
+                      className="w-24 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
+                      placeholder="20"
+                      tabIndex={21}
+                    />
+                  </div>
                 </div>
 
                 {/* Rate */}
@@ -553,40 +576,16 @@ return (
                         }
                       }}
                       onFocus={(e) => e.target.select()}
-                      ref={(el) => setInputRef(21, el)}
+                      ref={(el) => setInputRef(22, el)}
                       className="w-full px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-7"
                       placeholder="0"
-                      tabIndex={21}
+                      tabIndex={22}
                     />
                     {isSavingRate && (
                       <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
                         <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Labour Rate */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
-                    LABOUR RATE
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={formData.labour_rate !== undefined && formData.labour_rate !== null ? formData.labour_rate : ''}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        setFormData(prev => ({ ...prev, labour_rate: value ? parseFloat(value) : 0 }));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      ref={(el) => setInputRef(22, el)}
-                      className="w-24 px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus"
-                      placeholder="20"
-                      tabIndex={22}
-                    />
-                    <span className="text-xs text-gray-600 font-medium whitespace-nowrap">₹/pkg</span>
                   </div>
                 </div>
                 
@@ -706,7 +705,7 @@ return (
                       title={`Auto-calculated: ${((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}`}
                     />
                     <span className="text-[10px] text-gray-500 mt-0.5">
-                      @₹{formData.labour_rate || 0}/pkg
+                      @₹{formData.labour_rate || 0}
                     </span>
                   </div>
                 </div>

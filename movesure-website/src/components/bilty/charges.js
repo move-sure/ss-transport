@@ -417,7 +417,7 @@ const PackageChargesSection = ({
       // Only auto-apply if current rate is 0 or not set
       const currentRate = formData.rate;
       if (currentRate === undefined || currentRate === null || currentRate === 0) {
-        console.log('🎯 Auto-applying historical rate:', historicalRate.rate);
+        console.log('🎯 Auto-applying historical rate:', historicalRate.rate, 'Type:', historicalRate.type);
         setFormData(prev => ({ ...prev, rate: historicalRate.rate }));
       }
     }

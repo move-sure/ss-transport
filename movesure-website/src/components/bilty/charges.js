@@ -414,9 +414,14 @@ const PackageChargesSection = ({
   // Auto-apply historical rate when available (in new bilty mode only)
   useEffect(() => {
     if (!isEditMode && historicalRate && !loadingHistoricalRate) {
-      // Only auto-apply if current rate is 0 or not set
+      // Always auto-apply the predicted rate (whether default, general, or specific)
       const currentRate = formData.rate;
-      if (currentRate === undefined || currentRate === null || currentRate === 0) {
+      const historicalRateValue = parseFloat(historicalRate.rate);
+      const currentRateValue = parseFloat(currentRate);
+      
+      // Apply if: (1) rate is 0/not set, OR (2) rate is different from predicted rate
+      if (currentRate === undefined || currentRate === null || currentRate === 0 || 
+          Math.abs(currentRateValue - historicalRateValue) > 0.01) {
         console.log('🎯 Auto-applying historical rate:', historicalRate.rate, 'Type:', historicalRate.type);
         setFormData(prev => ({ ...prev, rate: historicalRate.rate }));
       }

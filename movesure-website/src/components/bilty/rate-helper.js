@@ -221,13 +221,12 @@ export const HistoricalRateInfo = ({
   // Show historical rate with apply button if different from current
   const currentRateValue = parseFloat(currentRate);
   const historicalRateValue = parseFloat(historicalRate.rate);
-  const isDifferent = currentRate && currentRateValue !== historicalRateValue;
   const isDefault = historicalRate.type === 'default';
   const isGeneral = historicalRate.type === 'general';
   const isSpecific = historicalRate.type === 'specific';
   
-  // Determine if the current rate matches the historical rate (was auto-applied)
-  const isAutoApplied = currentRate && Math.abs(currentRateValue - historicalRateValue) < 0.01; // Allow small floating point differences
+  // Rate is considered auto-applied if it matches the predicted rate
+  const isAutoApplied = currentRate && Math.abs(currentRateValue - historicalRateValue) < 0.01;
 
   return (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
@@ -240,49 +239,16 @@ export const HistoricalRateInfo = ({
       </svg>
       <span className="flex-1">
         {isDefault ? (
-          <>
-            {isAutoApplied ? (
-              <>✅ डिफॉल्ट रेट लागू: ₹{historicalRate.rate}/kg • रेट टेबल से</>
-            ) : (
-              <>
-                📋 डिफॉल्ट रेट: ₹{historicalRate.rate}/kg • कोई पुरानी बिलटी नहीं
-                {currentRateValue && !isAutoApplied && (
-                  <> • <span className="text-orange-600 font-bold">मैनुअल रेट: ₹{currentRateValue}/kg</span></>
-                )}
-              </>
-            )}
-          </>
+          <>✅ डिफॉल्ट रेट लागू: ₹{historicalRate.rate}/kg • रेट टेबल से</>
         ) : isGeneral ? (
-          <>
-            {isAutoApplied ? (
-              <>✅ AI रेट लागू: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
-            ) : (
-              <>🎯 पुरानी बिलटी: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
-            )}
-          </>
+          <>✅ AI रेट लागू: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
         ) : isSpecific ? (
-          <>
-            {isAutoApplied ? (
-              <>✅ AI रेट लागू: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार) • सटीक</>
-            ) : (
-              <>🎯 पुरानी बिलटी: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार) • सटीक</>
-            )}
-          </>
+          <>✅ AI रेट लागू: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार) • सटीक</>
         ) : (
-          <>🎯 पुरानी बिलटी: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
+          <>✅ पुरानी बिलटी: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
         )}
       </span>
-      {isDifferent && onApplyRate && !isDefault && (
-        <button
-          onClick={() => onApplyRate(historicalRate.rate)}
-          className="px-2 py-1 text-xs font-bold bg-green-600 text-white rounded hover:bg-green-700 transition-all flex-shrink-0"
-        >
-          लागू करें
-        </button>
-      )}
-      {isAutoApplied && (
-        <span className={`font-bold ${isDefault ? 'text-indigo-600' : 'text-green-600'} flex-shrink-0`}>✔️</span>
-      )}
+      <span className={`font-bold ${isDefault ? 'text-indigo-600' : 'text-green-600'} flex-shrink-0`}>✔️</span>
     </div>
   );
 };

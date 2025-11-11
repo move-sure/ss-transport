@@ -154,14 +154,14 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
     }
     if (invoiceValueRef.current) {
       register(15, invoiceValueRef.current);
-    }    if (eWayBillRef.current) {
-      register(16, eWayBillRef.current, {
+    }    if (invoiceDateRef.current) {
+      register(16, invoiceDateRef.current);
+    }
+    if (eWayBillRef.current) {
+      register(17, eWayBillRef.current, {
         skipAutoFocus: true, // Prevent auto-focus on component mount
         preventInitialFocus: true // Additional flag to prevent focus
       });
-    }
-    if (invoiceDateRef.current) {
-      register(17, invoiceDateRef.current);
     }
     
     return () => {
@@ -327,7 +327,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             onKeyDown={handleKeyDown}
             className="ewb-input flex-1 px-2 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm"
             placeholder="🚛 E-way bill (e.g., 4521-1235-5451)"
-            tabIndex={16}
+            tabIndex={17}
             maxLength={14}
             autoComplete="off"
           />
@@ -603,7 +603,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
               }
               maxLength={10}
               className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
-              tabIndex={17}
+              tabIndex={16}
             />
             
             {/* Calendar Picker Button */}
@@ -623,11 +623,13 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
                 value={formData.invoice_date || ''}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 title="Pick date from calendar"
+                tabIndex="-1"
               />
               <button
                 type="button"
                 className="flex items-center justify-center w-9 h-9 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md border border-slate-300 hover:border-indigo-300 focus:border-indigo-400 focus:ring-0"
                 title="Open calendar picker"
+                tabIndex="-1"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

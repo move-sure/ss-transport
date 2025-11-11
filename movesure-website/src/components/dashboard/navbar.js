@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X } from 'lucide-react';
 
 // Module configuration
 const MODULE_CONFIG = {
@@ -107,6 +107,7 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userModules, setUserModules] = useState([]);
   const [navigationItems, setNavigationItems] = useState([]);
   const [navigating, setNavigating] = useState(null);
@@ -287,6 +288,7 @@ export default function Navbar() {
   const handleNavClick = async (item) => {
     try {
       setNavigating(item.path);
+      setIsMobileMenuOpen(false); // Close mobile menu on navigation
       
       // Validate navigation access
       const isValid = validateNavigation(userModules, item.path);
@@ -317,6 +319,7 @@ export default function Navbar() {
   const handleDropdownNavigation = async (path) => {
     try {
       setIsDropdownOpen(false);
+      setIsMobileMenuOpen(false); // Close mobile menu
       setNavigating(path);
       
       // Validate access for dropdown navigation
@@ -354,12 +357,27 @@ export default function Navbar() {
     
     return false;
   };
+
   return (
     <nav className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 shadow-2xl border-b border-blue-700">
       <div className="w-full mx-auto px-2">
         <div className="flex justify-between h-14">
           {/* Left side - Logo/Brand and Navigation */}
-          <div className="flex items-center space-x-4">            {/* Logo/Brand */}
+          <div className="flex items-center space-x-4">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-700 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+
+            {/* Logo/Brand */}
             <div className="flex-shrink-0 flex items-center">
               <button 
                 onClick={() => router.push('/dashboard')}
@@ -367,8 +385,10 @@ export default function Navbar() {
               >
                 movesure
               </button>
-            </div>              {/* Navigation Links */}
-            <div className="flex space-x-1">
+            </div>
+
+            {/* Desktop Navigation Links */}
+            <div className="hidden lg:flex space-x-1">
               {navigationItems.map((item) => {
                 const isActive = isActiveRoute(item.path);
                 const isLoading = navigating === item.path;
@@ -477,8 +497,8 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* User Info */}
-                <div className="flex flex-col items-start">
+                {/* User Info - Hidden on mobile */}
+                <div className="hidden md:flex flex-col items-start">
                   <span className="text-xs font-semibold text-white">
                     {user?.name || user?.username}
                   </span>
@@ -490,7 +510,7 @@ export default function Navbar() {
                 </div>
 
                 <ChevronDown
-                  className={`h-3 w-3 text-blue-200 transition-transform duration-200 ${
+                  className={`hidden md:block h-3 w-3 text-blue-200 transition-transform duration-200 ${
                     isDropdownOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -561,6 +581,93 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden border-t border-blue-700 py-3 px-2 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <div className="space-y-1">
+              {navigationItems.map((item) => {
+                const isActive = isActiveRoute(item.path);
+                const isLoading = navigating === item.path;
+                
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => handleNavClick(item)}
+                    disabled={isLoading}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isActive
+                        ? item.isBilty
+                          ? 'bg-white text-blue-900 shadow-lg'
+                          : 'bg-blue-700 text-white shadow-md'
+                        : 'text-blue-100 hover:bg-blue-700 hover:text-white'
+                    }`}
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full"></div>
+                    ) : (
+                      <span className="flex-shrink-0">
+                        {getModuleIcon(item.module)}
+                      </span>
+                    )}
+                    <span className="flex-1 text-left">{item.name}</span>
+                    {item.shortcut && (
+                      <span className="text-xs opacity-70 bg-blue-800 px-2 py-1 rounded">
+                        {item.shortcut}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            
+            {/* Mobile User Info Section */}
+            <div className="mt-4 pt-4 border-t border-blue-700">
+              <div className="flex items-center space-x-3 px-4 py-2 mb-2">
+                <div className="h-10 w-10 rounded-full overflow-hidden bg-white border-2 border-blue-300 flex items-center justify-center">
+                  {user?.image_url ? (
+                    <img
+                      src={user.image_url}
+                      alt="Profile"
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-5 w-5 text-blue-900" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">
+                    {user?.name || user?.username}
+                  </p>
+                  <p className="text-xs text-blue-200 truncate">
+                    @{user?.username}
+                  </p>
+                  {user?.post && (
+                    <p className="text-xs text-blue-300 truncate mt-1">
+                      {user.post}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <button
+                onClick={() => handleDropdownNavigation('/profile')}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-blue-100 hover:bg-blue-700 hover:text-white transition-all duration-200"
+              >
+                <User className="h-4 w-4" />
+                <span>My Profile</span>
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-red-200 hover:bg-red-600 hover:text-white transition-all duration-200"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

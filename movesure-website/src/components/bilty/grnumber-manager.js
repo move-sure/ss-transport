@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Edit3, Search, Plus } from 'lucide-react';
+import { ChevronDown, Edit3, Search, Plus, TrendingUp } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
+import RateSearchModal from './rate-search-modal';
 
 const GRNumberSection = ({ 
   formData, 
@@ -16,7 +17,8 @@ const GRNumberSection = ({
   toggleEditMode,
   resetForm,
   existingBilties,
-  showShortcuts
+  showShortcuts,
+  cities = [] // Add cities prop
 }) => {
   const [showGRDropdown, setShowGRDropdown] = useState(false);
   const [grSearch, setGrSearch] = useState('');
@@ -24,6 +26,7 @@ const GRNumberSection = ({
   const [currentEditingGR, setCurrentEditingGR] = useState('');
   const [displayLimit, setDisplayLimit] = useState(50); // Start with 50 bilties
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showRateSearchModal, setShowRateSearchModal] = useState(false);
   
   const grRef = useRef(null);
   const grInputRef = useRef(null);
@@ -32,6 +35,20 @@ const GRNumberSection = ({
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
+
+  // Alt+E keyboard shortcut to toggle rate search modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        setShowRateSearchModal(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+  
   // Update currentEditingGR when switching between modes
   useEffect(() => {
     if (isEditMode && formData.gr_no && formData.consignor_name) {
@@ -384,6 +401,18 @@ const GRNumberSection = ({
           </div>
         </div>
 
+        {/* Rate Search Button - Right side */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowRateSearchModal(true)}
+            className="px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-sm bg-white text-purple-600 border-purple-200 hover:bg-purple-50"
+            title="Search historical rates (Alt+R)"
+          >
+            <TrendingUp className="w-3 h-3 inline mr-1" />
+            RATES
+          </button>
+        </div>
+
         {/* Status indicators - Now properly contained */}
         {isEditMode && currentEditingGR && (
           <div className="flex flex-col sm:flex-row gap-2 lg:justify-end">
@@ -400,6 +429,16 @@ const GRNumberSection = ({
           </div>
         )}
       </div>
+
+      {/* Rate Search Modal */}
+      <RateSearchModal
+        isOpen={showRateSearchModal}
+        onClose={() => setShowRateSearchModal(false)}
+        initialConsignor={formData.consignor_name}
+        initialConsignee={formData.consignee_name}
+        initialCityId={formData.to_city_id}
+        cities={cities}
+      />
     </div>
   );
 };

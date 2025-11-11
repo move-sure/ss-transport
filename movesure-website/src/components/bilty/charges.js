@@ -266,6 +266,27 @@ const PackageChargesSection = ({
     };
   }, [formData.no_of_pkg, formData.labour_rate, setFormData]);
 
+  // Listen for copied rate from rate search modal
+  useEffect(() => {
+    const handleRateCopied = (event) => {
+      const rate = event.detail.rate;
+      setFormData(prev => ({ ...prev, rate: parseFloat(rate) }));
+      
+      // Focus on the rate input to show the change
+      if (rateRef.current) {
+        rateRef.current.focus();
+        // Briefly highlight the input
+        rateRef.current.classList.add('ring-2', 'ring-green-500');
+        setTimeout(() => {
+          rateRef.current?.classList.remove('ring-2', 'ring-green-500');
+        }, 1000);
+      }
+    };
+    
+    window.addEventListener('rateCopied', handleRateCopied);
+    return () => window.removeEventListener('rateCopied', handleRateCopied);
+  }, [setFormData]);
+
   useEffect(() => {
     // Calculate freight amount
     const freightAmount = (formData.wt || 0) * (formData.rate || 0);

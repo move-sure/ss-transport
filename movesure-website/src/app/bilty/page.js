@@ -1116,6 +1116,7 @@ export default function BiltyForm() {
             resetForm={resetForm}
             existingBilties={existingBilties}
             showShortcuts={showShortcuts}
+            cities={cities}
           />          {/* Row 2: City & Transport */}
           <CityTransportSection
             key={`city-transport-${resetKey}`}

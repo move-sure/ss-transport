@@ -560,21 +560,36 @@ return (
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={formData.rate || ''}
+                      value={formData.rate !== undefined && formData.rate !== null ? formData.rate : ''}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        const newRate = value ? parseFloat(value) : 0;
-                        setFormData(prev => ({ ...prev, rate: newRate }));
+                        let value = e.target.value;
+                        // Allow only numbers and one decimal point
+                        value = value.replace(/[^0-9.]/g, '');
+                        // Prevent multiple decimal points
+                        const parts = value.split('.');
+                        if (parts.length > 2) {
+                          value = parts[0] + '.' + parts.slice(1).join('');
+                        }
+                        
+                        // Update formData with string value to allow decimal typing
+                        setFormData(prev => ({ ...prev, rate: value }));
                         
                         // Debounce the save operation
                         if (window.rateSaveTimeout) {
                           clearTimeout(window.rateSaveTimeout);
                         }
-                        if (formData.to_city_id && formData.branch_id && newRate > 0) {
+                        const numericValue = parseFloat(value);
+                        if (formData.to_city_id && formData.branch_id && numericValue > 0) {
                           window.rateSaveTimeout = setTimeout(async () => {
-                            await saveRateAutomatically(newRate);
+                            await saveRateAutomatically(numericValue);
                           }, 1000);
                         }
+                      }}
+                      onBlur={(e) => {
+                        // Convert to number on blur for calculations
+                        const value = e.target.value;
+                        const numericValue = value ? parseFloat(value) : 0;
+                        setFormData(prev => ({ ...prev, rate: numericValue }));
                       }}
                       onFocus={(e) => e.target.select()}
                       ref={(el) => setInputRef(22, el)}

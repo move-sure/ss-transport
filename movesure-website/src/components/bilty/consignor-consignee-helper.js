@@ -30,7 +30,7 @@ export const useConsignorConsigneeSearch = () => {
   });
   const [isSearching, setIsSearching] = useState(false);
 
-  // Optimized search with exact prefix matching
+  // Optimized search with contains matching (finds anywhere in company name)
   const searchDatabase = useCallback(async (searchTerm, type = 'both') => {
     if (!searchTerm || searchTerm.length < 1) {
       setSearchResults({ consignors: [], consignees: [] });
@@ -46,7 +46,7 @@ export const useConsignorConsigneeSearch = () => {
           supabase
             .from('consignors')
             .select('id, company_name, gst_num, number')
-            .ilike('company_name', `${searchTerm}%`)  // Only prefix matching for company name
+            .ilike('company_name', `%${searchTerm}%`)  // Contains matching - finds anywhere in company name
             .order('company_name')
             .limit(20)
         );
@@ -57,7 +57,7 @@ export const useConsignorConsigneeSearch = () => {
           supabase
             .from('consignees')
             .select('id, company_name, gst_num, number')
-            .ilike('company_name', `${searchTerm}%`)  // Only prefix matching for company name
+            .ilike('company_name', `%${searchTerm}%`)  // Contains matching - finds anywhere in company name
             .order('company_name')
             .limit(20)
         );

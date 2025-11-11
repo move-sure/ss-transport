@@ -239,11 +239,11 @@ export const HistoricalRateInfo = ({
       </svg>
       <span className="flex-1">
         {isDefault ? (
-          <>✅ डिफॉल्ट रेट लागू: ₹{historicalRate.rate}/kg • रेट टेबल से</>
+          <>✅ डिफॉल्ट रेट लगा: ₹{historicalRate.rate}/kg • रेट टेबल से</>
         ) : isGeneral ? (
-          <>✅ AI रेट लागू: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
+          <>✅ रेट लगा: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
         ) : isSpecific ? (
-          <>✅ AI रेट लागू: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार) • सटीक</>
+          <>✅ रेट लगा: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार) • बिल्कुल सही</>
         ) : (
           <>✅ पुरानी बिलटी: ₹{historicalRate.rate}/kg • {historicalRate.count}/{historicalRate.totalBilties} बिलटी ({historicalRate.confidence}% बार)</>
         )}

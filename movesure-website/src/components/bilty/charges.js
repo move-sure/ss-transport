@@ -293,13 +293,25 @@ const PackageChargesSection = ({
     setFormData(prev => ({ ...prev, freight_amount: freightAmount }));
   }, [formData.wt, formData.rate, setFormData]);
   useEffect(() => {
-    // Calculate total
-    const total = (formData.freight_amount || 0) + 
-                  (formData.labour_charge || 0) + 
-                  (formData.bill_charge || 0) + 
-                  (formData.toll_charge || 0) + 
-                  (formData.other_charge || 0) + 
-                  (formData.pf_charge || 0);
+    // Calculate total - handle string values during decimal input
+    const parseValue = (val) => {
+      if (val === undefined || val === null || val === '') return 0;
+      // If it's a string ending with just a decimal point, treat as the number before decimal
+      if (typeof val === 'string') {
+        if (val === '.' || val === '') return 0;
+        const parsed = parseFloat(val);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return parseFloat(val) || 0;
+    };
+
+    const total = parseValue(formData.freight_amount) + 
+                  parseValue(formData.labour_charge) + 
+                  parseValue(formData.bill_charge) + 
+                  parseValue(formData.toll_charge) + 
+                  parseValue(formData.other_charge) + 
+                  parseValue(formData.pf_charge);
+    
     setFormData(prev => ({ ...prev, total }));
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
       formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
@@ -797,10 +809,23 @@ return (
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={formData.pf_charge || ''}
+                    value={formData.pf_charge !== undefined && formData.pf_charge !== null ? formData.pf_charge : ''}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setFormData(prev => ({ ...prev, pf_charge: value ? parseFloat(value) : 0 }));
+                      let value = e.target.value;
+                      // Allow only numbers and one decimal point
+                      value = value.replace(/[^0-9.]/g, '');
+                      // Prevent multiple decimal points
+                      const parts = value.split('.');
+                      if (parts.length > 2) {
+                        value = parts[0] + '.' + parts.slice(1).join('');
+                      }
+                      setFormData(prev => ({ ...prev, pf_charge: value }));
+                    }}
+                    onBlur={(e) => {
+                      // Convert to number on blur
+                      const value = e.target.value;
+                      const numericValue = value ? parseFloat(value) : 0;
+                      setFormData(prev => ({ ...prev, pf_charge: numericValue }));
                     }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(27, el)}
@@ -818,10 +843,23 @@ return (
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={formData.other_charge || ''}
+                    value={formData.other_charge !== undefined && formData.other_charge !== null ? formData.other_charge : ''}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setFormData(prev => ({ ...prev, other_charge: value ? parseFloat(value) : 0 }));
+                      let value = e.target.value;
+                      // Allow only numbers and one decimal point
+                      value = value.replace(/[^0-9.]/g, '');
+                      // Prevent multiple decimal points
+                      const parts = value.split('.');
+                      if (parts.length > 2) {
+                        value = parts[0] + '.' + parts.slice(1).join('');
+                      }
+                      setFormData(prev => ({ ...prev, other_charge: value }));
+                    }}
+                    onBlur={(e) => {
+                      // Convert to number on blur
+                      const value = e.target.value;
+                      const numericValue = value ? parseFloat(value) : 0;
+                      setFormData(prev => ({ ...prev, other_charge: numericValue }));
                     }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(28, el)}

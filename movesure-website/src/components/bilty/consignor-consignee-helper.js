@@ -89,7 +89,7 @@ export const useConsignorConsigneeSearch = () => {
     }
   }, []);
 
-  const debouncedSearch = useDebounce(searchDatabase, 300);
+  const debouncedSearch = useDebounce(searchDatabase, 100); // Reduced from 300ms to 100ms for faster response
 
   return {
     searchResults,

@@ -132,7 +132,7 @@ const ConsignorAutocomplete = ({
     <div ref={containerRef} className="relative">
       <label className="block text-xs font-semibold text-slate-700 mb-1">
         <User className="w-3 h-3 inline mr-1" />
-        Consignor *
+        Consignor
       </label>
       <div className="relative">
         <input

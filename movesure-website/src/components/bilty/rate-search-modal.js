@@ -257,8 +257,9 @@ const RateSearchModal = ({
 
   // Search bilties with any combination of filters
   const handleSearch = async (searchConsignor = consignor, searchConsignee = consignee, searchCityId = cityId) => {
-    if (!searchConsignor) {
-      alert('Please provide at least a Consignor');
+    // Allow search with either consignor OR consignee (or both)
+    if (!searchConsignor && !searchConsignee) {
+      alert('Please provide at least a Consignor or Consignee');
       return;
     }
 
@@ -267,12 +268,16 @@ const RateSearchModal = ({
       let query = supabase
         .from('bilty')
         .select('*')
-        .eq('consignor_name', searchConsignor)
         .eq('is_active', true)
         .not('rate', 'is', null)
         .gt('rate', 0)
         .order('bilty_date', { ascending: false })
         .limit(200);
+
+      // Add consignor filter if provided
+      if (searchConsignor) {
+        query = query.eq('consignor_name', searchConsignor);
+      }
 
       // Add consignee filter if provided
       if (searchConsignee) {
@@ -454,7 +459,7 @@ const RateSearchModal = ({
                 onChange={handleConsignorChange}
                 onSelect={handleConsignorSelect}
                 autoFocus={true}
-                placeholder="🔍 Start typing consignor..."
+                placeholder="🔍 Consignor (Optional)"
               />
 
               {/* Consignee */}

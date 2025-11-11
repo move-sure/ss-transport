@@ -402,7 +402,7 @@ const CityTransportSection = ({
                 }
               }}
               maxLength={10}
-              className="w-24 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+              className="w-40 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
               placeholder="Phone"
               tabIndex={4}
             />

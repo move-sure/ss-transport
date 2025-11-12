@@ -189,45 +189,51 @@ const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [] }) =
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-2 py-1">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-600">Consignor</p>
-                        <p className="truncate font-semibold text-slate-900">{bilty.consignor_name || 'N/A'}</p>
-                        {bilty.consignor_number && (
-                          <a
-                            href={`tel:${bilty.consignor_number}`}
-                            className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800"
-                          >
-                            <Phone className="h-3 w-3" />
-                            {bilty.consignor_number}
-                          </a>
-                        )}
+                  <div className="space-y-1.5 text-xs">
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      <div className="rounded border border-indigo-100 bg-indigo-50/50 px-2 py-1">
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-indigo-600 mb-0.5">Consignor</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-[11px] font-bold text-slate-900 flex-1">{bilty.consignor_name || 'N/A'}</p>
+                          {bilty.consignor_number && (
+                            <a
+                              href={`tel:${bilty.consignor_number}`}
+                              className="flex items-center gap-0.5 text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 shrink-0"
+                            >
+                              <Phone className="h-2.5 w-2.5" />
+                              <span className="hidden sm:inline">{bilty.consignor_number}</span>
+                              <span className="sm:hidden">Call</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="rounded-lg border border-purple-100 bg-purple-50/50 px-2 py-1">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-purple-600">Consignee</p>
-                        <p className="truncate font-semibold text-slate-900">{bilty.consignee_name || 'N/A'}</p>
-                        {bilty.consignee_number && (
-                          <a
-                            href={`tel:${bilty.consignee_number}`}
-                            className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-purple-600 hover:text-purple-800"
-                          >
-                            <Phone className="h-3 w-3" />
-                            {bilty.consignee_number}
-                          </a>
-                        )}
+                      <div className="rounded border border-purple-100 bg-purple-50/50 px-2 py-1">
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-purple-600 mb-0.5">Consignee</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-[11px] font-bold text-slate-900 flex-1">{bilty.consignee_name || 'N/A'}</p>
+                          {bilty.consignee_number && (
+                            <a
+                              href={`tel:${bilty.consignee_number}`}
+                              className="flex items-center gap-0.5 text-[9px] font-semibold text-purple-600 hover:text-purple-800 shrink-0"
+                            >
+                              <Phone className="h-2.5 w-2.5" />
+                              <span className="hidden sm:inline">{bilty.consignee_number}</span>
+                              <span className="sm:hidden">Call</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                      <span className="font-semibold text-slate-900">{bilty.wt || 0} KG</span>
+                    <div className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-1">
+                      <span className="text-[11px] font-semibold text-slate-900">{bilty.wt || 0} KG</span>
                       <span className="text-slate-400">•</span>
-                      <span className="font-semibold text-slate-900">{bilty.no_of_pkg || 0} PKG</span>
+                      <span className="text-[11px] font-semibold text-slate-900">{bilty.no_of_pkg || 0} PKG</span>
                       <span className="text-slate-400">•</span>
-                      <span className="font-bold text-emerald-700">₹{bilty.total || 0}</span>
+                      <span className="text-[11px] font-bold text-emerald-700">₹{bilty.total || 0}</span>
                       <span className="text-slate-400">•</span>
-                      <span className="font-bold text-indigo-600">
+                      <span className="text-[11px] font-bold text-indigo-600">
                         {bilty.delivery_type === 'godown-delivery' ? 'GD' : bilty.delivery_type === 'door-delivery' ? 'DD' : 'N/A'}
                       </span>
                     </div>

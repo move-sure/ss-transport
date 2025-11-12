@@ -227,7 +227,7 @@ export default function TrackingPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5">
-                {trackingMode === 'bilty' ? '📦 Bilty Tracking' : '🚚 Challan Tracking'}
+                {trackingMode === 'bilty' ? '📦Tracking' : '🚚Tracking'}
               </h1>
               <p className="text-xs text-gray-600">
                 {trackingMode === 'bilty' 

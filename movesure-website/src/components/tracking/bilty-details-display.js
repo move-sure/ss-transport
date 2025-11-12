@@ -1,10 +1,23 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Package, User, Users, Truck, FileText, IndianRupee, Info, UserCircle } from 'lucide-react';
 import MobileNumberEditor from './mobile-number-editor';
 
-const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate }) => {
+const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate, onComplaintCreated }) => {
+  const router = useRouter();
+
+  const handleComplaintClick = () => {
+    if (onComplaintCreated && bilty?.gr_no) {
+      // If callback exists, stay in tracking page and pass GR number
+      onComplaintCreated(bilty.gr_no);
+    } else if (bilty?.gr_no) {
+      // Otherwise navigate to complaints page
+      router.push(`/complains/create?gr_no=${bilty.gr_no}`);
+    }
+  };
+
   if (!bilty) {
     return (
       <div className="bg-white/95 p-6 rounded-lg border border-slate-200 shadow-sm text-center">
@@ -144,8 +157,8 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
           </div>
         )}
 
-        {/* Status Badge */}
-        <div className="flex items-center justify-between pt-1.5 border-t border-gray-200">
+        {/* Status Badge and Actions */}
+        <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-gray-200">
           <div className={`px-2 py-1 rounded font-bold text-[10px] ${
             bilty.saving_option === 'DRAFT'
               ? 'bg-yellow-100 text-amber-800 border border-yellow-300'
@@ -153,9 +166,15 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
           }`}>
             Status: {bilty.saving_option}
           </div>
-          <div className="text-[9px] text-gray-500">
-            Created: {new Date(bilty.created_at).toLocaleString('en-IN')}
-          </div>
+          <button
+            onClick={handleComplaintClick}
+            className="inline-flex items-center gap-1 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-orange-700"
+          >
+            🚨 Register Complaint
+          </button>
+        </div>
+        <div className="text-[9px] text-gray-500 mt-1">
+          Created: {new Date(bilty.created_at).toLocaleString('en-IN')}
         </div>
       </div>
     </div>

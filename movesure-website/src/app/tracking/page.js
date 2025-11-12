@@ -9,12 +9,13 @@ import TrackingSearch from '@/components/tracking/tracking-search';
 import BiltyDetailsDisplay from '@/components/tracking/bilty-details-display';
 import ChallanDetailsDisplay from '@/components/tracking/challan-details-display';
 import ChallanTrackingSection from '@/components/tracking/challan-tracking-section';
+import ComplaintsSection from '@/components/tracking/complaints-section';
 import { FileText, Package } from 'lucide-react';
 
 export default function TrackingPage() {
   const router = useRouter();
   const { user } = useAuth(); // Use the auth context instead of checking manually
-  const [trackingMode, setTrackingMode] = useState('bilty'); // 'bilty' or 'challan'
+  const [trackingMode, setTrackingMode] = useState('bilty'); // 'bilty', 'challan', or 'complaints'
   const [bilties, setBilties] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedBilty, setSelectedBilty] = useState(null);
@@ -25,11 +26,14 @@ export default function TrackingPage() {
   const [owner, setOwner] = useState(null);
   const [createdByUser, setCreatedByUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [complaints, setComplaints] = useState([]);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
 
   useEffect(() => {
     if (user) {
       fetchBilties(user);
       fetchBranches();
+      fetchComplaints();
     }
   }, [user]);
 
@@ -44,6 +48,20 @@ export default function TrackingPage() {
       setBranches(data || []);
     } catch (error) {
       console.error('Error fetching branches:', error);
+    }
+  };
+
+  const fetchComplaints = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('complaints')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setComplaints(data || []);
+    } catch (error) {
+      console.error('Error fetching complaints:', error);
     }
   };
 
@@ -196,6 +214,18 @@ export default function TrackingPage() {
     setBilties(prev => prev.map(b => b.id === updatedBilty.id ? updatedBilty : b));
   };
 
+  const handleComplaintCreated = (grNo = null) => {
+    fetchComplaints();
+    setTrackingMode('complaints');
+    if (grNo) {
+      setSelectedComplaint({ gr_no: grNo, isNew: true });
+    }
+  };
+
+  const handleViewComplaint = (complaint) => {
+    setSelectedComplaint(complaint);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -240,25 +270,36 @@ export default function TrackingPage() {
             <div className="flex gap-2 rounded-xl border-2 border-slate-200 bg-white p-1 shadow-sm">
               <button
                 onClick={() => setTrackingMode('bilty')}
-                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
                   trackingMode === 'bilty'
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <FileText className="h-4 w-4" />
-                Bilty Tracking
+                <span className="hidden sm:inline">Bilty</span>
               </button>
               <button
                 onClick={() => setTrackingMode('challan')}
-                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
                   trackingMode === 'challan'
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <Package className="h-4 w-4" />
-                Challan Tracking
+                <span className="hidden sm:inline">Challan</span>
+              </button>
+              <button
+                onClick={() => setTrackingMode('complaints')}
+                className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
+                  trackingMode === 'complaints'
+                    ? 'bg-orange-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                🚨
+                <span className="hidden sm:inline">Complaints</span>
               </button>
             </div>
           </div>
@@ -293,12 +334,28 @@ export default function TrackingPage() {
                 transitDetails={transitDetails}
                 createdByUser={createdByUser}
                 onBiltyUpdate={handleBiltyUpdate}
+                onComplaintCreated={handleComplaintCreated}
               />
             </div>
           </>
+        ) : trackingMode === 'challan' ? (
+          <div className="px-2">
+            <ChallanTrackingSection 
+              user={user} 
+              branches={branches}
+              onComplaintCreated={handleComplaintCreated}
+            />
+          </div>
         ) : (
           <div className="px-2">
-            <ChallanTrackingSection user={user} branches={branches} />
+            <ComplaintsSection 
+              complaints={complaints}
+              onViewComplaint={handleViewComplaint}
+              onComplaintCreated={handleComplaintCreated}
+              user={user}
+              selectedComplaint={selectedComplaint}
+              onClearSelection={() => setSelectedComplaint(null)}
+            />
           </div>
         )}
       </div>

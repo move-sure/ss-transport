@@ -6,7 +6,7 @@ import ChallanTrackingSelector from './challan-tracking-selector';
 import ChallanBiltyList from './challan-bilty-list';
 import { Package, Loader2 } from 'lucide-react';
 
-const ChallanTrackingSection = ({ user, branches = [] }) => {
+const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => {
   const [challans, setChallans] = useState([]);
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [transitBilties, setTransitBilties] = useState([]);
@@ -179,6 +179,7 @@ const ChallanTrackingSection = ({ user, branches = [] }) => {
           transitDetails={transitBilties}
           loading={loadingBilties}
           branches={branches}
+          onComplaintCreated={onComplaintCreated}
         />
       )}
     </div>

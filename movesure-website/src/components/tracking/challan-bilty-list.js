@@ -1,13 +1,25 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Package, Search, Filter, Loader2, MapPin, Calendar, Wallet, Truck, FileText, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 
-const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [] }) => {
+const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [], onComplaintCreated }) => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
   const [filterBiltyType, setFilterBiltyType] = useState('all');
+
+  const handleComplaintClick = (grNo) => {
+    if (onComplaintCreated) {
+      // Stay in tracking page and switch to complaints mode
+      onComplaintCreated(grNo);
+    } else {
+      // Navigate to complaints page
+      router.push(`/complains/create?gr_no=${grNo}`);
+    }
+  };
 
   const getCityName = (cityId, cityCode) => {
     // Implementation for city name lookup
@@ -237,6 +249,13 @@ const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [] }) =
                         {bilty.delivery_type === 'godown-delivery' ? 'GD' : bilty.delivery_type === 'door-delivery' ? 'DD' : 'N/A'}
                       </span>
                     </div>
+
+                    <button
+                      onClick={() => handleComplaintClick(bilty.gr_no)}
+                      className="w-full mt-1 rounded bg-orange-600 px-2 py-1 text-[10px] font-bold text-white transition hover:bg-orange-700"
+                    >
+                      🚨 Register Complaint
+                    </button>
                   </div>
                 </div>
               );

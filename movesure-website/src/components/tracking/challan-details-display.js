@@ -16,7 +16,18 @@ const ChallanDetailsDisplay = ({ challanDetails, truck, driver, owner }) => {
       </h3>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-        {/* Challan Info */}
+        {/* Challan Number */}
+        <div className="bg-gradient-to-br from-purple-100 to-indigo-100 p-3 rounded-lg shadow-md border-2 border-purple-300">
+          <div className="flex items-center gap-1 mb-1">
+            <Package className="w-4 h-4 text-purple-700" />
+            <span className="text-xs font-bold text-purple-700 uppercase">Challan No</span>
+          </div>
+          <div className="text-2xl font-black text-purple-900">
+            {challanDetails.challan_no}
+          </div>
+        </div>
+
+        {/* Challan Date */}
         <div className="bg-white p-2 rounded shadow-sm border border-purple-100">
           <div className="flex items-center gap-1 mb-1">
             <Calendar className="w-3 h-3 text-purple-600" />

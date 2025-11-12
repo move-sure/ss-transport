@@ -8,11 +8,15 @@ import Navbar from '@/components/dashboard/navbar';
 import TrackingSearch from '@/components/tracking/tracking-search';
 import BiltyDetailsDisplay from '@/components/tracking/bilty-details-display';
 import ChallanDetailsDisplay from '@/components/tracking/challan-details-display';
+import ChallanTrackingSection from '@/components/tracking/challan-tracking-section';
+import { FileText, Package } from 'lucide-react';
 
 export default function TrackingPage() {
   const router = useRouter();
   const { user } = useAuth(); // Use the auth context instead of checking manually
+  const [trackingMode, setTrackingMode] = useState('bilty'); // 'bilty' or 'challan'
   const [bilties, setBilties] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [selectedBilty, setSelectedBilty] = useState(null);
   const [transitDetails, setTransitDetails] = useState(null);
   const [challanDetails, setChallanDetails] = useState(null);
@@ -25,8 +29,23 @@ export default function TrackingPage() {
   useEffect(() => {
     if (user) {
       fetchBilties(user);
+      fetchBranches();
     }
   }, [user]);
+
+  const fetchBranches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .order('branch_name');
+
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    }
+  };
 
   const fetchBilties = async (currentUser) => {
     try {
@@ -203,42 +222,85 @@ export default function TrackingPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <Navbar />
       <div className="p-2">
-        {/* Header */}
+        {/* Header with Toggle */}
         <div className="mb-3 px-2">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5">
-            📦 Bilty Tracking System
-          </h1>
-          <p className="text-xs text-gray-600">Search and track your bilties in real-time</p>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5">
+                {trackingMode === 'bilty' ? '📦 Bilty Tracking' : '🚚 Challan Tracking'}
+              </h1>
+              <p className="text-xs text-gray-600">
+                {trackingMode === 'bilty' 
+                  ? 'Search and track individual bilties in real-time' 
+                  : 'Track challans and view all associated bilties'}
+              </p>
+            </div>
+            
+            {/* Mode Toggle */}
+            <div className="flex gap-2 rounded-xl border-2 border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                onClick={() => setTrackingMode('bilty')}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  trackingMode === 'bilty'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <FileText className="h-4 w-4" />
+                Bilty Tracking
+              </button>
+              <button
+                onClick={() => setTrackingMode('challan')}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  trackingMode === 'challan'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Package className="h-4 w-4" />
+                Challan Tracking
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Search Section */}
-        <div className="mb-3 px-2">
-          <TrackingSearch
-            onSelectBilty={handleSelectBilty}
-            bilties={bilties}
-          />
-        </div>
+        {/* Content Based on Mode */}
+        {trackingMode === 'bilty' ? (
+          <>
+            {/* Search Section */}
+            <div className="mb-3 px-2">
+              <TrackingSearch
+                onSelectBilty={handleSelectBilty}
+                bilties={bilties}
+              />
+            </div>
 
-        {/* Details Section */}
-        <div className="px-2">
-          {/* Challan Details - Show above bilty details */}
-          {selectedBilty && challanDetails && (
-            <ChallanDetailsDisplay
-              challanDetails={challanDetails}
-              truck={truck}
-              driver={driver}
-              owner={owner}
-            />
-          )}
-          
-          {/* Bilty Details */}
-          <BiltyDetailsDisplay
-            bilty={selectedBilty}
-            transitDetails={transitDetails}
-            createdByUser={createdByUser}
-            onBiltyUpdate={handleBiltyUpdate}
-          />
-        </div>
+            {/* Details Section */}
+            <div className="px-2">
+              {/* Challan Details - Show above bilty details */}
+              {selectedBilty && challanDetails && (
+                <ChallanDetailsDisplay
+                  challanDetails={challanDetails}
+                  truck={truck}
+                  driver={driver}
+                  owner={owner}
+                />
+              )}
+              
+              {/* Bilty Details */}
+              <BiltyDetailsDisplay
+                bilty={selectedBilty}
+                transitDetails={transitDetails}
+                createdByUser={createdByUser}
+                onBiltyUpdate={handleBiltyUpdate}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="px-2">
+            <ChallanTrackingSection user={user} branches={branches} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,18 +8,24 @@ import { Users, Plus, Trash2, Save, Search, CheckCircle, XCircle, Shield, User }
 
 const AVAILABLE_MODULES = [
   { name: 'bilty', label: 'Bilty', description: 'Create and manage bilty documents' },
-  { name: 'e-way-bill', label: 'E-Way Bill', description: 'Generate and track e-way bills' },
+  { name: 'ewb', label: 'E-Way Bill', description: 'Generate and track e-way bills' },
   { name: 'challan', label: 'Challan', description: 'Create and manage challans' },
   { name: 'manual', label: 'Manual', description: 'Access user manual and documentation' },
   { name: 'challan-setting', label: 'Challan Settings', description: 'Configure challan settings' },
-  { name: 'truck-management', label: 'Truck Add', description: 'Add and manage trucks' },
-  { name: 'search', label: 'Search', description: 'Search bilty and documents (/search)' },
-  { name: 'bill', label: 'Bill Search', description: 'Advanced bill search and management (/bill)' },
+  { name: 'truck-management', label: 'Truck Management', description: 'Add and manage trucks' },
+  { name: 'search', label: 'Search', description: 'Search bilty and documents' },
+  { name: 'bill', label: 'Bill Search', description: 'Advanced bill search and management' },
+  { name: 'tracking', label: 'Tracking', description: 'Track bilty and transit status' },
   { name: 'master', label: 'Master', description: 'Master data management' },
+  { name: 'report', label: 'Reports', description: 'View reports and analytics' },
   { name: 'setting', label: 'Settings', description: 'Application settings' },
-  { name: 'staff', label: 'Staff', description: 'Administrative functions' },
+  { name: 'bilty-setting', label: 'Bilty Settings', description: 'Configure bilty settings' },
+  { name: 'station-list', label: 'Station List', description: 'Manage station list' },
   { name: 'danger', label: 'Danger Zone', description: 'Critical bill book configuration (USE WITH CAUTION)' },
-  { name: 'godown', label: 'Godown', description: 'Manage godown operations' }
+  { name: 'godown', label: 'Godown', description: 'Manage godown operations' },
+  { name: 'crm', label: 'CRM', description: 'Customer relationship management' },
+  { name: 'complains', label: 'Complaints', description: 'Manage customer complaints' },
+  { name: 'available', label: 'Available', description: 'Available items management' }
 ];
 
 export default function UserModulesPage() {
@@ -34,7 +40,16 @@ export default function UserModulesPage() {
 
   // Check auth on mount
   useEffect(() => {
-    if (!requireAuth()) return;
+    // Check if user is authenticated and is staff/admin
+    if (!user) {
+      return;
+    }
+
+    if (!user.is_staff) {
+      // Not an admin, redirect to dashboard
+      window.location.href = '/dashboard';
+      return;
+    }
     
     fetchUsers();
   }, [user]);

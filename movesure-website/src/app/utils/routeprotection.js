@@ -11,31 +11,33 @@ const ROUTE_MODULE_MAP = {
   '/bilty': 'bilty',
   '/bill': 'bill',
   '/search': 'search',
-  '/e-way-bill': 'e-way-bill',
-  '/loading': 'loading',
+  '/ewb': 'ewb',
+  '/manual': 'manual',
   '/challan': 'challan',
+  '/challan-setting': 'challan-setting',
+  '/truck-management': 'truck-management',
   '/master': 'master',
   '/report': 'report',
+  '/reports': 'report',
   '/settings': 'setting',
-  '/setting': 'setting', // Handle both variants
-  '/admin': 'staff',
-  '/staff': 'staff',
-  '/user-modules': 'staff', // Staff only page
-  '/users': 'staff', // Staff only page
+  '/setting': 'setting',
+  '/bilty-setting': 'bilty-setting',
+  '/station-list': 'station-list',
+  '/danger': 'danger',
+  '/godown': 'godown',
+  '/tracking': 'tracking',
+  '/crm': 'crm',
+  '/complains': 'complains',
+  '/available': 'available',
 };
 
 // Routes that don't require any module (public or auth-only routes)
 const PUBLIC_ROUTES = [
   '/',
-  '/dashboard',
   '/login',
   '/register',
-  '/profile',
-  '/help',
   '/about',
   '/contact',
-  '/station-list',
-  '/print' // Make print routes public for external access
 ];
 
 // Routes that require authentication but no specific module
@@ -43,7 +45,14 @@ const AUTH_ONLY_ROUTES = [
   '/profile',
   '/dashboard',
   '/help',
-  '/godown'
+];
+
+// Admin-only routes (requires staff role)
+const ADMIN_ONLY_ROUTES = [
+  '/test',
+  '/admin',
+  '/user-modules',
+  '/users',
 ];
 
 export default function RouteProtection({ children }) {
@@ -84,10 +93,19 @@ export default function RouteProtection({ children }) {
       if (error) {
         console.error('Error fetching user modules:', error);
         setUserModules([]);
+        setModuleLoading(false);
         return;
       }
 
       const modules = data.map(item => item.module_name);
+      console.log('📋 User Modules Loaded:', modules);
+      console.log('📊 Total modules count:', modules.length);
+      
+      // If user has no modules assigned, log warning
+      if (modules.length === 0) {
+        console.warn('⚠️ User has no modules assigned. Contact admin to assign modules.');
+      }
+      
       setUserModules(modules);
     } catch (error) {
       console.error('Error fetching user modules:', error);
@@ -104,46 +122,79 @@ export default function RouteProtection({ children }) {
 
     // Check if it's a public route
     if (PUBLIC_ROUTES.includes(pathname)) {
-      return; // Allow access
+      console.log('✅ Public route access granted');
+      return;
     }
 
     // Check if it's a print route (dynamic route /print/[gr_no])
     if (pathname.startsWith('/print/')) {
-      return; // Allow public access to print routes
+      console.log('✅ Print route access granted');
+      return;
     }
 
     // Check if user is authenticated for protected routes
     if (!isAuthenticated) {
+      console.log('❌ Not authenticated, redirecting to login');
       router.push('/login');
+      return;
+    }
+
+    // Check if it's an admin-only route
+    if (ADMIN_ONLY_ROUTES.includes(pathname)) {
+      if (!user?.is_staff) {
+        console.error('❌ Access denied - Admin access required');
+        setRequiredModule('admin');
+        setAccessDenied(true);
+        return;
+      }
+      console.log('✅ Admin route access granted');
       return;
     }
 
     // Check if it's an auth-only route (no specific module required)
     if (AUTH_ONLY_ROUTES.includes(pathname)) {
-      return; // Allow access for authenticated users
+      console.log('✅ Auth-only route access granted');
+      return;
     }
 
     // Find the required module for this route
     const requiredModuleForRoute = getRequiredModule(pathname);
     
+    console.log('🔐 Route Protection Check:', {
+      pathname,
+      requiredModuleForRoute,
+      userModules,
+      userModulesLength: userModules.length,
+      hasAccess: requiredModuleForRoute ? userModules.includes(requiredModuleForRoute) : 'N/A',
+      isStaff: user?.is_staff,
+      moduleLoading
+    });
+    
     if (!requiredModuleForRoute) {
-      // Route not defined in our system, allow access (or you can deny)
+      // Route not defined in our system, allow access for now
+      console.log('⚠️ Route not in protection map, allowing access');
+      return;
+    }
+
+    // CRITICAL FIX: If user has no modules assigned, show access denied immediately
+    if (userModules.length === 0) {
+      console.error('❌ Access denied - User has no modules assigned');
+      console.error('Required module:', requiredModuleForRoute);
+      setRequiredModule(requiredModuleForRoute);
+      setAccessDenied(true);
       return;
     }
 
     // Check if user has the required module
     if (!userModules.includes(requiredModuleForRoute)) {
+      console.error('❌ Access denied - User does not have module:', requiredModuleForRoute);
+      console.error('Available modules:', userModules);
       setRequiredModule(requiredModuleForRoute);
       setAccessDenied(true);
       return;
     }
 
-    // Additional check for staff-only routes
-    if (requiredModuleForRoute === 'staff' && !user?.is_staff) {
-      setRequiredModule(requiredModuleForRoute);
-      setAccessDenied(true);
-      return;
-    }
+    console.log('✅ Access granted - User has required module');
   };
 
   const getRequiredModule = (path) => {
@@ -175,6 +226,30 @@ export default function RouteProtection({ children }) {
     );
   }
 
+  // If user is authenticated but modules haven't loaded yet (empty array), keep showing loading
+  // unless we're on a public, auth-only, or admin-only route
+  const isAdminRoute = ADMIN_ONLY_ROUTES.includes(pathname);
+  const isPublicOrAuthRoute = PUBLIC_ROUTES.includes(pathname) || 
+                              AUTH_ONLY_ROUTES.includes(pathname) || 
+                              pathname.startsWith('/print/');
+  
+  if (
+    isAuthenticated && 
+    userModules.length === 0 && 
+    !isPublicOrAuthRoute &&
+    !isAdminRoute // Admin routes don't need modules, just staff check
+  ) {
+    console.log('⏳ Waiting for modules to load...');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show access denied page
   if (accessDenied) {
     return <AccessDeniedPage requiredModule={requiredModule} />;
@@ -187,19 +262,32 @@ export default function RouteProtection({ children }) {
 // Access Denied Component
 function AccessDeniedPage({ requiredModule }) {
   const router = useRouter();
+  const { user } = useAuth();
 
   const getModuleDisplayName = (module) => {
     const moduleNames = {
       'bilty': 'Bilty Management',
-      'e-way-bill': 'E-Way Bill',
-      'loading': 'Loading Operations',
+      'bill': 'Bill Management',
+      'search': 'Search',
+      'ewb': 'E-Way Bill',
+      'manual': 'Manual Entry',
       'challan': 'Challan Management',
+      'challan-setting': 'Challan Settings',
+      'truck-management': 'Truck Management',
       'master': 'Master Data',
       'report': 'Reports & Analytics',
       'setting': 'Settings',
-      'staff': 'Administrative Access'
+      'bilty-setting': 'Bilty Settings',
+      'admin': 'Administrative Access',
+      'station-list': 'Station List',
+      'danger': 'Danger Zone',
+      'godown': 'Godown Management',
+      'tracking': 'Bilty Tracking',
+      'crm': 'CRM',
+      'complains': 'Complaints',
+      'available': 'Available Items'
     };
-    return moduleNames[module] || module;
+    return moduleNames[module] || module.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   return (
@@ -217,7 +305,7 @@ function AccessDeniedPage({ requiredModule }) {
           <div className="flex items-center">
             <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
             <span className="text-sm text-yellow-800">
-              You dont have permission to access this page
+              You don't have permission to access this page
             </span>
           </div>
         </div>
@@ -230,6 +318,18 @@ function AccessDeniedPage({ requiredModule }) {
             </span>
           </div>
         )}
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-blue-800 font-medium mb-2">
+            Your Account Status
+          </p>
+          <p className="text-xs text-blue-600">
+            User: {user?.email || 'Unknown'}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            No modules have been assigned to your account yet.
+          </p>
+        </div>
 
         <p className="text-gray-600 mb-8">
           Please contact your administrator to request access to this module.

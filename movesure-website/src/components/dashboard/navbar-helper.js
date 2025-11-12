@@ -69,6 +69,13 @@ export const MODULE_CONFIG = {
     path: '/godown',
     icon: 'Database',
     description: 'Manage godown operations'
+  },
+  'tracking': {
+    name: 'Tracking',
+    path: '/tracking',
+    icon: 'MapPin',
+    description: 'Track bilty and transit status',
+    shortcut: 'Alt+T'
   }
 };
 
@@ -83,7 +90,7 @@ export const getNavigationItems = (userModules) => {
   }
 
   const navigationItems = [];  // Define the order in which modules should appear in the navbar
-  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'bill', 'master', 'setting', 'staff', 'godown'];
+  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'bill', 'tracking', 'master', 'setting', 'staff', 'godown'];
 
   moduleOrder.forEach(moduleName => {
     if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -115,6 +122,7 @@ export const getModuleIcon = (moduleName) => {
     'truck-management': <Truck className="h-4 w-4" />,
     'search': <Search className="h-4 w-4" />,
     'bill': <Search className="h-4 w-4" />,
+    'tracking': <Search className="h-4 w-4" />,
     'master': <Database className="h-4 w-4" />,
     'setting': <Settings className="h-4 w-4" />,
     'staff': <Wrench className="h-4 w-4" />,

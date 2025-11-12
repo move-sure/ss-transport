@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin } from 'lucide-react';
 
-// Module configuration
+// Module configuration - MUST match routeprotection.js ROUTE_MODULE_MAP
 const MODULE_CONFIG = {
   'bilty': {
     name: 'Bilty',
@@ -15,12 +15,13 @@ const MODULE_CONFIG = {
     isBilty: true,
     shortcut: 'Alt+B'
   },
-  'e-way-bill': {
+  'ewb': {  // Changed from 'e-way-bill' to 'ewb' to match route protection
     name: 'E-Way Bill',
     path: '/ewb',
     icon: 'Receipt',
     shortcut: 'Alt+E'
-  },  'challan': {
+  },
+  'challan': {
     name: 'Challan',
     path: '/challan',
     icon: 'Package',
@@ -52,7 +53,8 @@ const MODULE_CONFIG = {
     name: 'Bill Search',
     path: '/bill',
     icon: 'Receipt',
-  },  'master': {
+  },
+  'master': {
     name: 'Master',
     path: '/staff',
     icon: 'Database',
@@ -61,7 +63,8 @@ const MODULE_CONFIG = {
     name: 'Settings',
     path: '/bilty-setting',
     icon: 'Settings',
-  },  'staff': {
+  },
+  'staff': {
     name: 'Admin',
     path: '/test',
     icon: 'Shield',
@@ -78,25 +81,62 @@ const MODULE_CONFIG = {
     path: '/godown',
     icon: 'Database',
     shortcut: ''
+  },
+  'danger': {
+    name: 'Danger Zone',
+    path: '/danger',
+    icon: 'AlertTriangle',
+    shortcut: 'Alt+Z'
+  },
+  'godown': {
+    name: 'Godown',
+    path: '/godown',
+    icon: 'Database',
+    shortcut: ''
+  },
+  'tracking': {
+    name: 'Tracking',
+    path: '/tracking',
+    icon: 'MapPin',
+    shortcut: 'Alt+T'
+  },
+  'crm': {
+    name: 'CRM',
+    path: '/crm',
+    icon: 'Users',
+  },
+  'complains': {
+    name: 'Complaints',
+    path: '/complains',
+    icon: 'AlertTriangle',
+  },
+  'available': {
+    name: 'Available',
+    path: '/available',
+    icon: 'Package',
   }
 };
 
-// Route to module mapping
+// Route to module mapping - MUST match routeprotection.js
 const ROUTE_MODULE_MAP = {
   '/bilty': 'bilty',
   '/bill': 'bill',
   '/search': 'search',
-  '/ewb': 'e-way-bill',
-  '/e-way-bill': 'e-way-bill',
+  '/ewb': 'ewb',  // Changed from 'e-way-bill' to 'ewb'
   '/challan': 'challan',
   '/manual': 'manual',
   '/challan-setting': 'challan-setting',
   '/truck-management': 'truck-management',
   '/staff': 'master',
-  '/bilty-setting': 'setting',  '/test': 'staff',
+  '/bilty-setting': 'setting',
+  '/test': 'staff',
   '/user-modules': 'staff',
   '/danger': 'danger',
   '/godown': 'godown',
+  '/tracking': 'tracking',
+  '/crm': 'crm',
+  '/complains': 'complains',
+  '/available': 'available',
 };
 
 // Public routes that don't require module access
@@ -111,18 +151,28 @@ export default function Navbar() {
   const [userModules, setUserModules] = useState([]);
   const [navigationItems, setNavigationItems] = useState([]);
   const [navigating, setNavigating] = useState(null);
+  const [modulesLoading, setModulesLoading] = useState(true);
 
   // Fetch user modules on component mount
   useEffect(() => {
     if (user?.id) {
       fetchUserModules();
+    } else {
+      setUserModules([]);
+      setNavigationItems([]);
+      setModulesLoading(false);
     }
   }, [user?.id]);
+
   // Update navigation items when modules change
   useEffect(() => {
-    const items = getNavigationItems(userModules);
-    setNavigationItems(items);
-  }, [userModules]);
+    if (!modulesLoading) {
+      const items = getNavigationItems(userModules);
+      setNavigationItems(items);
+      console.log('🔍 Navbar - User Modules:', userModules);
+      console.log('🔍 Navbar - Navigation Items:', items);
+    }
+  }, [userModules, modulesLoading]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -147,6 +197,12 @@ export default function Navbar() {
               handleNavClick({ path: '/search', module: 'search' });
             }
             break;
+          case 't':
+            event.preventDefault();
+            if (userModules.includes('tracking')) {
+              handleNavClick({ path: '/tracking', module: 'tracking' });
+            }
+            break;
           case 'm':
             event.preventDefault();
             if (userModules.includes('manual')) {
@@ -155,8 +211,8 @@ export default function Navbar() {
             break;
           case 'e':
             event.preventDefault();
-            if (userModules.includes('e-way-bill')) {
-              handleNavClick({ path: '/ewb', module: 'e-way-bill' });
+            if (userModules.includes('ewb')) {  // Changed from 'e-way-bill' to 'ewb'
+              handleNavClick({ path: '/ewb', module: 'ewb' });
             }
             break;
           case 'a':
@@ -189,37 +245,56 @@ export default function Navbar() {
 
   const fetchUserModules = async () => {
     try {
+      setModulesLoading(true);
+      
       const { data, error } = await supabase
         .from('user_modules')
         .select('module_name')
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error fetching user modules:', error);
+        console.error('❌ Navbar - Error fetching user modules:', error);
+        setUserModules([]);
+        setNavigationItems([]);
         return;
       }
 
-      const modules = data.map(item => item.module_name);
+      const modules = data?.map(item => item.module_name) || [];
+      console.log('✅ Navbar - Fetched modules for user:', user.id);
+      console.log('📋 Navbar - Modules:', modules);
+      
       setUserModules(modules);
+      
+      if (modules.length === 0) {
+        console.warn('⚠️ Navbar - User has no modules assigned');
+        setNavigationItems([]);
+      }
     } catch (error) {
-      console.error('Error fetching user modules:', error);
+      console.error('❌ Navbar - Exception fetching user modules:', error);
+      setUserModules([]);
+      setNavigationItems([]);
+    } finally {
+      setModulesLoading(false);
     }
   };  const getNavigationItems = (userModules) => {
+    // CRITICAL: Return empty array if no modules
     if (!Array.isArray(userModules) || userModules.length === 0) {
+      console.log('🚫 Navbar - No modules available, returning empty navigation');
       return [];
     }
 
     const navigationItems = [];
     
-    // Icon-only modules (left side)
-    const iconOnlyOrder = ['bilty', 'e-way-bill', 'challan', 'manual', 'search', 'staff', 'danger'];
+    // Icon-only modules (left side) - MUST match module names in database
+    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'staff', 'danger'];
     // Text modules (right side)
-    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown'];
+    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available'];
 
     // Add icon-only modules first
     iconOnlyOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
         const config = MODULE_CONFIG[moduleName];
+        console.log(`✅ Navbar - Adding icon module: ${moduleName}`);
         navigationItems.push({
           name: config.name,
           path: config.path,
@@ -235,6 +310,7 @@ export default function Navbar() {
     textModulesOrder.forEach(moduleName => {
       if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
         const config = MODULE_CONFIG[moduleName];
+        console.log(`✅ Navbar - Adding text module: ${moduleName}`);
         navigationItems.push({
           name: config.name,
           path: config.path,
@@ -246,21 +322,27 @@ export default function Navbar() {
       }
     });
 
+    console.log(`📊 Navbar - Total navigation items: ${navigationItems.length}`);
     return navigationItems;
   };  const getModuleIcon = (moduleName) => {
     const iconMap = {
       'bilty': <FileText className="h-4 w-4" />,
-      'e-way-bill': <Receipt className="h-4 w-4" />,
+      'ewb': <Receipt className="h-4 w-4" />,  // Changed from 'e-way-bill' to 'ewb'
       'challan': <Package className="h-4 w-4" />,
       'manual': <BookOpen className="h-4 w-4" />,
       'challan-setting': <Settings className="h-4 w-4" />,
-      'truck-management': <Truck className="h-4 w-4" />,      'search': <Search className="h-4 w-4" />,
+      'truck-management': <Truck className="h-4 w-4" />,
+      'search': <Search className="h-4 w-4" />,
       'bill': <Receipt className="h-4 w-4" />,
+      'tracking': <MapPin className="h-4 w-4" />,
       'master': <Database className="h-4 w-4" />,
       'setting': <Settings className="h-4 w-4" />,
       'staff': <Shield className="h-4 w-4" />,
       'danger': <AlertTriangle className="h-4 w-4" />,
-      'godown': <Database className="h-4 w-4" />
+      'godown': <Database className="h-4 w-4" />,
+      'crm': <Users className="h-4 w-4" />,
+      'complains': <AlertTriangle className="h-4 w-4" />,
+      'available': <Package className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;
@@ -276,13 +358,25 @@ export default function Navbar() {
       return true;
     }
 
+    // CRITICAL: If user has no modules, deny access to protected routes
+    if (!Array.isArray(userModules) || userModules.length === 0) {
+      console.error('❌ Navbar - Access denied: No modules assigned');
+      return false;
+    }
+
     // Check if user has access to the target module
     const requiredModule = ROUTE_MODULE_MAP[targetPath];
     if (!requiredModule) {
+      console.warn('⚠️ Navbar - Unknown route:', targetPath);
       return true; // Unknown path, allow (or you can deny)
     }
 
-    return userModules.includes(requiredModule);
+    const hasAccess = userModules.includes(requiredModule);
+    console.log(`🔐 Navbar - Validate navigation to ${targetPath}: ${hasAccess ? 'ALLOWED' : 'DENIED'}`);
+    console.log(`   Required module: ${requiredModule}`);
+    console.log(`   User modules:`, userModules);
+    
+    return hasAccess;
   };
 
   const handleNavClick = async (item) => {
@@ -389,7 +483,18 @@ export default function Navbar() {
 
             {/* Desktop Navigation Links */}
             <div className="hidden lg:flex space-x-1">
-              {navigationItems.map((item) => {
+              {modulesLoading ? (
+                <div className="flex items-center space-x-2 px-4">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-200 border-t-transparent rounded-full"></div>
+                  <span className="text-xs text-blue-200">Loading modules...</span>
+                </div>
+              ) : navigationItems.length === 0 ? (
+                <div className="flex items-center px-4">
+                  <span className="text-xs text-blue-200">No modules assigned</span>
+                </div>
+              ) : null}
+              
+              {!modulesLoading && navigationItems.map((item) => {
                 const isActive = isActiveRoute(item.path);
                 const isLoading = navigating === item.path;
                 
@@ -585,8 +690,22 @@ export default function Navbar() {
         {/* Mobile Navigation Menu */}
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-blue-700 py-3 px-2 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
-            <div className="space-y-1">
-              {navigationItems.map((item) => {
+            {modulesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin h-8 w-8 border-2 border-blue-200 border-t-transparent rounded-full mx-auto mb-2"></div>
+                  <span className="text-sm text-blue-200">Loading your modules...</span>
+                </div>
+              </div>
+            ) : navigationItems.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <span className="text-sm text-blue-200">No modules assigned to your account</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {navigationItems.map((item) => {
                 const isActive = isActiveRoute(item.path);
                 const isLoading = navigating === item.path;
                 
@@ -620,6 +739,7 @@ export default function Navbar() {
                 );
               })}
             </div>
+            )}
             
             {/* Mobile User Info Section */}
             <div className="mt-4 pt-4 border-t border-blue-700">

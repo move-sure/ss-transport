@@ -129,52 +129,16 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.text('RATE LIST', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 6;
 
-      // Common Charges
+      // Common Charges Only
       pdf.setFontSize(9);
       pdf.setFont('times', 'bold');
       pdf.setTextColor(0, 0, 0);
       const rateType = bulkRates.commonRateType === 'per-package' ? 'Package' : 'KG';
       pdf.text(`Common Labour Rate: Rs.${bulkRates.commonLabourRate || 0} / ${rateType}`, margin + 5, yPosition);
-      pdf.text(`Bill Charge: Rs.${bulkRates.commonBillCharge || 0} per bilty`, pageWidth / 2 - 20, yPosition);
+      pdf.text(`Bilty Charge: Rs.${bulkRates.commonBillCharge || 0} per bilty`, pageWidth / 2 - 20, yPosition);
       pdf.text(`Toll Charge: Rs.${bulkRates.commonTollCharge || 0} per bilty`, pageWidth - 80, yPosition);
-      yPosition += 6;
-
-      // City-wise Freight Rates Header
-      pdf.setFontSize(9);
-      pdf.setFont('times', 'bold');
-      pdf.text('City-wise Freight Rates:', margin + 5, yPosition);
-      yPosition += 5;
-
-      // City rates in 3 columns
-      if (bulkRates.cityRates) {
-        const cityEntries = Object.entries(bulkRates.cityRates);
-        const itemsPerColumn = Math.ceil(cityEntries.length / 3);
-        const columnWidth = contentWidth / 3;
-        
-        pdf.setFontSize(8);
-        pdf.setFont('times', 'normal');
-        
-        let maxYPosition = yPosition;
-        
-        for (let col = 0; col < 3; col++) {
-          let colYPosition = yPosition;
-          const startIdx = col * itemsPerColumn;
-          const endIdx = Math.min(startIdx + itemsPerColumn, cityEntries.length);
-          
-          for (let i = startIdx; i < endIdx; i++) {
-            const [cityName, cityData] = cityEntries[i];
-            const rateText = `${cityName}: Rs.${cityData.rate || 0}/${cityData.rateType === 'per-package' ? 'Pkg' : 'KG'}`;
-            pdf.text(rateText, margin + 5 + (col * columnWidth), colYPosition);
-            colYPosition += 4;
-          }
-          
-          maxYPosition = Math.max(maxYPosition, colYPosition);
-        }
-        
-        yPosition = maxYPosition;
-      }
-
       yPosition += 3;
+
       pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
       pdf.line(margin + 2, yPosition, pageWidth - margin - 2, yPosition);
       yPosition += 6;
@@ -193,14 +157,14 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       totalTableWidth * 0.11,  // Consignor (11%)
       totalTableWidth * 0.11,  // Consignee (11%)
       totalTableWidth * 0.08,  // City (8%)
+      totalTableWidth * 0.05,  // Pvt Marks (5%)
       totalTableWidth * 0.04,  // Pkgs (4%)
       totalTableWidth * 0.04,  // Wt (4%)
-      totalTableWidth * 0.05,  // Pvt Marks (5%)
       totalTableWidth * 0.04,  // Del.Type (4%)
       totalTableWidth * 0.04,  // Pay Mode (4%)
       totalTableWidth * 0.07,  // Freight (7%)
       totalTableWidth * 0.06,  // Labour (6%)
-      totalTableWidth * 0.05,  // Bill Charge (5%)
+      totalTableWidth * 0.05,  // Bilty Rate (5%)
       totalTableWidth * 0.05,  // Toll (5%)
       totalTableWidth * 0.05,  // DD (5%)
       totalTableWidth * 0.07   // Total (7%)
@@ -225,7 +189,7 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     drawColumnDividers(tableStartX, tableStartY, 8, colWidths);
 
     let currentX = tableStartX + 1;
-    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pkgs', 'Wt', 'Pvt Marks', 'Del', 'Pay', 'Freight', 'Labour', 'Bill', 'Toll', 'DD', 'Total'];
+    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pvt Marks', 'Pkgs', 'Wt', 'Del', 'Pay', 'Freight', 'Labour', 'Bilty Rate', 'Toll', 'DD', 'Total'];
     headers.forEach((header, idx) => {
       pdf.text(header, currentX, tableStartY + 5.5);
       currentX += colWidths[idx];
@@ -299,20 +263,20 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.text((detail.city || 'N/A').substring(0, 12), currentX, yPosition + 4);
       currentX += colWidths[5];
       
+      // Private Marks (moved after city)
+      pdf.text((detail.pvt_marks || '-').substring(0, 8), currentX, yPosition + 4);
+      currentX += colWidths[6];
+      
       // Packages
       const pkgs = parseInt(detail.no_of_pckg || 0);
       totalPackages += pkgs;
       pdf.text(pkgs.toString(), currentX, yPosition + 4);
-      currentX += colWidths[6];
+      currentX += colWidths[7];
       
       // Weight
       const wt = parseFloat(detail.wt || 0);
       totalWeight += wt;
       pdf.text(wt.toFixed(1), currentX, yPosition + 4);
-      currentX += colWidths[7];
-      
-      // Private Marks (shorter)
-      pdf.text((detail.pvt_marks || '-').substring(0, 8), currentX, yPosition + 4);
       currentX += colWidths[8];
       
       // Delivery Type
@@ -378,15 +342,15 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     
     currentX = tableStartX + 1;
     pdf.text('TOTAL', currentX, yPosition + 4);
-    currentX += colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5];
+    currentX += colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + colWidths[6];
     
     // Total Packages
     pdf.text(totalPackages.toString(), currentX, yPosition + 4);
-    currentX += colWidths[6];
+    currentX += colWidths[7];
     
     // Total Weight
     pdf.text(totalWeight.toFixed(1), currentX, yPosition + 4);
-    currentX += colWidths[7] + colWidths[8] + colWidths[9] + colWidths[10];
+    currentX += colWidths[8] + colWidths[9] + colWidths[10];
     
     // Total Freight
     pdf.text(formatCurrency(totalFreight), currentX, yPosition + 4);

@@ -328,85 +328,85 @@ export default function BillEditPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="w-full px-3 py-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/bill')}
               className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
             >
-              <ArrowLeft className="h-6 w-6 text-gray-700" />
+              <ArrowLeft className="h-5 w-5 text-gray-700" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Edit Bill</h1>
-              <p className="text-sm text-gray-600 mt-1">Bill ID: {billId}</p>
+              <h1 className="text-2xl font-bold text-gray-900">Edit Bill</h1>
+              <p className="text-xs text-gray-600 mt-1">Bill ID: {billId}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={handlePrintBill}
               disabled={generatingPDF || billDetails.length === 0}
-              className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 shadow-md"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 shadow-md"
             >
-              <Printer className="h-5 w-5" />
+              <Printer className="h-4 w-4" />
               <span>{generatingPDF ? 'Generating...' : 'Print Bill'}</span>
             </button>
             <button
               onClick={saveBillMaster}
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 shadow-md"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 shadow-md"
             >
-              <Save className="h-5 w-5" />
+              <Save className="h-4 w-4" />
               <span>{saving ? 'Saving...' : 'Save Bill Master'}</span>
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6 border-2 border-gray-200">
-          <div className="flex items-center gap-3 mb-4 pb-4 border-b-2 border-gray-200">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <FileText className="h-6 w-6 text-white" />
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-gray-200">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+            <div className="p-1.5 bg-blue-600 rounded-lg">
+              <FileText className="h-4 w-4 text-white" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Bill Master Information</h2>
+            <h2 className="text-lg font-bold text-gray-900">Bill Master Information</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Bill Number *</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Number *</label>
               <input
                 type="text"
                 value={billMaster.bill_number || ''}
                 onChange={(e) => handleMasterChange('bill_number', e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Bill Date *</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Date *</label>
               <input
                 type="date"
                 value={billMaster.bill_date || ''}
                 onChange={(e) => handleMasterChange('bill_date', e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Party Name *</label>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Party Name *</label>
               <input
                 type="text"
                 value={billMaster.party_name || ''}
                 onChange={(e) => handleMasterChange('party_name', e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Billing Type *</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Billing Type *</label>
               <select
                 value={billMaster.billing_type || 'consignor'}
                 onChange={(e) => handleMasterChange('billing_type', e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               >
                 <option value="consignor">Consignor</option>
                 <option value="consignee">Consignee</option>
@@ -416,11 +416,11 @@ export default function BillEditPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
               <select
                 value={billMaster.status || 'Draft'}
                 onChange={(e) => handleMasterChange('status', e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               >
                 <option value="Draft">Draft</option>
                 <option value="Finalized">Finalized</option>
@@ -429,93 +429,89 @@ export default function BillEditPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Bill Month</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Month</label>
               <input
                 type="number"
                 value={billMaster.bill_month || ''}
                 readOnly
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 text-gray-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Bill Year</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Year</label>
               <input
                 type="number"
                 value={billMaster.bill_year || ''}
                 readOnly
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 text-gray-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Created Date</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Created</label>
               <input
                 type="text"
-                value={billMaster.created_date ? format(new Date(billMaster.created_date), 'dd MMM yyyy HH:mm') : 'N/A'}
+                value={billMaster.created_date ? format(new Date(billMaster.created_date), 'dd MMM yy') : 'N/A'}
                 readOnly
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 text-gray-600"
               />
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl shadow-md p-6 mb-6 border-2 border-blue-200">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Bill Summary</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-600">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="h-5 w-5 text-blue-600" />
-                <p className="text-xs font-semibold text-gray-600">Total Amount</p>
+        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-lg shadow-sm p-3 mb-4 border border-blue-200">
+          <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-11 gap-2">
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-blue-600">
+              <div className="flex items-center gap-1 mb-0.5">
+                <DollarSign className="h-3 w-3 text-blue-600" />
+                <p className="text-xs font-semibold text-gray-600">Total</p>
               </div>
-              <p className="text-xl font-bold text-gray-900">₹{totals.total.toLocaleString('en-IN')}</p>
+              <p className="text-base font-bold text-gray-900">₹{totals.total.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-600">
-              <p className="text-xs font-semibold text-gray-600 mb-1">Paid</p>
-              <p className="text-xl font-bold text-green-600">₹{totals.paid.toLocaleString('en-IN')}</p>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-green-600">
+              <p className="text-xs font-semibold text-gray-600 mb-0.5">Paid</p>
+              <p className="text-base font-bold text-green-600">₹{totals.paid.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-orange-600">
-              <p className="text-xs font-semibold text-gray-600 mb-1">To Pay</p>
-              <p className="text-xl font-bold text-orange-600">₹{totals.toPay.toLocaleString('en-IN')}</p>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-orange-600">
+              <p className="text-xs font-semibold text-gray-600 mb-0.5">To Pay</p>
+              <p className="text-base font-bold text-orange-600">₹{totals.toPay.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-600">
-              <div className="flex items-center gap-2 mb-1">
-                <Package className="h-5 w-5 text-purple-600" />
-                <p className="text-xs font-semibold text-gray-600">Packages</p>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-purple-600">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Package className="h-3 w-3 text-purple-600" />
+                <p className="text-xs font-semibold text-gray-600">Pkgs</p>
               </div>
-              <p className="text-xl font-bold text-purple-600">{totals.packages}</p>
+              <p className="text-base font-bold text-purple-600">{totals.packages}</p>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-indigo-600">
-              <div className="flex items-center gap-2 mb-1">
-                <Weight className="h-5 w-5 text-indigo-600" />
-                <p className="text-xs font-semibold text-gray-600">Weight</p>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-indigo-600">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Weight className="h-3 w-3 text-indigo-600" />
+                <p className="text-xs font-semibold text-gray-600">Wt</p>
               </div>
-              <p className="text-xl font-bold text-indigo-600">{totals.weight.toFixed(2)}</p>
+              <p className="text-base font-bold text-indigo-600">{totals.weight.toFixed(0)}</p>
             </div>
-            <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-pink-600">
-              <p className="text-xs font-semibold text-gray-600 mb-1">Bilties</p>
-              <p className="text-xl font-bold text-pink-600">{billDetails.length}</p>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-pink-600">
+              <p className="text-xs font-semibold text-gray-600 mb-0.5">Bilties</p>
+              <p className="text-base font-bold text-pink-600">{billDetails.length}</p>
             </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="bg-white/70 rounded-lg p-3 text-center">
+            <div className="bg-white/70 rounded p-2 text-center">
               <p className="text-xs text-gray-600 font-medium">Freight</p>
               <p className="text-sm font-bold text-gray-900">₹{totals.freight.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white/70 rounded-lg p-3 text-center">
+            <div className="bg-white/70 rounded p-2 text-center">
               <p className="text-xs text-gray-600 font-medium">Labour</p>
               <p className="text-sm font-bold text-gray-900">₹{totals.labour.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white/70 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-600 font-medium">DD Charge</p>
+            <div className="bg-white/70 rounded p-2 text-center">
+              <p className="text-xs text-gray-600 font-medium">DD</p>
               <p className="text-sm font-bold text-gray-900">₹{totals.dd.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white/70 rounded-lg p-3 text-center">
+            <div className="bg-white/70 rounded p-2 text-center">
               <p className="text-xs text-gray-600 font-medium">Toll</p>
               <p className="text-sm font-bold text-gray-900">₹{totals.toll.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-white/70 rounded-lg p-3 text-center">
+            <div className="bg-white/70 rounded p-2 text-center">
               <p className="text-xs text-gray-600 font-medium">Other</p>
               <p className="text-sm font-bold text-gray-900">₹{totals.other.toLocaleString('en-IN')}</p>
             </div>
@@ -529,23 +525,23 @@ export default function BillEditPage() {
           savedMetadata={billMaster?.metadata?.bulkRates || null}
         />
 
-        <div className="bg-white rounded-xl shadow-md p-6 border-2 border-gray-200">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-600 rounded-lg">
-                <Package className="h-6 w-6 text-white" />
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-600 rounded-lg">
+                <Package className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Bill Details (Bilties)</h2>
-                <p className="text-sm text-gray-600">{billDetails.length} bilties in this bill</p>
+                <h2 className="text-lg font-bold text-gray-900">Bill Details (Bilties)</h2>
+                <p className="text-xs text-gray-600">{billDetails.length} bilties</p>
               </div>
             </div>
             <button
               onClick={saveAllBilties}
               disabled={savingBilties}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 shadow-md"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 shadow-md"
             >
-              <Save className="h-5 w-5" />
+              <Save className="h-4 w-4" />
               <span>{savingBilties ? 'Saving...' : 'Save All Bilties'}</span>
             </button>
           </div>

@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calculator, Save, RefreshCw, MapPin, Package, Weight } from 'lucide-react';
+import { Calculator, Save, RefreshCw, MapPin, Package } from 'lucide-react';
 
 const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata }) => {
   const [cityRates, setCityRates] = useState({});
   const [commonLabourRate, setCommonLabourRate] = useState(0);
-  const [labourRateType, setLabourRateType] = useState('per-package'); // 'per-package' or 'per-kg'
+  const [commonRateType, setCommonRateType] = useState('per-package'); // Common rate type for all
   const [applying, setApplying] = useState(false);
 
   // Extract unique cities with their bilty counts AND merge saved metadata
@@ -19,8 +19,7 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
           count: 0,
           totalPackages: 0,
           totalWeight: 0,
-          rate: 0,
-          rateType: 'per-package' // 'per-package' or 'per-kg'
+          rate: 0
         };
       }
       cities[city].count++;
@@ -33,7 +32,6 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
       Object.keys(savedMetadata.cityRates).forEach(city => {
         if (cities[city]) {
           cities[city].rate = savedMetadata.cityRates[city].rate || 0;
-          cities[city].rateType = savedMetadata.cityRates[city].rateType || 'per-package';
         }
       });
     }
@@ -41,24 +39,24 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
     setCityRates(cities);
   }, [billDetails, savedMetadata]);
 
-  // Load saved labour rate when savedMetadata changes
+  // Load saved settings when savedMetadata changes
   useEffect(() => {
     if (savedMetadata) {
       if (savedMetadata.commonLabourRate !== undefined) {
         setCommonLabourRate(savedMetadata.commonLabourRate);
       }
-      if (savedMetadata.labourRateType) {
-        setLabourRateType(savedMetadata.labourRateType);
+      if (savedMetadata.commonRateType) {
+        setCommonRateType(savedMetadata.commonRateType);
       }
     }
   }, [savedMetadata]);
 
-  const handleCityRateChange = (city, field, value) => {
+  const handleCityRateChange = (city, value) => {
     setCityRates(prev => ({
       ...prev,
       [city]: {
         ...prev[city],
-        [field]: value
+        rate: value
       }
     }));
   };
@@ -72,17 +70,17 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
       
       if (!cityRate) return detail;
 
-      // Calculate freight based on rate type
+      // Calculate freight based on common rate type
       let freightAmount = 0;
-      if (cityRate.rateType === 'per-package') {
+      if (commonRateType === 'per-package') {
         freightAmount = parseFloat(cityRate.rate || 0) * parseInt(detail.no_of_pckg || 0);
       } else {
         freightAmount = parseFloat(cityRate.rate || 0) * parseFloat(detail.wt || 0);
       }
 
-      // Calculate labour charge based on common rate
+      // Calculate labour charge based on common rate type
       let labourCharge = 0;
-      if (labourRateType === 'per-package') {
+      if (commonRateType === 'per-package') {
         labourCharge = parseFloat(commonLabourRate || 0) * parseInt(detail.no_of_pckg || 0);
       } else {
         labourCharge = parseFloat(commonLabourRate || 0) * parseFloat(detail.wt || 0);
@@ -97,8 +95,8 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
 
       return {
         ...detail,
-        rate_by_kg: cityRate.rateType === 'per-kg' ? cityRate.rate : 0,
-        labour_rate: labourRateType === 'per-kg' ? commonLabourRate : 0,
+        rate_by_kg: commonRateType === 'per-kg' ? cityRate.rate : 0,
+        labour_rate: commonRateType === 'per-kg' ? commonLabourRate : 0,
         freight_amount: freightAmount,
         labour_charge: labourCharge,
         bilty_total: biltyTotal
@@ -108,7 +106,7 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
     // Prepare metadata to save
     const bulkEditMetadata = {
       commonLabourRate: commonLabourRate,
-      labourRateType: labourRateType,
+      commonRateType: commonRateType,
       cityRates: cityRates
     };
 
@@ -120,158 +118,117 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
   const totalBilties = billDetails.length;
 
   return (
-    <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50 rounded-xl shadow-lg p-6 border-2 border-purple-300 mb-6">
-      <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-purple-300">
+    <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-blue-50 rounded-xl shadow-lg p-4 border-2 border-purple-300 mb-6">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-purple-300">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl shadow-md">
-            <Calculator className="h-7 w-7 text-white" />
+          <div className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg">
+            <Calculator className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Bulk Rate Editor</h2>
-            <p className="text-sm text-gray-600">
-              Set rates for {totalCities} cities • {totalBilties} bilties
+            <h2 className="text-xl font-bold text-gray-900">Bulk Rate Editor</h2>
+            <p className="text-xs text-gray-600">
+              {totalCities} cities • {totalBilties} bilties
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={onRefresh}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-1 px-3 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
-            <RefreshCw className="h-5 w-5" />
+            <RefreshCw className="h-4 w-4" />
             <span>Reset</span>
           </button>
           <button
             onClick={applyBulkRates}
             disabled={applying}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 shadow-lg"
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 shadow-md"
           >
-            <Save className="h-5 w-5" />
+            <Save className="h-4 w-4" />
             <span>{applying ? 'Applying...' : 'Apply to All Bilties'}</span>
           </button>
         </div>
       </div>
 
-      {/* Common Labour Rate */}
-      <div className="bg-white rounded-xl p-5 mb-6 shadow-md border-2 border-blue-200">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <Package className="h-5 w-5 text-blue-600" />
-          Common Labour Rate (Applied to All Bilties)
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Labour Rate</label>
+      {/* Common Settings */}
+      <div className="bg-white rounded-lg p-3 mb-4 shadow-sm border border-blue-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Common Labour Rate</label>
             <input
               type="number"
               step="0.01"
               value={commonLabourRate}
               onChange={(e) => setCommonLabourRate(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg font-semibold"
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-sm font-semibold"
               placeholder="Enter labour rate"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Rate Type</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Common Rate Type (All Cities)</label>
             <select
-              value={labourRateType}
-              onChange={(e) => setLabourRateType(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg font-semibold"
+              value={commonRateType}
+              onChange={(e) => setCommonRateType(e.target.value)}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-sm font-semibold"
             >
               <option value="per-package">Per Package</option>
               <option value="per-kg">Per KG</option>
             </select>
           </div>
+          <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
+            <p className="text-xs text-gray-700">
+              💡 {commonRateType === 'per-package' 
+                ? 'Charges = Rate × Packages' 
+                : 'Charges = Rate × Weight'}
+            </p>
+          </div>
         </div>
-        <p className="text-sm text-gray-600 mt-3 bg-blue-50 p-3 rounded-lg">
-          💡 This rate will be applied to all bilties. 
-          {labourRateType === 'per-package' 
-            ? ' Labour charge = Rate × No. of Packages' 
-            : ' Labour charge = Rate × Weight'}
-        </p>
       </div>
 
-      {/* City Rates Grid */}
-      <div className="bg-white rounded-xl p-5 shadow-md border-2 border-purple-200">
-        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-purple-600" />
+      {/* City Rates Grid - Compact Table */}
+      <div className="bg-white rounded-lg p-3 shadow-sm border border-purple-200">
+        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-purple-600" />
           City-wise Freight Rates
         </h3>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {Object.entries(cityRates).map(([city, data]) => (
             <div 
               key={city} 
-              className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border-2 border-purple-200 hover:shadow-lg transition-all"
+              className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 border border-purple-200 hover:shadow-md transition-all"
             >
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                {/* City Info */}
-                <div className="md:col-span-2">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-purple-600 rounded-lg">
-                      <MapPin className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-gray-900">{city}</p>
-                      <p className="text-xs text-gray-600">
-                        {data.count} bilties • {data.totalPackages} pkgs • {data.totalWeight.toFixed(2)} kg
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Freight Rate */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Freight Rate</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={data.rate}
-                    onChange={(e) => handleCityRateChange(city, 'rate', e.target.value)}
-                    className="w-full px-3 py-2.5 border-2 border-purple-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-base font-semibold"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {/* Rate Type */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Rate Type</label>
-                  <select
-                    value={data.rateType}
-                    onChange={(e) => handleCityRateChange(city, 'rateType', e.target.value)}
-                    className="w-full px-3 py-2.5 border-2 border-purple-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-base font-semibold"
-                  >
-                    <option value="per-package">Per Package</option>
-                    <option value="per-kg">Per KG</option>
-                  </select>
-                </div>
-
-                {/* Estimated Total */}
-                <div className="bg-white rounded-lg p-3 border-2 border-green-300">
-                  <p className="text-xs font-semibold text-gray-600 mb-1">Est. Freight</p>
-                  <p className="text-lg font-bold text-green-600">
-                    ₹{(
-                      data.rateType === 'per-package' 
-                        ? parseFloat(data.rate || 0) * data.totalPackages
-                        : parseFloat(data.rate || 0) * data.totalWeight
-                    ).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="h-3 w-3 text-purple-600 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-gray-900 truncate" title={city}>{city}</p>
+                  <p className="text-xs text-gray-600">
+                    {data.count}B • {data.totalPackages}P • {data.totalWeight.toFixed(0)}kg
                   </p>
                 </div>
+              </div>
+              
+              <input
+                type="number"
+                step="0.01"
+                value={data.rate}
+                onChange={(e) => handleCityRateChange(city, e.target.value)}
+                className="w-full px-2 py-1.5 border border-purple-300 rounded text-sm font-semibold focus:border-purple-500 focus:ring-1 focus:ring-purple-200"
+                placeholder="Rate"
+              />
+              
+              <div className="mt-2 bg-white rounded px-2 py-1 border border-green-200">
+                <p className="text-xs text-gray-600">Est. Freight</p>
+                <p className="text-sm font-bold text-green-600">
+                  ₹{(
+                    commonRateType === 'per-package' 
+                      ? parseFloat(data.rate || 0) * data.totalPackages
+                      : parseFloat(data.rate || 0) * data.totalWeight
+                  ).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </p>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Calculation Preview */}
-      <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-2 border-green-300">
-        <p className="text-sm font-semibold text-gray-800">
-          📊 <strong>How it works:</strong>
-        </p>
-        <ul className="text-sm text-gray-700 mt-2 space-y-1 ml-4">
-          <li>• <strong>Freight Amount</strong> = City Rate × (Packages or Weight based on rate type)</li>
-          <li>• <strong>Labour Charge</strong> = Common Labour Rate × (Packages or Weight based on rate type)</li>
-          <li>• <strong>Bilty Total</strong> = Freight + Labour + DD + Toll + PF + Other charges</li>
-          <li>• Click <strong>"Apply to All Bilties"</strong> to update all bilties at once</li>
-        </ul>
       </div>
     </div>
   );

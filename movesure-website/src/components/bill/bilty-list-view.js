@@ -1,9 +1,12 @@
 'use client';
 
-import React from 'react';
-import { Save, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Save, Trash2, Edit2, X } from 'lucide-react';
 
 const BiltyListView = ({ billDetails, onSave, onDelete }) => {
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+
   if (billDetails.length === 0) {
     return (
       <div className="text-center py-12">
@@ -11,6 +14,398 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
       </div>
     );
   }
+
+  const handleEdit = (detail) => {
+    setEditingId(detail.detail_id);
+    setEditData({ ...detail });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditData({});
+  };
+
+  const handleChange = (field, value) => {
+    setEditData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-calculate bilty total when charges change
+      if (['freight_amount', 'labour_charge', 'dd_charge', 'toll_charge', 'pf_charge', 'other_charge'].includes(field)) {
+        const freight = parseFloat(updated.freight_amount || 0);
+        const labour = parseFloat(updated.labour_charge || 0);
+        const dd = parseFloat(updated.dd_charge || 0);
+        const toll = parseFloat(updated.toll_charge || 0);
+        const pf = parseFloat(updated.pf_charge || 0);
+        const other = parseFloat(updated.other_charge || 0);
+        updated.bilty_total = freight + labour + dd + toll + pf + other;
+      }
+      
+      return updated;
+    });
+  };
+
+  const handleSave = async () => {
+    await onSave(editData);
+    setEditingId(null);
+    setEditData({});
+  };
+
+  const renderEditableRow = (detail, index) => {
+    const isEditing = editingId === detail.detail_id;
+    const data = isEditing ? editData : detail;
+
+    return (
+      <tr 
+        key={detail.detail_id} 
+        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${isEditing ? 'bg-yellow-50 border-2 border-yellow-400' : 'hover:bg-blue-50'} transition-colors`}
+      >
+        <td className="px-3 py-3 whitespace-nowrap">
+          <span className="bg-blue-600 text-white rounded-lg px-3 py-1 font-bold text-sm">
+            {index + 1}
+          </span>
+        </td>
+        
+        {/* GR No */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="text"
+              value={data.grno || ''}
+              onChange={(e) => handleChange('grno', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">{detail.grno}</span>
+          )}
+        </td>
+
+        {/* Date */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="date"
+              value={data.date || ''}
+              onChange={(e) => handleChange('date', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="text-sm text-gray-600">{detail.date || 'N/A'}</span>
+          )}
+        </td>
+
+        {/* Consignor */}
+        <td className="px-3 py-3">
+          {isEditing ? (
+            <input
+              type="text"
+              value={data.consignor || ''}
+              onChange={(e) => handleChange('consignor', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="text-sm text-gray-900 max-w-[150px] truncate block" title={detail.consignor}>
+              {detail.consignor || 'N/A'}
+            </span>
+          )}
+        </td>
+
+        {/* Consignee */}
+        <td className="px-3 py-3">
+          {isEditing ? (
+            <input
+              type="text"
+              value={data.consignee || ''}
+              onChange={(e) => handleChange('consignee', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="text-sm text-gray-900 max-w-[150px] truncate block" title={detail.consignee}>
+              {detail.consignee || 'N/A'}
+            </span>
+          )}
+        </td>
+
+        {/* City */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="text"
+              value={data.city || ''}
+              onChange={(e) => handleChange('city', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+              {detail.city || 'N/A'}
+            </span>
+          )}
+        </td>
+
+        {/* Packages */}
+        <td className="px-3 py-3 text-center whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              value={data.no_of_pckg || ''}
+              onChange={(e) => handleChange('no_of_pckg', parseInt(e.target.value) || 0)}
+              className="w-20 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-center"
+            />
+          ) : (
+            <span className="text-sm font-bold text-blue-600">{detail.no_of_pckg || 0}</span>
+          )}
+        </td>
+
+        {/* Weight */}
+        <td className="px-3 py-3 text-center whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.wt || ''}
+              onChange={(e) => handleChange('wt', parseFloat(e.target.value) || 0)}
+              className="w-20 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-center"
+            />
+          ) : (
+            <span className="text-sm font-bold text-green-600">{detail.wt || 0}</span>
+          )}
+        </td>
+
+        {/* Pvt Marks */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="text"
+              value={data.pvt_marks || ''}
+              onChange={(e) => handleChange('pvt_marks', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="text-sm text-gray-900">{detail.pvt_marks || 'N/A'}</span>
+          )}
+        </td>
+
+        {/* Delivery Type */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          {isEditing ? (
+            <select
+              value={data.delivery_type || ''}
+              onChange={(e) => handleChange('delivery_type', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select</option>
+              <option value="door">Door</option>
+              <option value="godown">Godown</option>
+            </select>
+          ) : (
+            <span className="text-sm text-gray-900">{detail.delivery_type || 'N/A'}</span>
+          )}
+        </td>
+
+        {/* Payment Mode */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          {isEditing ? (
+            <select
+              value={data.pay_mode || ''}
+              onChange={(e) => handleChange('pay_mode', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select</option>
+              <option value="paid">Paid</option>
+              <option value="to-pay">To Pay</option>
+            </select>
+          ) : (
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+              detail.pay_mode === 'paid' ? 'bg-green-100 text-green-800' :
+              detail.pay_mode === 'to-pay' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {detail.pay_mode?.toUpperCase() || 'N/A'}
+            </span>
+          )}
+        </td>
+
+        {/* Rate by KG */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.rate_by_kg || ''}
+              onChange={(e) => handleChange('rate_by_kg', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm text-gray-900">₹{parseFloat(detail.rate_by_kg || 0).toFixed(2)}</span>
+          )}
+        </td>
+
+        {/* Labour Rate */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.labour_rate || ''}
+              onChange={(e) => handleChange('labour_rate', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm text-gray-900">₹{parseFloat(detail.labour_rate || 0).toFixed(2)}</span>
+          )}
+        </td>
+
+        {/* Freight Amount */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.freight_amount || ''}
+              onChange={(e) => handleChange('freight_amount', parseFloat(e.target.value) || 0)}
+              className="w-28 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.freight_amount || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* Labour Charge */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.labour_charge || ''}
+              onChange={(e) => handleChange('labour_charge', parseFloat(e.target.value) || 0)}
+              className="w-28 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.labour_charge || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* DD Charge */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.dd_charge || ''}
+              onChange={(e) => handleChange('dd_charge', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.dd_charge || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* Toll Charge */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.toll_charge || ''}
+              onChange={(e) => handleChange('toll_charge', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.toll_charge || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* PF Charge */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.pf_charge || ''}
+              onChange={(e) => handleChange('pf_charge', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.pf_charge || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* Other Charge */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.other_charge || ''}
+              onChange={(e) => handleChange('other_charge', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.other_charge || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* Bilty Total */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          <span className={`text-base font-bold ${isEditing ? 'text-green-600' : 'text-blue-600'}`}>
+            ₹{parseFloat(data.bilty_total || 0).toLocaleString('en-IN')}
+          </span>
+        </td>
+
+        {/* Actions */}
+        <td className="px-3 py-3 text-center whitespace-nowrap">
+          <div className="flex items-center justify-center gap-2">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-green-600"
+                  title="Save changes"
+                >
+                  <Save className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-gray-600"
+                  title="Cancel edit"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleEdit(detail)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit bilty"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onDelete(detail.detail_id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete bilty"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -25,7 +420,11 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
             <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">City</th>
             <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">Pkgs</th>
             <th className="px-3 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">Weight</th>
+            <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Pvt Marks</th>
+            <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Del Type</th>
             <th className="px-3 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Payment</th>
+            <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Rate/KG</th>
+            <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Lab Rate</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Freight</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Labour</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">DD</th>
@@ -37,107 +436,7 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {billDetails.map((detail, index) => (
-            <tr 
-              key={detail.detail_id} 
-              className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
-            >
-              <td className="px-3 py-3 whitespace-nowrap">
-                <span className="bg-blue-600 text-white rounded-lg px-3 py-1 font-bold text-sm">
-                  {index + 1}
-                </span>
-              </td>
-              <td className="px-3 py-3 whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">{detail.grno}</span>
-              </td>
-              <td className="px-3 py-3 whitespace-nowrap">
-                <span className="text-sm text-gray-600">{detail.date || 'N/A'}</span>
-              </td>
-              <td className="px-3 py-3">
-                <span className="text-sm text-gray-900 max-w-[150px] truncate block" title={detail.consignor}>
-                  {detail.consignor || 'N/A'}
-                </span>
-              </td>
-              <td className="px-3 py-3">
-                <span className="text-sm text-gray-900 max-w-[150px] truncate block" title={detail.consignee}>
-                  {detail.consignee || 'N/A'}
-                </span>
-              </td>
-              <td className="px-3 py-3 whitespace-nowrap">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
-                  {detail.city || 'N/A'}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-center whitespace-nowrap">
-                <span className="text-sm font-bold text-blue-600">{detail.no_of_pckg || 0}</span>
-              </td>
-              <td className="px-3 py-3 text-center whitespace-nowrap">
-                <span className="text-sm font-bold text-green-600">{detail.wt || 0}</span>
-              </td>
-              <td className="px-3 py-3 whitespace-nowrap">
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
-                  detail.pay_mode === 'paid' ? 'bg-green-100 text-green-800' :
-                  detail.pay_mode === 'to-pay' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {detail.pay_mode?.toUpperCase() || 'N/A'}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">
-                  ₹{parseFloat(detail.freight_amount || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">
-                  ₹{parseFloat(detail.labour_charge || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">
-                  ₹{parseFloat(detail.dd_charge || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">
-                  ₹{parseFloat(detail.toll_charge || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">
-                  ₹{parseFloat(detail.pf_charge || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-sm font-semibold text-gray-900">
-                  ₹{parseFloat(detail.other_charge || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-right whitespace-nowrap">
-                <span className="text-base font-bold text-blue-600">
-                  ₹{parseFloat(detail.bilty_total || 0).toLocaleString('en-IN')}
-                </span>
-              </td>
-              <td className="px-3 py-3 text-center whitespace-nowrap">
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => onSave(detail)}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    title="Save bilty"
-                  >
-                    <Save className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(detail.detail_id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete bilty"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {billDetails.map((detail, index) => renderEditableRow(detail, index))}
         </tbody>
       </table>
     </div>

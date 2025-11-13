@@ -12,8 +12,10 @@ const BillOptions = ({
   setPrintTemplate,
   onPrint,
   onSaveAndPrint,
+  onSaveToDraft,
   disabled,
-  isSaving
+  isSaving,
+  currentBillMaster
 }) => {
   const billTypes = [
     {
@@ -176,6 +178,27 @@ const BillOptions = ({
         </section>
 
         <div className="flex flex-col gap-2 pt-1">
+          {/* Save to Draft Button */}
+          <button
+            type="button"
+            onClick={onSaveToDraft}
+            disabled={disabled || isSaving}
+            className="flex h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-600 via-green-500 to-green-600 text-sm font-semibold text-white shadow-sm transition hover:from-green-500 hover:to-green-500 disabled:cursor-not-allowed disabled:bg-green-200 disabled:from-green-200 disabled:via-green-200 disabled:to-green-200"
+          >
+            {isSaving ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-white border-t-transparent"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                <span>{currentBillMaster ? 'Update Draft' : 'Save to Draft'}</span>
+              </>
+            )}
+          </button>
+          
+          {/* Print Only Button */}
           <button
             type="button"
             onClick={onPrint}
@@ -185,6 +208,8 @@ const BillOptions = ({
             <Printer className="h-5 w-5" />
             <span>Print only</span>
           </button>
+          
+          {/* Save & Print Button */}
           <button
             type="button"
             onClick={onSaveAndPrint}

@@ -1,11 +1,14 @@
 'use client';
 
 import React, { memo, useState, useEffect } from 'react';
-import { X, Trash2, FileText, Building, Download, Copy, Filter } from 'lucide-react';
+import { X, Trash2, FileText, Building, Download, Copy, Filter, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import supabase from '@/app/utils/supabase';
 import { useAuth } from '@/app/utils/auth';
 import BillOptions from './selected-bilties-panel/BillOptions';
+import BillMasterModal from './bill-master-modal';
+import BillMasterList from './bill-master-list';
+import { saveBiltiesToBillDetails } from '@/utils/billMasterHandler';
 
 const SelectedBiltiesPanel = memo(({ 
   selectedBilties = [], 
@@ -35,6 +38,12 @@ const SelectedBiltiesPanel = memo(({
   const [amountOverrides, setAmountOverrides] = useState({});
   // Print template selection
   const [printTemplate, setPrintTemplate] = useState('portrait'); // 'portrait' or 'landscape'
+  
+  // Bill Master Modal states
+  const [showBillMasterModal, setShowBillMasterModal] = useState(false);
+  const [showBillMasterList, setShowBillMasterList] = useState(false);
+  const [currentBillMaster, setCurrentBillMaster] = useState(null);
+  const [viewMode, setViewMode] = useState('selection'); // 'selection' or 'draft-bills'
 
   // Fetch branches on mount
   useEffect(() => {
@@ -201,6 +210,73 @@ const SelectedBiltiesPanel = memo(({
     onPrintBilties(biltiesWithOverrides, { billType, customName, printTemplate });
   };
 
+  // Handle save to draft (bill master)
+  const handleSaveToDraft = async () => {
+    if (filteredBilties.length === 0) {
+      alert('No bilties to save');
+      return;
+    }
+
+    if (!currentBillMaster) {
+      // No bill master selected, show modal to create one
+      setShowBillMasterModal(true);
+      return;
+    }
+
+    // Save to existing bill master
+    await saveBiltiesToDraft(currentBillMaster.bill_id);
+  };
+
+  const saveBiltiesToDraft = async (billId) => {
+    try {
+      setIsSaving(true);
+      
+      // Apply amount overrides
+      const biltiesWithOverrides = filteredBilties.map(bilty => {
+        const biltyKey = `${bilty.type}-${bilty.id}`;
+        if (amountOverrides[biltyKey] !== undefined) {
+          return {
+            ...bilty,
+            total: amountOverrides[biltyKey],
+            amount: amountOverrides[biltyKey]
+          };
+        }
+        return bilty;
+      });
+
+      const result = await saveBiltiesToBillDetails(billId, biltiesWithOverrides);
+      
+      if (result.success) {
+        alert(`✅ ${result.message}\nBill ID: ${billId}`);
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving to draft:', error);
+      alert('Failed to save bilties to draft');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBillMasterSave = async (billMaster) => {
+    setCurrentBillMaster(billMaster);
+    // Auto-save bilties after creating bill master
+    await saveBiltiesToDraft(billMaster.bill_id);
+  };
+
+  const handleSelectBill = (bill) => {
+    setCurrentBillMaster(bill);
+    setShowBillMasterList(false);
+    setViewMode('selection');
+  };
+
+  const handleCreateNewBill = () => {
+    setCurrentBillMaster(null);
+    setShowBillMasterList(false);
+    setShowBillMasterModal(true);
+  };
+
   // Handle save and print
   const handleSaveAndPrintClick = () => {
     if (filteredBilties.length === 0) {
@@ -273,10 +349,38 @@ const SelectedBiltiesPanel = memo(({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-blue-900">BILL PANEL</h3>
-                <p className="text-sm text-blue-500/80">Review consignments before generating a bill.</p>
+                {currentBillMaster ? (
+                  <p className="text-sm text-blue-500/80">
+                    {currentBillMaster.bill_number} - {currentBillMaster.party_name}
+                  </p>
+                ) : (
+                  <p className="text-sm text-blue-500/80">Review consignments before generating a bill.</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex rounded-lg border border-blue-200 bg-white">
+                <button
+                  onClick={() => setViewMode('selection')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-l-lg transition ${
+                    viewMode === 'selection' ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  Selection
+                </button>
+                <button
+                  onClick={() => {
+                    setViewMode('draft-bills');
+                    setShowBillMasterList(true);
+                  }}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-r-lg transition ${
+                    viewMode === 'draft-bills' ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  Draft Bills
+                </button>
+              </div>
               <div className="flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                 <span>{selectedBilties.length}</span>
                 <span className="uppercase tracking-wide text-blue-400">total</span>
@@ -437,20 +541,30 @@ const SelectedBiltiesPanel = memo(({
           )}
 
           <div className="flex flex-1 overflow-hidden">
-            <section className="flex-1 overflow-y-auto px-7 py-5">
-              {filteredBilties.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-blue-400">
-                  <FileText className="h-12 w-12" />
-                  <p className="text-sm font-medium text-blue-700">
-                    {selectedBilties.length === 0 ? 'No bilties selected yet.' : 'No bilties match the current filters.'}
-                  </p>
-                  <p className="text-xs text-blue-500">
-                    {selectedBilties.length === 0 ? 'Search and add bilties to start building a statement.' : 'Adjust the filters to widen your selection.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredBilties.map((bilty, index) => {
+            {/* Draft Bills View */}
+            {viewMode === 'draft-bills' && showBillMasterList ? (
+              <section className="flex-1 overflow-y-auto px-7 py-5">
+                <BillMasterList
+                  onSelectBill={handleSelectBill}
+                  onCreateNew={handleCreateNewBill}
+                />
+              </section>
+            ) : (
+              <>
+                <section className="flex-1 overflow-y-auto px-7 py-5">
+                  {filteredBilties.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-blue-400">
+                      <FileText className="h-12 w-12" />
+                      <p className="text-sm font-medium text-blue-700">
+                        {selectedBilties.length === 0 ? 'No bilties selected yet.' : 'No bilties match the current filters.'}
+                      </p>
+                      <p className="text-xs text-blue-500">
+                        {selectedBilties.length === 0 ? 'Search and add bilties to start building a statement.' : 'Adjust the filters to widen your selection.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredBilties.map((bilty, index) => {
                     const biltyKey = `${bilty.type}-${bilty.id}`;
                     const isDeleted = removedBiltyIds.has(biltyKey);
                     const paymentLabel = getPaymentModeDisplay(bilty);
@@ -580,26 +694,38 @@ const SelectedBiltiesPanel = memo(({
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
-            </section>
+                      })}
+                    </div>
+                  )}
+                </section>
 
-            <BillOptions
-              billType={billType}
-              setBillType={setBillType}
-              customName={customName}
-              setCustomName={setCustomName}
-              printTemplate={printTemplate}
-              setPrintTemplate={setPrintTemplate}
-              onPrint={handleConfirmPrint}
-              onSaveAndPrint={handleSaveAndPrintClick}
-              disabled={filteredBilties.length === 0}
-              isSaving={isSaving}
-            />
+                <BillOptions
+                  billType={billType}
+                  setBillType={setBillType}
+                  customName={customName}
+                  setCustomName={setCustomName}
+                  printTemplate={printTemplate}
+                  setPrintTemplate={setPrintTemplate}
+                  onPrint={handleConfirmPrint}
+                  onSaveAndPrint={handleSaveAndPrintClick}
+                  onSaveToDraft={handleSaveToDraft}
+                  disabled={filteredBilties.length === 0}
+                  isSaving={isSaving}
+                  currentBillMaster={currentBillMaster}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Bill Master Modal */}
+      <BillMasterModal
+        isOpen={showBillMasterModal}
+        onClose={() => setShowBillMasterModal(false)}
+        onSave={handleBillMasterSave}
+        existingBill={currentBillMaster}
+      />
 
       {/* Blocked Feature Modal */}
       {showBlockedModal && (

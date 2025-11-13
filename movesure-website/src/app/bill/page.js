@@ -12,6 +12,8 @@ import BillSearchTable from '../../components/bill/bill-search-table';
 import BillGenerator from '../../components/bill/bill-generation';
 import SelectedBiltiesPanel from '../../components/bill/selected-bilties-panel';
 import RecentBillsList from '../../components/bill/recent-bills-list';
+import BillMasterList from '../../components/bill/bill-master-list';
+import BillMasterModal from '../../components/bill/bill-master-modal';
 import {
   getSelectedBilties,
   toggleSelectedBilty,
@@ -73,6 +75,11 @@ export default function BillSearch() {
   const [showRecentBills, setShowRecentBills] = useState(false);
   const [recentBills, setRecentBills] = useState([]);
   const [loadingRecentBills, setLoadingRecentBills] = useState(false);
+  
+  // Bill Master state
+  const [showBillMasterTab, setShowBillMasterTab] = useState(false);
+  const [showBillMasterModal, setShowBillMasterModal] = useState(false);
+  const [currentBillMaster, setCurrentBillMaster] = useState(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -1250,17 +1257,18 @@ export default function BillSearch() {
           onLoadMore={loadMoreResults}
         />
 
-        {/* Toggle Button for Search/Recent Bills */}
+        {/* Toggle Button for Search/Recent Bills/Bill Master */}
         <div className="mb-6 flex justify-center">
           <div className="inline-flex rounded-lg shadow-sm" role="group">
             <button
               type="button"
               onClick={() => {
                 setShowRecentBills(false);
+                setShowBillMasterTab(false);
                 setShowFilters(true);
               }}
               className={`px-6 py-3 text-sm font-medium rounded-l-lg border ${
-                !showRecentBills
+                !showRecentBills && !showBillMasterTab
                   ? 'bg-blue-600 text-white border-blue-600 z-10'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
               } focus:z-10 focus:ring-2 focus:ring-blue-500 transition-all`}
@@ -1270,13 +1278,28 @@ export default function BillSearch() {
             <button
               type="button"
               onClick={handleToggleRecentBills}
-              className={`px-6 py-3 text-sm font-medium rounded-r-lg border-t border-r border-b ${
-                showRecentBills
+              className={`px-6 py-3 text-sm font-medium border-t border-r border-b ${
+                showRecentBills && !showBillMasterTab
                   ? 'bg-blue-600 text-white border-blue-600 z-10'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
               } focus:z-10 focus:ring-2 focus:ring-blue-500 transition-all`}
             >
               📄 Recent Bills
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowRecentBills(false);
+                setShowFilters(false);
+                setShowBillMasterTab(true);
+              }}
+              className={`px-6 py-3 text-sm font-medium rounded-r-lg border-t border-r border-b ${
+                showBillMasterTab
+                  ? 'bg-blue-600 text-white border-blue-600 z-10'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              } focus:z-10 focus:ring-2 focus:ring-blue-500 transition-all`}
+            >
+              � Bill Master
             </button>
           </div>
         </div>
@@ -1304,7 +1327,7 @@ export default function BillSearch() {
         )}
 
         {/* Recent Bills Section */}
-        {showRecentBills && (
+        {showRecentBills && !showBillMasterTab && (
           <RecentBillsList
             recentBills={recentBills}
             loadingRecentBills={loadingRecentBills}
@@ -1312,7 +1335,19 @@ export default function BillSearch() {
           />
         )}
 
-        {hasSearched && (
+        {/* Bill Master Section */}
+        {showBillMasterTab && (
+          <BillMasterList
+            onSelectBill={(bill) => {
+              setCurrentBillMaster(bill);
+              setShowBillMasterTab(false);
+              setShowFilters(false);
+            }}
+            onCreateNew={() => setShowBillMasterModal(true)}
+          />
+        )}
+
+        {hasSearched && !showBillMasterTab && (
           <>
             <BillSearchTable
               paginatedData={getPaginatedData}
@@ -1433,7 +1468,7 @@ export default function BillSearch() {
           </>
         )}
 
-        {!hasSearched && !loading && (
+        {!hasSearched && !loading && !showRecentBills && !showBillMasterTab && (
           <div className="text-center py-12">
             <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1445,6 +1480,19 @@ export default function BillSearch() {
           </div>
         )}
       </div>
+
+      {/* Bill Master Modal */}
+      {showBillMasterModal && (
+        <BillMasterModal
+          onClose={() => setShowBillMasterModal(false)}
+          onSave={(savedBill) => {
+            setCurrentBillMaster(savedBill);
+            setShowBillMasterModal(false);
+            setShowBillMasterTab(false);
+          }}
+          existingBill={null}
+        />
+      )}
 
       {/* Print Modal */}
       {showPrintModal && (

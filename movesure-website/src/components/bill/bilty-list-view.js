@@ -30,14 +30,15 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
       const updated = { ...prev, [field]: value };
       
       // Auto-calculate bilty total when charges change
-      if (['freight_amount', 'labour_charge', 'dd_charge', 'toll_charge', 'pf_charge', 'other_charge'].includes(field)) {
+      if (['freight_amount', 'labour_charge', 'bill_charge', 'toll_charge', 'dd_charge', 'pf_charge', 'other_charge'].includes(field)) {
         const freight = parseFloat(updated.freight_amount || 0);
         const labour = parseFloat(updated.labour_charge || 0);
-        const dd = parseFloat(updated.dd_charge || 0);
+        const bill = parseFloat(updated.bill_charge || 0);
         const toll = parseFloat(updated.toll_charge || 0);
+        const dd = parseFloat(updated.dd_charge || 0);
         const pf = parseFloat(updated.pf_charge || 0);
         const other = parseFloat(updated.other_charge || 0);
-        updated.bilty_total = freight + labour + dd + toll + pf + other;
+        updated.bilty_total = freight + labour + bill + toll + dd + pf + other;
       }
       
       return updated;
@@ -288,19 +289,19 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
           )}
         </td>
 
-        {/* DD Charge */}
+        {/* Bill Charge */}
         <td className="px-3 py-3 text-right whitespace-nowrap">
           {isEditing ? (
             <input
               type="number"
               step="0.01"
-              value={data.dd_charge || ''}
-              onChange={(e) => handleChange('dd_charge', parseFloat(e.target.value) || 0)}
+              value={data.bill_charge || ''}
+              onChange={(e) => handleChange('bill_charge', parseFloat(e.target.value) || 0)}
               className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
             />
           ) : (
             <span className="text-sm font-semibold text-gray-900">
-              ₹{parseFloat(detail.dd_charge || 0).toLocaleString('en-IN')}
+              ₹{parseFloat(detail.bill_charge || 0).toLocaleString('en-IN')}
             </span>
           )}
         </td>
@@ -318,6 +319,23 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
           ) : (
             <span className="text-sm font-semibold text-gray-900">
               ₹{parseFloat(detail.toll_charge || 0).toLocaleString('en-IN')}
+            </span>
+          )}
+        </td>
+
+        {/* DD Charge */}
+        <td className="px-3 py-3 text-right whitespace-nowrap">
+          {isEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={data.dd_charge || ''}
+              onChange={(e) => handleChange('dd_charge', parseFloat(e.target.value) || 0)}
+              className="w-24 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 text-right"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-900">
+              ₹{parseFloat(detail.dd_charge || 0).toLocaleString('en-IN')}
             </span>
           )}
         </td>
@@ -427,8 +445,9 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Lab Rate</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Freight</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Labour</th>
-            <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">DD</th>
+            <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Bill</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Toll</th>
+            <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">DD</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">PF</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Other</th>
             <th className="px-3 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Total</th>

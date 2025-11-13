@@ -76,6 +76,10 @@ export default function BillEditPage() {
     try {
       setSaving(true);
       
+      // Check if metadataUpdate is an event object (has target property)
+      // If so, ignore it and use null instead
+      const actualMetadata = metadataUpdate?.target ? null : metadataUpdate;
+      
       const updateData = {
         bill_number: billMaster.bill_number,
         bill_date: billMaster.bill_date,
@@ -87,8 +91,8 @@ export default function BillEditPage() {
       };
 
       // Add metadata if provided
-      if (metadataUpdate) {
-        updateData.metadata = metadataUpdate;
+      if (actualMetadata) {
+        updateData.metadata = actualMetadata;
       }
 
       const { error } = await supabase
@@ -99,8 +103,8 @@ export default function BillEditPage() {
       if (error) throw error;
       
       // Update local state
-      if (metadataUpdate) {
-        setBillMaster(prev => ({ ...prev, metadata: metadataUpdate }));
+      if (actualMetadata) {
+        setBillMaster(prev => ({ ...prev, metadata: actualMetadata }));
       }
       
       alert('✅ Bill master saved successfully!');
@@ -131,8 +135,9 @@ export default function BillEditPage() {
           labour_rate: detail.labour_rate,
           freight_amount: detail.freight_amount,
           labour_charge: detail.labour_charge,
-          dd_charge: detail.dd_charge,
+          bill_charge: detail.bill_charge,
           toll_charge: detail.toll_charge,
+          dd_charge: detail.dd_charge,
           pf_charge: detail.pf_charge,
           other_charge: detail.other_charge,
           bilty_total: detail.bilty_total
@@ -157,8 +162,9 @@ export default function BillEditPage() {
           .update({
             freight_amount: detail.freight_amount,
             labour_charge: detail.labour_charge,
-            dd_charge: detail.dd_charge,
+            bill_charge: detail.bill_charge,
             toll_charge: detail.toll_charge,
+            dd_charge: detail.dd_charge,
             pf_charge: detail.pf_charge,
             other_charge: detail.other_charge,
             bilty_total: detail.bilty_total,
@@ -193,8 +199,9 @@ export default function BillEditPage() {
           .update({
             freight_amount: detail.freight_amount,
             labour_charge: detail.labour_charge,
-            dd_charge: detail.dd_charge,
+            bill_charge: detail.bill_charge,
             toll_charge: detail.toll_charge,
+            dd_charge: detail.dd_charge,
             pf_charge: detail.pf_charge,
             other_charge: detail.other_charge,
             bilty_total: detail.bilty_total,
@@ -248,8 +255,9 @@ export default function BillEditPage() {
       acc.total += parseFloat(detail.bilty_total || 0);
       acc.freight += parseFloat(detail.freight_amount || 0);
       acc.labour += parseFloat(detail.labour_charge || 0);
-      acc.dd += parseFloat(detail.dd_charge || 0);
+      acc.bill += parseFloat(detail.bill_charge || 0);
       acc.toll += parseFloat(detail.toll_charge || 0);
+      acc.dd += parseFloat(detail.dd_charge || 0);
       acc.pf += parseFloat(detail.pf_charge || 0);
       acc.other += parseFloat(detail.other_charge || 0);
       acc.packages += parseInt(detail.no_of_pckg || 0);
@@ -263,8 +271,8 @@ export default function BillEditPage() {
       
       return acc;
     }, { 
-      total: 0, paid: 0, toPay: 0, freight: 0, labour: 0, 
-      dd: 0, toll: 0, pf: 0, other: 0, packages: 0, weight: 0 
+      total: 0, paid: 0, toPay: 0, freight: 0, labour: 0, bill: 0,
+      toll: 0, dd: 0, pf: 0, other: 0, packages: 0, weight: 0 
     });
   };
 

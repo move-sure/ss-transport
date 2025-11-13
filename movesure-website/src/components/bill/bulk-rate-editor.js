@@ -6,6 +6,8 @@ import { Calculator, Save, RefreshCw, MapPin, Package } from 'lucide-react';
 const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata }) => {
   const [cityRates, setCityRates] = useState({});
   const [commonLabourRate, setCommonLabourRate] = useState(0);
+  const [commonBillCharge, setCommonBillCharge] = useState(0);
+  const [commonTollCharge, setCommonTollCharge] = useState(0);
   const [commonRateType, setCommonRateType] = useState('per-package'); // Common rate type for all
   const [applying, setApplying] = useState(false);
 
@@ -44,6 +46,12 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
     if (savedMetadata) {
       if (savedMetadata.commonLabourRate !== undefined) {
         setCommonLabourRate(savedMetadata.commonLabourRate);
+      }
+      if (savedMetadata.commonBillCharge !== undefined) {
+        setCommonBillCharge(savedMetadata.commonBillCharge);
+      }
+      if (savedMetadata.commonTollCharge !== undefined) {
+        setCommonTollCharge(savedMetadata.commonTollCharge);
       }
       if (savedMetadata.commonRateType) {
         setCommonRateType(savedMetadata.commonRateType);
@@ -86,12 +94,17 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
         labourCharge = parseFloat(commonLabourRate || 0) * parseFloat(detail.wt || 0);
       }
 
+      // Apply common bill charge (per bilty)
+      const billCharge = parseFloat(commonBillCharge || 0);
+
+      // Apply common toll charge (per bilty)
+      const tollCharge = parseFloat(commonTollCharge || 0);
+
       // Calculate new total
       const ddCharge = parseFloat(detail.dd_charge || 0);
-      const tollCharge = parseFloat(detail.toll_charge || 0);
       const pfCharge = parseFloat(detail.pf_charge || 0);
       const otherCharge = parseFloat(detail.other_charge || 0);
-      const biltyTotal = freightAmount + labourCharge + ddCharge + tollCharge + pfCharge + otherCharge;
+      const biltyTotal = freightAmount + labourCharge + billCharge + tollCharge + ddCharge + pfCharge + otherCharge;
 
       return {
         ...detail,
@@ -99,6 +112,8 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
         labour_rate: commonRateType === 'per-kg' ? commonLabourRate : 0,
         freight_amount: freightAmount,
         labour_charge: labourCharge,
+        bill_charge: billCharge,
+        toll_charge: tollCharge,
         bilty_total: biltyTotal
       };
     });
@@ -106,6 +121,8 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
     // Prepare metadata to save
     const bulkEditMetadata = {
       commonLabourRate: commonLabourRate,
+      commonBillCharge: commonBillCharge,
+      commonTollCharge: commonTollCharge,
       commonRateType: commonRateType,
       cityRates: cityRates
     };
@@ -152,20 +169,46 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
 
       {/* Common Settings */}
       <div className="bg-white rounded-lg p-3 mb-4 shadow-sm border border-blue-200">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+          <Package className="h-4 w-4 text-blue-600" />
+          Common Charges (Applied to All Bilties)
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Common Labour Rate</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Labour Rate</label>
             <input
               type="number"
               step="0.01"
               value={commonLabourRate}
               onChange={(e) => setCommonLabourRate(e.target.value)}
               className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-sm font-semibold"
-              placeholder="Enter labour rate"
+              placeholder="Labour rate"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Common Rate Type (All Cities)</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Charge (per bilty)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={commonBillCharge}
+              onChange={(e) => setCommonBillCharge(e.target.value)}
+              className="w-full px-3 py-2 border border-green-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-200 text-sm font-semibold"
+              placeholder="Bill charge"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Toll Charge (per bilty)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={commonTollCharge}
+              onChange={(e) => setCommonTollCharge(e.target.value)}
+              className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:border-orange-500 focus:ring-1 focus:ring-orange-200 text-sm font-semibold"
+              placeholder="Toll charge"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Rate Type (Freight & Labour)</label>
             <select
               value={commonRateType}
               onChange={(e) => setCommonRateType(e.target.value)}
@@ -178,8 +221,11 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
           <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
             <p className="text-xs text-gray-700">
               💡 {commonRateType === 'per-package' 
-                ? 'Charges = Rate × Packages' 
-                : 'Charges = Rate × Weight'}
+                ? 'Freight/Labour = Rate × Pkgs' 
+                : 'Freight/Labour = Rate × Weight'}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              Bill & Toll are per bilty
             </p>
           </div>
         </div>

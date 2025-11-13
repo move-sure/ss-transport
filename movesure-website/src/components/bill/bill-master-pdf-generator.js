@@ -129,11 +129,14 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.text('RATE LIST', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 6;
 
-      // Common Labour Rate
+      // Common Charges
       pdf.setFontSize(9);
       pdf.setFont('times', 'bold');
       pdf.setTextColor(0, 0, 0);
-      pdf.text(`Common Labour Rate: Rs.${bulkRates.commonLabourRate || 0} / ${bulkRates.labourRateType === 'per-package' ? 'Package' : 'KG'}`, margin + 5, yPosition);
+      const rateType = bulkRates.commonRateType === 'per-package' ? 'Package' : 'KG';
+      pdf.text(`Common Labour Rate: Rs.${bulkRates.commonLabourRate || 0} / ${rateType}`, margin + 5, yPosition);
+      pdf.text(`Bill Charge: Rs.${bulkRates.commonBillCharge || 0} per bilty`, pageWidth / 2 - 20, yPosition);
+      pdf.text(`Toll Charge: Rs.${bulkRates.commonTollCharge || 0} per bilty`, pageWidth - 80, yPosition);
       yPosition += 6;
 
       // City-wise Freight Rates Header
@@ -187,18 +190,19 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       totalTableWidth * 0.03,  // S.No (3%)
       totalTableWidth * 0.06,  // Date (6%)
       totalTableWidth * 0.07,  // GR No (7%)
-      totalTableWidth * 0.12,  // Consignor (12%)
-      totalTableWidth * 0.12,  // Consignee (12%)
-      totalTableWidth * 0.09,  // City (9%)
-      totalTableWidth * 0.05,  // Pkgs (5%)
-      totalTableWidth * 0.05,  // Wt (5%)
-      totalTableWidth * 0.05,  // Pvt Marks (5% - reduced)
-      totalTableWidth * 0.05,  // Del.Type (5%)
-      totalTableWidth * 0.05,  // Pay Mode (5%)
+      totalTableWidth * 0.11,  // Consignor (11%)
+      totalTableWidth * 0.11,  // Consignee (11%)
+      totalTableWidth * 0.08,  // City (8%)
+      totalTableWidth * 0.04,  // Pkgs (4%)
+      totalTableWidth * 0.04,  // Wt (4%)
+      totalTableWidth * 0.05,  // Pvt Marks (5%)
+      totalTableWidth * 0.04,  // Del.Type (4%)
+      totalTableWidth * 0.04,  // Pay Mode (4%)
       totalTableWidth * 0.07,  // Freight (7%)
-      totalTableWidth * 0.07,  // Labour (7%)
-      totalTableWidth * 0.05,  // DD (5%)
+      totalTableWidth * 0.06,  // Labour (6%)
+      totalTableWidth * 0.05,  // Bill Charge (5%)
       totalTableWidth * 0.05,  // Toll (5%)
+      totalTableWidth * 0.05,  // DD (5%)
       totalTableWidth * 0.07   // Total (7%)
     ];
 
@@ -221,7 +225,7 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     drawColumnDividers(tableStartX, tableStartY, 8, colWidths);
 
     let currentX = tableStartX + 1;
-    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pkgs', 'Wt', 'Pvt Marks', 'Del', 'Pay', 'Freight', 'Labour', 'DD', 'Toll', 'Total'];
+    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pkgs', 'Wt', 'Pvt Marks', 'Del', 'Pay', 'Freight', 'Labour', 'Bill', 'Toll', 'DD', 'Total'];
     headers.forEach((header, idx) => {
       pdf.text(header, currentX, tableStartY + 5.5);
       currentX += colWidths[idx];
@@ -239,8 +243,9 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
 
     let totalFreight = 0;
     let totalLabour = 0;
-    let totalDD = 0;
+    let totalBillCharge = 0;
     let totalToll = 0;
+    let totalDD = 0;
     let totalBiltyAmount = 0;
     let totalPackages = 0;
     let totalWeight = 0;
@@ -334,10 +339,10 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.text(formatCurrency(labour), currentX, yPosition + 4);
       currentX += colWidths[12];
       
-      // DD Charge
-      const dd = parseFloat(detail.dd_charge || 0);
-      totalDD += dd;
-      pdf.text(formatCurrency(dd), currentX, yPosition + 4);
+      // Bill Charge
+      const billCharge = parseFloat(detail.bill_charge || 0);
+      totalBillCharge += billCharge;
+      pdf.text(formatCurrency(billCharge), currentX, yPosition + 4);
       currentX += colWidths[13];
       
       // Toll
@@ -345,6 +350,12 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       totalToll += toll;
       pdf.text(formatCurrency(toll), currentX, yPosition + 4);
       currentX += colWidths[14];
+      
+      // DD Charge
+      const dd = parseFloat(detail.dd_charge || 0);
+      totalDD += dd;
+      pdf.text(formatCurrency(dd), currentX, yPosition + 4);
+      currentX += colWidths[15];
       
       // Bilty Total
       const biltyTotal = parseFloat(detail.bilty_total || 0);
@@ -385,13 +396,17 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     pdf.text(formatCurrency(totalLabour), currentX, yPosition + 4);
     currentX += colWidths[12];
     
-    // Total DD
-    pdf.text(formatCurrency(totalDD), currentX, yPosition + 4);
+    // Total Bill Charge
+    pdf.text(formatCurrency(totalBillCharge), currentX, yPosition + 4);
     currentX += colWidths[13];
     
     // Total Toll
     pdf.text(formatCurrency(totalToll), currentX, yPosition + 4);
     currentX += colWidths[14];
+    
+    // Total DD
+    pdf.text(formatCurrency(totalDD), currentX, yPosition + 4);
+    currentX += colWidths[15];
     
     // Grand Total
     pdf.text(formatCurrency(totalBiltyAmount), currentX, yPosition + 4);

@@ -418,30 +418,34 @@ const ConsignorConsigneeSection = ({
   };  // Keyboard navigation with Enter and Tab support
   const handleConsignorKeyDown = (e) => {
     // Handle dropdown navigation
-    if (showConsignorDropdown && searchResults.consignors.length > 0) {
+    if (showConsignorDropdown && searchResults.consignors && searchResults.consignors.length > 0) {
+      const filteredConsignors = searchResults.consignors.filter(c => 
+        c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase())
+      );
+      
+      if (filteredConsignors.length === 0) return;
+      
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          const newDownIndex = consignorSelectedIndex < searchResults.consignors.length - 1 ? consignorSelectedIndex + 1 : 0;
+          const newDownIndex = consignorSelectedIndex < filteredConsignors.length - 1 ? consignorSelectedIndex + 1 : 0;
           setConsignorSelectedIndex(newDownIndex);
           // Auto-scroll to selected option
           setTimeout(() => {
-            const dropdown = consignorRef.current?.querySelector('.dropdown-open');
-            const selectedOption = dropdown?.querySelector(`[data-index="${newDownIndex}"]`);
-            if (selectedOption && dropdown) {
+            const selectedOption = document.querySelector(`[data-consignor-index="${newDownIndex}"]`);
+            if (selectedOption) {
               selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             }
           }, 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          const newUpIndex = consignorSelectedIndex > 0 ? consignorSelectedIndex - 1 : searchResults.consignors.length - 1;
+          const newUpIndex = consignorSelectedIndex > 0 ? consignorSelectedIndex - 1 : filteredConsignors.length - 1;
           setConsignorSelectedIndex(newUpIndex);
           // Auto-scroll to selected option
           setTimeout(() => {
-            const dropdown = consignorRef.current?.querySelector('.dropdown-open');
-            const selectedOption = dropdown?.querySelector(`[data-index="${newUpIndex}"]`);
-            if (selectedOption && dropdown) {
+            const selectedOption = document.querySelector(`[data-consignor-index="${newUpIndex}"]`);
+            if (selectedOption) {
               selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             }
           }, 10);
@@ -451,10 +455,10 @@ const ConsignorConsigneeSection = ({
           e.preventDefault();
           e.stopPropagation();
           console.log(`🎯 ${e.key} key pressed on consignor dropdown - selecting option`);
-          if (consignorSelectedIndex >= 0) {
-            handleConsignorSelect(searchResults.consignors[consignorSelectedIndex]);
-          } else if (searchResults.consignors.length > 0) {
-            handleConsignorSelect(searchResults.consignors[0]);
+          if (consignorSelectedIndex >= 0 && filteredConsignors[consignorSelectedIndex]) {
+            handleConsignorSelect(filteredConsignors[consignorSelectedIndex]);
+          } else if (filteredConsignors.length > 0) {
+            handleConsignorSelect(filteredConsignors[0]);
           }
           break;
         case 'Escape':
@@ -474,30 +478,34 @@ const ConsignorConsigneeSection = ({
     }
   };  const handleConsigneeKeyDown = (e) => {
     // Handle dropdown navigation
-    if (showConsigneeDropdown && searchResults.consignees.length > 0) {
+    if (showConsigneeDropdown && searchResults.consignees && searchResults.consignees.length > 0) {
+      const filteredConsignees = searchResults.consignees.filter(c => 
+        c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase())
+      );
+      
+      if (filteredConsignees.length === 0) return;
+      
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          const newDownIndex = consigneeSelectedIndex < searchResults.consignees.length - 1 ? consigneeSelectedIndex + 1 : 0;
+          const newDownIndex = consigneeSelectedIndex < filteredConsignees.length - 1 ? consigneeSelectedIndex + 1 : 0;
           setConsigneeSelectedIndex(newDownIndex);
           // Auto-scroll to selected option
           setTimeout(() => {
-            const dropdown = consigneeRef.current?.querySelector('.dropdown-open');
-            const selectedOption = dropdown?.querySelector(`[data-index="${newDownIndex}"]`);
-            if (selectedOption && dropdown) {
+            const selectedOption = document.querySelector(`[data-consignee-index="${newDownIndex}"]`);
+            if (selectedOption) {
               selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             }
           }, 10);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          const newUpIndex = consigneeSelectedIndex > 0 ? consigneeSelectedIndex - 1 : searchResults.consignees.length - 1;
+          const newUpIndex = consigneeSelectedIndex > 0 ? consigneeSelectedIndex - 1 : filteredConsignees.length - 1;
           setConsigneeSelectedIndex(newUpIndex);
           // Auto-scroll to selected option
           setTimeout(() => {
-            const dropdown = consigneeRef.current?.querySelector('.dropdown-open');
-            const selectedOption = dropdown?.querySelector(`[data-index="${newUpIndex}"]`);
-            if (selectedOption && dropdown) {
+            const selectedOption = document.querySelector(`[data-consignee-index="${newUpIndex}"]`);
+            if (selectedOption) {
               selectedOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             }
           }, 10);
@@ -507,10 +515,10 @@ const ConsignorConsigneeSection = ({
           e.preventDefault();
           e.stopPropagation();
           console.log(`🎯 ${e.key} key pressed on consignee dropdown - selecting option`);
-          if (consigneeSelectedIndex >= 0) {
-            handleConsigneeSelect(searchResults.consignees[consigneeSelectedIndex]);
-          } else if (searchResults.consignees.length > 0) {
-            handleConsigneeSelect(searchResults.consignees[0]);
+          if (consigneeSelectedIndex >= 0 && filteredConsignees[consigneeSelectedIndex]) {
+            handleConsigneeSelect(filteredConsignees[consigneeSelectedIndex]);
+          } else if (filteredConsignees.length > 0) {
+            handleConsigneeSelect(filteredConsignees[0]);
           }
           break;
         case 'Escape':
@@ -784,14 +792,18 @@ const ConsignorConsigneeSection = ({
                       .map((consignor, index) => (
                       <button
                         key={consignor.id}
-                        data-index={index}
+                        data-consignor-index={index}
                         onClick={() => handleConsignorSelect(consignor)}
-                        className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-sm transition-colors border-b border-slate-100 ${
-                          index === consignorSelectedIndex ? 'bg-indigo-50' : ''
+                        className={`w-full px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 ${
+                          index === consignorSelectedIndex 
+                            ? 'bg-indigo-200 border-l-4 border-l-indigo-700 font-bold shadow-sm' 
+                            : 'hover:bg-indigo-50'
                         }`}
                       >
-                        <div className="font-medium text-black">{consignor.company_name}</div>
-                        <div className="text-xs text-gray-600">
+                        <div className={`${index === consignorSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium'}`}>
+                          {consignor.company_name}
+                        </div>
+                        <div className={`text-xs ${index === consignorSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600'}`}>
                           {consignor.gst_num && `GST: ${consignor.gst_num}`}
                           {consignor.number && ` | Ph: ${consignor.number}`}
                         </div>
@@ -938,14 +950,18 @@ const ConsignorConsigneeSection = ({
                     .map((consignee, index) => (
                     <button
                       key={consignee.id}
-                      data-index={index}
+                      data-consignee-index={index}
                       onClick={() => handleConsigneeSelect(consignee)}
-                      className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-sm transition-colors border-b border-slate-100 ${
-                        index === consigneeSelectedIndex ? 'bg-indigo-50' : ''
+                      className={`w-full px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 ${
+                        index === consigneeSelectedIndex 
+                          ? 'bg-indigo-200 border-l-4 border-l-indigo-700 font-bold shadow-sm' 
+                          : 'hover:bg-indigo-50'
                       }`}
                     >
-                      <div className="font-medium text-black">{consignee.company_name}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className={`${index === consigneeSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium'}`}>
+                        {consignee.company_name}
+                      </div>
+                      <div className={`text-xs ${index === consigneeSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600'}`}>
                         {consignee.gst_num && `GST: ${consignee.gst_num}`}
                         {consignee.number && ` | Ph: ${consignee.number}`}
                       </div>

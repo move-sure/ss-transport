@@ -87,13 +87,9 @@ export default function BillEditPage() {
         bill_year: billMaster.bill_year,
         party_name: billMaster.party_name,
         billing_type: billMaster.billing_type,
-        status: billMaster.status
+        status: billMaster.status,
+        metadata: actualMetadata || billMaster.metadata || null
       };
-
-      // Add metadata if provided
-      if (actualMetadata) {
-        updateData.metadata = actualMetadata;
-      }
 
       const { error } = await supabase
         .from('bill_master')

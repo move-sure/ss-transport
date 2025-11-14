@@ -1144,6 +1144,7 @@ export default function BiltyForm() {
             key={`invoice-${resetKey}`}
             formData={formData}
             setFormData={setFormData}
+            isEditMode={isEditMode}
           />          {/* Row 5: Package & Charges */}
           <PackageChargesSection
             key={`charges-${resetKey}`}
@@ -1172,6 +1173,7 @@ export default function BiltyForm() {
         fromCityName={fromCityName}
         toCityName={toCityName}
         showShortcuts={showShortcuts}
+        onNewBilty={resetForm}
       />      {/* Print Component */}
       {showPrintBilty && savedBiltyData && (
         <PrintBilty

@@ -145,6 +145,12 @@ export default function BillEditPage() {
         .eq('detail_id', detail.detail_id);
 
       if (error) throw error;
+      
+      // Update local state immediately
+      setBillDetails(prev => prev.map(d => 
+        d.detail_id === detail.detail_id ? detail : d
+      ));
+      
       alert('✅ Bilty saved successfully!');
     } catch (error) {
       console.error('Error saving detail:', error);

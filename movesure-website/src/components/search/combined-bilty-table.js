@@ -109,7 +109,7 @@ const CombinedBiltySearchTable = memo(({
   };
 
   // Payment badge component
-  const getPaymentBadge = (paymentMode, isStation = false) => {
+  const getPaymentBadge = (paymentMode, isStation = false, deliveryType = null) => {
     if (isStation) {
       const badges = {
         'to-pay': 'bg-orange-100 text-orange-800',
@@ -118,10 +118,13 @@ const CombinedBiltySearchTable = memo(({
       };
       
       const colorClass = badges[paymentMode] || 'bg-gray-100 text-gray-800';
+      const paymentText = paymentMode?.replace('-', ' ').toUpperCase() || 'Unknown';
+      // Check for door delivery - handle both "door delivery" and "door-delivery" formats
+      const isDoorDelivery = deliveryType && (deliveryType.toLowerCase() === 'door delivery' || deliveryType.toLowerCase() === 'door-delivery');
       
       return (
         <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClass}`}>
-          {paymentMode?.replace('-', ' ').toUpperCase() || 'Unknown'}
+          {isDoorDelivery ? `${paymentText}/DD` : paymentText}
         </span>
       );
     } else {
@@ -132,10 +135,13 @@ const CombinedBiltySearchTable = memo(({
       };
       
       const colorClass = badges[paymentMode] || 'bg-gray-100 text-gray-800';
+      const paymentText = paymentMode?.replace('-', ' ').toUpperCase() || 'Unknown';
+      // Check for door delivery - handle both "door delivery" and "door-delivery" formats
+      const isDoorDelivery = deliveryType && (deliveryType.toLowerCase() === 'door delivery' || deliveryType.toLowerCase() === 'door-delivery');
       
       return (
         <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorClass}`}>
-          {paymentMode?.replace('-', ' ').toUpperCase() || 'Unknown'}
+          {isDoorDelivery ? `${paymentText}/DD` : paymentText}
         </span>
       );
     }
@@ -453,7 +459,7 @@ const CombinedBiltySearchTable = memo(({
                         </span>
                       </div>
                       <div>
-                        {getPaymentBadge(isStation ? bilty.payment_status : bilty.payment_mode, isStation)}
+                        {getPaymentBadge(isStation ? bilty.payment_status : bilty.payment_mode, isStation, bilty.delivery_type)}
                       </div>
                     </div>
                   </td>

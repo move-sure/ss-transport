@@ -388,7 +388,7 @@ const BiltyFilterPanel = ({
               </select>
             </div>
 
-            {/* Status */}
+            {/* Status Filter */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
               <select
@@ -399,6 +399,20 @@ const BiltyFilterPanel = ({
                 <option value="">All</option>
                 <option value="SAVE">Saved</option>
                 <option value="DRAFT">Draft</option>
+              </select>
+            </div>
+
+            {/* Delivery Type Filter */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Delivery Type</label>
+              <select
+                value={filters.deliveryType || ''}
+                onChange={(e) => handleInputChange('deliveryType', e.target.value)}
+                className="w-full px-2 py-1 text-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              >
+                <option value="">All</option>
+                <option value="door-delivery">Door Delivery</option>
+                <option value="godown-delivery">Godown Delivery</option>
               </select>
             </div>
 
@@ -478,6 +492,10 @@ const BiltyFilterPanel = ({
                     case 'paymentMode': label = 'Payment'; displayValue = value.toUpperCase(); break;
                     case 'hasEwayBill': label = 'E-Way'; displayValue = value === 'yes' ? 'With' : 'Without'; break;
                     case 'savingOption': label = 'Status'; break;
+                    case 'deliveryType': 
+                      label = 'Delivery'; 
+                      displayValue = value === 'door-delivery' ? 'Door Delivery' : 'Godown Delivery'; 
+                      break;
                     case 'minAmount': label = 'Min ₹'; break;
                     case 'maxAmount': label = 'Max ₹'; break;
                   }

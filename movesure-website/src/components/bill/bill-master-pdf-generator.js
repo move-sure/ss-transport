@@ -110,7 +110,6 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     pdf.text(`Party Name: ${billMaster.party_name || 'N/A'}`, pageWidth - 80, yPosition);
     yPosition += 6;
     pdf.text(`Billing Type: ${billMaster.billing_type || 'N/A'}`, margin + 5, yPosition);
-    pdf.text(`Month: ${billMaster.bill_month || 'N/A'}/${billMaster.bill_year || 'N/A'}`, pageWidth / 2 - 30, yPosition);
     pdf.text(`Status: ${billMaster.status || 'Draft'}`, pageWidth - 80, yPosition);
     yPosition += 6;
     
@@ -194,8 +193,8 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       totalTableWidth * 0.04,  // Del.Type (4%)
       totalTableWidth * 0.04,  // Pay Mode (4%)
       totalTableWidth * 0.07,  // Freight (7%)
-      totalTableWidth * 0.06,  // Labour (6%)
-      totalTableWidth * 0.05,  // Bilty Rate (5%)
+      totalTableWidth * 0.05,  // Labour (5%)
+      totalTableWidth * 0.06,  // Bilty Charge (6%)
       totalTableWidth * 0.05,  // Toll (5%)
       totalTableWidth * 0.05,  // DD (5%)
       totalTableWidth * 0.07   // Total (7%)
@@ -220,7 +219,7 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     drawColumnDividers(tableStartX, tableStartY, 8, colWidths);
 
     let currentX = tableStartX + 1;
-    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pvt Marks', 'Pkgs', 'Wt', 'Del', 'Pay', 'Freight', 'Labour', 'Bilty Rate', 'Toll', 'DD', 'Total'];
+    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pvt Marks', 'Pkgs', 'Wt', 'Del', 'Pay', 'Freight', 'Labour', 'Bilty Charge', 'Toll', 'DD', 'Total'];
     headers.forEach((header, idx) => {
       pdf.text(header, currentX, tableStartY + 5.5);
       currentX += colWidths[idx];

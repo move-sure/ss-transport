@@ -55,7 +55,8 @@ export default function BiltySearch() {
     savingOption: '',
     minAmount: '',
     maxAmount: '',
-    pvtMarks: '' // Fixed field name to match database
+    pvtMarks: '', // Fixed field name to match database
+    deliveryType: '' // Add delivery type filter
   });
 
   const [appliedFilters, setAppliedFilters] = useState({
@@ -71,7 +72,8 @@ export default function BiltySearch() {
     savingOption: '',
     minAmount: '',
     maxAmount: '',
-    pvtMarks: '' // Fixed field name to match database
+    pvtMarks: '', // Fixed field name to match database
+    deliveryType: '' // Add delivery type filter
   });
   
   // Selection state
@@ -129,6 +131,9 @@ export default function BiltySearch() {
       const total = bilty.total || 0;
       if (appliedFilters.minAmount && total < parseFloat(appliedFilters.minAmount)) return false;
       if (appliedFilters.maxAmount && total > parseFloat(appliedFilters.maxAmount)) return false;
+      
+      // Delivery type filter
+      if (appliedFilters.deliveryType && bilty.delivery_type !== appliedFilters.deliveryType) return false;
       
       return true;
     });
@@ -199,6 +204,9 @@ export default function BiltySearch() {
       const amount = bilty.amount || 0;
       if (appliedFilters.minAmount && amount < parseFloat(appliedFilters.minAmount)) return false;
       if (appliedFilters.maxAmount && amount > parseFloat(appliedFilters.maxAmount)) return false;
+      
+      // Delivery type filter
+      if (appliedFilters.deliveryType && bilty.delivery_type !== appliedFilters.deliveryType) return false;
       
       return true;
     });
@@ -398,7 +406,6 @@ export default function BiltySearch() {
           const { data: grSearchData, error: grError } = await supabase
             .rpc('get_gr_search_results_with_challan_dates', {
               p_gr_number: pendingFilters.grNumber.trim(),
-              p_branch_id: null, // Admin search - no branch filtering
               p_date_from: format(oneYearAgo, 'yyyy-MM-dd'),
               p_limit: 500
             });
@@ -435,9 +442,7 @@ export default function BiltySearch() {
     setIsOptimizedSearch(true); // Using optimized comprehensive function
     
     // Prepare search parameters for the comprehensive function
-    // Admin search - no branch filtering
     const searchParams = {
-      p_branch_id: null, // Admin access - search all branches
       p_date_from: pendingFilters.dateFrom || null,
       p_date_to: pendingFilters.dateTo || null,
       p_gr_number: pendingFilters.grNumber?.trim() || null,
@@ -451,6 +456,7 @@ export default function BiltySearch() {
       p_max_amount: pendingFilters.maxAmount ? parseFloat(pendingFilters.maxAmount) : null,
       p_pvt_marks: pendingFilters.pvtMarks?.trim() || null,
       p_city_code: pendingFilters.cityCode?.trim() || null,
+      p_delivery_type: pendingFilters.deliveryType || null,
       p_limit: 1000
     };
 
@@ -517,6 +523,7 @@ export default function BiltySearch() {
           consignee: item.consignee || '',
           station: item.station || '',
           payment_status: item.payment_status || 'to-pay',
+          delivery_type: item.delivery_type || '',
           no_of_packets: item.no_of_packets || 0,
           weight: item.weight || 0,
           amount: item.amount || 0,
@@ -538,6 +545,7 @@ export default function BiltySearch() {
           consignee_name: item.consignee_name || '',
           transport_name: item.transport_name || '',
           payment_mode: item.payment_mode || '',
+          delivery_type: item.delivery_type || '',
           total: parseFloat(item.total || 0),
           no_of_pkg: item.no_of_pkg || 0,
           wt: parseFloat(item.wt || 0),
@@ -892,6 +900,7 @@ export default function BiltySearch() {
         bilty_type: 'regular',
         contain: bilty.contain || '',
         pvt_marks: bilty.pvt_marks || '',
+        delivery_type: bilty.delivery_type || '',
         created_by_user: usersData.find(user => user.id === bilty.staff_id) || null,
         // Enhanced transit_details with proper challan information
         transit_details: challanNo ? [{
@@ -919,6 +928,7 @@ export default function BiltySearch() {
         consignee: stationBilty.consignee || '',
         amount: stationBilty.amount || 0,
         payment_status: stationBilty.payment_status || 'unknown',
+        delivery_type: stationBilty.delivery_type || '',
         e_way_bill: stationBilty.e_way_bill || '',
         contents: stationBilty.contents || '',
         pvt_marks: stationBilty.pvt_marks || '',

@@ -112,7 +112,30 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     pdf.text(`Billing Type: ${billMaster.billing_type || 'N/A'}`, margin + 5, yPosition);
     pdf.text(`Month: ${billMaster.bill_month || 'N/A'}/${billMaster.bill_year || 'N/A'}`, pageWidth / 2 - 30, yPosition);
     pdf.text(`Status: ${billMaster.status || 'Draft'}`, pageWidth - 80, yPosition);
-    yPosition += 8;
+    yPosition += 6;
+    
+    // Date Range if available
+    if (billMaster.metadata?.dateRange?.fromDate || billMaster.metadata?.dateRange?.toDate) {
+      const fromDate = billMaster.metadata.dateRange.fromDate ? formatDate(billMaster.metadata.dateRange.fromDate) : 'N/A';
+      const toDate = billMaster.metadata.dateRange.toDate ? formatDate(billMaster.metadata.dateRange.toDate) : 'N/A';
+      
+      // Draw highlighted box for period
+      pdf.setFillColor(255, 251, 235); // Light yellow background
+      pdf.setDrawColor(251, 191, 36); // Amber border
+      pdf.setLineWidth(0.5);
+      pdf.roundedRect(margin + 3, yPosition - 2, 90, 7, 2, 2, 'FD');
+      
+      pdf.setFontSize(10);
+      pdf.setFont('times', 'bold');
+      pdf.setTextColor(180, 83, 9); // Amber-700 color
+      pdf.text(`Period: ${fromDate} to ${toDate}`, margin + 6, yPosition + 3);
+      yPosition += 8;
+      pdf.setFontSize(10);
+      pdf.setFont('times', 'bold');
+      pdf.setTextColor(0, 0, 0);
+    } else {
+      yPosition += 2;
+    }
 
     // Bulk Rate Settings Section (if metadata exists)
     if (billMaster.metadata && billMaster.metadata.bulkRates) {
@@ -129,14 +152,22 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.text('RATE LIST', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 6;
 
-      // Common Charges Only
+      // Common Charges Only - Vertical Layout
       pdf.setFontSize(9);
       pdf.setFont('times', 'bold');
       pdf.setTextColor(0, 0, 0);
       const rateType = bulkRates.commonRateType === 'per-package' ? 'Package' : 'KG';
+      
+      // Line 1: Common Labour Rate
       pdf.text(`Common Labour Rate: Rs.${bulkRates.commonLabourRate || 0} / ${rateType}`, margin + 5, yPosition);
-      pdf.text(`Bilty Charge: Rs.${bulkRates.commonBillCharge || 0} per bilty`, pageWidth / 2 - 20, yPosition);
-      pdf.text(`Toll Charge: Rs.${bulkRates.commonTollCharge || 0} per bilty`, pageWidth - 80, yPosition);
+      yPosition += 5;
+      
+      // Line 2: Bilty Charge
+      pdf.text(`Bilty Charge: Rs.${bulkRates.commonBillCharge || 0} per bilty`, margin + 5, yPosition);
+      yPosition += 5;
+      
+      // Line 3: Toll Charge
+      pdf.text(`Toll Charge: Rs.${bulkRates.commonTollCharge || 0} per bilty`, margin + 5, yPosition);
       yPosition += 3;
 
       pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
@@ -430,9 +461,22 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     pdf.text('To Pay Amount:', summaryBoxX + 4, summaryY);
     pdf.text('Rs.' + formatCurrency(toPayAmount), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
 
+    // Bank Account Details
+    const bankBoxY = summaryBoxY + summaryBoxHeight + 8;
+    pdf.setFontSize(9);
+    pdf.setFont('times', 'bold');
+    pdf.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    pdf.text('BANK ACCOUNT DETAILS', summaryBoxX, bankBoxY);
+    
+    pdf.setFontSize(8);
+    pdf.setFont('times', 'normal');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('PNB BANK - A/C No: 0010002100076368 | IFSC: PUNB0001000', summaryBoxX, bankBoxY + 6);
+    pdf.text('AXIS BANK - A/C No: 923020052306488 | IFSC: UTIB0001837', summaryBoxX, bankBoxY + 12);
+
     // Signature Boxes (smaller)
     const sealBoxX = summaryBoxX;
-    const sealBoxY = summaryBoxY + summaryBoxHeight + 8;
+    const sealBoxY = bankBoxY + 20;
     const sealBoxWidth = (contentWidth / 2) - 5;
     const sealBoxHeight = 32;
 

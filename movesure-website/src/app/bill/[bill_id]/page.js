@@ -384,7 +384,7 @@ export default function BillEditPage() {
             <h2 className="text-lg font-bold text-gray-900">Bill Master Information</h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Number *</label>
               <input
@@ -401,7 +401,48 @@ export default function BillEditPage() {
                 type="date"
                 value={billMaster.bill_date || ''}
                 onChange={(e) => handleMasterChange('bill_date', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-gray-900"
+                style={{ colorScheme: 'light' }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">From Date</label>
+              <input
+                type="date"
+                value={billMaster.metadata?.dateRange?.fromDate || ''}
+                onChange={(e) => {
+                  const metadata = {
+                    ...billMaster.metadata,
+                    dateRange: {
+                      ...billMaster.metadata?.dateRange,
+                      fromDate: e.target.value
+                    }
+                  };
+                  setBillMaster(prev => ({ ...prev, metadata }));
+                }}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-gray-900 font-semibold"
+                style={{ colorScheme: 'light' }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">To Date</label>
+              <input
+                type="date"
+                value={billMaster.metadata?.dateRange?.toDate || ''}
+                onChange={(e) => {
+                  const metadata = {
+                    ...billMaster.metadata,
+                    dateRange: {
+                      ...billMaster.metadata?.dateRange,
+                      toDate: e.target.value
+                    }
+                  };
+                  setBillMaster(prev => ({ ...prev, metadata }));
+                }}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-gray-900 font-semibold"
+                style={{ colorScheme: 'light' }}
               />
             </div>
 

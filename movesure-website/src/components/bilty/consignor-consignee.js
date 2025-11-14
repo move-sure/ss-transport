@@ -797,13 +797,13 @@ const ConsignorConsigneeSection = ({
                         className={`w-full px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 ${
                           index === consignorSelectedIndex 
                             ? 'bg-indigo-200 border-l-4 border-l-indigo-700 font-bold shadow-sm' 
-                            : 'hover:bg-indigo-50'
+                            : 'hover:bg-indigo-200 hover:border-l-4 hover:border-l-indigo-700 hover:shadow-sm'
                         }`}
                       >
-                        <div className={`${index === consignorSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium'}`}>
+                        <div className={`${index === consignorSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium hover:text-indigo-900 hover:font-bold'}`}>
                           {consignor.company_name}
                         </div>
-                        <div className={`text-xs ${index === consignorSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600'}`}>
+                        <div className={`text-xs ${index === consignorSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600 hover:text-indigo-800 hover:font-semibold'}`}>
                           {consignor.gst_num && `GST: ${consignor.gst_num}`}
                           {consignor.number && ` | Ph: ${consignor.number}`}
                         </div>
@@ -955,13 +955,13 @@ const ConsignorConsigneeSection = ({
                       className={`w-full px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 ${
                         index === consigneeSelectedIndex 
                           ? 'bg-indigo-200 border-l-4 border-l-indigo-700 font-bold shadow-sm' 
-                          : 'hover:bg-indigo-50'
+                          : 'hover:bg-indigo-200 hover:border-l-4 hover:border-l-indigo-700 hover:shadow-sm'
                       }`}
                     >
-                      <div className={`${index === consigneeSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium'}`}>
+                      <div className={`${index === consigneeSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium hover:text-indigo-900 hover:font-bold'}`}>
                         {consignee.company_name}
                       </div>
-                      <div className={`text-xs ${index === consigneeSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600'}`}>
+                      <div className={`text-xs ${index === consigneeSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600 hover:text-indigo-800 hover:font-semibold'}`}>
                         {consignee.gst_num && `GST: ${consignee.gst_num}`}
                         {consignee.number && ` | Ph: ${consignee.number}`}
                       </div>

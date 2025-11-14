@@ -269,10 +269,8 @@ const RateSearchModal = ({
         .from('bilty')
         .select('*')
         .eq('is_active', true)
-        .not('rate', 'is', null)
-        .gt('rate', 0)
-        .order('bilty_date', { ascending: false })
-        .limit(200);
+        .order('bilty_date', { ascending: false });
+      // NO LIMIT - searches entire database history
 
       // Add consignor filter if provided
       if (searchConsignor) {

@@ -180,12 +180,37 @@ export const useConsignorDeliveryType = (consignorName, branchId) => {
 /**
  * Component to display the payment mode AI status
  */
-export const PaymentModeInfo = ({ consignorName, branchId, currentPaymentMode }) => {
+export const PaymentModeInfo = ({ consignorName, branchId, currentPaymentMode, isEditMode }) => {
   const { paymentMode, loading, biltyCount } = useConsignorPaymentMode(consignorName, branchId);
 
   // Don't show anything if no consignor selected
   if (!consignorName) {
     return null;
+  }
+
+  // Format payment mode for display
+  const formatPaymentMode = (mode) => {
+    const modes = {
+      'to-pay': 'To Pay',
+      'paid': 'Paid',
+      'freeofcost': 'FOC'
+    };
+    return modes[mode] || mode;
+  };
+
+  // In edit mode, show the current database value and any modifications
+  if (isEditMode && currentPaymentMode) {
+    const isDifferent = currentPaymentMode !== paymentMode?.mode;
+    return (
+      <div className="text-[10px] font-medium mt-0.5">
+        <span className="text-blue-600">📋 Original: {formatPaymentMode(currentPaymentMode)}</span>
+        {isDifferent && paymentMode?.mode && (
+          <span className="text-orange-600 ml-2">
+            → Modified: {formatPaymentMode(paymentMode.mode)}
+          </span>
+        )}
+      </div>
+    );
   }
 
   // Loading state
@@ -213,16 +238,6 @@ export const PaymentModeInfo = ({ consignorName, branchId, currentPaymentMode })
     );
   }
 
-  // Format payment mode for display
-  const formatPaymentMode = (mode) => {
-    const modes = {
-      'to-pay': 'To Pay',
-      'paid': 'Paid',
-      'freeofcost': 'FOC'
-    };
-    return modes[mode] || mode;
-  };
-
   // Calculate percentage
   const percentage = Math.round((paymentMode.count / paymentMode.totalBilties) * 100);
 
@@ -236,12 +251,36 @@ export const PaymentModeInfo = ({ consignorName, branchId, currentPaymentMode })
 /**
  * Component to display the delivery type AI status
  */
-export const DeliveryTypeInfo = ({ consignorName, branchId, currentDeliveryType }) => {
+export const DeliveryTypeInfo = ({ consignorName, branchId, currentDeliveryType, isEditMode }) => {
   const { deliveryType, loading, biltyCount } = useConsignorDeliveryType(consignorName, branchId);
 
   // Don't show anything if no consignor selected
   if (!consignorName) {
     return null;
+  }
+
+  // Format delivery type for display
+  const formatDeliveryType = (type) => {
+    const types = {
+      'godown-delivery': 'Godown',
+      'door-delivery': 'Door'
+    };
+    return types[type] || type;
+  };
+
+  // In edit mode, show the current database value and any modifications
+  if (isEditMode && currentDeliveryType) {
+    const isDifferent = currentDeliveryType !== deliveryType?.type;
+    return (
+      <div className="text-[10px] font-medium mt-0.5">
+        <span className="text-blue-600">📋 Original: {formatDeliveryType(currentDeliveryType)} Delivery</span>
+        {isDifferent && deliveryType?.type && (
+          <span className="text-orange-600 ml-2">
+            → Modified: {formatDeliveryType(deliveryType.type)} Delivery
+          </span>
+        )}
+      </div>
+    );
   }
 
   // Loading state
@@ -268,15 +307,6 @@ export const DeliveryTypeInfo = ({ consignorName, branchId, currentDeliveryType 
       </div>
     );
   }
-
-  // Format delivery type for display
-  const formatDeliveryType = (type) => {
-    const types = {
-      'godown-delivery': 'Godown',
-      'door-delivery': 'Door'
-    };
-    return types[type] || type;
-  };
 
   // Calculate percentage
   const percentage = Math.round((deliveryType.count / deliveryType.totalBilties) * 100);

@@ -4,9 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, XCircle } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { useInputNavigation } from './input-navigation';
-import { useConsignorPaymentMode, PaymentModeInfo, useConsignorDeliveryType, DeliveryTypeInfo } from './payment-mode-helper';
+import { useConsignorPaymentMode, useConsignorDeliveryType } from './payment-mode-helper';
 
-const InvoiceDetailsSection = ({ formData, setFormData }) => {
+const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) => {
   // Multiple EWB State
   const [ewbList, setEwbList] = useState([]);
   
@@ -112,6 +112,9 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
 
   // Auto-populate payment mode from consignor's payment history
   useEffect(() => {
+    // DON'T auto-populate in edit mode - respect database values
+    if (isEditMode) return;
+    
     // Only auto-populate when consignor is selected and data is loaded
     if (formData.consignor_name && !loadingPaymentMode && oldPaymentMode) {
       // Only update if current payment_mode is default 'to-pay'
@@ -120,10 +123,13 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         setFormData(prev => ({ ...prev, payment_mode: oldPaymentMode.mode }));
       }
     }
-  }, [formData.consignor_name, oldPaymentMode, loadingPaymentMode]);
+  }, [formData.consignor_name, oldPaymentMode, loadingPaymentMode, isEditMode]);
 
   // Auto-populate delivery type from consignor's delivery history
   useEffect(() => {
+    // DON'T auto-populate in edit mode - respect database values
+    if (isEditMode) return;
+    
     // Only auto-populate when consignor is selected and data is loaded
     if (formData.consignor_name && !loadingDeliveryType && oldDeliveryType) {
       // Only update if current delivery_type is default 'godown-delivery'
@@ -132,7 +138,7 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
         setFormData(prev => ({ ...prev, delivery_type: oldDeliveryType.type }));
       }
     }
-  }, [formData.consignor_name, oldDeliveryType, loadingDeliveryType]);
+  }, [formData.consignor_name, oldDeliveryType, loadingDeliveryType, isEditMode]);
 
   // Register inputs for navigation
   useEffect(() => {
@@ -408,15 +414,45 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             </select>
           </div>
           {/* Smart Delivery Type Status - Shows AI analysis */}
-          {formData.consignor_name && (
-            <div className="ml-[94px] lg:ml-[102px]">
-              <DeliveryTypeInfo 
-                consignorName={formData.consignor_name}
-                branchId={formData.branch_id}
-                currentDeliveryType={formData.delivery_type}
-              />
-            </div>
-          )}
+          {formData.consignor_name && (() => {
+            const formatDeliveryType = (type) => {
+              const types = { 'godown-delivery': 'Godown', 'door-delivery': 'Door' };
+              return types[type] || type;
+            };
+
+            // In edit mode, show what was originally in database
+            if (isEditMode) {
+              return (
+                <div className="ml-[94px] lg:ml-[102px] text-[10px] font-medium mt-0.5">
+                  <span className="text-blue-600">📋 Database Value (Edit Mode)</span>
+                </div>
+              );
+            }
+
+            // In create mode, show AI suggestion
+            if (loadingDeliveryType) {
+              return (
+                <div className="ml-[94px] lg:ml-[102px] text-[10px] text-gray-500 font-medium mt-0.5 animate-pulse">
+                  🤖 Analyzing delivery history...
+                </div>
+              );
+            }
+
+            if (!oldDeliveryType || !oldDeliveryType.type) {
+              return (
+                <div className="ml-[94px] lg:ml-[102px] text-[10px] text-gray-600 font-medium mt-0.5">
+                  💼 Using Default (Godown) - No history
+                </div>
+              );
+            }
+
+            const percentage = Math.round((oldDeliveryType.count / oldDeliveryType.totalBilties) * 100);
+            return (
+              <div className="ml-[94px] lg:ml-[102px] text-[10px] text-green-600 font-medium mt-0.5">
+                ✅ AI: {formatDeliveryType(oldDeliveryType.type)} Delivery ({percentage}%)
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -437,15 +473,45 @@ const InvoiceDetailsSection = ({ formData, setFormData }) => {
             </select>
           </div>
           {/* Smart Payment Mode Status - Shows AI analysis */}
-          {formData.consignor_name && (
-            <div className="ml-[94px] lg:ml-[102px]">
-              <PaymentModeInfo 
-                consignorName={formData.consignor_name}
-                branchId={formData.branch_id}
-                currentPaymentMode={formData.payment_mode}
-              />
-            </div>
-          )}
+          {formData.consignor_name && (() => {
+            const formatPaymentMode = (mode) => {
+              const modes = { 'to-pay': 'To Pay', 'paid': 'Paid', 'freeofcost': 'FOC' };
+              return modes[mode] || mode;
+            };
+
+            // In edit mode, show what was originally in database
+            if (isEditMode) {
+              return (
+                <div className="ml-[94px] lg:ml-[102px] text-[10px] font-medium mt-0.5">
+                  <span className="text-blue-600">📋 Database Value (Edit Mode)</span>
+                </div>
+              );
+            }
+
+            // In create mode, show AI suggestion
+            if (loadingPaymentMode) {
+              return (
+                <div className="ml-[94px] lg:ml-[102px] text-[10px] text-gray-500 font-medium mt-0.5 animate-pulse">
+                  🤖 Analyzing payment history...
+                </div>
+              );
+            }
+
+            if (!oldPaymentMode || !oldPaymentMode.mode) {
+              return (
+                <div className="ml-[94px] lg:ml-[102px] text-[10px] text-gray-600 font-medium mt-0.5">
+                  💼 Using Default (To Pay) - No history
+                </div>
+              );
+            }
+
+            const percentage = Math.round((oldPaymentMode.count / oldPaymentMode.totalBilties) * 100);
+            return (
+              <div className="ml-[94px] lg:ml-[102px] text-[10px] text-green-600 font-medium mt-0.5">
+                ✅ AI: {formatPaymentMode(oldPaymentMode.mode)} ({percentage}%)
+              </div>
+            );
+          })()}
         </div>
 
         {/* Simple Content Field */}

@@ -436,18 +436,41 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
   };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 sticky top-0">
-          <DraggableTableHeader 
-            columns={columns} 
-            onReorder={setColumns} 
-          />
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {billDetails.map((detail, index) => renderEditableRow(detail, index))}
-        </tbody>
-      </table>
+    <div className="relative">
+      <div className="overflow-x-auto overflow-y-auto max-h-[600px] sticky-scrollbar">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 sticky top-0 z-20">
+            <DraggableTableHeader 
+              columns={columns} 
+              onReorder={setColumns} 
+            />
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {billDetails.map((detail, index) => renderEditableRow(detail, index))}
+          </tbody>
+        </table>
+      </div>
+      <style jsx>{`
+        .sticky-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: #4F46E5 #E0E7FF;
+        }
+        .sticky-scrollbar::-webkit-scrollbar {
+          height: 12px;
+          width: 12px;
+        }
+        .sticky-scrollbar::-webkit-scrollbar-track {
+          background: #E0E7FF;
+          border-radius: 6px;
+        }
+        .sticky-scrollbar::-webkit-scrollbar-thumb {
+          background: #4F46E5;
+          border-radius: 6px;
+        }
+        .sticky-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #4338CA;
+        }
+      `}</style>
     </div>
   );
 };

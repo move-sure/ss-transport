@@ -75,20 +75,6 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
   };
 
   const handleKeyDown = (e) => {
-    // Handle Shift+Tab first - highest priority for backward navigation
-    if (e.key === 'Tab' && e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      setShowDropdown(false);
-      setSearchTerm('');
-      setSelectedIndex(-1);
-      const grInput = document.querySelector('[data-tab-target="gr_no"]');
-      if (grInput) {
-        grInput.focus();
-      }
-      return;
-    }
-
     if (showDropdown && filteredOptions.length > 0) {
       switch (e.key) {
         case 'ArrowDown':
@@ -814,13 +800,6 @@ const ManualBiltyForm = ({
                           if (stationInput) {
                             stationInput.focus();
                           }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          // Let it cycle to save button (last field) - natural form behavior
-                          e.preventDefault();
-                          const saveButton = document.querySelector('[data-tab-target="save"]');
-                          if (saveButton) {
-                            saveButton.focus();
-                          }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
@@ -875,12 +854,6 @@ const ManualBiltyForm = ({
                           if (consigneeInput) {
                             consigneeInput.focus();
                           }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const stationInput = document.querySelector('[data-tab-target="station"] input');
-                          if (stationInput) {
-                            stationInput.focus();
-                          }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
@@ -904,12 +877,6 @@ const ManualBiltyForm = ({
                           const contentsInput = document.querySelector('[data-tab-target="contents"]');
                           if (contentsInput) {
                             contentsInput.focus();
-                          }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const consignorInput = document.querySelector('[data-tab-target="consignor"]');
-                          if (consignorInput) {
-                            consignorInput.focus();
                           }
                         }
                       }}
@@ -942,12 +909,6 @@ const ManualBiltyForm = ({
                           const packetsInput = document.querySelector('[data-tab-target="no_of_packets"]');
                           if (packetsInput) {
                             packetsInput.focus();
-                          }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const consigneeInput = document.querySelector('[data-tab-target="consignee"]');
-                          if (consigneeInput) {
-                            consigneeInput.focus();
                           }
                         }
                       }}
@@ -983,12 +944,6 @@ const ManualBiltyForm = ({
                           if (weightInput) {
                             weightInput.focus();
                           }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const contentsInput = document.querySelector('[data-tab-target="contents"]');
-                          if (contentsInput) {
-                            contentsInput.focus();
-                          }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
@@ -1015,12 +970,6 @@ const ManualBiltyForm = ({
                           const paymentSelect = document.querySelector('[data-tab-target="payment_status"]');
                           if (paymentSelect) {
                             paymentSelect.focus();
-                          }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const packetsInput = document.querySelector('[data-tab-target="no_of_packets"]');
-                          if (packetsInput) {
-                            packetsInput.focus();
                           }
                         }
                       }}
@@ -1054,12 +1003,6 @@ const ManualBiltyForm = ({
                           const amountInput = document.querySelector('[data-tab-target="amount"]');
                           if (amountInput) {
                             amountInput.focus();
-                          }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const weightInput = document.querySelector('[data-tab-target="weight"]');
-                          if (weightInput) {
-                            weightInput.focus();
                           }
                         }
                       }}
@@ -1102,12 +1045,6 @@ const ManualBiltyForm = ({
                           if (pvtMarksInput) {
                             pvtMarksInput.focus();
                           }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const paymentSelect = document.querySelector('[data-tab-target="payment_status"]');
-                          if (paymentSelect) {
-                            paymentSelect.focus();
-                          }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
@@ -1133,12 +1070,6 @@ const ManualBiltyForm = ({
                           if (saveButton) {
                             saveButton.focus();
                           }
-                        } else if (e.key === 'Tab' && e.shiftKey) {
-                          e.preventDefault();
-                          const amountInput = document.querySelector('[data-tab-target="amount"]');
-                          if (amountInput) {
-                            amountInput.focus();
-                          }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white"
@@ -1161,23 +1092,12 @@ const ManualBiltyForm = ({
                   type="submit"
                   disabled={saving || !isValidStation}
                   onKeyDown={(e) => {
-                    if (e.key === 'Tab' && !e.shiftKey) {
+                    if (e.key === 'Tab') {
                       e.preventDefault();
-                      const form = e.target.closest('form');
-                      if (form && !saving && isValidStation) {
-                        form.requestSubmit();
-                      }
-                    } else if (e.key === 'Tab' && e.shiftKey) {
-                      e.preventDefault();
-                      const pvtMarksInput = document.querySelector('[data-tab-target="pvt_marks"]');
-                      if (pvtMarksInput) {
-                        pvtMarksInput.focus();
-                      }
-                    } else if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const form = e.target.closest('form');
-                      if (form && isValidStation) {
-                        form.requestSubmit();
+                      e.stopPropagation();
+                      if (!saving && isValidStation && !e.shiftKey) {
+                        // Submit form on Tab press
+                        e.currentTarget.click();
                       }
                     }
                   }}

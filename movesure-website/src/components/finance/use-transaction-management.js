@@ -179,17 +179,26 @@ export default function useTransactionManagement(user) {
     try {
       const table = bulkData.transactionType === 'income' ? 'income_transactions' : 'expense_transactions';
       
-      const insertData = bulkData.transactions.map(t => ({
-        branch_id: bulkData.branch_id,
-        transaction_date: bulkData.transaction_date,
-        party_name: t.party_name,
-        amount: t.amount,
-        payment_mode: t.payment_mode,
-        receiver: t.receiver,
-        sender: t.sender,
-        description: t.description,
-        created_by_staff_id: user.id
-      }));
+      const insertData = bulkData.transactions.map(t => {
+        const baseData = {
+          branch_id: bulkData.branch_id,
+          transaction_date: bulkData.transaction_date,
+          party_name: t.party_name,
+          amount: t.amount,
+          payment_mode: t.payment_mode,
+          description: t.description,
+          created_by_staff_id: user.id
+        };
+
+        // Add receiver for income, sender for expense
+        if (bulkData.transactionType === 'income') {
+          baseData.receiver = t.receiver;
+        } else {
+          baseData.sender = t.sender;
+        }
+
+        return baseData;
+      });
 
       const { error } = await supabase.from(table).insert(insertData);
       if (error) throw error;

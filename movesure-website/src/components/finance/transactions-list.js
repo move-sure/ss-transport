@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Calendar, DollarSign, User, CreditCard, Edit, Trash2, FileText } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Calendar, DollarSign, User, CreditCard, Edit, Trash2, FileText, Layers } from 'lucide-react';
 
 export default function TransactionsList({
   transactions,
   formatCurrency,
   onAddIncome,
   onAddExpense,
+  onAddBulkIncome,
+  onAddBulkExpense,
   onEditTransaction,
   onDeleteTransaction
 }) {
@@ -23,20 +25,40 @@ export default function TransactionsList({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">Income & Expense Tracker</h2>
           <div className="flex gap-2">
-            <button
-              onClick={onAddIncome}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md"
-            >
-              <Plus size={16} />
-              <span className="sm:inline">Income</span>
-            </button>
-            <button
-              onClick={onAddExpense}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all text-sm font-semibold shadow-md"
-            >
-              <Plus size={16} />
-              <span className="sm:inline">Expense</span>
-            </button>
+            <div className="flex gap-1">
+              <button
+                onClick={onAddIncome}
+                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 bg-green-600 text-white rounded-l-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md"
+                title="Add Single Income"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Income</span>
+              </button>
+              <button
+                onClick={onAddBulkIncome}
+                className="flex items-center justify-center gap-1 px-2 py-2 bg-green-700 text-white rounded-r-lg hover:bg-green-800 transition-all text-sm font-semibold shadow-md border-l border-green-500"
+                title="Add Multiple Income Entries"
+              >
+                <Layers size={16} />
+              </button>
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={onAddExpense}
+                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 bg-red-600 text-white rounded-l-lg hover:bg-red-700 transition-all text-sm font-semibold shadow-md"
+                title="Add Single Expense"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Expense</span>
+              </button>
+              <button
+                onClick={onAddBulkExpense}
+                className="flex items-center justify-center gap-1 px-2 py-2 bg-red-700 text-white rounded-r-lg hover:bg-red-800 transition-all text-sm font-semibold shadow-md border-l border-red-500"
+                title="Add Multiple Expense Entries"
+              >
+                <Layers size={16} />
+              </button>
+            </div>
           </div>
         </div>
         

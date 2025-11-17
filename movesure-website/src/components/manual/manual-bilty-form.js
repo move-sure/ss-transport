@@ -1163,9 +1163,9 @@ const ManualBiltyForm = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Tab' && !e.shiftKey) {
                       e.preventDefault();
-                      const grInput = document.querySelector('[data-tab-target="gr_no"]');
-                      if (grInput) {
-                        grInput.focus();
+                      const form = e.target.closest('form');
+                      if (form && !saving && isValidStation) {
+                        form.requestSubmit();
                       }
                     } else if (e.key === 'Tab' && e.shiftKey) {
                       e.preventDefault();

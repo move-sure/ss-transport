@@ -29,6 +29,7 @@ const ROUTE_MODULE_MAP = {
   '/crm': 'crm',
   '/complains': 'complains',
   '/available': 'available',
+  '/fnance': 'fnance',
 };
 
 // Routes that don't require any module (public or auth-only routes)
@@ -285,7 +286,8 @@ function AccessDeniedPage({ requiredModule }) {
       'tracking': 'Bilty Tracking',
       'crm': 'CRM',
       'complains': 'Complaints',
-      'available': 'Available Items'
+      'available': 'Available Items',
+      'fnance': 'Finance Management'
     };
     return moduleNames[module] || module.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };

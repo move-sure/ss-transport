@@ -17,6 +17,7 @@ export const ROUTE_MODULE_MAP = {
   '/staff': 'staff',
   '/user-modules': 'staff',
   '/users': 'staff',
+  '/fnance': 'fnance',
   
   // Nested routes - Bilty
   '/bilty/create': 'bilty',

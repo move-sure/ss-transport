@@ -25,7 +25,8 @@ const AVAILABLE_MODULES = [
   { name: 'godown', label: 'Godown', description: 'Manage godown operations' },
   { name: 'crm', label: 'CRM', description: 'Customer relationship management' },
   { name: 'complains', label: 'Complaints', description: 'Manage customer complaints' },
-  { name: 'available', label: 'Available', description: 'Available items management' }
+  { name: 'available', label: 'Available', description: 'Available items management' },
+  { name: 'fnance', label: 'Finance', description: 'Financial dashboard and reports' }
 ];
 
 export default function UserModulesPage() {

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign } from 'lucide-react';
 
 // Module configuration - MUST match routeprotection.js ROUTE_MODULE_MAP
 const MODULE_CONFIG = {
@@ -114,6 +114,12 @@ const MODULE_CONFIG = {
     name: 'Available',
     path: '/available',
     icon: 'Package',
+  },
+  'fnance': {
+    name: 'Finance',
+    path: '/fnance',
+    icon: 'DollarSign',
+    shortcut: 'Alt+F'
   }
 };
 
@@ -137,6 +143,7 @@ const ROUTE_MODULE_MAP = {
   '/crm': 'crm',
   '/complains': 'complains',
   '/available': 'available',
+  '/fnance': 'fnance',
 };
 
 // Public routes that don't require module access
@@ -233,6 +240,12 @@ export default function Navbar() {
               handleNavClick({ path: '/godown', module: 'godown' });
             }
             break;
+          case 'f':
+            event.preventDefault();
+            if (userModules.includes('fnance')) {
+              handleNavClick({ path: '/fnance', module: 'fnance' });
+            }
+            break;
         }
       }
     };
@@ -286,7 +299,7 @@ export default function Navbar() {
     const navigationItems = [];
     
     // Icon-only modules (left side) - MUST match module names in database
-    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'staff', 'danger'];
+    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'fnance', 'staff', 'danger'];
     // Text modules (right side)
     const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available'];
 
@@ -342,7 +355,8 @@ export default function Navbar() {
       'godown': <Database className="h-4 w-4" />,
       'crm': <Users className="h-4 w-4" />,
       'complains': <AlertTriangle className="h-4 w-4" />,
-      'available': <Package className="h-4 w-4" />
+      'available': <Package className="h-4 w-4" />,
+      'fnance': <DollarSign className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

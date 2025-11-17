@@ -28,6 +28,7 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
   const [searchTerm, setSearchTerm] = useState('');
   const [inputValue, setInputValue] = useState(value || '');
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     setInputValue(value || '');
@@ -47,6 +48,7 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
     setSearchTerm('');
     onChange(selectedValue);
     setSelectedIndex(-1);
+    setShowDropdown(false);
   };
 
   const handleInputChange = (e) => {
@@ -55,6 +57,7 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
     setSearchTerm(newValue);
     onChange(newValue);
     setSelectedIndex(-1);
+    setShowDropdown(true);
     
     // Auto-fill if exact match found
     if (newValue.length >= 2) {
@@ -72,105 +75,109 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex(prev => 
-        prev < filteredOptions.length - 1 ? prev + 1 : 0
-      );
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(prev => 
-        prev > 0 ? prev - 1 : filteredOptions.length - 1
-      );
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
-        handleSelect(filteredOptions[selectedIndex]);
-      } else if (filteredOptions.length > 0) {
-        handleSelect(filteredOptions[0]);
+    if (showDropdown && filteredOptions.length > 0) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev < filteredOptions.length - 1 ? prev + 1 : 0
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev > 0 ? prev - 1 : filteredOptions.length - 1
+          );
+          break;
+        case 'Enter':
+        case 'Tab':
+          e.preventDefault();
+          e.stopPropagation();
+          if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+            handleSelect(filteredOptions[selectedIndex]);
+          } else if (filteredOptions.length > 0) {
+            handleSelect(filteredOptions[0]);
+          }
+          if (e.key === 'Tab' && onTabPress) {
+            onTabPress();
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowDropdown(false);
+          setSelectedIndex(-1);
+          break;
       }
-      if (onTabPress) {
+    } else {
+      if (e.key === 'Tab' && onTabPress) {
         onTabPress();
       }
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      setSelectedIndex(-1);
-      setSearchTerm('');
-      
-      if (searchTerm && filteredOptions.length > 0) {
-        const bestMatch = filteredOptions.find(option => 
-          option.city_name?.toLowerCase() === searchTerm.toLowerCase() ||
-          option.city_code?.toLowerCase() === searchTerm.toLowerCase()
-        ) || filteredOptions[0];
-        
-        if (bestMatch) {
-          handleSelect(bestMatch);
-        }
-      }
-      
-      if (onTabPress) {
-        onTabPress();
-      }
-    } else if (e.key === 'Escape') {
-      setSelectedIndex(-1);
-      setSearchTerm('');
     }
   };
+
+  // Find selected city name
+  const selectedCity = options.find(city => city.city_code === value);
 
   return (
     <div className="relative">
       <div className="relative">
-                    <input
-                      type="text"
-                      value={inputValue}
-                      onChange={handleInputChange}
-                      onKeyDown={handleKeyDown}
-                      onFocus={() => searchTerm && setSelectedIndex(-1)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-black bg-white transition-all duration-200 ${
-                        !isValid 
-                          ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50' 
-                          : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
-                      }`}
-                      placeholder={placeholder}
-                      style={{ textTransform: 'uppercase' }}
-                    />
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowDropdown(true)}
+          placeholder={placeholder}
+          className={`w-full px-3 py-2 text-sm font-semibold border rounded-lg shadow-sm focus:outline-none focus:ring-0 transition-all duration-200 ${
+            !isValid 
+              ? 'border-red-500 focus:border-red-400 bg-red-50 text-red-900' 
+              : 'border-slate-300 focus:border-indigo-400 hover:border-indigo-300 bg-white text-slate-900'
+          }`}
+          style={{ textTransform: 'uppercase' }}
+        />
+        {/* Show selected city name badge */}
+        {selectedCity && value && !showDropdown && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-100 text-indigo-700 px-3 py-1 rounded-md text-xs font-semibold border border-indigo-200 shadow-sm">
+            {selectedCity.city_name}
+          </div>
+        )}
       </div>
 
-      {searchTerm && filteredOptions.length > 0 && (
+      {showDropdown && searchTerm && filteredOptions.length > 0 && (
         <>
           <div 
             className="fixed inset-0 z-10" 
             onClick={() => {
               setSelectedIndex(-1);
               setSearchTerm('');
+              setShowDropdown(false);
               document.activeElement?.blur();
             }}
           />
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-30 mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
+              SELECT STATION CODE
+            </div>
             {filteredOptions.map((option, index) => {
               const displayValue = option.city_code;
               const isSelected = displayValue === value;
               const isHighlighted = index === selectedIndex;
-              
-              const optionLabel = option.city_name 
-                ? `${option.city_name} (${displayValue})`
-                : displayValue;
               
               return (
                 <button
                   key={index}
                   type="button"
                   onClick={() => handleSelect(option)}
-                  className={`w-full text-left px-3 py-2 flex items-center justify-between ${
+                  className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-xs border-b border-slate-100 transition-colors ${
                     isHighlighted 
-                      ? 'bg-purple-200 text-purple-800' 
+                      ? 'bg-indigo-100' 
                       : isSelected 
-                      ? 'bg-purple-100 text-purple-700' 
-                      : 'text-gray-900 hover:bg-purple-50'
+                      ? 'bg-indigo-50' 
+                      : ''
                   }`}
                 >
-                  <span className="truncate">{optionLabel}</span>
-                  {isSelected && <CheckCircle className="w-4 h-4 text-purple-600" />}
+                  <div className="font-semibold text-slate-800">{option.city_name}</div>
+                  <div className="text-xs text-slate-600">Code: {displayValue}</div>
                 </button>
               );
             })}
@@ -180,8 +187,9 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
       
       {/* Error Message */}
       {!isValid && errorMessage && (
-        <div className="mt-1 text-xs text-red-600 font-medium">
-          {errorMessage}
+        <div className="mt-1 text-xs text-red-600 font-medium flex items-center gap-1">
+          <span>⚠️</span>
+          <span>{errorMessage}</span>
         </div>
       )}
     </div>

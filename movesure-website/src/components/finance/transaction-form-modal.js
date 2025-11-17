@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, DollarSign, User, FileText, RefreshCw, Check, Building2 } from 'lucide-react';
+import { X, Calendar, IndianRupee, User, FileText, RefreshCw, Check, Building2 } from 'lucide-react';
 
 export default function TransactionFormModal({
   showModal,
@@ -106,7 +106,7 @@ export default function TransactionFormModal({
               Amount <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="number"
                 name="amount"

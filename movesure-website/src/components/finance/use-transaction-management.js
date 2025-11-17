@@ -174,6 +174,35 @@ export default function useTransactionManagement(user) {
     }
   };
 
+  // Submit bulk transactions
+  const handleBulkTransactionSubmit = async (bulkData) => {
+    try {
+      const table = bulkData.transactionType === 'income' ? 'income_transactions' : 'expense_transactions';
+      
+      const insertData = bulkData.transactions.map(t => ({
+        branch_id: bulkData.branch_id,
+        transaction_date: bulkData.transaction_date,
+        party_name: t.party_name,
+        amount: t.amount,
+        payment_mode: t.payment_mode,
+        receiver: t.receiver,
+        sender: t.sender,
+        description: t.description,
+        created_by_staff_id: user.id
+      }));
+
+      const { error } = await supabase.from(table).insert(insertData);
+      if (error) throw error;
+
+      alert(`${bulkData.transactions.length} ${bulkData.transactionType === 'income' ? 'income' : 'expense'} ${bulkData.transactions.length === 1 ? 'entry' : 'entries'} added successfully!`);
+      fetchTransactions();
+    } catch (error) {
+      console.error('Error saving bulk transactions:', error);
+      alert('Failed to save transactions: ' + error.message);
+      throw error;
+    }
+  };
+
   // Delete transaction
   const handleDeleteTransaction = async (transactionId, type) => {
     if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
@@ -207,6 +236,7 @@ export default function useTransactionManagement(user) {
     handleCloseTransactionModal,
     handleTransactionInputChange,
     handleTransactionSubmit,
+    handleBulkTransactionSubmit,
     handleDeleteTransaction
   };
 }

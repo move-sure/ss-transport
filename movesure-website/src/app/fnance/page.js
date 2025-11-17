@@ -5,19 +5,25 @@ import { useRouter } from 'next/navigation';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../utils/auth';
 import Navbar from '@/components/dashboard/navbar';
-import { Plus, Building2 } from 'lucide-react';
+import { Plus, Building2, Calendar, Wallet } from 'lucide-react';
 import BranchFormModal from '@/components/finance/branch-form-modal';
 import BranchListModal from '@/components/finance/branch-list-modal';
 import TransactionsList from '@/components/finance/transactions-list';
 import TransactionFormModal from '@/components/finance/transaction-form-modal';
+import BulkTransactionFormModal from '@/components/finance/bulk-transaction-form-modal';
+import DailySummaryModal from '@/components/finance/daily-summary-modal';
+import DailySummaryList from '@/components/finance/daily-summary-list';
 import useBranchManagement from '@/components/finance/use-branch-management';
 import useTransactionManagement from '@/components/finance/use-transaction-management';
+import useDailySummaryManagement from '@/components/finance/use-daily-summary-management';
 
 export default function FinancePage() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showBranchListModal, setShowBranchListModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkTransactionType, setBulkTransactionType] = useState('income');
   const [financialData, setFinancialData] = useState({
     totalRevenue: 0,
     totalExpenses: 0,
@@ -59,14 +65,42 @@ export default function FinancePage() {
     handleCloseTransactionModal,
     handleTransactionInputChange,
     handleTransactionSubmit,
+    handleBulkTransactionSubmit,
     handleDeleteTransaction
   } = useTransactionManagement(user);
+
+  // Daily summary management hook
+  const {
+    dailySummaries,
+    showDailySummaryModal,
+    editingSummary,
+    summaryFormData,
+    summaryFormErrors,
+    summarySubmitting,
+    fetchDailySummaries,
+    handleOpenSummaryModal,
+    handleEditSummary,
+    handleCloseSummaryModal,
+    handleSummaryInputChange,
+    handleSummarySubmit,
+    handleDeleteSummary
+  } = useDailySummaryManagement(user);
+
+  const handleOpenBulkModal = (type) => {
+    setBulkTransactionType(type);
+    setShowBulkModal(true);
+  };
+
+  const handleCloseBulkModal = () => {
+    setShowBulkModal(false);
+  };
 
   useEffect(() => {
     if (user) {
       fetchFinancialData();
       fetchBranches();
       fetchTransactions();
+      fetchDailySummaries();
     }
   }, [user, dateRange]);
 
@@ -164,6 +198,13 @@ export default function FinancePage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => alert('Coming Soon! Salary management feature will be available soon.')}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md"
+              >
+                <Wallet size={16} />
+                <span className="hidden sm:inline">Salary</span>
+              </button>
+              <button
                 onClick={() => setShowBranchListModal(true)}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all text-sm font-semibold shadow-md"
               >
@@ -171,14 +212,32 @@ export default function FinancePage() {
                 <span className="hidden sm:inline">View Branches</span> ({branches.length})
               </button>
               <button
+                onClick={handleOpenSummaryModal}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all text-sm font-semibold shadow-md"
+              >
+                <Calendar size={16} />
+                <span className="hidden sm:inline">Daily Summary</span>
+              </button>
+              <button
                 onClick={handleOpenModal}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-semibold shadow-md"
               >
                 <Plus size={16} />
-                <span className="hidden sm:inline">Create</span>
+                <span className="hidden sm:inline">Create Branch</span>
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Daily Summary Section */}
+        <div>
+          <DailySummaryList
+            summaries={dailySummaries}
+            branches={branches}
+            formatCurrency={formatCurrency}
+            onEditSummary={handleEditSummary}
+            onDeleteSummary={handleDeleteSummary}
+          />
         </div>
 
         {/* Transactions Section */}
@@ -188,6 +247,8 @@ export default function FinancePage() {
             formatCurrency={formatCurrency}
             onAddIncome={() => handleOpenTransactionModal('income')}
             onAddExpense={() => handleOpenTransactionModal('expense')}
+            onAddBulkIncome={() => handleOpenBulkModal('income')}
+            onAddBulkExpense={() => handleOpenBulkModal('expense')}
             onEditTransaction={handleEditTransaction}
             onDeleteTransaction={handleDeleteTransaction}
           />
@@ -226,6 +287,28 @@ export default function FinancePage() {
         onClose={handleCloseTransactionModal}
         onSubmit={handleTransactionSubmit}
         onInputChange={handleTransactionInputChange}
+      />
+
+      {/* Bulk Transaction Form Modal */}
+      <BulkTransactionFormModal
+        showModal={showBulkModal}
+        transactionType={bulkTransactionType}
+        branches={branches}
+        onClose={handleCloseBulkModal}
+        onSubmit={handleBulkTransactionSubmit}
+      />
+
+      {/* Daily Summary Modal */}
+      <DailySummaryModal
+        showModal={showDailySummaryModal}
+        editingSummary={editingSummary}
+        formData={summaryFormData}
+        formErrors={summaryFormErrors}
+        submitting={summarySubmitting}
+        branches={branches}
+        onClose={handleCloseSummaryModal}
+        onSubmit={handleSummarySubmit}
+        onInputChange={handleSummaryInputChange}
       />
     </div>
   );

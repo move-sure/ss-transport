@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Truck, FileText, Calendar, MapPin, Send, X, Loader2, CheckCircle, Download, ExternalLink, Copy } from 'lucide-react';
 
 const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
   const [formData, setFormData] = useState({
     userGstin: '09COVPS5556J1ZT',
-    place_of_consignor: '',
-    state_of_consignor: '',
+    place_of_consignor: 'Aligarh',
+    state_of_consignor: 'Uttar Pradesh',
     vehicle_number: '',
     mode_of_transport: '1',
     transporter_document_number: '',
@@ -14,6 +14,19 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Update vehicle number when modal opens or challanData changes
+  useEffect(() => {
+    console.log('🔍 Modal State:', { isOpen, challanData });
+    if (isOpen && challanData?.truck?.truck_number) {
+      console.log('✅ Found truck number:', challanData.truck.truck_number);
+      const truckNumber = challanData.truck.truck_number.replace(/-/g, '');
+      console.log('🚛 Setting vehicle number:', truckNumber);
+      setFormData(prev => ({ ...prev, vehicle_number: truckNumber }));
+    } else if (isOpen) {
+      console.log('⚠️ No truck number found in challanData');
+    }
+  }, [isOpen, challanData]);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
@@ -50,15 +63,21 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
       });
 
       const data = await response.json();
-      console.log('API Response:', data);
+      console.log('✅ API Response:', JSON.stringify(data, null, 2));
 
       // Check for success response - the API returns success in results.status
       if (data.results?.status === 'Success' && data.results?.code === 200) {
         // Ensure URL is complete
         let pdfUrl = data.results.message?.url;
+        console.log('📄 Original PDF URL:', pdfUrl);
+        
         if (pdfUrl && !pdfUrl.startsWith('http')) {
           pdfUrl = `https://${pdfUrl}`;
         }
+        
+        console.log('🔗 Final PDF URL:', pdfUrl);
+        console.log('📋 Consolidated EWB Number:', data.results.message?.cEwbNo);
+        console.log('📅 Consolidated EWB Date:', data.results.message?.cEwbDate);
         
         setResult({
           success: true,
@@ -89,11 +108,12 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
   const reset = () => {
     setResult(null);
     setError(null);
+    const truckNumber = challanData?.truck?.truck_number?.replace(/-/g, '') || '';
     setFormData({
       userGstin: '09COVPS5556J1ZT',
-      place_of_consignor: '',
-      state_of_consignor: '',
-      vehicle_number: '',
+      place_of_consignor: 'Aligarh',
+      state_of_consignor: 'Uttar Pradesh',
+      vehicle_number: truckNumber,
       mode_of_transport: '1',
       transporter_document_number: '',
       transporter_document_date: new Date().toISOString().split('T')[0],
@@ -218,13 +238,15 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
                   )}
                 </div>
                 
-                {/* Debug Information (for development) */}
-                {process.env.NODE_ENV === 'development' && result.rawResponse && (
-                  <details className="mt-4">
-                    <summary className="text-xs text-gray-500 cursor-pointer">Debug: Raw API Response</summary>
-                    <pre className="text-xs text-gray-600 mt-2 p-3 bg-gray-100 rounded overflow-auto max-h-40">
-                      {JSON.stringify(result.rawResponse, null, 2)}
-                    </pre>
+                {/* Debug Information */}
+                {result.rawResponse && (
+                  <details className="mt-4" open>
+                    <summary className="text-xs text-gray-700 font-semibold cursor-pointer mb-2 hover:text-gray-900">📋 Debug: Complete API Response</summary>
+                    <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <pre className="text-xs text-gray-800 overflow-auto max-h-60 whitespace-pre-wrap break-words font-mono">
+{JSON.stringify(result.rawResponse, null, 2)}
+                      </pre>
+                    </div>
                   </details>
                 )}
               </div>
@@ -323,32 +345,32 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
                     />
                   </div>
 
-                  {/* Place of Consignor */}
+                  {/* City */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <MapPin className="w-4 h-4 inline mr-1" />
-                      Place of Consignor *
+                      City *
                     </label>
                     <input
                       type="text"
                       value={formData.place_of_consignor}
                       onChange={(e) => handleInputChange('place_of_consignor', e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
-                      placeholder="Mumbai"
+                      placeholder="Aligarh"
                     />
                   </div>
 
-                  {/* State of Consignor */}
+                  {/* State */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      State of Consignor *
+                      State *
                     </label>
                     <input
                       type="text"
                       value={formData.state_of_consignor}
                       onChange={(e) => handleInputChange('state_of_consignor', e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
-                      placeholder="Maharashtra"
+                      placeholder="Uttar Pradesh"
                     />
                   </div>
 
@@ -394,7 +416,7 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
                       type="date"
                       value={formData.transporter_document_date}
                       onChange={(e) => handleInputChange('transporter_document_date', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm text-gray-900"
                     />
                   </div>
 

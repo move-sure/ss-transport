@@ -3,17 +3,17 @@ import { Shield, CheckCircle, AlertTriangle, Database, FileStack, Edit3 } from '
 import EWBFilter from './ewb-filter';
 import EWBDetailsModal from './ewb-details-modal';
 import EwbValidationComponent from './ewb-validation-component';
-import ConsolidatedEwbModal from './consolidated-ewb-modal';
+import ConsolidatedEwbForm from './consolidated-ewb-form';
 import TransporterUpdateModal from './transporter-update-modal';
 import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation';
 
-export default function TransitDetailsTable({ transitDetails }) {
+export default function TransitDetailsTable({ transitDetails, challanDetails }) {
   const [selectedGRs, setSelectedGRs] = useState([]);
   const [filterType, setFilterType] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedGRData, setSelectedGRData] = useState(null);
   const [showValidation, setShowValidation] = useState(false);
-  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
+  const [showConsolidatedForm, setShowConsolidatedForm] = useState(false);
   const [showTransporterModal, setShowTransporterModal] = useState(false);
   const [selectedTransporterGR, setSelectedTransporterGR] = useState(null);
   const [validationMap, setValidationMap] = useState({});
@@ -306,8 +306,9 @@ export default function TransitDetailsTable({ transitDetails }) {
         grData={selectedGRData}
       />
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+      {!showConsolidatedForm && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-800">
             Transit Details ({filteredTransitDetails.length} GR Numbers)
           </h2>
@@ -338,7 +339,7 @@ export default function TransitDetailsTable({ transitDetails }) {
                 </button>
                 {canConsolidateSelected && (
                   <button
-                    onClick={() => setShowConsolidatedModal(true)}
+                    onClick={() => setShowConsolidatedForm(true)}
                     className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
                   >
                     <FileStack className="w-4 h-4" />
@@ -357,7 +358,7 @@ export default function TransitDetailsTable({ transitDetails }) {
               ewbNumbers={allEwbNumbers}
               ewbToGrMapping={ewbToGrMapping}
               showCacheControls={true}
-              onConsolidateClick={() => setShowConsolidatedModal(true)}
+              onConsolidateClick={() => setShowConsolidatedForm(true)}
               onValidationComplete={handleValidationResults}
             />
           </div>
@@ -533,7 +534,7 @@ export default function TransitDetailsTable({ transitDetails }) {
               </p>
               {canConsolidateSelected ? (
                 <button
-                  onClick={() => setShowConsolidatedModal(true)}
+                  onClick={() => setShowConsolidatedForm(true)}
                   className="px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700 transition-colors flex items-center gap-1"
                 >
                   <FileStack className="w-3 h-3" />
@@ -548,13 +549,14 @@ export default function TransitDetailsTable({ transitDetails }) {
           </div>
         )}
 
-        {/* Consolidated EWB Modal */}
-        <ConsolidatedEwbModal
-          isOpen={showConsolidatedModal}
-          onClose={() => setShowConsolidatedModal(false)}
-          ewbNumbers={selectedGRs.length > 0 ? selectedEwbNumbers : allEwbNumbers}
-          challanData={selectedGRs.length > 0 ? transitDetails?.filter(t => selectedGRs.includes(t.gr_no)) : transitDetails}
-        />
+        {/* Consolidated EWB Form */}
+        {showConsolidatedForm && (
+          <ConsolidatedEwbForm
+            ewbNumbers={selectedGRs.length > 0 ? selectedEwbNumbers : allEwbNumbers}
+            challanData={challanDetails}
+            onBack={() => setShowConsolidatedForm(false)}
+          />
+        )}
 
         {/* Transporter Update Modal */}
         <TransporterUpdateModal
@@ -566,7 +568,17 @@ export default function TransitDetailsTable({ transitDetails }) {
             ...(selectedTransporterGR.station?.e_way_bill ? selectedTransporterGR.station.e_way_bill.split(',').filter(e => e.trim()).map(e => e.trim()) : [])
           ] : []}
         />
-      </div>
+        </div>
+      )}
+
+      {/* Consolidated EWB Form */}
+      {showConsolidatedForm && (
+        <ConsolidatedEwbForm
+          ewbNumbers={selectedGRs.length > 0 ? selectedEwbNumbers : allEwbNumbers}
+          challanData={challanDetails}
+          onBack={() => setShowConsolidatedForm(false)}
+        />
+      )}
     </>
   );
 }

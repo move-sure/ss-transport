@@ -63,7 +63,21 @@ export const getCachedValidation = (ewbNumber) => {
     
     if (!cached) return null;
     
-    const cachedData = JSON.parse(cached);
+    // Validate JSON before parsing
+    if (!cached.trim().startsWith('{') && !cached.trim().startsWith('[')) {
+      console.warn('Invalid JSON in cache for:', ewbNumber);
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+    
+    let cachedData;
+    try {
+      cachedData = JSON.parse(cached);
+    } catch (parseError) {
+      console.error('Failed to parse cached EWB data:', parseError);
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
     
     // Check if cache is still valid (time-wise)
     if (!isCacheValid(cachedData)) {
@@ -84,6 +98,13 @@ export const getCachedValidation = (ewbNumber) => {
     return cachedData;
   } catch (error) {
     console.error('Error reading EWB cache:', error);
+    // Clean up the corrupted cache entry
+    try {
+      const cacheKey = getCacheKey(ewbNumber);
+      localStorage.removeItem(cacheKey);
+    } catch (cleanupError) {
+      console.error('Error cleaning up cache:', cleanupError);
+    }
     return null;
   }
 };
@@ -259,14 +280,28 @@ export const getCacheStats = () => {
     
     ewbKeys.forEach(key => {
       try {
-        const cached = JSON.parse(localStorage.getItem(key));
-        if (isCacheValid(cached)) {
+        const cached = localStorage.getItem(key);
+        if (!cached) {
+          expiredCount++;
+          return;
+        }
+        
+        const cachedData = JSON.parse(cached);
+        if (isCacheValid(cachedData)) {
           validCount++;
         } else {
           expiredCount++;
+          // Clean up expired cache
+          localStorage.removeItem(key);
         }
       } catch (error) {
         expiredCount++;
+        // Clean up corrupted cache
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.error('Error removing corrupted cache:', e);
+        }
       }
     });
     

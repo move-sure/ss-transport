@@ -68,9 +68,16 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
       const data = await response.json();
       console.log('✅ API Response:', JSON.stringify(data, null, 2));
 
-      // Check for success response
-      if (data.results?.status === 'Success' && data.results?.code === 200) {
-        let pdfUrl = data.results.message?.url;
+      // Handle both response structures: data.results and results
+      const results = data.data?.results || data.results;
+      const statusCode = results?.code || data.status_code;
+      const statusText = results?.status || data.status;
+      
+      console.log('🔍 Parsed Response:', { results, statusCode, statusText });
+
+      // Check for success response (code 200 or status 'Success' or 'success')
+      if ((statusCode === 200 || statusText === 'Success' || statusText === 'success') && results?.message) {
+        let pdfUrl = results.message?.url;
         console.log('📄 Original PDF URL:', pdfUrl);
         
         if (pdfUrl && !pdfUrl.startsWith('http')) {
@@ -78,13 +85,13 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
         }
         
         console.log('🔗 Final PDF URL:', pdfUrl);
-        console.log('📋 Consolidated EWB Number:', data.results.message?.cEwbNo);
-        console.log('📅 Consolidated EWB Date:', data.results.message?.cEwbDate);
+        console.log('📋 Consolidated EWB Number:', results.message?.cEwbNo);
+        console.log('📅 Consolidated EWB Date:', results.message?.cEwbDate);
         
         setResult({
           success: true,
-          cEwbNo: data.results.message?.cEwbNo,
-          cEwbDate: data.results.message?.cEwbDate,
+          cEwbNo: results.message?.cEwbNo,
+          cEwbDate: results.message?.cEwbDate,
           url: pdfUrl,
           rawResponse: data
         });
@@ -94,12 +101,12 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
       } else {
         // Handle error responses with detailed information
         // Check for nested error structure
-        const errorData = data.error?.results || data.results || data;
+        const errorData = data.error?.results || results || data;
         
         // Get the detailed error message from results
         const detailedMessage = errorData.message || data.message || 'Failed to create consolidated EWB';
-        const errorCode = errorData.code || data.status_code || response.status;
-        const errorStatus = errorData.status || data.status || 'Error';
+        const errorCode = statusCode || response.status;
+        const errorStatus = statusText || 'Error';
         
         throw new Error(JSON.stringify({
           message: detailedMessage,

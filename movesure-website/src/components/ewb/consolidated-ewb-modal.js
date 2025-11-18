@@ -65,10 +65,17 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
       const data = await response.json();
       console.log('✅ API Response:', JSON.stringify(data, null, 2));
 
-      // Check for success response - the API returns success in results.status
-      if (data.results?.status === 'Success' && data.results?.code === 200) {
+      // Handle both response structures: data.results and results
+      const results = data.data?.results || data.results;
+      const statusCode = results?.code || data.status_code;
+      const statusText = results?.status || data.status;
+      
+      console.log('🔍 Parsed Response:', { results, statusCode, statusText });
+
+      // Check for success response (code 200 or status 'Success' or 'success')
+      if ((statusCode === 200 || statusText === 'Success' || statusText === 'success') && results?.message) {
         // Ensure URL is complete
-        let pdfUrl = data.results.message?.url;
+        let pdfUrl = results.message?.url;
         console.log('📄 Original PDF URL:', pdfUrl);
         
         if (pdfUrl && !pdfUrl.startsWith('http')) {
@@ -76,20 +83,20 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
         }
         
         console.log('🔗 Final PDF URL:', pdfUrl);
-        console.log('📋 Consolidated EWB Number:', data.results.message?.cEwbNo);
-        console.log('📅 Consolidated EWB Date:', data.results.message?.cEwbDate);
+        console.log('📋 Consolidated EWB Number:', results.message?.cEwbNo);
+        console.log('📅 Consolidated EWB Date:', results.message?.cEwbDate);
         
         setResult({
           success: true,
-          cEwbNo: data.results.message?.cEwbNo,
-          cEwbDate: data.results.message?.cEwbDate,
+          cEwbNo: results.message?.cEwbNo,
+          cEwbDate: results.message?.cEwbDate,
           url: pdfUrl,
-          message: `Consolidated EWB created successfully!`,
+          message: data.message || `Consolidated EWB created successfully!`,
           rawResponse: data
         });
-      } else if (data.results?.status === 'No Content' || data.results?.code >= 400) {
+      } else if (results?.status === 'No Content' || (statusCode && statusCode >= 400)) {
         // Handle API error responses
-        throw new Error(data.results?.message || `Error ${data.results?.code}: Failed to create consolidated EWB`);
+        throw new Error(results?.message || `Error ${statusCode}: Failed to create consolidated EWB`);
       } else if (!response.ok) {
         // Handle HTTP errors
         throw new Error(data.message || `HTTP ${response.status}: Failed to create consolidated EWB`);

@@ -90,16 +90,33 @@ const StationDropdown = ({ options, value, onChange, placeholder, onTabPress, is
           );
           break;
         case 'Enter':
-        case 'Tab':
           e.preventDefault();
           e.stopPropagation();
           if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
             handleSelect(filteredOptions[selectedIndex]);
-          } else if (filteredOptions.length > 0) {
+          } else if (filteredOptions.length === 1) {
             handleSelect(filteredOptions[0]);
           }
-          if (e.key === 'Tab' && !e.shiftKey && onTabPress) {
-            onTabPress();
+          break;
+        case 'Tab':
+          // Only auto-select on Tab if:
+          // 1. User has explicitly navigated with arrow keys (selectedIndex >= 0)
+          // 2. OR there's exactly one match AND user is actively searching (not just editing existing value)
+          if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSelect(filteredOptions[selectedIndex]);
+            if (!e.shiftKey && onTabPress) {
+              onTabPress();
+            }
+          } else {
+            // Just close dropdown and allow normal tab behavior
+            setShowDropdown(false);
+            setSearchTerm('');
+            if (!e.shiftKey && onTabPress) {
+              e.preventDefault();
+              onTabPress();
+            }
           }
           break;
         case 'Escape':

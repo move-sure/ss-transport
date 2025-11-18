@@ -54,7 +54,7 @@ const ConsolidatedEwbModal = ({ isOpen, onClose, ewbNumbers, challanData }) => {
 
       console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
-      const response = await fetch('http://localhost:5000/api/consolidated-ewaybill', {
+      const response = await fetch('https://movesure-backend.onrender.com/api/consolidated-ewaybill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

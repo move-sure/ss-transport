@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Truck, User, Send, X, Loader2, CheckCircle, AlertTriangle, Edit3 } from 'lucide-react';
+import { Truck, User, Send, X, Loader2, CheckCircle, AlertTriangle, Edit3, Download, ExternalLink } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
@@ -27,7 +27,7 @@ const parseCityReference = (value) => {
   };
 };
 
-const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
+const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
   const [formData, setFormData] = useState(createEmptyFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -39,6 +39,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
     error: null
   });
   const [lastAttemptSignature, setLastAttemptSignature] = useState(null);
+  const [showDebug, setShowDebug] = useState(true);
 
   const cityHints = useMemo(() => {
     if (!grData) return null;
@@ -83,23 +84,19 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
     ].join('|');
   }, [cityHints]);
 
-  // Reset effect - only resets when modal opens or GR changes
+  // Reset effect - only resets when GR changes
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
     // Reset everything to initial state
     setFormData(createEmptyFormState());
     setResult(null);
     setError(null);
     setAutoFillStatus({ loading: false, attempted: false, match: null, error: null });
     setLastAttemptSignature(null);
-  }, [isOpen, grData?.gr_no]);
+  }, [grData?.gr_no]);
 
   // Auto-fill effect - runs after reset, attempts to fill transporter details
   useEffect(() => {
-    if (!isOpen || !grData) {
+    if (!grData) {
       return;
     }
 
@@ -291,7 +288,6 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
       cancelled = true;
     };
   }, [
-    isOpen,
     grData?.gr_no,
     citySignature
   ]);
@@ -322,9 +318,10 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
         eway_bill_number: formData.eway_bill_number.replace(/-/g, '') // Remove hyphens
       };
 
-      console.log('Sending transporter update payload:', JSON.stringify(payload, null, 2));
+      console.log('🚀 Sending transporter update payload (First Call):', JSON.stringify(payload, null, 2));
 
-      const response = await fetch('http://localhost:5000/api/transporter-update', {
+      // First API call
+      const response1 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -332,86 +329,207 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
-      console.log('Transporter Update API Response:', data);
+      const data1 = await response1.json();
+      console.log('✅ First API Response:', JSON.stringify(data1, null, 2));
 
-      // Check for success response - updated to match actual API response format
-      if (data.results?.status === 'Success' && data.results?.code === 200) {
-        // Check if there's an error flag in the response
-        if (data.results.message?.error === true) {
-          throw new Error('API returned error flag: Update failed');
+      // Check for errors in first call
+      if (data1.results?.status === 'No Content' || data1.results?.code >= 400) {
+        const errorData = data1.error?.results || data1.results || data1;
+        const detailedMessage = errorData.message || data1.message || 'Failed to update transporter';
+        const errorCode = errorData.code || data1.status_code || response1.status;
+        const errorStatus = errorData.status || data1.status || 'Error';
+        
+        throw new Error(JSON.stringify({
+          code: errorCode,
+          status: errorStatus,
+          message: detailedMessage,
+          fullResponse: data1
+        }));
+      }
+
+      // Check if first call was successful
+      if (data1.results?.status === 'Success' && data1.results?.code === 200) {
+        console.log('🔄 First call successful, making second call for PDF...');
+        
+        // Second API call - same payload to get PDF
+        const response2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data2 = await response2.json();
+        console.log('✅ Second API Response (with PDF):', JSON.stringify(data2, null, 2));
+
+        // Use second response if successful, otherwise use first
+        const finalData = (data2.results?.status === 'Success' && data2.results?.code === 200) ? data2 : data1;
+        
+        // Extract PDF URL from second response if available
+        let pdfUrl = finalData.results.message?.url || data2.results?.message?.url;
+        if (pdfUrl && !pdfUrl.startsWith('http')) {
+          pdfUrl = `https://${pdfUrl}`;
         }
+        
+        console.log('📄 PDF URL:', pdfUrl);
         
         setResult({
           success: true,
-          message: data.message || 'Transporter updated successfully!',
-          ewbNumber: data.results.message?.ewayBillNo || formData.eway_bill_number,
-          transporterId: data.results.message?.transporterId || formData.transporter_id,
+          message: finalData.message || 'Transporter updated successfully!',
+          ewbNumber: finalData.results.message?.ewayBillNo || formData.eway_bill_number,
+          transporterId: finalData.results.message?.transporterId || formData.transporter_id,
           transporterName: formData.transporter_name,
-          updateDate: data.results.message?.transUpdateDate,
-          rawResponse: data
+          updateDate: finalData.results.message?.transUpdateDate,
+          pdfUrl: pdfUrl,
+          rawResponse: finalData
         });
-      } else if (data.results?.status === 'No Content' || data.results?.code >= 400) {
-        throw new Error(data.results?.message || `Error ${data.results?.code}: Failed to update transporter`);
-      } else if (!response.ok) {
-        throw new Error(data.message || `HTTP ${response.status}: Failed to update transporter`);
+      } else if (!response1.ok) {
+        throw new Error(`HTTP ${response1.status}: Failed to update transporter`);
       } else {
         throw new Error('Unexpected response format from server');
       }
     } catch (err) {
-      console.error('Transporter Update Error:', err);
-      setError(err.message);
+      console.error('❌ Transporter Update Error:', err);
+      
+      // Try to parse structured error
+      try {
+        const errorObj = JSON.parse(err.message);
+        setError({
+          code: errorObj.code,
+          status: errorObj.status,
+          message: errorObj.message,
+          fullResponse: errorObj.fullResponse
+        });
+      } catch {
+        // If not JSON, use the error message as is
+        setError(err.message);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const reset = (enableAutoFill = true) => {
+  const reset = () => {
     setResult(null);
     setError(null);
     setFormData(createEmptyFormState());
     setAutoFillStatus({
       loading: false,
-      attempted: enableAutoFill ? false : true,
+      attempted: false,
       match: null,
       error: null
     });
     setLastAttemptSignature(null);
   };
 
-  const handleClose = () => {
-    reset(false);
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex items-center gap-3">
-            <Edit3 className="w-6 h-6 text-blue-600" />
+            <Edit3 className="w-8 h-8 text-blue-600" />
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Update Transporter ID</h2>
-              <p className="text-sm text-gray-600">
-                GR Number: <span className="font-medium">{grData?.gr_no}</span>
+              <h1 className="text-3xl font-bold text-gray-900">Update Transporter ID</h1>
+              <p className="text-lg text-gray-600 mt-1">
+                GR Number: <span className="font-bold text-blue-600">{grData?.gr_no || 'N/A'}</span>
               </p>
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
         </div>
 
-        <div className="p-6">
+        <div className="space-y-6">
+          {/* Debug Information - Always visible when there's data */}
+          {(result || error || formData.eway_bill_number) && (
+            <div className="bg-gray-900 rounded-lg shadow-xl p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  🐛 Debug Information
+                </h3>
+                <button
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600 text-sm"
+                >
+                  {showDebug ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              
+              {showDebug && (
+                <div className="space-y-4">
+                  {/* Form Data */}
+                  <div className="bg-gray-800 rounded p-4">
+                    <div className="text-sm font-bold text-yellow-400 mb-2">📝 Current Form Data:</div>
+                    <pre className="text-xs text-green-300 overflow-auto max-h-60 font-mono">
+{JSON.stringify(formData, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* API Response */}
+                  {result && (
+                    <div className="bg-gray-800 rounded p-4">
+                      <div className="text-sm font-bold text-green-400 mb-2">✅ API Response (Success):</div>
+                      <pre className="text-xs text-green-300 overflow-auto max-h-60 font-mono">
+{JSON.stringify(result.rawResponse || result, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Error Response */}
+                  {error && (
+                    <div className="bg-gray-800 rounded p-4">
+                      <div className="text-sm font-bold text-red-400 mb-2">❌ API Response (Error):</div>
+                      <pre className="text-xs text-red-300 overflow-auto max-h-60 font-mono">
+{JSON.stringify(typeof error === 'object' ? error : { message: error }, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Auto-fill Status */}
+                  <div className="bg-gray-800 rounded p-4">
+                    <div className="text-sm font-bold text-blue-400 mb-2">🔍 Auto-fill Status:</div>
+                    <pre className="text-xs text-blue-300 overflow-auto max-h-40 font-mono">
+{JSON.stringify(autoFillStatus, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* City Hints */}
+                  {cityHints && (
+                    <div className="bg-gray-800 rounded p-4">
+                      <div className="text-sm font-bold text-purple-400 mb-2">📍 City Hints:</div>
+                      <pre className="text-xs text-purple-300 overflow-auto max-h-40 font-mono">
+{JSON.stringify(cityHints, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* GR Data */}
+                  {grData && (
+                    <div className="bg-gray-800 rounded p-4">
+                      <div className="text-sm font-bold text-cyan-400 mb-2">📦 GR Data:</div>
+                      <pre className="text-xs text-cyan-300 overflow-auto max-h-60 font-mono">
+{JSON.stringify(grData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* EWB Numbers */}
+                  {ewbNumbers && ewbNumbers.length > 0 && (
+                    <div className="bg-gray-800 rounded p-4">
+                      <div className="text-sm font-bold text-pink-400 mb-2">🔢 Available EWB Numbers:</div>
+                      <pre className="text-xs text-pink-300 overflow-auto max-h-40 font-mono">
+{JSON.stringify(ewbNumbers, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Success Result */}
           {result && result.success && (
-            <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-sm">
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-4 border-green-400">
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-shrink-0">
                   <CheckCircle className="w-8 h-8 text-green-600" />
@@ -450,56 +568,146 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
                     </div>
                   )}
                 </div>
+                
+                {/* PDF Download Section */}
+                {result.pdfUrl && (
+                  <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-semibold text-blue-800">Updated E-Way Bill PDF</span>
+                        <div className="text-xs text-blue-600 mt-1">Download or view the updated E-Way Bill</div>
+                      </div>
+                      <a
+                        href={result.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-md"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="mt-4 flex gap-2">
                 <button
                   onClick={reset}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2"
+                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2 shadow-lg"
                 >
-                  <Edit3 className="w-4 h-4" />
+                  <Edit3 className="w-5 h-5" />
                   Update Another
                 </button>
-                <button
-                  onClick={handleClose}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                >
-                  Close
-                </button>
+                {result.pdfUrl && (
+                  <button
+                    onClick={() => window.open(result.pdfUrl, '_blank')}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 shadow-lg"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    View PDF
+                  </button>
+                )}
               </div>
-
-              {/* Debug Information (for development) */}
-              {process.env.NODE_ENV === 'development' && result.rawResponse && (
-                <details className="mt-4">
-                  <summary className="text-xs text-gray-500 cursor-pointer">Debug: Raw API Response</summary>
-                  <pre className="text-xs text-gray-600 mt-2 p-3 bg-gray-100 rounded overflow-auto max-h-40">
-                    {JSON.stringify(result.rawResponse, null, 2)}
-                  </pre>
-                </details>
-              )}
             </div>
           )}
 
           {/* Error Display */}
           {error && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-sm">
-              <div className="flex items-start gap-3">
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-4 border-red-500">
+              <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">
-                  <AlertTriangle className="w-6 h-6 text-red-600 mt-0.5" />
+                  <AlertTriangle className="w-8 h-8 text-red-600 mt-1" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-red-800 mb-1">Failed to Update Transporter</h4>
-                  <p className="text-sm text-red-700">{error}</p>
+                  <h3 className="text-xl font-bold text-red-800 mb-3">Failed to Update Transporter</h3>
                   
-                  <div className="mt-3 p-3 bg-red-100 rounded-lg">
-                    <p className="text-xs text-red-600 font-medium mb-1">Common Issues:</p>
-                    <ul className="text-xs text-red-600 space-y-1">
-                      <li>• Check if the E-Way Bill number is valid and active</li>
-                      <li>• Ensure Transporter ID format is correct (e.g., 05AAAAU6537D1ZO)</li>
-                      <li>• Verify Transporter Name matches the registered name</li>
-                      <li>• Confirm all required fields are filled</li>
-                    </ul>
-                  </div>
+                  {typeof error === 'object' ? (
+                    <div className="space-y-4">
+                      {/* Error Code */}
+                      {error.code && (
+                        <div className="bg-white rounded-lg p-4 border border-red-200">
+                          <div className="text-sm font-semibold text-red-700 mb-1">Error Code</div>
+                          <div className="text-2xl font-bold text-red-900">{error.code}</div>
+                        </div>
+                      )}
+                      
+                      {/* Error Status */}
+                      {error.status && (
+                        <div className="bg-white rounded-lg p-4 border border-red-200">
+                          <div className="text-sm font-semibold text-red-700 mb-1">Status</div>
+                          <div className="text-lg font-bold text-red-900">{error.status}</div>
+                        </div>
+                      )}
+                      
+                      {/* Error Message */}
+                      {error.message && (
+                        <div className="bg-white rounded-lg p-4 border border-red-200">
+                          <div className="text-sm font-semibold text-red-700 mb-2">Error Details</div>
+                          <div className="text-base text-red-900 leading-relaxed">
+                            {error.message.split('||').map((msg, idx) => (
+                              <div key={idx} className="mb-2 last:mb-0">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                                  <span className="font-medium">{msg.trim()}</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Helpful Tips */}
+                      <div className="mt-4 p-4 bg-red-100 rounded-lg border border-red-200">
+                        <p className="text-sm font-semibold text-red-800 mb-2">💡 How to Fix:</p>
+                        <ul className="text-sm text-red-700 space-y-2">
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-500 font-bold">•</span>
+                            <span>Verify the <strong>Transporter ID (GSTIN)</strong> is correct and registered</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-500 font-bold">•</span>
+                            <span>Ensure the GSTIN is mapped to your logged-in account</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-500 font-bold">•</span>
+                            <span>Check if the E-Way Bill number is valid and active</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-500 font-bold">•</span>
+                            <span>Confirm the Transporter Name matches the registered name exactly</span>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      {/* Full Response (Collapsible) */}
+                      {error.fullResponse && (
+                        <details className="mt-4">
+                          <summary className="text-sm text-red-700 font-semibold cursor-pointer hover:text-red-900 mb-2">
+                            📋 View Full API Response
+                          </summary>
+                          <div className="mt-2 p-4 bg-white rounded-lg border border-red-200">
+                            <pre className="text-xs text-gray-800 overflow-auto max-h-60 whitespace-pre-wrap break-words font-mono">
+{JSON.stringify(error.fullResponse, null, 2)}
+                            </pre>
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-base text-red-800 mb-3 font-medium">{error}</p>
+                      <div className="mt-3 p-3 bg-red-100 rounded-lg">
+                        <p className="text-sm text-red-600 font-medium mb-1">Common Issues:</p>
+                        <ul className="text-sm text-red-600 space-y-1">
+                          <li>• Check if the E-Way Bill number is valid and active</li>
+                          <li>• Ensure Transporter ID format is correct (e.g., 05AAAAU6537D1ZO)</li>
+                          <li>• Verify Transporter Name matches the registered name</li>
+                          <li>• Confirm all required fields are filled</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -507,7 +715,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
 
           {/* GR Information */}
           {grData && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
               <h3 className="font-medium text-gray-900 mb-3">GR Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
@@ -533,8 +741,8 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
           )}
 
           {/* EWB Selection */}
-          {ewbNumbers.length > 0 && (
-            <div className="mb-6">
+          {ewbNumbers && ewbNumbers.length > 0 && (
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
               <h3 className="font-medium text-gray-900 mb-3">
                 Select E-Way Bill to Update *
                 {!formData.eway_bill_number && (
@@ -564,20 +772,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
           {/* Form */}
           {!result && (
             <div className="space-y-6">
-              {/* Debug Information (for development) */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <h4 className="text-sm font-semibold text-yellow-800 mb-2">Debug: Form Data</h4>
-                  <pre className="text-xs text-yellow-700 whitespace-pre-wrap">
-                    {JSON.stringify(formData, null, 2)}
-                  </pre>
-                  <div className="mt-2 text-xs text-yellow-600">
-                    EWB Numbers available: {ewbNumbers.length} ({ewbNumbers.join(', ')})
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200">
+              <div className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Truck className="w-5 h-5 text-blue-600" />
                   Transporter Information
@@ -678,26 +873,20 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
               </div>
 
               {/* Submit Button */}
-              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                <button
-                  onClick={handleClose}
-                  className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
+              <div className="bg-white rounded-lg shadow-lg p-6">
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting || !formData.eway_bill_number || !formData.transporter_id || !formData.transporter_name}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium flex items-center gap-2 shadow-lg"
+                  className="w-full px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-bold text-lg flex items-center justify-center gap-3 shadow-xl"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-6 h-6 animate-spin" />
                       Updating Transporter...
                     </>
                   ) : (
                     <>
-                      <Send className="w-5 h-5" />
+                      <Send className="w-6 h-6" />
                       Update Transporter
                     </>
                   )}

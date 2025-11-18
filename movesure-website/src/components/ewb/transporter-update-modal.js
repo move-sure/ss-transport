@@ -27,18 +27,16 @@ const parseCityReference = (value) => {
   };
 };
 
-const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
+const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
   const [formData, setFormData] = useState(createEmptyFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [autoFillStatus, setAutoFillStatus] = useState({
     loading: false,
-    attempted: false,
     match: null,
     error: null
   });
-  const [lastAttemptSignature, setLastAttemptSignature] = useState(null);
   const [showDebug, setShowDebug] = useState(true);
 
   const cityHints = useMemo(() => {
@@ -75,56 +73,42 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
     return null;
   }, [grData]);
 
-  const citySignature = useMemo(() => {
-    if (!cityHints) return null;
-    return [
-      cityHints.cityId || '',
-      cityHints.cityCode || '',
-      (cityHints.cityName || '').toLowerCase()
-    ].join('|');
-  }, [cityHints]);
-
-  // Reset effect - only resets when GR changes
+  // Single unified effect - handles reset and auto-fill
   useEffect(() => {
-    // Reset everything to initial state
+    // Reset when modal closes
+    if (!isOpen) {
+      setFormData(createEmptyFormState());
+      setResult(null);
+      setError(null);
+      setAutoFillStatus({ loading: false, match: null, error: null });
+      return;
+    }
+
+    // Reset form when modal opens or GR changes
     setFormData(createEmptyFormState());
     setResult(null);
     setError(null);
-    setAutoFillStatus({ loading: false, attempted: false, match: null, error: null });
-    setLastAttemptSignature(null);
-  }, [grData?.gr_no]);
 
-  // Auto-fill effect - runs after reset, attempts to fill transporter details
-  useEffect(() => {
+    // Exit early if no data
     if (!grData) {
+      setAutoFillStatus({ loading: false, match: null, error: null });
       return;
     }
 
-    // If no city hints, mark as attempted and exit
+    // Exit if no city hints
     if (!cityHints) {
-      if (!autoFillStatus.attempted) {
-        setAutoFillStatus({ loading: false, attempted: true, match: null, error: null });
-      }
-      return;
-    }
-
-    // If already attempted with same signature, don't retry
-    if (autoFillStatus.attempted && lastAttemptSignature === citySignature) {
-      return;
-    }
-
-    // If city changed, reset attempt status
-    if (autoFillStatus.attempted && citySignature && lastAttemptSignature !== citySignature) {
-      setAutoFillStatus({ loading: false, attempted: false, match: null, error: null });
-      setLastAttemptSignature(null);
+      setAutoFillStatus({ 
+        loading: false, 
+        match: null, 
+        error: 'Could not determine destination city from GR data' 
+      });
       return;
     }
 
     let cancelled = false;
 
     const lookupTransporterForCity = async () => {
-      setAutoFillStatus({ loading: true, attempted: true, match: null, error: null });
-      setLastAttemptSignature(citySignature);
+      setAutoFillStatus({ loading: true, match: null, error: null });
 
       try {
         const normalizedName = cityHints.cityName ? cityHints.cityName.trim() : null;
@@ -132,6 +116,7 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
         let targetCityId = cityHints.cityId || null;
         let resolvedCity = null;
 
+        // Step 1: Resolve city ID if not provided
         if (!targetCityId) {
           let cityQuery = supabase
             .from('cities')
@@ -142,11 +127,14 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
             cityQuery = cityQuery.eq('city_code', normalizedCode);
           } else if (normalizedName) {
             cityQuery = cityQuery.ilike('city_name', normalizedName);
+          } else {
+            throw new Error('No city code or name available to lookup');
           }
 
           let { data: cityRows, error: cityError } = await cityQuery;
           if (cityError) throw cityError;
 
+          // Try fuzzy match if exact match fails
           if (!cityRows || cityRows.length === 0) {
             if (normalizedName) {
               const { data: fuzzyRows, error: fuzzyError } = await supabase
@@ -162,10 +150,7 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
 
           const cityRecord = cityRows?.[0];
           if (!cityRecord) {
-            if (!cancelled) {
-              setAutoFillStatus({ loading: false, attempted: true, match: null, error: null });
-            }
-            return;
+            throw new Error(`City not found: ${normalizedName || normalizedCode}`);
           }
 
           targetCityId = cityRecord.id;
@@ -180,103 +165,72 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
 
         console.log('🔍 Querying transports for city_id:', targetCityId, 'City:', resolvedCity);
         
+        // Step 2: Fetch transporter ONLY for the matched city (strict matching)
         let { data: transportRows, error: transportError } = await supabase
           .from('transports')
           .select('id, transport_name, gst_number, city_id, city_name, mob_number')
           .eq('city_id', targetCityId)
           .not('transport_name', 'is', null)
+          .not('gst_number', 'is', null)
           .limit(1);
 
         if (transportError) throw transportError;
 
-        let transportRecord = transportRows?.[0];
+        const transportRecord = transportRows?.[0];
         
         console.log('📦 Transport query result:', transportRecord);
-        
-        console.log('📦 Transport query result:', transportRecord);
 
-        if (!transportRecord && (normalizedName || resolvedCity?.city_name)) {
-          const fallbackName = resolvedCity?.city_name || normalizedName;
-          console.log('🔄 Trying fallback query with city name:', fallbackName);
-          
-          const { data: fallbackRows, error: fallbackError } = await supabase
-            .from('transports')
-            .select('id, transport_name, gst_number, city_id, city_name, mob_number')
-            .ilike('city_name', `%${fallbackName}%`)
-            .not('transport_name', 'is', null)
-            .not('gst_number', 'is', null)
-            .limit(1);
+        if (cancelled) return;
 
-          if (fallbackError) throw fallbackError;
-          transportRecord = fallbackRows?.[0];
-          
-          console.log('🔄 Fallback query result:', transportRecord);
-        }
-
-        // If still no match, try getting ANY transporter with GST (last resort)
+        // If no transporter found for this city, show clear error
         if (!transportRecord) {
-          console.log('🆘 No city match, fetching any transporter with GST...');
-          
-          const { data: anyRows, error: anyError } = await supabase
-            .from('transports')
-            .select('id, transport_name, gst_number, city_id, city_name, mob_number')
-            .not('transport_name', 'is', null)
-            .not('gst_number', 'is', null)
-            .limit(1);
-
-          if (anyError) throw anyError;
-          transportRecord = anyRows?.[0];
-          
-          console.log('🆘 Any transporter result:', transportRecord);
+          setAutoFillStatus({ 
+            loading: false, 
+            match: null, 
+            error: `No transporter found for ${resolvedCity?.city_name || 'this city'}. Please enter details manually.`
+          });
+          return;
         }
 
-        if (!cancelled) {
-          if (transportRecord && (transportRecord.gst_number || transportRecord.transport_name)) {
-            console.log('✅ Found transporter:', {
-              name: transportRecord.transport_name,
-              gst: transportRecord.gst_number,
-              city: transportRecord.city_name
-            });
-            
-            // Direct state update - set both values explicitly
-            const newTransporterId = transportRecord.gst_number ? transportRecord.gst_number.toUpperCase() : '';
-            const newTransporterName = transportRecord.transport_name || '';
-            
-            console.log('📝 Setting form values:', {
-              transporter_id: newTransporterId,
-              transporter_name: newTransporterName
-            });
-            
-            setFormData(prev => ({
-              ...prev,
-              transporter_id: newTransporterId,
-              transporter_name: newTransporterName
-            }));
+        // Success - populate form
+        console.log('✅ Found transporter:', {
+          name: transportRecord.transport_name,
+          gst: transportRecord.gst_number,
+          city: transportRecord.city_name
+        });
+        
+        const newTransporterId = transportRecord.gst_number ? transportRecord.gst_number.toUpperCase() : '';
+        const newTransporterName = transportRecord.transport_name || '';
+        
+        console.log('📝 Setting form values:', {
+          transporter_id: newTransporterId,
+          transporter_name: newTransporterName
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          transporter_id: newTransporterId,
+          transporter_name: newTransporterName
+        }));
 
-            setAutoFillStatus({
-              loading: false,
-              attempted: true,
-              match: {
-                name: transportRecord.transport_name || null,
-                gst: transportRecord.gst_number || null,
-                city: transportRecord.city_name || resolvedCity?.city_name || normalizedName || 'Selected city',
-                phone: transportRecord.mob_number || null
-              },
-              error: null
-            });
-          } else {
-            console.log('❌ No transporter found');
-            setAutoFillStatus({ loading: false, attempted: true, match: null, error: null });
-          }
-        }
+        setAutoFillStatus({
+          loading: false,
+          match: {
+            name: transportRecord.transport_name,
+            gst: transportRecord.gst_number,
+            city: resolvedCity?.city_name || normalizedName,
+            phone: transportRecord.mob_number || null
+          },
+          error: null
+        });
+
       } catch (lookupError) {
-        console.error('Auto-fill transporter lookup failed:', lookupError);
+        console.error('❌ Auto-fill transporter lookup failed:', lookupError);
         if (!cancelled) {
           setAutoFillStatus({
             loading: false,
-            attempted: true,
             match: null,
-            error: lookupError.message || 'Failed to fetch transporter details'
+            error: lookupError.message || 'Failed to fetch transporter details. Please enter manually.'
           });
         }
       }
@@ -287,10 +241,7 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
     return () => {
       cancelled = true;
     };
-  }, [
-    grData?.gr_no,
-    citySignature
-  ]);
+  }, [isOpen, grData?.gr_no, JSON.stringify(ewbNumbers), cityHints]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -416,18 +367,18 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
     setFormData(createEmptyFormState());
     setAutoFillStatus({
       loading: false,
-      attempted: false,
       match: null,
       error: null
     });
-    setLastAttemptSignature(null);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+    <div className="w-full bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Edit3 className="w-8 h-8 text-blue-600" />
             <div>
@@ -437,11 +388,18 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
               </p>
             </div>
           </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+          >
+            Back to List
+          </button>
         </div>
+      </div>
 
-        <div className="space-y-6">
-          {/* Debug Information - Always visible when there's data */}
-          {(result || error || formData.eway_bill_number) && (
+      <div className="space-y-6">
+        {/* Debug Information - Always visible when there's data */}
+        {(result || error || formData.eway_bill_number) && (
             <div className="bg-gray-900 rounded-lg shadow-xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -804,15 +762,19 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
                   </div>
                 )}
 
-                {!autoFillStatus.loading && autoFillStatus.attempted && !autoFillStatus.match && !autoFillStatus.error && (
+                {!autoFillStatus.loading && !autoFillStatus.match && !autoFillStatus.error && (
                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                    No saved transporter found for {cityHints?.cityName || 'this city'}. Fill in the details below.
+                    <div className="font-medium text-amber-800 mb-1">No saved transporter found</div>
+                    <div className="text-xs">
+                      No transporter details found for {cityHints?.cityName || 'this city'}. Please enter the transporter information manually below.
+                    </div>
                   </div>
                 )}
 
                 {!autoFillStatus.loading && autoFillStatus.error && (
                   <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    Could not auto-fill transporter details. {autoFillStatus.error}
+                    <div className="font-medium text-red-800 mb-1">⚠️ Auto-fill Failed</div>
+                    <div className="text-xs">{autoFillStatus.error}</div>
                   </div>
                 )}
                 
@@ -894,7 +856,6 @@ const TransporterUpdateModal = ({ grData, ewbNumbers }) => {
               </div>
             </div>
           )}
-        </div>
       </div>
     </div>
   );

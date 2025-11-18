@@ -143,7 +143,7 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
 
   if (loading) {
     return (
-      <div className="bg-white/90 rounded-2xl shadow-sm border border-slate-100 p-6">
+      <div className="bg-white/90 shadow-sm border-y border-slate-100 p-6">
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200/80 rounded w-1/4 mb-4"></div>
           <div className="h-12 bg-gray-200/60 rounded"></div>
@@ -154,7 +154,7 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+      <div className="bg-red-50 border-y border-red-200 p-5">
         <p className="text-red-800">Error: {error}</p>
         <button
           onClick={fetchChallans}
@@ -167,7 +167,7 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
   }
 
   return (
-    <div className="bg-white/90 backdrop-blur rounded-2xl shadow-sm border border-slate-100 p-6">
+    <div className="bg-white/90 backdrop-blur shadow-sm border-y border-slate-100 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Select Challan</h2>
@@ -243,75 +243,71 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
       </div>
 
       {selectedChallanMeta && (
-        <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-blue-900">
-          <p className="font-semibold">Currently viewing challan #{selectedChallanMeta.challan_no}</p>
-          <p className="mt-1 text-blue-800">
-            {selectedChallanMeta.branch?.branch_name || selectedChallanMeta.branch?.name || selectedChallanMeta.branch?.code || 'Branch N/A'}
-            {' • '}Truck {selectedChallanMeta.truck?.truck_number || 'not assigned'}
-            {' • '}Total {selectedChallanMeta.total_bilty_count || 0} bilty entries
+        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm">
+          <p className="font-semibold text-blue-900">
+            Viewing: Challan #{selectedChallanMeta.challan_no} • {selectedChallanMeta.branch?.branch_name || selectedChallanMeta.branch?.name || selectedChallanMeta.branch?.code || 'N/A'} • {selectedChallanMeta.total_bilty_count || 0} bilties
           </p>
         </div>
       )}
 
-      <div className="mt-6 max-h-96 overflow-y-auto pr-1">
+      <div className="mt-4 max-h-96 overflow-y-auto pr-1">
         {filteredChallans.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
             No challans match your search. Try a different term or refresh the list.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-2">
             {filteredChallans.map((challan) => {
               const isSelected = challan.challan_no === selectedChallan;
-              const branchName = challan.branch?.branch_name || challan.branch?.name || challan.branch?.code || 'Branch N/A';
-              const truckNumber = challan.truck?.truck_number || 'Truck not assigned';
+              const branchName = challan.branch?.branch_name || challan.branch?.name || challan.branch?.code || 'N/A';
+              const truckNumber = challan.truck?.truck_number || 'Not assigned';
 
               return (
                 <button
                   type="button"
                   key={challan.id}
                   onClick={() => handleSelect(challan)}
-                  className={`w-full text-left transition-all duration-150 rounded-2xl border bg-white px-5 py-4 shadow-sm hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${
+                  className={`w-full text-left transition-all duration-150 rounded-lg border bg-white px-4 py-3 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                     isSelected
-                      ? 'border-blue-500 ring-2 ring-blue-200'
-                      : 'border-slate-200 hover:border-blue-300'
+                      ? 'border-blue-500 ring-2 ring-blue-200 shadow-md'
+                      : 'border-slate-200 hover:border-blue-500 hover:bg-blue-50/50'
                   }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">Challan Number</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">#{challan.challan_no}</p>
-                      <p className="mt-1 text-sm text-slate-500">Created {formatDate(challan.date)}</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex-shrink-0">
+                        <p className="text-xs text-slate-400 uppercase">Challan</p>
+                        <p className="text-base font-bold text-slate-900">#{challan.challan_no}</p>
+                      </div>
+                      
+                      <div className="h-8 w-px bg-slate-200"></div>
+                      
+                      <div className="flex-1 min-w-0 grid grid-cols-3 gap-3 text-xs">
+                        <div>
+                          <p className="text-slate-400 mb-0.5">Branch</p>
+                          <p className="font-medium text-slate-800 truncate">{branchName}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 mb-0.5">Truck</p>
+                          <p className="font-medium text-slate-800 truncate">{truckNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 mb-0.5">Bilties</p>
+                          <p className="font-medium text-slate-800">{challan.total_bilty_count || 0}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 text-sm text-slate-600">
+
+                    <div className="flex-shrink-0">
                       <span
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                        className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${
                           challan.is_dispatched
-                            ? 'border-green-200 bg-green-50 text-green-700'
-                            : 'border-amber-200 bg-amber-50 text-amber-600'
+                            ? 'border-green-300 bg-green-100 text-green-700'
+                            : 'border-amber-300 bg-amber-100 text-amber-700'
                         }`}
                       >
-                        {challan.is_dispatched ? 'Dispatched' : 'Pending Dispatch'}
+                        {challan.is_dispatched ? 'Dispatched' : 'Pending'}
                       </span>
-                      <span className="text-xs text-slate-500">
-                        {challan.is_dispatched && challan.dispatch_date
-                          ? `Dispatched on ${formatDate(challan.dispatch_date)}`
-                          : 'Awaiting dispatch confirmation'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-3">
-                    <div className="rounded-lg bg-slate-50 px-3 py-2">
-                      <p className="text-xs text-slate-400">Branch</p>
-                      <p className="mt-1 font-medium text-slate-800">{branchName}</p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 px-3 py-2">
-                      <p className="text-xs text-slate-400">Truck</p>
-                      <p className="mt-1 font-medium text-slate-800">{truckNumber}</p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 px-3 py-2">
-                      <p className="text-xs text-slate-400">Bilty Count</p>
-                      <p className="mt-1 font-medium text-slate-800">{challan.total_bilty_count || 0}</p>
                     </div>
                   </div>
                 </button>

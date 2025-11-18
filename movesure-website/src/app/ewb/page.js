@@ -51,8 +51,8 @@ export default function EWBPage() {
   return (
     <div className="min-h-screen bg-slate-100">
       <Navbar />
-      <main className="w-full px-4 sm:px-6 lg:px-12 xl:px-16 py-8 space-y-8">
-        <section className="w-full rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 text-white shadow-xl p-8 sm:p-10 lg:p-12">
+      <main className="w-full py-8 space-y-8">
+        <section className="w-full bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 text-white shadow-xl p-8 sm:p-10 lg:p-12">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-blue-200/80">E-Way Bill Suite</p>
@@ -149,7 +149,7 @@ export default function EWBPage() {
         {!loading && hasSelection && (
           <div className="space-y-6">
             <ChallanDetailsView challanDetails={challanDetails} />
-            <TransitDetailsTable transitDetails={transitDetails} />
+            <TransitDetailsTable transitDetails={transitDetails} challanDetails={challanDetails} />
           </div>
         )}
 

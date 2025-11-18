@@ -95,7 +95,7 @@ export default function ChallanDetailsView({ challanDetails }) {
   if (!challanDetails) return null;
 
   return (
-    <section className="w-full rounded-3xl bg-white shadow-lg border border-slate-200 overflow-hidden">
+    <section className="w-full bg-white shadow-lg border-y border-slate-200 overflow-hidden">
       <div className="px-6 sm:px-8 pt-6 pb-4 border-b border-slate-200 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-gradient-to-r from-slate-50 via-white to-slate-50">
         <div>
           <h2 className="text-2xl font-semibold text-slate-900">Challan Details</h2>

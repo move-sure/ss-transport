@@ -202,43 +202,43 @@ export default function TransactionsList({
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Mode</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mode</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {activeTab === 'income' ? 'Receiver' : 'Sender'}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Description</th>
+                <th className="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentTransactions.map((transaction) => (
                 <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-900">
-                      <Calendar className="mr-2 text-gray-400" size={16} />
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
+                    <div className="flex items-center text-xs sm:text-sm text-gray-900">
+                      <Calendar className="mr-1 sm:mr-2 text-gray-400" size={14} />
                       {new Date(transaction.transaction_date).toLocaleDateString('en-IN')}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <User className="mr-2 text-gray-400" size={16} />
-                      <span className="text-sm font-medium text-gray-900">{transaction.party_name}</span>
+                      <User className="mr-1 sm:mr-2 text-gray-400" size={14} />
+                      <span className="text-xs sm:text-sm font-medium text-gray-900">{transaction.party_name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-bold ${
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
+                    <span className={`text-xs sm:text-sm font-bold ${
                       activeTab === 'income' ? 'text-emerald-600' : 'text-rose-600'
                     }`}>
                       {formatCurrency(transaction.amount)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <CreditCard className="mr-2 text-gray-400" size={16} />
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      <CreditCard className="mr-1 sm:mr-2 text-gray-400" size={14} />
+                      <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-semibold rounded-full ${
                         transaction.payment_mode === 'cash'
                           ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-blue-100 text-blue-800'
@@ -247,14 +247,14 @@ export default function TransactionsList({
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">
                     {transaction.receiver || transaction.sender || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-600">
                     <div className="flex items-start max-w-xs">
                       {transaction.description ? (
                         <>
-                          <FileText className="mr-2 text-gray-400 flex-shrink-0 mt-0.5" size={16} />
+                          <FileText className="mr-1 sm:mr-2 text-gray-400 flex-shrink-0 mt-0.5" size={14} />
                           <span className="line-clamp-2">{transaction.description}</span>
                         </>
                       ) : (
@@ -262,21 +262,21 @@ export default function TransactionsList({
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => onEditTransaction(transaction, activeTab)}
-                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                        className="p-1.5 sm:p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                         title="Edit Transaction"
                       >
-                        <Edit size={18} />
+                        <Edit size={16} />
                       </button>
                       <button
                         onClick={() => onDeleteTransaction(transaction.id, activeTab)}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 sm:p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                         title="Delete Transaction"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>

@@ -31,10 +31,11 @@ export default function FinancePage() {
     pendingPayments: 0
   });
   const [dateRange, setDateRange] = useState('month');
+  const [openSection, setOpenSection] = useState('dailySummary'); // 'dailySummary' or 'transactions'
 
   // Branch management hook
   const {
-    branches,
+    branches = [],
     showBranchModal,
     editingBranch,
     formData,
@@ -52,7 +53,7 @@ export default function FinancePage() {
 
   // Transaction management hook
   const {
-    transactions,
+    transactions = { income: [], expense: [] },
     showTransactionModal,
     transactionType,
     editingTransaction,
@@ -71,7 +72,7 @@ export default function FinancePage() {
 
   // Daily summary management hook
   const {
-    dailySummaries,
+    dailySummaries = [],
     showDailySummaryModal,
     editingSummary,
     summaryFormData,
@@ -93,6 +94,10 @@ export default function FinancePage() {
 
   const handleCloseBulkModal = () => {
     setShowBulkModal(false);
+  };
+
+  const toggleSection = (section) => {
+    setOpenSection(section);
   };
 
   useEffect(() => {
@@ -229,29 +234,56 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* Daily Summary Section */}
-        <div>
-          <DailySummaryList
-            summaries={dailySummaries}
-            branches={branches}
-            formatCurrency={formatCurrency}
-            onEditSummary={handleEditSummary}
-            onDeleteSummary={handleDeleteSummary}
-          />
+        {/* Section Toggle Buttons */}
+        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-1.5 mb-6 inline-flex gap-1">
+          <button
+            onClick={() => setOpenSection('dailySummary')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+              openSection === 'dailySummary'
+                ? 'bg-gradient-to-r from-slate-700 to-slate-800 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Calendar size={20} />
+            <span>Daily Summary</span>
+          </button>
+          <button
+            onClick={() => setOpenSection('transactions')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+              openSection === 'transactions'
+                ? 'bg-gradient-to-r from-slate-700 to-slate-800 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Wallet size={20} />
+            <span>Income / Expense</span>
+          </button>
         </div>
 
-        {/* Transactions Section */}
-        <div>
-          <TransactionsList
-            transactions={transactions}
-            formatCurrency={formatCurrency}
-            onAddIncome={() => handleOpenTransactionModal('income')}
-            onAddExpense={() => handleOpenTransactionModal('expense')}
-            onAddBulkIncome={() => handleOpenBulkModal('income')}
-            onAddBulkExpense={() => handleOpenBulkModal('expense')}
-            onEditTransaction={handleEditTransaction}
-            onDeleteTransaction={handleDeleteTransaction}
-          />
+        {/* Content Area */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+          {openSection === 'dailySummary' && (
+            <DailySummaryList
+              summaries={dailySummaries}
+              branches={branches}
+              formatCurrency={formatCurrency}
+              onEditSummary={handleEditSummary}
+              onDeleteSummary={handleDeleteSummary}
+            />
+          )}
+          {openSection === 'transactions' && (
+            <TransactionsList
+              transactions={transactions}
+              branches={branches}
+              formatCurrency={formatCurrency}
+              onAddIncome={() => handleOpenTransactionModal('income')}
+              onAddExpense={() => handleOpenTransactionModal('expense')}
+              onAddBulkIncome={() => handleOpenBulkModal('income')}
+              onAddBulkExpense={() => handleOpenBulkModal('expense')}
+              onEditTransaction={handleEditTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+            />
+          )}
         </div>
       </div>
 

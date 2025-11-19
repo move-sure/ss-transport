@@ -58,7 +58,7 @@ export default function DailySummaryModal({
                 } ${editingSummary ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               >
                 <option value="">Select Branch</option>
-                {branches.filter(b => b.is_active).map(branch => (
+                {branches && Array.isArray(branches) && branches.filter(b => b.is_active).map(branch => (
                   <option key={branch.id} value={branch.id}>
                     {branch.branch_name} - {branch.location}
                   </option>

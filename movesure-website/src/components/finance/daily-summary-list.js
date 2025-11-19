@@ -45,7 +45,7 @@ export default function DailySummaryList({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm text-gray-900"
             >
               <option value="">All Branches</option>
-              {branches.map(branch => (
+              {branches && Array.isArray(branches) && branches.map(branch => (
                 <option key={branch.id} value={branch.id}>
                   {branch.branch_name}
                 </option>

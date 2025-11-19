@@ -15,8 +15,6 @@ export default function UserDetailsForm({ userId }) {
     phone: '',
     date_of_birth: '',
     gender: '',
-    employee_code: '',
-    department: '',
     date_of_joining: '',
     address_line1: '',
     city: '',
@@ -56,8 +54,6 @@ export default function UserDetailsForm({ userId }) {
           phone: data.phone || '',
           date_of_birth: data.date_of_birth || '',
           gender: data.gender || '',
-          employee_code: data.employee_code || '',
-          department: data.department || '',
           date_of_joining: data.date_of_joining || '',
           address_line1: data.address_line1 || '',
           city: data.city || '',
@@ -181,7 +177,7 @@ export default function UserDetailsForm({ userId }) {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter email"
                 required
               />
@@ -202,7 +198,7 @@ export default function UserDetailsForm({ userId }) {
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter phone number"
                 required
               />
@@ -223,7 +219,7 @@ export default function UserDetailsForm({ userId }) {
                 name="date_of_birth"
                 value={formData.date_of_birth}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
               />
             ) : (
               <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">
@@ -243,7 +239,7 @@ export default function UserDetailsForm({ userId }) {
                 name="gender"
                 value={formData.gender}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
               >
                 <option value="">Select Gender</option>
                 <option value="Male">Male</option>
@@ -252,46 +248,6 @@ export default function UserDetailsForm({ userId }) {
               </select>
             ) : (
               <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">{formData.gender || 'Not provided'}</p>
-            )}
-          </div>
-
-          {/* Employee Code */}
-          <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              <Briefcase className="h-4 w-4 mr-2 text-gray-400" />
-              Employee Code
-            </label>
-            {isEditing ? (
-              <input
-                type="text"
-                name="employee_code"
-                value={formData.employee_code}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter employee code"
-              />
-            ) : (
-              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">{formData.employee_code || 'Not provided'}</p>
-            )}
-          </div>
-
-          {/* Department */}
-          <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              <Briefcase className="h-4 w-4 mr-2 text-gray-400" />
-              Department
-            </label>
-            {isEditing ? (
-              <input
-                type="text"
-                name="department"
-                value={formData.department}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter department"
-              />
-            ) : (
-              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">{formData.department || 'Not provided'}</p>
             )}
           </div>
 
@@ -307,7 +263,7 @@ export default function UserDetailsForm({ userId }) {
                 name="date_of_joining"
                 value={formData.date_of_joining}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
               />
             ) : (
               <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">
@@ -328,7 +284,7 @@ export default function UserDetailsForm({ userId }) {
                 value={formData.address_line1}
                 onChange={handleInputChange}
                 rows="2"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter address"
               />
             ) : (
@@ -348,7 +304,7 @@ export default function UserDetailsForm({ userId }) {
                 name="city"
                 value={formData.city}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter city"
               />
             ) : (
@@ -368,7 +324,7 @@ export default function UserDetailsForm({ userId }) {
                 name="state"
                 value={formData.state}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter state"
               />
             ) : (
@@ -389,7 +345,7 @@ export default function UserDetailsForm({ userId }) {
                 value={formData.pincode}
                 onChange={handleInputChange}
                 maxLength="6"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter pincode"
               />
             ) : (
@@ -410,7 +366,7 @@ export default function UserDetailsForm({ userId }) {
                 value={formData.aadhar_number}
                 onChange={handleInputChange}
                 maxLength="12"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter aadhar number"
               />
             ) : (
@@ -431,7 +387,7 @@ export default function UserDetailsForm({ userId }) {
                 value={formData.pan_number}
                 onChange={handleInputChange}
                 maxLength="10"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter PAN number"
               />
             ) : (
@@ -451,7 +407,7 @@ export default function UserDetailsForm({ userId }) {
                 name="bank_name"
                 value={formData.bank_name}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter bank name"
               />
             ) : (
@@ -471,7 +427,7 @@ export default function UserDetailsForm({ userId }) {
                 name="account_number"
                 value={formData.account_number}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter account number"
               />
             ) : (
@@ -492,7 +448,7 @@ export default function UserDetailsForm({ userId }) {
                 value={formData.ifsc_code}
                 onChange={handleInputChange}
                 maxLength="11"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 placeholder="Enter IFSC code"
               />
             ) : (

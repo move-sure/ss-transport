@@ -112,6 +112,11 @@ export default function DailySummaryModal({
                   }`}
                 />
               </div>
+              {!editingSummary && formData.branch_id && formData.opening_balance && (
+                <p className="text-green-600 text-xs mt-1 flex items-center gap-1">
+                  <span>✓</span> Auto-filled from previous day's closing balance
+                </p>
+              )}
               {formErrors.opening_balance && (
                 <p className="text-red-500 text-xs mt-1">{formErrors.opening_balance}</p>
               )}

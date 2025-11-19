@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Calendar, DollarSign, User, CreditCard, Edit, Trash2, FileText, Layers } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Calendar, DollarSign, User, CreditCard, Edit, Trash2, FileText, Layers, Building2, Filter } from 'lucide-react';
 
 export default function TransactionsList({
   transactions,
+  branches,
   formatCurrency,
   onAddIncome,
   onAddExpense,
@@ -12,23 +13,39 @@ export default function TransactionsList({
   onDeleteTransaction
 }) {
   const [activeTab, setActiveTab] = useState('income');
+  const [filterBranch, setFilterBranch] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
 
-  const currentTransactions = activeTab === 'income' ? transactions.income : transactions.expense;
+  // Filter transactions
+  const filterTransactionsByBranchAndDate = (transactionsList) => {
+    return transactionsList.filter(transaction => {
+      if (filterBranch && transaction.branch_id !== filterBranch) return false;
+      if (filterMonth) {
+        const transactionMonth = transaction.transaction_date.substring(0, 7); // YYYY-MM
+        if (transactionMonth !== filterMonth) return false;
+      }
+      return true;
+    });
+  };
+
+  const filteredIncome = filterTransactionsByBranchAndDate(transactions.income);
+  const filteredExpense = filterTransactionsByBranchAndDate(transactions.expense);
+
+  const currentTransactions = activeTab === 'income' ? filteredIncome : filteredExpense;
   
-  const totalIncome = transactions.income.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
-  const totalExpense = transactions.expense.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  const totalIncome = filteredIncome.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  const totalExpense = filteredExpense.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+    <div className="overflow-hidden">
       {/* Header with Summary */}
-      <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-blue-50">
+      <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Income & Expense Tracker</h2>
           <div className="flex gap-2">
             <div className="flex gap-1">
               <button
                 onClick={onAddIncome}
-                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 bg-green-600 text-white rounded-l-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md"
+                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 bg-emerald-600 text-white rounded-l-lg hover:bg-emerald-700 transition-all text-sm font-semibold shadow-md"
                 title="Add Single Income"
               >
                 <Plus size={16} />
@@ -36,7 +53,7 @@ export default function TransactionsList({
               </button>
               <button
                 onClick={onAddBulkIncome}
-                className="flex items-center justify-center gap-1 px-2 py-2 bg-green-700 text-white rounded-r-lg hover:bg-green-800 transition-all text-sm font-semibold shadow-md border-l border-green-500"
+                className="flex items-center justify-center gap-1 px-2 py-2 bg-emerald-700 text-white rounded-r-lg hover:bg-emerald-800 transition-all text-sm font-semibold shadow-md border-l border-emerald-500"
                 title="Add Multiple Income Entries"
               >
                 <Layers size={16} />
@@ -45,7 +62,7 @@ export default function TransactionsList({
             <div className="flex gap-1">
               <button
                 onClick={onAddExpense}
-                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 bg-red-600 text-white rounded-l-lg hover:bg-red-700 transition-all text-sm font-semibold shadow-md"
+                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 bg-rose-600 text-white rounded-l-lg hover:bg-rose-700 transition-all text-sm font-semibold shadow-md"
                 title="Add Single Expense"
               >
                 <Plus size={16} />
@@ -53,7 +70,7 @@ export default function TransactionsList({
               </button>
               <button
                 onClick={onAddBulkExpense}
-                className="flex items-center justify-center gap-1 px-2 py-2 bg-red-700 text-white rounded-r-lg hover:bg-red-800 transition-all text-sm font-semibold shadow-md border-l border-red-500"
+                className="flex items-center justify-center gap-1 px-2 py-2 bg-rose-700 text-white rounded-r-lg hover:bg-rose-800 transition-all text-sm font-semibold shadow-md border-l border-rose-500"
                 title="Add Multiple Expense Entries"
               >
                 <Layers size={16} />
@@ -61,29 +78,63 @@ export default function TransactionsList({
             </div>
           </div>
         </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-gray-900 mb-1">
+              <Filter size={14} className="inline mr-1" />
+              Filter by Branch
+            </label>
+            <select
+              value={filterBranch}
+              onChange={(e) => setFilterBranch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm text-gray-900"
+            >
+              <option value="">All Branches</option>
+              {branches.map(branch => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.branch_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-gray-900 mb-1">
+              <Calendar size={14} className="inline mr-1" />
+              Filter by Month
+            </label>
+            <input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm text-gray-900"
+            />
+          </div>
+        </div>
         
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+          <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="text-green-600" size={16} />
-              <span className="text-xs font-semibold text-green-700">Total Income</span>
+              <TrendingUp className="text-emerald-600" size={16} />
+              <span className="text-xs font-semibold text-emerald-700">Total Income</span>
             </div>
-            <p className="text-base sm:text-lg font-bold text-green-900">{formatCurrency(totalIncome)}</p>
+            <p className="text-base sm:text-lg font-bold text-emerald-900">{formatCurrency(totalIncome)}</p>
           </div>
-          <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+          <div className="bg-rose-50 rounded-lg p-3 border border-rose-200">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingDown className="text-red-600" size={16} />
-              <span className="text-xs font-semibold text-red-700">Total Expense</span>
+              <TrendingDown className="text-rose-600" size={16} />
+              <span className="text-xs font-semibold text-rose-700">Total Expense</span>
             </div>
-            <p className="text-base sm:text-lg font-bold text-red-900">{formatCurrency(totalExpense)}</p>
+            <p className="text-base sm:text-lg font-bold text-rose-900">{formatCurrency(totalExpense)}</p>
           </div>
-          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+          <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="text-blue-600" size={16} />
-              <span className="text-xs font-semibold text-blue-700">Net Balance</span>
+              <DollarSign className="text-slate-600" size={16} />
+              <span className="text-xs font-semibold text-slate-700">Net Balance</span>
             </div>
-            <p className={`text-base sm:text-lg font-bold ${totalIncome - totalExpense >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+            <p className={`text-base sm:text-lg font-bold ${totalIncome - totalExpense >= 0 ? 'text-emerald-900' : 'text-rose-900'}`}>
               {formatCurrency(totalIncome - totalExpense)}
             </p>
           </div>
@@ -96,26 +147,26 @@ export default function TransactionsList({
           onClick={() => setActiveTab('income')}
           className={`flex-1 px-4 sm:px-6 py-3 font-semibold transition-all text-sm sm:text-base ${
             activeTab === 'income'
-              ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
+              ? 'text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           <span className="flex items-center justify-center gap-1 sm:gap-2">
             <TrendingUp size={16} className="sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline">Income</span> ({transactions.income.length})
+            <span className="hidden sm:inline">Income</span> ({filteredIncome.length})
           </span>
         </button>
         <button
           onClick={() => setActiveTab('expense')}
           className={`flex-1 px-4 sm:px-6 py-3 font-semibold transition-all text-sm sm:text-base ${
             activeTab === 'expense'
-              ? 'text-red-600 border-b-2 border-red-600 bg-red-50'
+              ? 'text-rose-700 border-b-2 border-rose-600 bg-rose-50'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           <span className="flex items-center justify-center gap-1 sm:gap-2">
             <TrendingDown size={16} className="sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline">Expense</span> ({transactions.expense.length})
+            <span className="hidden sm:inline">Expense</span> ({filteredExpense.length})
           </span>
         </button>
       </div>
@@ -129,17 +180,17 @@ export default function TransactionsList({
             <TrendingDown className="mx-auto text-gray-400 mb-4" size={48} />
           )}
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No {activeTab} transactions yet
+            No {activeTab} transactions found
           </h3>
           <p className="text-gray-600 mb-6">
-            Start by adding your first {activeTab} transaction
+            {filterBranch || filterMonth ? 'Try adjusting your filters' : `Start by adding your first ${activeTab} transaction`}
           </p>
           <button
             onClick={activeTab === 'income' ? onAddIncome : onAddExpense}
-            className={`inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg transition-all ${
+            className={`inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg transition-all shadow-md ${
               activeTab === 'income' 
-                ? 'bg-green-600 hover:bg-green-700' 
-                : 'bg-red-600 hover:bg-red-700'
+                ? 'bg-emerald-600 hover:bg-emerald-700' 
+                : 'bg-rose-600 hover:bg-rose-700'
             }`}
           >
             <Plus size={20} />
@@ -179,7 +230,7 @@ export default function TransactionsList({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`text-sm font-bold ${
-                      activeTab === 'income' ? 'text-green-600' : 'text-red-600'
+                      activeTab === 'income' ? 'text-emerald-600' : 'text-rose-600'
                     }`}>
                       {formatCurrency(transaction.amount)}
                     </span>
@@ -215,14 +266,14 @@ export default function TransactionsList({
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => onEditTransaction(transaction, activeTab)}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                         title="Edit Transaction"
                       >
                         <Edit size={18} />
                       </button>
                       <button
                         onClick={() => onDeleteTransaction(transaction.id, activeTab)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                         title="Delete Transaction"
                       >
                         <Trash2 size={18} />

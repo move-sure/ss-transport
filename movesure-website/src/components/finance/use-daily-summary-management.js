@@ -15,6 +15,26 @@ export default function useDailySummaryManagement(user) {
   const [summaryFormErrors, setSummaryFormErrors] = useState({});
   const [summarySubmitting, setSummarySubmitting] = useState(false);
 
+  // Fetch previous day's closing balance
+  const fetchPreviousDayClosingBalance = async (branchId, currentDate) => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_branch_summary')
+        .select('closing_balance, summary_date')
+        .eq('branch_id', branchId)
+        .lt('summary_date', currentDate)
+        .order('summary_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+      return data ? data.closing_balance : null;
+    } catch (error) {
+      console.error('Error fetching previous day closing balance:', error);
+      return null;
+    }
+  };
+
   // Fetch daily summaries
   const fetchDailySummaries = async () => {
     try {
@@ -99,11 +119,24 @@ export default function useDailySummaryManagement(user) {
   };
 
   // Handle form input changes
-  const handleSummaryInputChange = (e) => {
+  const handleSummaryInputChange = async (e) => {
     const { name, value } = e.target;
     setSummaryFormData(prev => ({ ...prev, [name]: value }));
     if (summaryFormErrors[name]) {
       setSummaryFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
+    // Auto-fetch previous day's closing balance when branch or date changes
+    if (!editingSummary && (name === 'branch_id' || name === 'summary_date')) {
+      const newBranchId = name === 'branch_id' ? value : summaryFormData.branch_id;
+      const newDate = name === 'summary_date' ? value : summaryFormData.summary_date;
+      
+      if (newBranchId && newDate) {
+        const previousClosingBalance = await fetchPreviousDayClosingBalance(newBranchId, newDate);
+        if (previousClosingBalance !== null) {
+          setSummaryFormData(prev => ({ ...prev, opening_balance: previousClosingBalance.toString() }));
+        }
+      }
     }
   };
 
@@ -217,6 +250,7 @@ export default function useDailySummaryManagement(user) {
     summaryFormErrors,
     summarySubmitting,
     fetchDailySummaries,
+    fetchPreviousDayClosingBalance,
     handleOpenSummaryModal,
     handleEditSummary,
     handleCloseSummaryModal,

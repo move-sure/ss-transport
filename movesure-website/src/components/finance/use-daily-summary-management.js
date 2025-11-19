@@ -10,7 +10,9 @@ export default function useDailySummaryManagement(user) {
     summary_date: new Date().toISOString().split('T')[0],
     opening_balance: '',
     total_income: '',
-    total_expense: ''
+    total_expense: '',
+    incomeTransactions: [],
+    expenseTransactions: []
   });
   const [summaryFormErrors, setSummaryFormErrors] = useState({});
   const [summarySubmitting, setSummarySubmitting] = useState(false);
@@ -84,7 +86,9 @@ export default function useDailySummaryManagement(user) {
       summary_date: new Date().toISOString().split('T')[0],
       opening_balance: '',
       total_income: '',
-      total_expense: ''
+      total_expense: '',
+      incomeTransactions: [],
+      expenseTransactions: []
     });
     setSummaryFormErrors({});
     setShowDailySummaryModal(true);
@@ -113,9 +117,55 @@ export default function useDailySummaryManagement(user) {
       summary_date: new Date().toISOString().split('T')[0],
       opening_balance: '',
       total_income: '',
-      total_expense: ''
+      total_expense: '',
+      incomeTransactions: [],
+      expenseTransactions: []
     });
     setSummaryFormErrors({});
+  };
+
+  // Fetch transactions for a specific date and branch
+  const fetchDayTransactions = async (branchId, date) => {
+    try {
+      const [incomeRes, expenseRes] = await Promise.all([
+        supabase
+          .from('income_transactions')
+          .select('*')
+          .eq('branch_id', branchId)
+          .eq('transaction_date', date)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('expense_transactions')
+          .select('*')
+          .eq('branch_id', branchId)
+          .eq('transaction_date', date)
+          .order('created_at', { ascending: true })
+      ]);
+
+      if (incomeRes.error) throw incomeRes.error;
+      if (expenseRes.error) throw expenseRes.error;
+
+      const incomeData = incomeRes.data || [];
+      const expenseData = expenseRes.data || [];
+
+      const totalIncome = incomeData.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+      const totalExpense = expenseData.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+      return {
+        incomeTransactions: incomeData,
+        expenseTransactions: expenseData,
+        totalIncome,
+        totalExpense
+      };
+    } catch (error) {
+      console.error('Error fetching day transactions:', error);
+      return {
+        incomeTransactions: [],
+        expenseTransactions: [],
+        totalIncome: 0,
+        totalExpense: 0
+      };
+    }
   };
 
   // Handle form input changes
@@ -126,16 +176,27 @@ export default function useDailySummaryManagement(user) {
       setSummaryFormErrors(prev => ({ ...prev, [name]: '' }));
     }
 
-    // Auto-fetch previous day's closing balance when branch or date changes
+    // Auto-fetch previous day's closing balance and current day's transactions
     if (!editingSummary && (name === 'branch_id' || name === 'summary_date')) {
       const newBranchId = name === 'branch_id' ? value : summaryFormData.branch_id;
       const newDate = name === 'summary_date' ? value : summaryFormData.summary_date;
       
       if (newBranchId && newDate) {
+        // Fetch previous day's closing balance
         const previousClosingBalance = await fetchPreviousDayClosingBalance(newBranchId, newDate);
         if (previousClosingBalance !== null) {
           setSummaryFormData(prev => ({ ...prev, opening_balance: previousClosingBalance.toString() }));
         }
+
+        // Fetch current day's transactions
+        const dayTransactions = await fetchDayTransactions(newBranchId, newDate);
+        setSummaryFormData(prev => ({
+          ...prev,
+          total_income: dayTransactions.totalIncome.toString(),
+          total_expense: dayTransactions.totalExpense.toString(),
+          incomeTransactions: dayTransactions.incomeTransactions,
+          expenseTransactions: dayTransactions.expenseTransactions
+        }));
       }
     }
   };

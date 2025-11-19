@@ -172,6 +172,63 @@ export default function DailySummaryModal({
               )}
             </div>
 
+            {/* Transaction Details */}
+            {formData.branch_id && formData.summary_date && (formData.incomeTransactions?.length > 0 || formData.expenseTransactions?.length > 0) && (
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 className="text-sm font-bold text-gray-900 mb-3">Transaction Details for Selected Date</h4>
+                
+                {/* Income Transactions */}
+                {formData.incomeTransactions?.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="text-emerald-600" size={16} />
+                      <h5 className="text-xs font-semibold text-emerald-700 uppercase">Income Transactions ({formData.incomeTransactions.length})</h5>
+                    </div>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                      {formData.incomeTransactions.map((transaction, index) => (
+                        <div key={transaction.id || index} className="bg-white rounded p-2 text-xs flex justify-between items-center border border-emerald-100">
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">{transaction.party_name}</p>
+                            <p className="text-gray-500 text-xs">{transaction.receiver} • {transaction.payment_mode === 'cash' ? 'Cash' : 'Online'}</p>
+                          </div>
+                          <p className="font-bold text-emerald-600">₹{parseFloat(transaction.amount).toLocaleString('en-IN')}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-emerald-200 flex justify-between items-center">
+                      <span className="text-xs font-semibold text-gray-700">Total Income:</span>
+                      <span className="text-sm font-bold text-emerald-700">₹{parseFloat(formData.total_income || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expense Transactions */}
+                {formData.expenseTransactions?.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingDown className="text-rose-600" size={16} />
+                      <h5 className="text-xs font-semibold text-rose-700 uppercase">Expense Transactions ({formData.expenseTransactions.length})</h5>
+                    </div>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                      {formData.expenseTransactions.map((transaction, index) => (
+                        <div key={transaction.id || index} className="bg-white rounded p-2 text-xs flex justify-between items-center border border-rose-100">
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">{transaction.party_name}</p>
+                            <p className="text-gray-500 text-xs">{transaction.sender} • {transaction.payment_mode === 'cash' ? 'Cash' : 'Online'}</p>
+                          </div>
+                          <p className="font-bold text-rose-600">₹{parseFloat(transaction.amount).toLocaleString('en-IN')}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-rose-200 flex justify-between items-center">
+                      <span className="text-xs font-semibold text-gray-700">Total Expense:</span>
+                      <span className="text-sm font-bold text-rose-700">₹{parseFloat(formData.total_expense || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Calculated Closing Balance */}
             <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border-2 border-indigo-200">
               <div className="flex justify-between items-center">

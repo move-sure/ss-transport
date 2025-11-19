@@ -82,11 +82,11 @@ export default function GodownPage() {
       setUserBranchName(branchName);
 
       const [biltiesData, stationBiltiesData, citiesData, transportsData] = await Promise.all([
-        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at').order('created_at', { ascending: false }),
+        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type').order('created_at', { ascending: false }),
         // Filter station bilties by user's branch_id
         userBranchId 
-          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id').eq('branch_id', userBranchId).order('created_at', { ascending: false })
-          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id').limit(0), // Return empty if no branch_id
+          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').eq('branch_id', userBranchId).order('created_at', { ascending: false })
+          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').limit(0), // Return empty if no branch_id
         supabase.from('cities').select('id, city_name, city_code'),
         supabase.from('transports').select('id, transport_name, city_id, city_name')
       ]);
@@ -134,6 +134,12 @@ export default function GodownPage() {
         const cityInfo = getCityInfo(bilty.to_city_id);
         const cityTransports = getTransportsByCity(cityInfo.name);
         
+        // Normalize delivery_type from bilty table: "door-delivery" -> "door", "godown-delivery" -> "godown"
+        let normalizedDeliveryType = bilty.delivery_type;
+        if (normalizedDeliveryType) {
+          normalizedDeliveryType = normalizedDeliveryType.replace('-delivery', '').trim();
+        }
+        
         return {
           ...bilty,
           no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
@@ -143,7 +149,9 @@ export default function GodownPage() {
           destination: cityInfo.name,
           city_code: cityInfo.code,
           station_destination: `${cityInfo.name} (${cityInfo.code})`,
-          transports: cityTransports // Add transport info
+          transports: cityTransports, // Add transport info
+          payment_status: bilty.payment_mode, // Map to payment_status for consistency
+          delivery_type: normalizedDeliveryType // Normalized from "door-delivery" to "door"
         };
       }),
       ...stationBilties.map(bilty => {
@@ -161,7 +169,9 @@ export default function GodownPage() {
           destination: cityInfo.name, // Convert code to name
           city_code: cityInfo.code,
           station_destination: `${cityInfo.name} (${cityInfo.code})`,
-          transports: cityTransports // Add transport info
+          transports: cityTransports, // Add transport info
+          payment_status: bilty.payment_status, // Already correct field name
+          delivery_type: bilty.delivery_type // Already in correct format
         };
       })
     ];

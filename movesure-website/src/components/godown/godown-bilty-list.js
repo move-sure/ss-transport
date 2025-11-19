@@ -70,6 +70,64 @@ export default function GodownBiltyList({
     }
   };
 
+  // Get payment status badge
+  const getPaymentBadge = (paymentStatus) => {
+    if (!paymentStatus) return null;
+    
+    const statusLower = paymentStatus.toLowerCase();
+    
+    if (statusLower === 'paid') {
+      return (
+        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-300">
+          PAID
+        </span>
+      );
+    } else if (statusLower === 'to-pay' || statusLower === 'to pay') {
+      return (
+        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 border border-orange-300">
+          TO-PAY
+        </span>
+      );
+    } else if (statusLower === 'foc') {
+      return (
+        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-700 border border-purple-300">
+          FOC
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+        {paymentStatus.toUpperCase()}
+      </span>
+    );
+  };
+
+  // Get delivery type badge
+  const getDeliveryTypeBadge = (deliveryType) => {
+    if (!deliveryType) return null;
+    
+    const typeLower = deliveryType.toLowerCase();
+    
+    if (typeLower === 'door') {
+      return (
+        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 border border-blue-300">
+          DOOR
+        </span>
+      );
+    } else if (typeLower === 'godown') {
+      return (
+        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+          GODOWN
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+        {deliveryType.toUpperCase()}
+      </span>
+    );
+  };
+
   // Bilties are already sorted and paginated from parent component
   const sortedBilties = bilties;
 
@@ -177,6 +235,12 @@ export default function GodownBiltyList({
                 Weight
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Payment
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Delivery
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Source
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -250,6 +314,12 @@ export default function GodownBiltyList({
                       {formatWeight(bilty.weight)}
                     </span>
                   </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {getPaymentBadge(bilty.payment_status)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {getDeliveryTypeBadge(bilty.delivery_type)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {getSourceBadge(bilty.source)}
@@ -365,6 +435,18 @@ export default function GodownBiltyList({
                     <span className="text-sm font-bold text-slate-900">
                       {formatWeight(bilty.weight)}
                     </span>
+                  </div>
+                </div>
+
+                {/* Payment and Delivery Row */}
+                <div className="flex items-center justify-between pt-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-slate-500">Payment</span>
+                    {getPaymentBadge(bilty.payment_status)}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-slate-500">Delivery</span>
+                    {getDeliveryTypeBadge(bilty.delivery_type)}
                   </div>
                 </div>
 

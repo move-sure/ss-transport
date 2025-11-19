@@ -112,10 +112,20 @@ export default function DailySummaryModal({
                   }`}
                 />
               </div>
-              {!editingSummary && formData.branch_id && formData.opening_balance && (
-                <p className="text-green-600 text-xs mt-1 flex items-center gap-1">
-                  <span>✓</span> Auto-filled from previous days closing balance
-                </p>
+              {!editingSummary && formData.branch_id && formData.summary_date && (
+                formData.previousClosingDate ? (
+                  <p className="text-green-600 text-xs mt-1 flex items-center gap-1">
+                    <span>✓</span> Auto-filled from closing balance of {new Date(formData.previousClosingDate).toLocaleDateString('en-IN', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                ) : (
+                  <p className="text-blue-600 text-xs mt-1 flex items-center gap-1">
+                    <span>ℹ</span> No previous day record found. Starting with ₹0
+                  </p>
+                )
               )}
               {formErrors.opening_balance && (
                 <p className="text-red-500 text-xs mt-1">{formErrors.opening_balance}</p>

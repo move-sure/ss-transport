@@ -12,7 +12,8 @@ export default function useDailySummaryManagement(user) {
     total_income: '',
     total_expense: '',
     incomeTransactions: [],
-    expenseTransactions: []
+    expenseTransactions: [],
+    previousClosingDate: null // Track the date of the previous closing balance
   });
   const [summaryFormErrors, setSummaryFormErrors] = useState({});
   const [summarySubmitting, setSummarySubmitting] = useState(false);
@@ -30,7 +31,7 @@ export default function useDailySummaryManagement(user) {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
-      return data ? data.closing_balance : null;
+      return data ? { balance: data.closing_balance, date: data.summary_date } : null;
     } catch (error) {
       console.error('Error fetching previous day closing balance:', error);
       return null;
@@ -88,7 +89,8 @@ export default function useDailySummaryManagement(user) {
       total_income: '',
       total_expense: '',
       incomeTransactions: [],
-      expenseTransactions: []
+      expenseTransactions: [],
+      previousClosingDate: null
     });
     setSummaryFormErrors({});
     setShowDailySummaryModal(true);
@@ -119,7 +121,8 @@ export default function useDailySummaryManagement(user) {
       total_income: '',
       total_expense: '',
       incomeTransactions: [],
-      expenseTransactions: []
+      expenseTransactions: [],
+      previousClosingDate: null
     });
     setSummaryFormErrors({});
   };
@@ -183,9 +186,20 @@ export default function useDailySummaryManagement(user) {
       
       if (newBranchId && newDate) {
         // Fetch previous day's closing balance
-        const previousClosingBalance = await fetchPreviousDayClosingBalance(newBranchId, newDate);
-        if (previousClosingBalance !== null) {
-          setSummaryFormData(prev => ({ ...prev, opening_balance: previousClosingBalance.toString() }));
+        const previousClosingData = await fetchPreviousDayClosingBalance(newBranchId, newDate);
+        if (previousClosingData) {
+          setSummaryFormData(prev => ({ 
+            ...prev, 
+            opening_balance: previousClosingData.balance.toString(),
+            previousClosingDate: previousClosingData.date
+          }));
+        } else {
+          // No previous day found, set opening balance to 0
+          setSummaryFormData(prev => ({ 
+            ...prev, 
+            opening_balance: '0',
+            previousClosingDate: null
+          }));
         }
 
         // Fetch current day's transactions

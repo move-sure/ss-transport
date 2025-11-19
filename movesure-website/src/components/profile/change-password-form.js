@@ -323,7 +323,7 @@ export default function ChangePasswordForm({ userId }) {
                 <div>
                   <p className="text-sm font-medium text-blue-900">Security Verification Required</p>
                   <p className="text-sm text-blue-800 mt-1">
-                    For your security, we'll send an OTP to your registered mobile number to verify your identity before changing your password.
+                    For your security, we&apos;ll send an OTP to your registered mobile number to verify your identity before changing your password.
                   </p>
                 </div>
               </div>

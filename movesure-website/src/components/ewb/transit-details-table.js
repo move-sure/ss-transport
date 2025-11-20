@@ -357,6 +357,7 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
             <EwbValidationComponent 
               ewbNumbers={allEwbNumbers}
               ewbToGrMapping={ewbToGrMapping}
+              challanNo={challanDetails?.challan_no}
               showCacheControls={true}
               onConsolidateClick={() => setShowConsolidatedForm(true)}
               onValidationComplete={handleValidationResults}

@@ -1,19 +1,24 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Shield, Loader2, RefreshCw, Database, FileStack } from 'lucide-react';
+import { Shield, Loader2, Database, FileStack } from 'lucide-react';
 import { 
   validateEwbNumber, 
   validateMultipleEwbNumbers, 
   getCachedValidation,
   formatEwbNumber,
-  clearEwbCache,
   getCacheStats
 } from '../../utils/ewbValidation';
+import { 
+  saveEwbValidation, 
+  saveEwbValidationsBulk 
+} from '../../utils/ewbValidationStorage';
+import { useAuth } from '../../app/utils/auth';
 import EWBPDFGenerator from './ewb-pdf-generator';
 import EwbValidationCard from './ewb-validation-card';
 
 const EwbValidationComponent = ({ 
   ewbNumbers = [], 
   ewbToGrMapping = {},
+  challanNo = null,
   onValidationComplete = null,
   showCacheControls = false,
   onConsolidateClick = null,
@@ -24,11 +29,43 @@ const EwbValidationComponent = ({
   const [validationProgress, setValidationProgress] = useState(null);
   const [cacheStats, setCacheStats] = useState(null);
   const [selectedEwbForPrint, setSelectedEwbForPrint] = useState(null);
+  
+  // Get current user from auth context
+  const { user: currentUser } = useAuth();
 
   // Update cache stats
   const updateCacheStats = useCallback(() => {
     setCacheStats(getCacheStats());
   }, []);
+
+  // Fetch validation history from database
+  const fetchValidationHistory = useCallback(async () => {
+    if (ewbNumbers.length === 0) return;
+
+    try {
+      console.log('🔄 Fetching validation history from database...');
+      const { getEwbValidationsByNumbers } = await import('../../utils/ewbValidationStorage');
+      const { success, data } = await getEwbValidationsByNumbers(ewbNumbers);
+
+      if (success && data) {
+        const results = {};
+        Object.keys(data).forEach(ewbNumber => {
+          const validation = data[ewbNumber];
+          results[ewbNumber] = {
+            success: validation.is_valid,
+            data: validation.raw_result_metadata?.data || validation.raw_result_metadata,
+            error: validation.error_message,
+            source: 'database'
+          };
+        });
+
+        setValidationResults(prev => ({ ...prev, ...results }));
+        console.log('✅ Loaded', Object.keys(results).length, 'validations from database');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching validation history:', error);
+    }
+  }, [ewbNumbers]);
 
   // Validate single EWB
   const validateSingle = useCallback(async (ewbNumber) => {
@@ -41,6 +78,26 @@ const EwbValidationComponent = ({
         ...prev,
         [ewbNumber]: result
       }));
+
+      // Save to database (in background, don't wait)
+      if (currentUser?.id && challanNo) {
+        const grMappings = ewbToGrMapping[ewbNumber] || [];
+        const grNo = grMappings.length > 0 ? grMappings[0].gr_no : null;
+        
+        saveEwbValidation({
+          challanNo,
+          grNo,
+          ewbNumber,
+          validationResult: result,
+          userId: currentUser.id
+        }).then(saveResult => {
+          if (saveResult.success) {
+            console.log('✅ EWB validation saved to database:', ewbNumber);
+          } else {
+            console.error('❌ Failed to save EWB validation:', saveResult.error);
+          }
+        }).catch(err => console.error('❌ Save error:', err));
+      }
       
       if (onValidationComplete) {
         onValidationComplete([{ ewbNumber, ...result }]);
@@ -52,7 +109,7 @@ const EwbValidationComponent = ({
     } finally {
       setIsValidating(false);
     }
-  }, [onValidationComplete, updateCacheStats]);
+  }, [onValidationComplete, updateCacheStats, currentUser, challanNo, ewbToGrMapping]);
 
   // Validate all EWBs
   const validateAll = useCallback(async () => {
@@ -64,6 +121,7 @@ const EwbValidationComponent = ({
     try {
       // Process each EWB one by one for live updates
       const results = [];
+      const validationsToSave = [];
       
       for (let i = 0; i < ewbNumbers.length; i++) {
         const ewbNumber = ewbNumbers[i];
@@ -77,16 +135,32 @@ const EwbValidationComponent = ({
         const result = await validateEwbNumber(ewbNumber);
         results.push({ ewbNumber, ...result });
         
+        // Prepare validation data for bulk save
+        if (currentUser?.id && challanNo) {
+          const grMappings = ewbToGrMapping[ewbNumber] || [];
+          const grNo = grMappings.length > 0 ? grMappings[0].gr_no : null;
+          
+          validationsToSave.push({
+            grNo,
+            ewbNumber,
+            validationResult: result
+          });
+        }
+        
         // Update results immediately for live feedback
         setValidationResults(prev => ({
           ...prev,
           [ewbNumber]: result
         }));
-        
-        // Small delay to show the animation
-        if (i < ewbNumbers.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
+      }
+
+      // Save all validations to database in bulk (in background, don't wait)
+      if (currentUser?.id && challanNo && validationsToSave.length > 0) {
+        saveEwbValidationsBulk({
+          challanNo,
+          validations: validationsToSave,
+          userId: currentUser.id
+        }).catch(err => console.error('Background save failed:', err));
       }
       
       if (onValidationComplete) {
@@ -100,14 +174,7 @@ const EwbValidationComponent = ({
       setIsValidating(false);
       setValidationProgress(null);
     }
-  }, [ewbNumbers, onValidationComplete, updateCacheStats]);
-
-  // Clear cache
-  const handleClearCache = useCallback(() => {
-    clearEwbCache();
-    setValidationResults({});
-    updateCacheStats();
-  }, [updateCacheStats]);
+  }, [ewbNumbers, onValidationComplete, updateCacheStats, currentUser, challanNo, ewbToGrMapping]);
 
   // Check for cached data
   const checkCachedData = useCallback(() => {
@@ -128,11 +195,12 @@ const EwbValidationComponent = ({
     updateCacheStats();
   }, [ewbNumbers, updateCacheStats]);
 
-  // Initialize cache stats and check for cached data on mount
+  // Initialize: fetch from database first, then check cache
   React.useEffect(() => {
     updateCacheStats();
-    checkCachedData();
-  }, [updateCacheStats, checkCachedData]);
+    fetchValidationHistory(); // Fetch from database first
+    checkCachedData(); // Then check cache for any additional data
+  }, [updateCacheStats, fetchValidationHistory, checkCachedData]);
 
   // Check if all EWBs are validated successfully
   const allValidated = useMemo(() => {
@@ -198,16 +266,6 @@ const EwbValidationComponent = ({
             )}
             {isValidating ? 'Validating...' : 'Validate All'}
           </button>
-          
-          {showCacheControls && (
-            <button
-              onClick={handleClearCache}
-              className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm flex items-center gap-2 shadow-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Clear Cache
-            </button>
-          )}
         </div>
       </div>
 

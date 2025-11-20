@@ -68,120 +68,106 @@ const EwbSuccessDetails = ({ data, source }) => {
         {ewbStatus && <StatusBadge status={ewbStatus} />}
       </div>
 
-      {/* Main Details Grid */}
+      {/* Main Details Grid - Single Row Layout */}
       {isExpanded && (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-        {/* Consignor */}
-        {ewbData.legal_name_of_consignor && (
-          <div className="col-span-full">
-            <InfoRow 
-              icon={User} 
-              label="Consignor" 
-              value={ewbData.legal_name_of_consignor}
-            />
-            {ewbData.address1_of_consignor && (
-              <p className="text-xs text-slate-600 mt-1 ml-5">{ewbData.address1_of_consignor}</p>
-            )}
-          </div>
-        )}
+      <div className="space-y-3">
+        {/* Single Row Party Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+          {/* Consignor */}
+          {ewbData.legal_name_of_consignor && (
+            <div className="flex items-start gap-2">
+              <User className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase text-slate-500 font-semibold mb-1">Consignor</p>
+                <p className="text-xs text-slate-900 font-bold mb-0.5">{ewbData.legal_name_of_consignor}</p>
+                {ewbData.address1_of_consignor && (
+                  <p className="text-[10px] text-slate-600 mb-1">{ewbData.address1_of_consignor}</p>
+                )}
+                {ewbData.gstin_of_consignor && (
+                  <p className="font-mono text-[10px] text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded inline-block">
+                    GSTIN: {ewbData.gstin_of_consignor}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
-        {/* Consignee */}
-        {ewbData.legal_name_of_consignee && (
-          <div className="col-span-full">
-            <InfoRow 
-              icon={User} 
-              label="Consignee" 
-              value={ewbData.legal_name_of_consignee}
-            />
-            {ewbData.address1_of_consignee && (
-              <p className="text-xs text-slate-600 mt-1 ml-5">{ewbData.address1_of_consignee}</p>
-            )}
-          </div>
-        )}
+          {/* Consignee */}
+          {ewbData.legal_name_of_consignee && (
+            <div className="flex items-start gap-2">
+              <User className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase text-slate-500 font-semibold mb-1">Consignee</p>
+                <p className="text-xs text-slate-900 font-bold mb-0.5">{ewbData.legal_name_of_consignee}</p>
+                {ewbData.address1_of_consignee && (
+                  <p className="text-[10px] text-slate-600 mb-1">{ewbData.address1_of_consignee}</p>
+                )}
+                {ewbData.gstin_of_consignee && (
+                  <p className="font-mono text-[10px] text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded inline-block">
+                    GSTIN: {ewbData.gstin_of_consignee}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Consignor GSTIN */}
-        {ewbData.gstin_of_consignor && (
-          <InfoRow 
-            icon={Hash} 
-            label="Consignor GSTIN" 
-            value={
-              <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                {ewbData.gstin_of_consignor}
-              </span>
-            }
-          />
-        )}
+        {/* Invoice & Date Details - Single Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Invoice Value */}
+          {ewbData.total_invoice_value && (
+            <div className="flex items-start gap-1.5">
+              <DollarSign className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase text-slate-500 font-semibold">Invoice Value</p>
+                <p className="text-sm text-green-700 font-bold">₹{Number(ewbData.total_invoice_value).toLocaleString('en-IN')}</p>
+              </div>
+            </div>
+          )}
 
-        {/* Consignee GSTIN */}
-        {ewbData.gstin_of_consignee && (
-          <InfoRow 
-            icon={Hash} 
-            label="Consignee GSTIN" 
-            value={
-              <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                {ewbData.gstin_of_consignee}
-              </span>
-            }
-          />
-        )}
+          {/* Document Date */}
+          {ewbData.document_date && (
+            <div className="flex items-start gap-1.5">
+              <Calendar className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase text-slate-500 font-semibold">Doc Date</p>
+                <p className="text-xs text-slate-900 font-semibold">{ewbData.document_date}</p>
+              </div>
+            </div>
+          )}
 
-        {/* Invoice Value */}
-        {ewbData.total_invoice_value && (
-          <InfoRow 
-            icon={DollarSign} 
-            label="Invoice Value" 
-            value={`₹${Number(ewbData.total_invoice_value).toLocaleString('en-IN')}`}
-          />
-        )}
+          {/* E-Way Bill Date */}
+          {ewbData.eway_bill_date && (
+            <div className="flex items-start gap-1.5 md:col-span-2">
+              <Calendar className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase text-slate-500 font-semibold">EWB Date</p>
+                <p className="text-xs text-slate-900 font-semibold">{ewbData.eway_bill_date}</p>
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Document Date */}
-        {ewbData.document_date && (
-          <InfoRow 
-            icon={Calendar} 
-            label="Document Date" 
-            value={ewbData.document_date}
-          />
-        )}
-
-        {/* E-Way Bill Date */}
-        {ewbData.eway_bill_date && (
-          <InfoRow 
-            icon={Calendar} 
-            label="E-Way Bill Date" 
-            value={ewbData.eway_bill_date}
-          />
-        )}
-
-        {/* E-Way Bill Number */}
-        {ewbData.eway_bill_number && (
-          <InfoRow 
-            icon={FileText} 
-            label="E-Way Bill Number" 
-            value={
-              <span className="font-mono text-xs font-bold bg-blue-100 px-2 py-0.5 rounded border border-blue-200 text-blue-900">
-                {ewbData.eway_bill_number}
-              </span>
-            }
-          />
-        )}
+        {/* Other Details Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2 text-[10px]">
 
         {/* Route Information */}
         {(ewbData.place_of_consignor || ewbData.place_of_consignee) && (
-          <div className="col-span-full">
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
-              <MapPin className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-              <div className="flex items-center gap-2 text-sm flex-wrap">
+          <div className="col-span-2 lg:col-span-3">
+            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded p-1.5">
+              <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
+              <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
                 {ewbData.place_of_consignor && (
-                  <span className="text-blue-900 font-medium">{ewbData.place_of_consignor}</span>
+                  <span className="text-blue-900 font-semibold">{ewbData.place_of_consignor}</span>
                 )}
                 {ewbData.place_of_consignor && ewbData.place_of_consignee && (
                   <span className="text-blue-400">→</span>
                 )}
                 {ewbData.place_of_consignee && (
-                  <span className="text-blue-900 font-medium">{ewbData.place_of_consignee}</span>
+                  <span className="text-blue-900 font-semibold">{ewbData.place_of_consignee}</span>
                 )}
                 {ewbData.transportation_distance && (
-                  <span className="text-blue-700 text-xs">({ewbData.transportation_distance} km)</span>
+                  <span className="text-blue-600 text-[9px]">({ewbData.transportation_distance} km)</span>
                 )}
               </div>
             </div>
@@ -190,63 +176,73 @@ const EwbSuccessDetails = ({ data, source }) => {
 
         {/* Document Number */}
         {ewbData.document_number && (
-          <InfoRow 
-            icon={FileText} 
-            label="Document No." 
-            value={ewbData.document_number}
-          />
+          <div className="flex items-start gap-1.5">
+            <FileText className="w-3 h-3 text-slate-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Doc No.</p>
+              <p className="text-[10px] text-slate-900 font-medium truncate">{ewbData.document_number}</p>
+            </div>
+          </div>
         )}
 
         {/* Document Type */}
         {ewbData.document_type && (
-          <InfoRow 
-            label="Document Type" 
-            value={ewbData.document_type}
-          />
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Doc Type</p>
+              <p className="text-[10px] text-slate-900 font-medium truncate">{ewbData.document_type}</p>
+            </div>
+          </div>
         )}
 
         {/* Transaction Type */}
         {ewbData.transaction_type && (
-          <InfoRow 
-            label="Transaction Type" 
-            value={ewbData.transaction_type}
-          />
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Transaction</p>
+              <p className="text-[10px] text-slate-900 font-medium truncate">{ewbData.transaction_type}</p>
+            </div>
+          </div>
         )}
 
         {/* Supply Type */}
         {ewbData.supply_type && (
-          <InfoRow 
-            label="Supply Type" 
-            value={ewbData.supply_type}
-          />
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Supply</p>
+              <p className="text-[10px] text-slate-900 font-medium truncate">{ewbData.supply_type}</p>
+            </div>
+          </div>
         )}
 
         {/* Sub Supply Type */}
         {ewbData.sub_supply_type && (
-          <InfoRow 
-            label="Sub Supply Type" 
-            value={ewbData.sub_supply_type}
-          />
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Sub Supply</p>
+              <p className="text-[10px] text-slate-900 font-medium truncate">{ewbData.sub_supply_type}</p>
+            </div>
+          </div>
         )}
 
         {/* Transporter ID */}
         {ewbData.transporter_id && (
-          <InfoRow 
-            label="Transporter ID" 
-            value={
-              <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                {ewbData.transporter_id}
-              </span>
-            }
-          />
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Transporter ID</p>
+              <p className="font-mono text-[10px] text-slate-900 font-medium truncate">{ewbData.transporter_id}</p>
+            </div>
+          </div>
         )}
 
         {/* Transporter Name */}
         {ewbData.transporter_name && (
-          <InfoRow 
-            label="Transporter Name" 
-            value={ewbData.transporter_name}
-          />
+          <div className="flex items-start gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] uppercase text-slate-400 font-medium">Transporter</p>
+              <p className="text-[10px] text-slate-900 font-medium truncate">{ewbData.transporter_name}</p>
+            </div>
+          </div>
         )}
 
         {/* Tax Details */}
@@ -283,6 +279,7 @@ const EwbSuccessDetails = ({ data, source }) => {
             </div>
           </div>
         )}
+        </div>
       </div>
       )}
       

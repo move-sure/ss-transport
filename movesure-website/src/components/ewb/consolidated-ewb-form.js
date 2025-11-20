@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Truck, FileText, Calendar, MapPin, Send, Loader2, CheckCircle, Download, ExternalLink, Copy, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { saveConsolidatedEwbValidation } from '../../utils/ewbValidationStorage';
+import { useAuth } from '../../app/utils/auth';
 
 const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   const [formData, setFormData] = useState({
@@ -16,6 +18,9 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Get current user from auth context
+  const { user: currentUser } = useAuth();
 
   // Update vehicle number from challan data
   useEffect(() => {
@@ -88,13 +93,32 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
         console.log('📋 Consolidated EWB Number:', results.message?.cEwbNo);
         console.log('📅 Consolidated EWB Date:', results.message?.cEwbDate);
         
-        setResult({
+        const successResult = {
           success: true,
           cEwbNo: results.message?.cEwbNo,
           cEwbDate: results.message?.cEwbDate,
           url: pdfUrl,
           rawResponse: data
-        });
+        };
+
+        setResult(successResult);
+
+        // Save to database (in background)
+        if (currentUser?.id && challanData?.challan_no) {
+          saveConsolidatedEwbValidation({
+            challanNo: challanData.challan_no,
+            consolidatedEwbNumber: results.message?.cEwbNo,
+            includedEwbNumbers: ewbNumbers,
+            validationResult: { success: true, data: results, ...successResult },
+            userId: currentUser.id
+          }).then(saveResult => {
+            if (saveResult.success) {
+              console.log('✅ Consolidated EWB saved to database');
+            } else {
+              console.error('❌ Failed to save consolidated EWB:', saveResult.error);
+            }
+          }).catch(err => console.error('❌ Save error:', err));
+        }
         
         // Scroll to top to show success message
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -144,6 +168,23 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
       }
       
       setError(errorDetails);
+
+      // Save error to database (in background)
+      if (currentUser?.id && challanData?.challan_no) {
+        saveConsolidatedEwbValidation({
+          challanNo: challanData.challan_no,
+          consolidatedEwbNumber: null,
+          includedEwbNumbers: ewbNumbers,
+          validationResult: { success: false, error: errorDetails.message, data: errorDetails },
+          userId: currentUser.id
+        }).then(saveResult => {
+          if (saveResult.success) {
+            console.log('✅ Consolidated EWB error saved to database');
+          } else {
+            console.error('❌ Failed to save consolidated EWB error:', saveResult.error);
+          }
+        }).catch(err => console.error('❌ Save error:', err));
+      }
       
       // Scroll to top to show error message
       window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -260,19 +260,41 @@ export default function GodownBiltyList({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-slate-900">
-                      {bilty.consignor_name || '-'}
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm text-slate-900">
+                        {bilty.consignor_name || '-'}
+                      </span>
+                    </div>
+                    {bilty.consignor_number && (
+                      <a 
+                        href={`tel:${bilty.consignor_number}`}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium ml-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📞 {bilty.consignor_number}
+                      </a>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-600" />
-                    <span className="text-sm text-slate-900">
-                      {bilty.consignee_name || '-'}
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      <span className="text-sm text-slate-900">
+                        {bilty.consignee_name || '-'}
+                      </span>
+                    </div>
+                    {bilty.consignee_number && (
+                      <a 
+                        href={`tel:${bilty.consignee_number}`}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium ml-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📞 {bilty.consignee_number}
+                      </a>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -354,29 +376,51 @@ export default function GodownBiltyList({
               <div className="grid grid-cols-1 gap-3">
                 
                 {/* Consigner */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <div className="flex items-center gap-2 w-24 flex-shrink-0">
                     <User className="w-4 h-4 text-blue-600" />
                     <span className="text-xs font-medium text-slate-500 uppercase">
                       Consignor
                     </span>
                   </div>
-                  <span className="text-sm text-slate-900 font-medium">
-                    {bilty.consignor_name || '-'}
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm text-slate-900 font-medium">
+                      {bilty.consignor_name || '-'}
+                    </span>
+                    {bilty.consignor_number && (
+                      <a 
+                        href={`tel:${bilty.consignor_number}`}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📞 {bilty.consignor_number}
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {/* Consignee */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <div className="flex items-center gap-2 w-24 flex-shrink-0">
                     <Users className="w-4 h-4 text-indigo-600" />
                     <span className="text-xs font-medium text-slate-500 uppercase">
                       Consignee
                     </span>
                   </div>
-                  <span className="text-sm text-slate-900 font-medium">
-                    {bilty.consignee_name || '-'}
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm text-slate-900 font-medium">
+                      {bilty.consignee_name || '-'}
+                    </span>
+                    {bilty.consignee_number && (
+                      <a 
+                        href={`tel:${bilty.consignee_number}`}
+                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📞 {bilty.consignee_number}
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {/* Private Marks */}

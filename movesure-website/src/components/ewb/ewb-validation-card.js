@@ -139,7 +139,11 @@ const EwbValidationCard = ({
       {/* Compact Validation Details */}
       {result?.success && (
         <div className="mt-2 p-2 bg-white/80 backdrop-blur rounded border border-green-200 text-[10px]">
-          <EwbSuccessDetails data={result.data} source={result.source} />
+          <EwbSuccessDetails 
+            data={result.data} 
+            source={result.source}
+            autoCollapse={result.source === 'api'}
+          />
         </div>
       )}
       

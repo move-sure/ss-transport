@@ -1,8 +1,8 @@
 import React from 'react';
 import { CheckCircle, MapPin, FileText, Truck, Calendar, User, DollarSign, Hash, Database, ChevronDown } from 'lucide-react';
 
-const EwbSuccessDetails = ({ data, source }) => {
-  const [isExpanded, setIsExpanded] = React.useState(true);
+const EwbSuccessDetails = ({ data, source, autoCollapse = false }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   
   if (!data) return null;
 

@@ -51,7 +51,7 @@ export default function TransitFinancePage() {
                   Under Development
                 </div>
                 <p className="text-gray-600 text-lg leading-relaxed">
-                  We're building something amazing for you! Our Transit Finance module will revolutionize
+                  We&apos;re building something amazing for you! Our Transit Finance module will revolutionize
                   how you manage your financial operations.
                 </p>
               </div>

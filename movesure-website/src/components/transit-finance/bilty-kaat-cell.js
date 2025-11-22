@@ -30,6 +30,16 @@ export default function BiltyKaatCell({
   }, [grNo]);
 
   useEffect(() => {
+    // Listen for bulk kaat updates
+    const handleKaatUpdate = () => {
+      loadKaatData();
+    };
+
+    window.addEventListener('kaatDataUpdated', handleKaatUpdate);
+    return () => window.removeEventListener('kaatDataUpdated', handleKaatUpdate);
+  }, [grNo]);
+
+  useEffect(() => {
     if (isEditing && destinationCityId) {
       loadHubRates();
     }

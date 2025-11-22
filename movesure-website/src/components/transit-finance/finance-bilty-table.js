@@ -170,8 +170,8 @@ export default function FinanceBiltyTable({
 
       alert(`Successfully applied hub rate to ${filteredTransits.length} bilties!`);
       
-      // Refresh the page data
-      window.location.reload();
+      // Trigger a custom event to refresh kaat cells without page reload
+      window.dispatchEvent(new CustomEvent('kaatDataUpdated'));
 
     } catch (err) {
       console.error('Error applying hub rates:', err);

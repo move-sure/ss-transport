@@ -307,27 +307,24 @@ export default function TransitFinancePage() {
           </div>
         </div>
 
-        {/* Main Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
-          {/* Left Panel - Challan Selector */}
-          <div>
-            <FinanceChallanSelector
-              challans={challans}
-              selectedChallan={selectedChallan}
-              setSelectedChallan={setSelectedChallan}
-              branches={branches}
-              transitDetails={transitDetails}
-            />
-          </div>
+        {/* Challan Selector - Full Width at Top */}
+        <div className="mb-4">
+          <FinanceChallanSelector
+            challans={challans}
+            selectedChallan={selectedChallan}
+            setSelectedChallan={setSelectedChallan}
+            branches={branches}
+            transitDetails={transitDetails}
+          />
+        </div>
 
-          {/* Right Panel - Bilty Table */}
-          <div>
-            <FinanceBiltyTable
-              transitDetails={transitDetails}
-              selectedChallan={selectedChallan}
-              cities={cities}
-            />
-          </div>
+        {/* Bilty Table - Full Width */}
+        <div>
+          <FinanceBiltyTable
+            transitDetails={transitDetails}
+            selectedChallan={selectedChallan}
+            cities={cities}
+          />
         </div>
       </div>
 

@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { FileText, Download, DollarSign, Package, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
+import BiltyKaatCell from './bilty-kaat-cell';
 
 export default function FinanceBiltyTable({ 
   transitDetails, 
@@ -246,7 +247,7 @@ export default function FinanceBiltyTable({
         </div>
 
         {/* Financial Summary Cards - Compact */}
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-6 gap-2">
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
             <div className="text-[10px] font-semibold opacity-90">Total</div>
             <div className="text-sm font-bold">₹{(financialSummary.totalAmount / 1000).toFixed(0)}K</div>
@@ -266,6 +267,10 @@ export default function FinanceBiltyTable({
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
             <div className="text-[10px] font-semibold opacity-90">Pkgs</div>
             <div className="text-sm font-bold">{financialSummary.totalPackages}</div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+            <div className="text-[10px] font-semibold opacity-90">Weight</div>
+            <div className="text-sm font-bold">{(financialSummary.totalWeight / 1000).toFixed(1)}T</div>
           </div>
         </div>
       </div>
@@ -315,22 +320,21 @@ export default function FinanceBiltyTable({
         <table className="w-full text-xs">
           <thead className="bg-gray-200 sticky top-0 z-10">
             <tr>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">GR No</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">GR Number</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Date</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Consignor</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Consignee</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Destination</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Contents</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Pkgs</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Wt</th>
+              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Weight (KG)</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Rate</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Freight</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Labour</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Other</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Total</th>
               <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px]">Payment</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">E-Way</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Invoice</th>
+              <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px]">Kaat</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -348,8 +352,8 @@ export default function FinanceBiltyTable({
 
               return (
                 <tr key={transit.id} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-2 py-1.5 font-semibold text-blue-600">
-                    {transit.gr_no}
+                  <td className="px-2 py-1.5">
+                    <span className="font-bold text-blue-700 text-xs">{transit.gr_no}</span>
                   </td>
                   <td className="px-2 py-1.5 text-gray-600">
                     {data?.bilty_date || data?.created_at 
@@ -362,8 +366,10 @@ export default function FinanceBiltyTable({
                   <td className="px-2 py-1.5 text-gray-800 truncate max-w-[100px]" title={bilty?.consignee_name || station?.consignee || 'N/A'}>
                     {bilty?.consignee_name || station?.consignee || 'N/A'}
                   </td>
-                  <td className="px-2 py-1.5 text-gray-700 font-medium">
-                    {bilty ? getCityName(bilty.to_city_id) : getCityNameByCode(station?.station)}
+                  <td className="px-2 py-1.5">
+                    <span className="font-semibold text-purple-700 text-xs">
+                      {bilty ? getCityName(bilty.to_city_id) : getCityNameByCode(station?.station)}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-gray-600 truncate max-w-[80px]" title={bilty?.contain || station?.contents || 'N/A'}>
                     {bilty?.contain || station?.contents || 'N/A'}
@@ -371,8 +377,10 @@ export default function FinanceBiltyTable({
                   <td className="px-2 py-1.5 text-right text-gray-800">
                     {bilty?.no_of_pkg || station?.no_of_packets || 0}
                   </td>
-                  <td className="px-2 py-1.5 text-right text-gray-800">
-                    {(bilty?.wt || station?.weight || 0).toFixed(1)}
+                  <td className="px-2 py-1.5 text-right">
+                    <span className="font-semibold text-gray-900 text-xs">
+                      {(bilty?.wt || station?.weight || 0).toFixed(2)} KG
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-right text-gray-700">
                     {bilty?.rate ? parseFloat(bilty.rate).toFixed(2) : '-'}
@@ -400,11 +408,18 @@ export default function FinanceBiltyTable({
                       {(bilty?.payment_mode || station?.payment_status)?.substring(0, 4) || 'N/A'}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-gray-600 truncate max-w-[70px]" title={bilty?.e_way_bill || station?.e_way_bill || '-'}>
-                    {bilty?.e_way_bill || station?.e_way_bill || '-'}
-                  </td>
-                  <td className="px-2 py-1.5 text-gray-600 truncate max-w-[70px]" title={bilty?.invoice_no || '-'}>
-                    {bilty?.invoice_no || '-'}
+                  <td className="px-2 py-1.5">
+                    <BiltyKaatCell
+                      grNo={transit.gr_no}
+                      challanNo={selectedChallan.challan_no}
+                      destinationCityId={bilty?.to_city_id || null}
+                      biltyWeight={bilty?.wt || station?.weight || 0}
+                      biltyPackages={bilty?.no_of_pkg || station?.no_of_packets || 0}
+                      onKaatUpdate={() => {
+                        // Optional: refresh data or show notification
+                        console.log('Kaat updated for', transit.gr_no);
+                      }}
+                    />
                   </td>
                 </tr>
               );
@@ -420,7 +435,7 @@ export default function FinanceBiltyTable({
             <tr className="font-bold">
               <td colSpan="6" className="px-2 py-1.5 text-right">Total:</td>
               <td className="px-2 py-1.5 text-right">{financialSummary.totalPackages}</td>
-              <td className="px-2 py-1.5 text-right">{financialSummary.totalWeight.toFixed(1)}</td>
+              <td className="px-2 py-1.5 text-right">{financialSummary.totalWeight.toFixed(2)} KG</td>
               <td className="px-2 py-1.5"></td>
               <td className="px-2 py-1.5 text-right text-blue-800">
                 {financialSummary.totalFreight.toLocaleString()}
@@ -434,7 +449,7 @@ export default function FinanceBiltyTable({
               <td className="px-2 py-1.5 text-right text-gray-900">
                 {financialSummary.totalAmount.toLocaleString()}
               </td>
-              <td colSpan="3" className="px-2 py-1.5"></td>
+              <td colSpan="2" className="px-2 py-1.5"></td>
             </tr>
           </tfoot>
         </table>

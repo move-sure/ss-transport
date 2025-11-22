@@ -5,6 +5,7 @@ import { FileText, Download, DollarSign, Package, TrendingUp, Loader2 } from 'lu
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
 import supabase from '../../app/utils/supabase';
+import { generateFinanceBiltyPDF } from './finance-bilty-pdf-generator';
 
 export default function FinanceBiltyTable({ 
   transitDetails, 
@@ -278,55 +279,9 @@ export default function FinanceBiltyTable({
 
 
 
-  // Export to CSV
-  const handleExportCSV = () => {
-    const headers = [
-      'GR No', 'Date', 'Consignor', 'Consignee', 'Destination',
-      'Packages', 'Weight', 'Freight', 'Total Amount', 'Payment Mode',
-      'E-Way Bill', 'Invoice No', 'Invoice Value', 'Labour Charge', 'Other Charges'
-    ];
-
-    const rows = filteredTransits.map(t => {
-      const bilty = t.bilty;
-      const station = t.station;
-      const data = bilty || station;
-
-      return [
-        t.gr_no,
-        data?.bilty_date || data?.created_at 
-          ? format(new Date(data.bilty_date || data.created_at), 'dd/MM/yyyy')
-          : 'N/A',
-        bilty?.consignor_name || station?.consignor || 'N/A',
-        bilty?.consignee_name || station?.consignee || 'N/A',
-        bilty ? getCityName(bilty.to_city_id) : getCityNameByCode(station?.station),
-        bilty?.no_of_pkg || station?.no_of_packets || 0,
-        bilty?.wt || station?.weight || 0,
-        bilty?.freight_amount || 0,
-        bilty?.total || station?.amount || 0,
-        bilty?.payment_mode || station?.payment_status || 'N/A',
-        bilty?.e_way_bill || station?.e_way_bill || 'N/A',
-        bilty?.invoice_no || 'N/A',
-        bilty?.invoice_value || 'N/A',
-        bilty?.labour_charge || 0,
-        (parseFloat(bilty?.other_charge || 0) + 
-         parseFloat(bilty?.toll_charge || 0) + 
-         parseFloat(bilty?.dd_charge || 0) + 
-         parseFloat(bilty?.bill_charge || 0))
-      ];
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `challan_${selectedChallan?.challan_no}_bilties_${format(new Date(), 'yyyyMMdd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  // Download PDF
+  const handleDownloadPDF = async () => {
+    await generateFinanceBiltyPDF(filteredTransits, selectedChallan, cities, getCityName);
   };
 
   if (!selectedChallan) {
@@ -362,11 +317,11 @@ export default function FinanceBiltyTable({
             </p>
           </div>
           <button
-            onClick={handleExportCSV}
-            className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm"
+            onClick={handleDownloadPDF}
+            className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-semibold"
           >
             <Download className="w-3 h-3" />
-            Export
+            Download PDF
           </button>
         </div>
 

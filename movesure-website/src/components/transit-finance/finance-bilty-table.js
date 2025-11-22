@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { FileText, Download, DollarSign, Package, TrendingUp, Plus } from 'lucide-react';
+import { FileText, Download, DollarSign, Package, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
-import AddKaatModal from './add-kaat-modal';
 
 export default function FinanceBiltyTable({ 
   transitDetails, 
   selectedChallan,
   cities 
 }) {
-  const [showKaatModal, setShowKaatModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
   const [filterCity, setFilterCity] = useState('all');
@@ -238,22 +236,13 @@ export default function FinanceBiltyTable({
               {filteredTransits.length} {filteredTransits.length === 1 ? 'bilty' : 'bilties'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowKaatModal(true)}
-              className="bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-semibold"
-            >
-              <Plus className="w-3 h-3" />
-              Add Kaat
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm"
-            >
-              <Download className="w-3 h-3" />
-              Export
-            </button>
-          </div>
+          <button
+            onClick={handleExportCSV}
+            className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm"
+          >
+            <Download className="w-3 h-3" />
+            Export
+          </button>
         </div>
 
         {/* Financial Summary Cards - Compact */}
@@ -450,17 +439,6 @@ export default function FinanceBiltyTable({
           </tfoot>
         </table>
       </div>
-
-      {/* Add Kaat Modal */}
-      <AddKaatModal
-        isOpen={showKaatModal}
-        onClose={() => setShowKaatModal(false)}
-        cities={cities}
-        onSuccess={(data) => {
-          console.log('✅ Kaat rate added:', data);
-          // Optionally refresh data or show notification
-        }}
-      />
     </div>
   );
 }

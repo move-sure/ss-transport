@@ -172,14 +172,25 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       setSaving(true);
       setError(null);
 
+      // Get user session for created_by
+      let createdBy = null;
+      if (typeof window !== 'undefined') {
+        const userSession = localStorage.getItem('userSession');
+        if (userSession) {
+          const session = JSON.parse(userSession);
+          createdBy = session.user?.id || null;
+        }
+      }
+
       // Prepare metadata
       const metadata = {};
       if (formData.transit_days) metadata.transit_days = parseInt(formData.transit_days);
       if (formData.notes) metadata.notes = formData.notes;
 
-      // Prepare insert data
+      // Prepare insert data with transport_name and created_by
       const insertData = {
         transport_id: formData.transport_id,
+        transport_name: selectedTransport?.transport_name || null,
         destination_city_id: formData.destination_city_id,
         goods_type: formData.goods_type || null,
         pricing_mode: formData.pricing_mode,
@@ -187,8 +198,11 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
         rate_per_pkg: formData.rate_per_pkg ? parseFloat(formData.rate_per_pkg) : null,
         min_charge: formData.min_charge ? parseFloat(formData.min_charge) : 0,
         metadata: Object.keys(metadata).length > 0 ? metadata : null,
+        created_by: createdBy,
         is_active: true
       };
+
+      console.log('📤 Inserting kaat rate:', insertData);
 
       const { data, error: insertError } = await supabase
         .from('transport_hub_rates')

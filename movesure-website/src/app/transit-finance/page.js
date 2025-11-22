@@ -6,7 +6,9 @@ import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
 import FinanceChallanSelector from '../../components/transit-finance/finance-challan-selector';
 import FinanceBiltyTable from '../../components/transit-finance/finance-bilty-table';
-import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles, Loader2, AlertCircle, List, Plus } from 'lucide-react';
+import KaatListModal from '../../components/transit-finance/kaat-list-modal';
+import AddKaatModal from '../../components/transit-finance/add-kaat-modal';
 
 export default function TransitFinancePage() {
   const { user, requireAuth } = useAuth();
@@ -20,6 +22,8 @@ export default function TransitFinancePage() {
   const [cities, setCities] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedChallan, setSelectedChallan] = useState(null);
+  const [showKaatList, setShowKaatList] = useState(false);
+  const [showKaatModal, setShowKaatModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -275,14 +279,32 @@ export default function TransitFinancePage() {
       
       <div className="container mx-auto px-6 py-8">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <DollarSign className="w-8 h-8 text-blue-600" />
-            Transit Finance Dashboard
-          </h1>
-          <p className="text-gray-600 mt-2">
-            View all challans and bilty details across all branches for financial analysis
-          </p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <DollarSign className="w-8 h-8 text-blue-600" />
+              Transit Finance Dashboard
+            </h1>
+            <p className="text-gray-600 mt-2">
+              View all challans and bilty details across all branches for financial analysis
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowKaatModal(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Add Kaat
+            </button>
+            <button
+              onClick={() => setShowKaatList(true)}
+              className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+            >
+              <List className="w-5 h-5" />
+              View Kaat List
+            </button>
+          </div>
         </div>
 
         {/* Main Layout */}
@@ -308,6 +330,24 @@ export default function TransitFinancePage() {
           </div>
         </div>
       </div>
+
+      {/* Add Kaat Modal */}
+      <AddKaatModal
+        isOpen={showKaatModal}
+        onClose={() => setShowKaatModal(false)}
+        cities={cities}
+        onSuccess={(data) => {
+          console.log('✅ Kaat rate added:', data);
+          setShowKaatModal(false);
+        }}
+      />
+
+      {/* Kaat List Modal */}
+      <KaatListModal
+        isOpen={showKaatList}
+        onClose={() => setShowKaatList(false)}
+        cities={cities}
+      />
     </div>
   );
 }

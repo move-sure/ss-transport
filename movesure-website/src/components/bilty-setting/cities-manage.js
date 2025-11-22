@@ -1,8 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
+import { 
+  searchCities, 
+  findDuplicateCityNames, 
+  filterDuplicateCities, 
+  sortCities, 
+  exportToCSV,
+  validateCityCode,
+  validateCityName
+} from './cities-search-helper';
 
 const CitiesComponent = () => {
   const { user } = useAuth();
@@ -10,35 +19,41 @@ const CitiesComponent = () => {
   const [filteredCities, setFilteredCities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
   const [formData, setFormData] = useState({
     city_code: '',
     city_name: ''
   });
   const [editingId, setEditingId] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
 
   useEffect(() => {
     fetchCities();
   }, []);
 
   useEffect(() => {
-    filterCities();
-  }, [cities, searchTerm]);
+    applyFilters();
+  }, [cities, searchTerm, showDuplicatesOnly, sortBy, sortOrder]);
 
-  const filterCities = () => {
-    if (!searchTerm.trim()) {
-      setFilteredCities(cities);
-      return;
+  const applyFilters = () => {
+    let result = cities;
+    
+    // Apply duplicate filter
+    if (showDuplicatesOnly) {
+      result = filterDuplicateCities(result);
     }
-
-    const filtered = cities.filter(city => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        city.city_code?.toLowerCase().includes(searchLower) ||
-        city.city_name?.toLowerCase().includes(searchLower)
-      );
-    });
-
-    setFilteredCities(filtered);
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      result = searchCities(result, searchTerm);
+    }
+    
+    // Apply sorting
+    result = sortCities(result, sortBy, sortOrder);
+    
+    setFilteredCities(result);
   };
 
   const fetchCities = async () => {
@@ -62,8 +77,11 @@ const CitiesComponent = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.city_code.trim() || !formData.city_name.trim()) {
-      alert('Please fill all required fields');
+    const codeError = validateCityCode(formData.city_code);
+    const nameError = validateCityName(formData.city_name);
+    
+    if (codeError || nameError) {
+      alert(codeError || nameError);
       return;
     }
 
@@ -71,7 +89,6 @@ const CitiesComponent = () => {
       setLoading(true);
 
       if (editingId) {
-        // Update existing city
         const { error } = await supabase
           .from('cities')
           .update({
@@ -83,7 +100,6 @@ const CitiesComponent = () => {
         if (error) throw error;
         alert('City updated successfully!');
       } else {
-        // Add new city
         const { error } = await supabase
           .from('cities')
           .insert([{
@@ -97,6 +113,7 @@ const CitiesComponent = () => {
 
       setFormData({ city_code: '', city_name: '' });
       setEditingId(null);
+      setExpandedRows({});
       fetchCities();
     } catch (error) {
       console.error('Error saving city:', error);
@@ -112,6 +129,13 @@ const CitiesComponent = () => {
       city_name: city.city_name
     });
     setEditingId(city.id);
+    setExpandedRows({ [city.id]: true });
+  };
+  
+  const handleInlineCancel = () => {
+    setFormData({ city_code: '', city_name: '' });
+    setEditingId(null);
+    setExpandedRows({});
   };
 
   const handleDelete = async (id) => {
@@ -135,216 +159,221 @@ const CitiesComponent = () => {
     }
   };
 
-  const cancelEdit = () => {
-    setFormData({ city_code: '', city_name: '' });
-    setEditingId(null);
-  };
-
   const downloadCSV = () => {
-    const dataToExport = searchTerm && filteredCities.length > 0 ? filteredCities : cities;
-    
-    if (dataToExport.length === 0) {
-      alert('No data to export');
-      return;
+    const dataToExport = filteredCities.length > 0 ? filteredCities : cities;
+    const count = exportToCSV(dataToExport, 'cities');
+    if (count) alert(`Exported ${count} cities to CSV`);
+  };
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
     }
-
-    const headers = ['City Code', 'City Name'];
-    const csvContent = [
-      headers.join(','),
-      ...dataToExport.map(city => [
-        `"${city.city_code || ''}"`,
-        `"${city.city_name || ''}"`
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `cities_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert(`Exported ${dataToExport.length} cities to CSV`);
   };
 
-  const clearSearch = () => {
-    setSearchTerm('');
-  };
+  const duplicateNames = findDuplicateCityNames(cities);
+  const duplicateCount = filterDuplicateCities(cities).length;
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-black">Manage Cities</h2>
-        <button
-          onClick={downloadCSV}
-          disabled={cities.length === 0}
-          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          📥 Export CSV
-        </button>
+    <div className="bg-white p-3 rounded-lg">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-lg font-bold text-black">Cities</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
+            className={`px-3 py-1 text-xs rounded ${showDuplicatesOnly ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'} hover:opacity-80`}
+          >
+            {showDuplicatesOnly ? `Duplicates (${duplicateCount})` : `Show Duplicates ${duplicateCount > 0 ? `(${duplicateCount})` : ''}`}
+          </button>
+          <button
+            onClick={downloadCSV}
+            disabled={cities.length === 0}
+            className="bg-green-500 text-white px-3 py-1 text-xs rounded hover:bg-green-600 disabled:opacity-50"
+          >
+            Export
+          </button>
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative">
+      {/* Search and Add Form */}
+      <div className="mb-3 bg-gray-50 p-2 rounded">
+        <div className="flex gap-2 mb-2">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black pl-10"
-            placeholder="🔍 Search cities by code or name..."
+            className="flex-1 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-black"
+            placeholder="🔍 Search by code or name..."
           />
           {searchTerm && (
             <button
-              onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={() => setSearchTerm('')}
+              className="px-2 text-xs text-gray-600 hover:text-gray-800"
             >
               ✖
             </button>
           )}
         </div>
-      </div>
-      
-      {/* Add/Edit Form */}
-      <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold text-black mb-4">
-          {editingId ? 'Edit City' : 'Add New City'}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              City Code *
-            </label>
+        
+        {!editingId && (
+          <form onSubmit={handleSubmit} className="grid grid-cols-5 gap-2">
             <input
               type="text"
               value={formData.city_code}
               onChange={(e) => setFormData({ ...formData, city_code: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter city code (e.g., NYC)"
+              className="px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
+              placeholder="Code"
               disabled={loading}
-              required
               maxLength={10}
             />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              City Name *
-            </label>
             <input
               type="text"
               value={formData.city_name}
               onChange={(e) => setFormData({ ...formData, city_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter city name"
+              className="col-span-3 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
+              placeholder="City Name"
               disabled={loading}
-              required
               maxLength={100}
             />
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? '⏳ Saving...' : editingId ? '✏️ Update City' : '➕ Add City'}
-          </button>
-          
-          {editingId && (
             <button
-              type="button"
-              onClick={cancelEdit}
-              className="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600 font-medium"
+              type="submit"
+              disabled={loading}
+              className="bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600 disabled:opacity-50"
             >
-              ❌ Cancel
+              {loading ? '...' : 'Add'}
             </button>
-          )}
-        </div>
-      </form>
-
-      {/* Statistics */}
-      <div className="mb-4 flex justify-between items-center">
-        <div className="text-sm text-black">
-          <span className="font-medium">Total Cities: {cities.length}</span>
-          {searchTerm && (
-            <span className="ml-4 text-blue-600">
-              Filtered: {filteredCities.length} of {cities.length}
-            </span>
-          )}
-        </div>
-        {searchTerm && (
-          <button
-            onClick={clearSearch}
-            className="text-blue-600 hover:text-blue-800 text-sm underline"
-          >
-            Clear Search
-          </button>
+          </form>
         )}
       </div>
 
-      {/* Cities List */}
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full table-auto border-collapse">
+      {/* Stats */}
+      <div className="mb-2 text-xs text-gray-600 flex justify-between">
+        <span>Total: {cities.length} | Showing: {filteredCities.length}</span>
+        {duplicateCount > 0 && (
+          <span className="text-orange-600">⚠️ {duplicateCount} duplicates found</span>
+        )}
+      </div>
+
+      {/* Cities Table */}
+      <div className="overflow-x-auto border rounded">
+        <table className="w-full table-auto border-collapse text-xs">
           <thead>
             <tr className="bg-gray-100 border-b">
-              <th className="border-r px-6 py-3 text-left font-bold text-black">City Code</th>
-              <th className="border-r px-6 py-3 text-left font-bold text-black">City Name</th>
-              <th className="px-6 py-3 text-left font-bold text-black">Actions</th>
+              <th 
+                className="border-r px-2 py-2 text-left font-bold text-black cursor-pointer hover:bg-gray-200"
+                onClick={() => toggleSort('code')}
+              >
+                Code {sortBy === 'code' && (sortOrder === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                className="border-r px-2 py-2 text-left font-bold text-black cursor-pointer hover:bg-gray-200"
+                onClick={() => toggleSort('name')}
+              >
+                City Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-2 py-2 text-left font-bold text-black w-20">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredCities.length > 0 ? filteredCities.map((city, index) => (
-              <tr key={city.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                <td className="border-r px-6 py-4 text-black font-medium">{city.city_code}</td>
-                <td className="border-r px-6 py-4 text-black">{city.city_name}</td>
-                <td className="px-6 py-4">
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleEdit(city)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
-                      disabled={loading}
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(city.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors"
-                      disabled={loading}
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
+            {filteredCities.length > 0 ? filteredCities.map((city) => {
+              const isDuplicate = duplicateNames.has(city.city_name?.toLowerCase().trim());
+              return (
+                <React.Fragment key={city.id}>
+                  <tr className={`hover:bg-blue-50 ${isDuplicate ? 'bg-orange-50' : ''}`}>
+                    <td className="border-r border-t px-2 py-2 text-black font-medium">
+                      {city.city_code}
+                    </td>
+                    <td className="border-r border-t px-2 py-2 text-black">
+                      {city.city_name}
+                      {isDuplicate && <span className="ml-2 text-orange-600">⚠️</span>}
+                    </td>
+                    <td className="border-t px-2 py-2">
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEdit(city)}
+                          className="text-blue-600 hover:text-blue-800 px-1"
+                          disabled={loading}
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDelete(city.id)}
+                          className="text-red-600 hover:text-red-800 px-1"
+                          disabled={loading}
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  {editingId === city.id && expandedRows[city.id] && (
+                    <tr>
+                      <td colSpan="3" className="border-t bg-blue-50 px-2 py-2">
+                        <form onSubmit={handleSubmit} className="grid grid-cols-6 gap-2">
+                          <input
+                            type="text"
+                            value={formData.city_code}
+                            onChange={(e) => setFormData({ ...formData, city_code: e.target.value.toUpperCase() })}
+                            className="px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
+                            placeholder="Code"
+                            disabled={loading}
+                            maxLength={10}
+                          />
+                          <input
+                            type="text"
+                            value={formData.city_name}
+                            onChange={(e) => setFormData({ ...formData, city_name: e.target.value })}
+                            className="col-span-3 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
+                            placeholder="City Name"
+                            disabled={loading}
+                            maxLength={100}
+                          />
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600 disabled:opacity-50"
+                          >
+                            {loading ? '...' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleInlineCancel}
+                            className="bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            }) : (
               <tr>
-                <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
+                <td colSpan="3" className="px-2 py-8 text-center text-gray-500 text-xs">
                   {loading ? (
                     <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                      Loading cities...
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      Loading...
                     </div>
-                  ) : searchTerm ? (
+                  ) : searchTerm || showDuplicatesOnly ? (
                     <div>
-                      <p className="text-lg mb-2">🔍 No cities found matching {searchTerm}</p>
+                      <p>No cities found</p>
                       <button
-                        onClick={clearSearch}
-                        className="text-blue-600 hover:text-blue-800 underline"
+                        onClick={() => { setSearchTerm(''); setShowDuplicatesOnly(false); }}
+                        className="text-blue-600 hover:text-blue-800 underline mt-1"
                       >
-                        Clear search to see all cities
+                        Clear filters
                       </button>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-lg mb-2">🏙️ No cities found</p>
-                      <p className="text-sm">Add your first city using the form above</p>
-                    </div>
+                    <p>No cities found. Add your first city above.</p>
                   )}
                 </td>
               </tr>

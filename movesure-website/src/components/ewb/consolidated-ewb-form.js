@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Truck, FileText, Calendar, MapPin, Send, Loader2, CheckCircle, Download, ExternalLink, Copy, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { Shield, Truck, FileText, Calendar, MapPin, Send, Loader2, CheckCircle, Download, ExternalLink, Copy, AlertTriangle, ChevronLeft, FileStack } from 'lucide-react';
 import { saveConsolidatedEwbValidation } from '../../utils/ewbValidationStorage';
 import { useAuth } from '../../app/utils/auth';
+import supabase from '../../app/utils/supabase';
 
 const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   const [formData, setFormData] = useState({
@@ -18,9 +19,41 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [existingCewbs, setExistingCewbs] = useState([]);
+  const [loadingExisting, setLoadingExisting] = useState(true);
   
   // Get current user from auth context
   const { user: currentUser } = useAuth();
+
+  // Fetch existing consolidated EWBs for this challan
+  useEffect(() => {
+    const fetchExistingCewbs = async () => {
+      if (!challanData?.challan_no) {
+        setLoadingExisting(false);
+        return;
+      }
+
+      try {
+        setLoadingExisting(true);
+        const { data, error } = await supabase
+          .from('consolidated_ewb_validations')
+          .select('*')
+          .eq('challan_no', challanData.challan_no)
+          .order('validated_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log('📋 Found existing consolidated EWBs:', data);
+        setExistingCewbs(data || []);
+      } catch (err) {
+        console.error('❌ Error fetching existing consolidated EWBs:', err);
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+
+    fetchExistingCewbs();
+  }, [challanData?.challan_no]);
 
   // Update vehicle number from challan data
   useEffect(() => {
@@ -230,6 +263,98 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
           </button>
         </div>
       </div>
+
+      {/* Existing Consolidated EWBs */}
+      {loadingExisting ? (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <span className="text-gray-600">Loading existing consolidated EWBs...</span>
+          </div>
+        </div>
+      ) : existingCewbs.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FileStack className="w-5 h-5 text-blue-600" />
+              Previously Created Consolidated E-Way Bills - Challan {challanData?.challan_no}
+            </h3>
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+              {existingCewbs.length} Record{existingCewbs.length > 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {existingCewbs.map((cewb, index) => (
+              <div key={cewb.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-lg font-bold text-gray-900 font-mono">{cewb.consolidated_ewb_number}</span>
+                      {cewb.is_valid ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Valid</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">Invalid</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-600">Total EWBs:</span>
+                        <span className="ml-1 font-semibold text-gray-900">{cewb.total_ewb_count || cewb.included_ewb_numbers?.length || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Created:</span>
+                        <span className="ml-1 font-semibold text-gray-900">
+                          {new Date(cewb.validated_at).toLocaleDateString('en-GB')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Time:</span>
+                        <span className="ml-1 font-semibold text-gray-900">
+                          {new Date(cewb.validated_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Status:</span>
+                        <span className="ml-1 font-semibold text-gray-900">{cewb.validation_status || 'N/A'}</span>
+                      </div>
+                    </div>
+                    {cewb.included_ewb_numbers && cewb.included_ewb_numbers.length > 0 && (
+                      <div className="mt-2">
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium">View included EWBs ({cewb.included_ewb_numbers.length})</summary>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {cewb.included_ewb_numbers.map((ewb, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-blue-50 text-blue-900 rounded font-mono text-xs">{ewb}</span>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                  {cewb.raw_result_metadata?.url && (
+                    <a
+                      href={cewb.raw_result_metadata.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download PDF
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs text-blue-700">
+              💡 You can create a new consolidated EWB below if needed. Each consolidation is saved for your records.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Success Result */}
       {result && result.success && (

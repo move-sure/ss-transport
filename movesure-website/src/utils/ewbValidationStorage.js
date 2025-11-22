@@ -344,3 +344,184 @@ export async function getLatestEwbValidation(ewbNumber) {
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Save or update transporter update result to database
+ * Uses upsert logic to ensure only one row per EWB number
+ */
+export async function saveTransporterUpdate({
+  challanNo,
+  grNo,
+  ewbNumber,
+  transporterId,
+  transporterName,
+  userGstin,
+  updateResult,
+  userId
+}) {
+  try {
+    console.log('💾 Saving transporter update:', { 
+      userId, 
+      challanNo, 
+      grNo,
+      ewbNumber,
+      transporterId,
+      success: updateResult?.success 
+    });
+
+    if (!userId) {
+      console.error('❌ No userId provided for transporter update save');
+      return { success: false, error: 'User ID is required' };
+    }
+
+    if (!ewbNumber) {
+      console.error('❌ No ewbNumber provided for transporter update save');
+      return { success: false, error: 'EWB number is required' };
+    }
+
+    const transporterData = {
+      updated_by: userId,
+      challan_no: challanNo || null,
+      gr_no: grNo || null,
+      ewb_number: ewbNumber,
+      transporter_id: transporterId,
+      transporter_name: transporterName,
+      user_gstin: userGstin || null,
+      is_success: updateResult?.success || false,
+      update_status: updateResult?.success ? 'SUCCESS' : 'FAILED',
+      error_message: updateResult?.error || updateResult?.message || null,
+      pdf_url: updateResult?.pdfUrl || null,
+      update_date: updateResult?.updateDate || null,
+      raw_result_metadata: {
+        success: updateResult?.success,
+        ewbNumber: updateResult?.ewbNumber,
+        transporterId: updateResult?.transporterId,
+        transporterName: updateResult?.transporterName,
+        updateDate: updateResult?.updateDate,
+        pdfUrl: updateResult?.pdfUrl,
+        rawResponse: updateResult?.rawResponse,
+        error: updateResult?.error,
+        fullData: updateResult
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    console.log('💾 Upserting transporter update data:', transporterData);
+
+    // Check if record exists for this EWB
+    const { data: existing } = await supabase
+      .from('transporter_updates')
+      .select('id')
+      .eq('ewb_number', ewbNumber)
+      .single();
+
+    let data, error;
+
+    if (existing) {
+      // Update existing record
+      console.log('🔄 Updating existing transporter update record:', existing.id);
+      const updateResult = await supabase
+        .from('transporter_updates')
+        .update(transporterData)
+        .eq('id', existing.id)
+        .select();
+      data = updateResult.data;
+      error = updateResult.error;
+    } else {
+      // Insert new record
+      console.log('➕ Creating new transporter update record');
+      const insertResult = await supabase
+        .from('transporter_updates')
+        .insert([transporterData])
+        .select();
+      data = insertResult.data;
+      error = insertResult.error;
+    }
+
+    if (error) {
+      console.error('❌ Supabase error saving transporter update:', error);
+      throw error;
+    }
+
+    console.log('✅ Transporter update saved successfully:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Failed to save transporter update:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get transporter update history for a challan
+ */
+export async function getTransporterUpdateHistory(challanNo) {
+  try {
+    const { data, error } = await supabase
+      .from('transporter_updates')
+      .select('*')
+      .eq('challan_no', challanNo)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Failed to fetch transporter update history:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get latest transporter update for a specific EWB number
+ */
+export async function getLatestTransporterUpdate(ewbNumber) {
+  try {
+    const { data, error } = await supabase
+      .from('transporter_updates')
+      .select('*')
+      .eq('ewb_number', ewbNumber)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Failed to fetch latest transporter update:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get transporter updates for multiple EWB numbers
+ */
+export async function getTransporterUpdatesByEwbNumbers(ewbNumbers) {
+  try {
+    if (!ewbNumbers || ewbNumbers.length === 0) {
+      return { success: true, data: {} };
+    }
+
+    console.log('🔍 Fetching transporter updates for', ewbNumbers.length, 'EWBs');
+
+    const { data, error } = await supabase
+      .from('transporter_updates')
+      .select('*')
+      .in('ewb_number', ewbNumbers);
+
+    if (error) {
+      console.error('❌ Error fetching transporter updates:', error);
+      throw error;
+    }
+
+    // Convert to map keyed by ewb_number
+    const updatesMap = {};
+    data.forEach(update => {
+      updatesMap[update.ewb_number] = update;
+    });
+
+    console.log('✅ Fetched transporter updates for', Object.keys(updatesMap).length, 'EWBs');
+    return { success: true, data: updatesMap };
+  } catch (error) {
+    console.error('❌ Failed to fetch transporter updates:', error);
+    return { success: false, error: error.message, data: {} };
+  }
+}

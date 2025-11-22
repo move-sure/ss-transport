@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Shield, CheckCircle, AlertTriangle, Database, FileStack, Edit3 } from 'lucide-react';
+import { Shield, CheckCircle, AlertTriangle, Database, FileStack, Edit3, XCircle, Filter } from 'lucide-react';
 import EWBFilter from './ewb-filter';
 import EWBDetailsModal from './ewb-details-modal';
 import EwbValidationComponent from './ewb-validation-component';
 import ConsolidatedEwbForm from './consolidated-ewb-form';
 import TransporterUpdateModal from './transporter-update-modal';
 import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation';
+import { getTransporterUpdatesByEwbNumbers } from '../../utils/ewbValidationStorage';
 
 export default function TransitDetailsTable({ transitDetails, challanDetails }) {
   const [selectedGRs, setSelectedGRs] = useState([]);
@@ -17,6 +18,8 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
   const [showTransporterModal, setShowTransporterModal] = useState(false);
   const [selectedTransporterGR, setSelectedTransporterGR] = useState(null);
   const [validationMap, setValidationMap] = useState({});
+  const [transporterUpdatesMap, setTransporterUpdatesMap] = useState({});
+  const [hideKanpurDestination, setHideKanpurDestination] = useState(false);
 
   // Get all EWB numbers from transit details
   const allEwbNumbers = useMemo(() => {
@@ -156,6 +159,20 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     });
   }, [allEwbNumbers]);
 
+  // Fetch transporter updates for all EWB numbers
+  useEffect(() => {
+    if (!allEwbNumbers || allEwbNumbers.length === 0) {
+      setTransporterUpdatesMap({});
+      return;
+    }
+
+    getTransporterUpdatesByEwbNumbers(allEwbNumbers).then(result => {
+      if (result.success) {
+        setTransporterUpdatesMap(result.data);
+      }
+    });
+  }, [allEwbNumbers]);
+
   const handleValidationResults = useCallback((results = []) => {
     if (!Array.isArray(results) || results.length === 0) return;
 
@@ -180,25 +197,41 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     });
   }, [selectedEwbNumbers, validationMap]);
 
-  // Filter transit details based on E-Way Bill availability
+  // Check if destination is Kanpur
+  const isKanpurDestination = (transit) => {
+    const cityName = transit.toCity?.city_name?.toLowerCase() || 
+                    transit.station?.station?.toLowerCase() || 
+                    transit.bilty?.to_location?.toLowerCase() || '';
+    return cityName.includes('kanpur');
+  };
+
+  // Filter transit details based on E-Way Bill availability and Kanpur filter
   const filteredTransitDetails = useMemo(() => {
     if (!transitDetails) return [];
     
+    let filtered = transitDetails;
+
+    // Apply Kanpur filter first
+    if (hideKanpurDestination) {
+      filtered = filtered.filter(t => !isKanpurDestination(t));
+    }
+    
+    // Then apply EWB filter
     if (filterType === 'with_ewb') {
-      return transitDetails.filter(t => {
+      return filtered.filter(t => {
         const biltyEWBs = t.bilty?.e_way_bill ? t.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
         const stationEWBs = t.station?.e_way_bill ? t.station.e_way_bill.split(',').filter(e => e.trim()) : [];
         return biltyEWBs.length > 0 || stationEWBs.length > 0;
       });
     } else if (filterType === 'without_ewb') {
-      return transitDetails.filter(t => {
+      return filtered.filter(t => {
         const biltyEWBs = t.bilty?.e_way_bill ? t.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
         const stationEWBs = t.station?.e_way_bill ? t.station.e_way_bill.split(',').filter(e => e.trim()) : [];
         return biltyEWBs.length === 0 && stationEWBs.length === 0;
       });
     }
-    return transitDetails;
-  }, [transitDetails, filterType]);
+    return filtered;
+  }, [transitDetails, filterType, hideKanpurDestination]);
 
   // Count statistics - total number of E-Way Bills (not GR numbers)
   const hasEWBCount = useMemo(() => 
@@ -309,9 +342,23 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
       {!showConsolidatedForm && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">
-            Transit Details ({filteredTransitDetails.length} GR Numbers)
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-gray-800">
+              Transit Details ({filteredTransitDetails.length} GR Numbers)
+            </h2>
+            <button
+              onClick={() => setHideKanpurDestination(!hideKanpurDestination)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                hideKanpurDestination
+                  ? 'bg-purple-600 text-white hover:bg-purple-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              title="Kanpur destinations don't require transporter updates"
+            >
+              <Filter className="w-3 h-3" />
+              {hideKanpurDestination ? 'Show Kanpur' : 'Hide Kanpur'}
+            </button>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowValidation(!showValidation)}
@@ -379,6 +426,7 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">GR Number</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">E-Way Bill</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Transporter Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Consignor</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">To (Destination)</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Invoice Value</th>
@@ -464,6 +512,81 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                       </div>
                     ) : (
                       <span className="text-xs text-orange-600 font-medium">Not Generated</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {hasEWB(transit) ? (
+                      isKanpurDestination(transit) ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded font-medium">Not Required</span>
+                          <span className="text-xs text-purple-600">(Kanpur)</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {transit.bilty?.e_way_bill && transit.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                            const trimmedEwb = ewb.trim();
+                            const transporterUpdate = transporterUpdatesMap[trimmedEwb];
+                            
+                            if (!transporterUpdate) {
+                              return (
+                                <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
+                                  <XCircle className="w-3 h-3 text-gray-400" />
+                                  <span className="text-xs text-gray-500">Not Updated</span>
+                                </div>
+                              );
+                            }
+                            
+                            const isSuccess = transporterUpdate.update_result?.success === true;
+                            return (
+                              <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
+                                {isSuccess ? (
+                                  <>
+                                    <CheckCircle className="w-3 h-3 text-green-600" />
+                                    <span className="text-xs text-green-700 font-medium">Updated</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="w-3 h-3 text-red-600" />
+                                    <span className="text-xs text-red-700 font-medium">Failed</span>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {transit.station?.e_way_bill && transit.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                            const trimmedEwb = ewb.trim();
+                            const transporterUpdate = transporterUpdatesMap[trimmedEwb];
+                            
+                            if (!transporterUpdate) {
+                              return (
+                                <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
+                                  <XCircle className="w-3 h-3 text-gray-400" />
+                                  <span className="text-xs text-gray-500">Not Updated</span>
+                                </div>
+                              );
+                            }
+                            
+                            const isSuccess = transporterUpdate.update_result?.success === true;
+                            return (
+                              <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
+                                {isSuccess ? (
+                                  <>
+                                    <CheckCircle className="w-3 h-3 text-green-600" />
+                                    <span className="text-xs text-green-700 font-medium">Updated</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="w-3 h-3 text-red-600" />
+                                    <span className="text-xs text-red-700 font-medium">Failed</span>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700">
@@ -562,7 +685,17 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
         {/* Transporter Update Modal */}
         <TransporterUpdateModal
           isOpen={showTransporterModal}
-          onClose={() => setShowTransporterModal(false)}
+          onClose={() => {
+            setShowTransporterModal(false);
+            // Refetch transporter updates after modal closes
+            if (allEwbNumbers && allEwbNumbers.length > 0) {
+              getTransporterUpdatesByEwbNumbers(allEwbNumbers).then(result => {
+                if (result.success) {
+                  setTransporterUpdatesMap(result.data);
+                }
+              });
+            }
+          }}
           grData={selectedTransporterGR}
           ewbNumbers={selectedTransporterGR ? [
             ...(selectedTransporterGR.bilty?.e_way_bill ? selectedTransporterGR.bilty.e_way_bill.split(',').filter(e => e.trim()).map(e => e.trim()) : []),

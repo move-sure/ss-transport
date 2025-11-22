@@ -1,10 +1,72 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, AlertTriangle, XCircle, Shield, Edit3 } from 'lucide-react';
+import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation';
+import { getTransporterUpdatesByEwbNumbers, getEwbValidationsByNumbers } from '../../utils/ewbValidationStorage';
 
 export default function EWBDetailsModal({ isOpen, onClose, grData }) {
+  const [transporterUpdates, setTransporterUpdates] = useState({});
+  const [validationStatuses, setValidationStatuses] = useState({});
+
+  // Get all EWB numbers from grData
+  const allEwbNumbers = React.useMemo(() => {
+    if (!grData) return [];
+    const ewbs = [];
+    if (grData.bilty?.e_way_bill) {
+      ewbs.push(...grData.bilty.e_way_bill.split(',').map(e => e.trim()).filter(e => e));
+    }
+    if (grData.station?.e_way_bill) {
+      ewbs.push(...grData.station.e_way_bill.split(',').map(e => e.trim()).filter(e => e));
+    }
+    return [...new Set(ewbs)];
+  }, [grData]);
+
+  // Fetch transporter updates and validation statuses
+  useEffect(() => {
+    if (!isOpen || allEwbNumbers.length === 0) return;
+
+    // Fetch transporter updates
+    getTransporterUpdatesByEwbNumbers(allEwbNumbers).then(result => {
+      if (result.success) {
+        setTransporterUpdates(result.data);
+      }
+    });
+
+    // Fetch validation statuses from database first, then fallback to cache
+    getEwbValidationsByNumbers(allEwbNumbers).then(result => {
+      const statuses = {};
+      
+      if (result.success && result.data) {
+        // Use database validations
+        Object.entries(result.data).forEach(([ewb, validation]) => {
+          statuses[ewb] = {
+            isValid: validation.is_valid === true,
+            data: validation,
+            source: 'database'
+          };
+        });
+      }
+      
+      // Fallback to localStorage cache for any missing EWBs
+      allEwbNumbers.forEach(ewb => {
+        if (!statuses[ewb]) {
+          const cached = getCachedValidation(ewb);
+          if (cached) {
+            statuses[ewb] = {
+              isValid: cached.verified === true,
+              data: cached,
+              source: 'cache'
+            };
+          }
+        }
+      });
+      
+      setValidationStatuses(statuses);
+    });
+  }, [isOpen, allEwbNumbers]);
   if (!isOpen || !grData) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
@@ -21,22 +83,219 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* E-Way Bill Section */}
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 border-l-4 border-green-500">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">E-Way Bill Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Bilty E-Way Bill</p>
-                <p className="font-semibold text-gray-900">
-                  {grData.bilty?.e_way_bill || 'Not Available'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Station E-Way Bill</p>
-                <p className="font-semibold text-gray-900">
-                  {grData.station?.e_way_bill || 'Not Available'}
-                </p>
-              </div>
+          {/* E-Way Bill Status Section */}
+          <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 rounded-lg p-6 border-2 border-blue-300 shadow-lg">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-6 h-6 text-blue-600" />
+              <h3 className="text-lg font-bold text-gray-800">E-Way Bill Status</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Bilty E-Way Bills */}
+              {grData.bilty?.e_way_bill && grData.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                const trimmedEwb = ewb.trim();
+                const validation = validationStatuses[trimmedEwb];
+                const transporterUpdate = transporterUpdates[trimmedEwb];
+                
+                return (
+                  <div key={`bilty-${idx}`} className="bg-white rounded-lg p-4 border-2 border-green-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-600">Bilty EWB #{idx + 1}</span>
+                        <span className="text-base font-mono font-bold text-green-700">
+                          {formatEwbNumber(trimmedEwb)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Validation Status */}
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Shield className="w-4 h-4 text-blue-600" />
+                          <span className="text-xs font-semibold text-blue-800 uppercase">Validation</span>
+                        </div>
+                        {validation ? (
+                          <div className="flex items-center gap-2">
+                            {validation.isValid ? (
+                              <>
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="text-sm font-bold text-green-700">Validated</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                <span className="text-sm font-bold text-red-700">Invalid</span>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-500">Not Validated</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Transporter Status */}
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Edit3 className="w-4 h-4 text-orange-600" />
+                          <span className="text-xs font-semibold text-orange-800 uppercase">Transporter</span>
+                        </div>
+                        {transporterUpdate ? (
+                          transporterUpdate.update_result?.success ? (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                              <span className="text-sm font-bold text-green-700">Updated</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                <span className="text-sm font-bold text-red-700">Failed</span>
+                              </div>
+                              {transporterUpdate.update_result?.error && (
+                                <p className="text-xs text-red-600 mt-1">
+                                  {transporterUpdate.update_result.error}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-500">Not Updated</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Transporter Details if updated */}
+                    {transporterUpdate?.transporter_id && (
+                      <div className="mt-3 pt-3 border-t border-green-200">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-600">Transporter ID:</span>
+                            <p className="font-mono font-semibold text-gray-900">{transporterUpdate.transporter_id}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Transporter Name:</span>
+                            <p className="font-semibold text-gray-900">{transporterUpdate.transporter_name}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* Station E-Way Bills */}
+              {grData.station?.e_way_bill && grData.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                const trimmedEwb = ewb.trim();
+                const validation = validationStatuses[trimmedEwb];
+                const transporterUpdate = transporterUpdates[trimmedEwb];
+                
+                return (
+                  <div key={`station-${idx}`} className="bg-white rounded-lg p-4 border-2 border-blue-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-600">Station EWB #{idx + 1}</span>
+                        <span className="text-base font-mono font-bold text-blue-700">
+                          {formatEwbNumber(trimmedEwb)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Validation Status */}
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Shield className="w-4 h-4 text-blue-600" />
+                          <span className="text-xs font-semibold text-blue-800 uppercase">Validation</span>
+                        </div>
+                        {validation ? (
+                          <div className="flex items-center gap-2">
+                            {validation.isValid ? (
+                              <>
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="text-sm font-bold text-green-700">Validated</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                <span className="text-sm font-bold text-red-700">Invalid</span>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-500">Not Validated</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Transporter Status */}
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Edit3 className="w-4 h-4 text-orange-600" />
+                          <span className="text-xs font-semibold text-orange-800 uppercase">Transporter</span>
+                        </div>
+                        {transporterUpdate ? (
+                          transporterUpdate.update_result?.success ? (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                              <span className="text-sm font-bold text-green-700">Updated</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                <span className="text-sm font-bold text-red-700">Failed</span>
+                              </div>
+                              {transporterUpdate.update_result?.error && (
+                                <p className="text-xs text-red-600 mt-1">
+                                  {transporterUpdate.update_result.error}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-500">Not Updated</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Transporter Details if updated */}
+                    {transporterUpdate?.transporter_id && (
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-600">Transporter ID:</span>
+                            <p className="font-mono font-semibold text-gray-900">{transporterUpdate.transporter_id}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Transporter Name:</span>
+                            <p className="font-semibold text-gray-900">{transporterUpdate.transporter_name}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* No EWB */}
+              {!grData.bilty?.e_way_bill && !grData.station?.e_way_bill && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
+                  <XCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 font-medium">No E-Way Bills Available</p>
+                </div>
+              )}
             </div>
           </div>
 

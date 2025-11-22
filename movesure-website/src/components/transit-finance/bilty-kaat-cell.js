@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Edit2, Save, X, Loader2, Plus } from 'lucide-react';
+import { Edit2, Save, X, Loader2, Plus, Trash2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 export default function BiltyKaatCell({ 
@@ -247,6 +247,38 @@ export default function BiltyKaatCell({
     setIsEditing(false);
   };
 
+  const handleDelete = async () => {
+    if (!kaatData) return;
+    
+    const confirmed = window.confirm('Delete this kaat entry?');
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('bilty_wise_kaat')
+        .delete()
+        .eq('gr_no', grNo);
+
+      if (error) throw error;
+
+      setKaatData(null);
+      setFormData({
+        transport_hub_rate_id: '',
+        rate_type: 'per_kg',
+        rate_per_kg: '',
+        rate_per_pkg: ''
+      });
+      
+      if (onKaatUpdate) onKaatUpdate();
+    } catch (err) {
+      console.error('Error deleting kaat:', err);
+      alert('Failed to delete kaat: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (isEditing) {
     return (
       <div className="min-w-[280px]">
@@ -398,13 +430,24 @@ export default function BiltyKaatCell({
                 ₹{calculateAmount()}
               </div>
             </div>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors opacity-0 group-hover:opacity-100"
-              title="Edit"
-            >
-              <Edit2 className="w-3 h-3" />
-            </button>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                title="Edit"
+                disabled={saving}
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                title="Delete"
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

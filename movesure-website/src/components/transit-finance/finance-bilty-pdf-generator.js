@@ -182,8 +182,15 @@ export const generateFinanceBiltyPDF = async (filteredTransits, selectedChallan,
     }
   });
 
-  // Add totals row - merged with main table
-  const tableEndY = doc.lastAutoTable.finalY;
+  // Get column widths from the main table to ensure alignment
+  const mainTable = doc.lastAutoTable;
+  const columnWidths = {};
+  mainTable.columns.forEach((col, index) => {
+    columnWidths[index] = { cellWidth: col.width };
+  });
+
+  // Add totals row - using exact column widths from main table
+  const tableEndY = mainTable.finalY;
 
   autoTable(doc, {
     startY: tableEndY,
@@ -199,23 +206,23 @@ export const generateFinanceBiltyPDF = async (filteredTransits, selectedChallan,
       lineWidth: 0.3
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 'auto' },
-      1: { halign: 'center', cellWidth: 'auto' },
-      2: { halign: 'center', cellWidth: 'auto' },
-      3: { halign: 'left', cellWidth: 'auto', fontStyle: 'bold' },
-      4: { halign: 'center', cellWidth: 'auto' },
-      5: { halign: 'center', cellWidth: 'auto' },
-      6: { halign: 'center', cellWidth: 'auto', fontStyle: 'bold' },
-      7: { halign: 'center', cellWidth: 'auto', fontStyle: 'bold' },
-      8: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
-      9: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
-      10: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
-      11: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
-      12: { halign: 'right', cellWidth: 'auto', fontStyle: 'bold' },
-      13: { halign: 'center', cellWidth: 'auto' }
+      0: { halign: 'center', ...columnWidths[0] },
+      1: { halign: 'center', ...columnWidths[1] },
+      2: { halign: 'center', ...columnWidths[2] },
+      3: { halign: 'left', fontStyle: 'bold', ...columnWidths[3] },
+      4: { halign: 'center', ...columnWidths[4] },
+      5: { halign: 'center', ...columnWidths[5] },
+      6: { halign: 'center', fontStyle: 'bold', ...columnWidths[6] },
+      7: { halign: 'center', fontStyle: 'bold', ...columnWidths[7] },
+      8: { halign: 'right', fontStyle: 'bold', ...columnWidths[8] },
+      9: { halign: 'right', fontStyle: 'bold', ...columnWidths[9] },
+      10: { halign: 'right', fontStyle: 'bold', ...columnWidths[10] },
+      11: { halign: 'right', fontStyle: 'bold', ...columnWidths[11] },
+      12: { halign: 'right', fontStyle: 'bold', ...columnWidths[12] },
+      13: { halign: 'center', ...columnWidths[13] }
     },
     margin: { left: margin, right: margin },
-    tableWidth: 'auto'
+    tableWidth: mainTable.width
   });
 
   // Add signature area

@@ -326,14 +326,10 @@ export default function FinanceBiltyTable({
         </div>
 
         {/* Financial Summary Cards - Compact */}
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
             <div className="text-[10px] font-semibold opacity-90">Total</div>
             <div className="text-sm font-bold">₹{(financialSummary.totalAmount / 1000).toFixed(0)}K</div>
-          </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-            <div className="text-[10px] font-semibold opacity-90">Freight</div>
-            <div className="text-sm font-bold">{Math.round(financialSummary.totalFreight)} KG</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
             <div className="text-[10px] font-semibold opacity-90">Paid</div>
@@ -445,10 +441,6 @@ export default function FinanceBiltyTable({
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Contents</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Pkgs</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Weight (KG)</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Rate</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Freight</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Labour</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Other</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Total</th>
               <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px]">Payment</th>
               <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px]">Kaat</th>
@@ -499,18 +491,6 @@ export default function FinanceBiltyTable({
                       {(bilty?.wt || station?.weight || 0).toFixed(2)} KG
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-right text-gray-700">
-                    {bilty?.rate ? parseFloat(bilty.rate).toFixed(2) : '-'}
-                  </td>
-                  <td className="px-2 py-1.5 text-right font-medium text-blue-700">
-                    {(bilty?.freight_amount || 0).toLocaleString()}
-                  </td>
-                  <td className="px-2 py-1.5 text-right text-gray-700">
-                    {bilty?.labour_charge ? parseFloat(bilty.labour_charge).toFixed(0) : '-'}
-                  </td>
-                  <td className="px-2 py-1.5 text-right text-gray-700">
-                    {otherCharges > 0 ? otherCharges.toFixed(0) : '-'}
-                  </td>
                   <td className="px-2 py-1.5 text-right font-semibold text-gray-900">
                     {(bilty?.total || station?.amount || 0).toLocaleString()}
                   </td>
@@ -555,16 +535,6 @@ export default function FinanceBiltyTable({
               <td colSpan="6" className="px-2 py-1.5 text-right">Total:</td>
               <td className="px-2 py-1.5 text-right">{financialSummary.totalPackages}</td>
               <td className="px-2 py-1.5 text-right">{financialSummary.totalWeight.toFixed(2)} KG</td>
-              <td className="px-2 py-1.5"></td>
-              <td className="px-2 py-1.5 text-right text-blue-800">
-                {financialSummary.totalFreight.toLocaleString()}
-              </td>
-              <td className="px-2 py-1.5 text-right">
-                {financialSummary.totalLabour.toLocaleString()}
-              </td>
-              <td className="px-2 py-1.5 text-right">
-                {financialSummary.totalOtherCharges.toLocaleString()}
-              </td>
               <td className="px-2 py-1.5 text-right text-gray-900">
                 {financialSummary.totalAmount.toLocaleString()}
               </td>

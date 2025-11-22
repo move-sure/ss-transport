@@ -12,7 +12,7 @@ export default function FinanceBiltyTable({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
-  const [filterCity, setFilterCity] = useState('all');
+  const [filterCity, setFilterCity] = useState('');
 
   // Get city name by ID
   const getCityName = (cityId) => {
@@ -61,22 +61,22 @@ export default function FinanceBiltyTable({
     // Payment mode filter
     if (filterPaymentMode !== 'all') {
       filtered = filtered.filter(t => {
-        const mode = t.bilty?.payment_mode || t.station?.payment_status;
+        const mode = (t.bilty?.payment_mode || t.station?.payment_status)?.toLowerCase();
         return mode === filterPaymentMode;
       });
     }
 
-    // City filter
-    if (filterCity !== 'all') {
+    // City filter - text search
+    if (filterCity.trim()) {
+      const cityQuery = filterCity.toLowerCase();
       filtered = filtered.filter(t => {
+        let cityName = '';
         if (t.bilty) {
-          return t.bilty.to_city_id === filterCity;
+          cityName = getCityName(t.bilty.to_city_id).toLowerCase();
+        } else if (t.station) {
+          cityName = getCityNameByCode(t.station.station).toLowerCase();
         }
-        if (t.station) {
-          const city = cities?.find(c => c.city_code === t.station.station);
-          return city?.id === filterCity;
-        }
-        return false;
+        return cityName.includes(cityQuery);
       });
     }
 
@@ -110,9 +110,9 @@ export default function FinanceBiltyTable({
                             parseFloat(bilty.dd_charge || 0) + 
                             parseFloat(bilty.bill_charge || 0);
         
-        if (bilty.payment_mode === 'PAID') paidCount++;
-        else if (bilty.payment_mode === 'TO BILL') toBillCount++;
-        else if (bilty.payment_mode === 'TO PAID') toPaidCount++;
+        if (bilty.payment_mode?.toLowerCase() === 'paid') paidCount++;
+        else if (bilty.payment_mode?.toLowerCase() === 'to-pay') toBillCount++;
+        else if (bilty.payment_mode?.toLowerCase() === 'foc') toPaidCount++;
       }
 
       if (station) {
@@ -120,9 +120,9 @@ export default function FinanceBiltyTable({
         totalPackages += parseInt(station.no_of_packets || 0);
         totalWeight += parseFloat(station.weight || 0);
         
-        if (station.payment_status === 'PAID') paidCount++;
-        else if (station.payment_status === 'TO BILL') toBillCount++;
-        else if (station.payment_status === 'TO PAID') toPaidCount++;
+        if (station.payment_status?.toLowerCase() === 'paid') paidCount++;
+        else if (station.payment_status?.toLowerCase() === 'to-pay') toBillCount++;
+        else if (station.payment_status?.toLowerCase() === 'foc') toPaidCount++;
       }
     });
 
@@ -139,20 +139,7 @@ export default function FinanceBiltyTable({
     };
   }, [filteredTransits]);
 
-  // Get unique cities for filter
-  const availableCities = useMemo(() => {
-    const citySet = new Set();
-    challanTransits.forEach(t => {
-      if (t.bilty?.to_city_id) {
-        citySet.add(t.bilty.to_city_id);
-      }
-      if (t.station?.station) {
-        const city = cities?.find(c => c.city_code === t.station.station);
-        if (city) citySet.add(city.id);
-      }
-    });
-    return Array.from(citySet);
-  }, [challanTransits, cities]);
+
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -261,7 +248,7 @@ export default function FinanceBiltyTable({
             <div className="text-sm font-bold">{financialSummary.paidCount}</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
-            <div className="text-[10px] font-semibold opacity-90">To Bill</div>
+            <div className="text-[10px] font-semibold opacity-90">To Pay</div>
             <div className="text-sm font-bold">{financialSummary.toBillCount}</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
@@ -282,7 +269,7 @@ export default function FinanceBiltyTable({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search GR, consignor..."
+            placeholder="Search GR, consignor, consignee..."
             className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
           />
           
@@ -291,27 +278,19 @@ export default function FinanceBiltyTable({
             onChange={(e) => setFilterPaymentMode(e.target.value)}
             className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
           >
-            <option value="all">All Payments</option>
-            <option value="PAID">Paid</option>
-            <option value="TO BILL">To Bill</option>
-            <option value="TO PAID">To Paid</option>
+            <option value="all">All Payment Modes</option>
+            <option value="paid">Paid</option>
+            <option value="to-pay">To Pay</option>
+            <option value="foc">FOC</option>
           </select>
 
-          <select
+          <input
+            type="text"
             value={filterCity}
             onChange={(e) => setFilterCity(e.target.value)}
+            placeholder="Search destination city..."
             className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
-          >
-            <option value="all">All Cities</option>
-            {availableCities.map(cityId => {
-              const city = cities?.find(c => c.id === cityId);
-              return city ? (
-                <option key={city.id} value={city.id}>
-                  {city.city_name}
-                </option>
-              ) : null;
-            })}
-          </select>
+          />
         </div>
       </div>
 
@@ -399,13 +378,15 @@ export default function FinanceBiltyTable({
                   </td>
                   <td className="px-2 py-1.5 text-center">
                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                      (bilty?.payment_mode || station?.payment_status) === 'PAID'
+                      (bilty?.payment_mode || station?.payment_status)?.toLowerCase() === 'paid'
                         ? 'bg-green-100 text-green-800'
-                        : (bilty?.payment_mode || station?.payment_status) === 'TO BILL'
+                        : (bilty?.payment_mode || station?.payment_status)?.toLowerCase() === 'to-pay'
                         ? 'bg-orange-100 text-orange-800'
+                        : (bilty?.payment_mode || station?.payment_status)?.toLowerCase() === 'foc'
+                        ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {(bilty?.payment_mode || station?.payment_status)?.substring(0, 4) || 'N/A'}
+                      {(bilty?.payment_mode || station?.payment_status)?.toUpperCase() || 'N/A'}
                     </span>
                   </td>
                   <td className="px-2 py-1.5">

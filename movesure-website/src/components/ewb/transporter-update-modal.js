@@ -303,8 +303,11 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
         }));
       }
 
-      // Check if first call was successful
-      if (data1.results?.status === 'Success' && data1.results?.code === 200) {
+      // Check if first call was successful (handle both formats: 'Success' and 'success')
+      const isSuccess = (data1.status === 'success' || data1.results?.status === 'Success') && 
+                        (data1.status_code === 200 || data1.results?.code === 200);
+      
+      if (isSuccess) {
         console.log('🔄 First call successful, making second call for PDF...');
         
         // Second API call - same payload to get PDF
@@ -320,23 +323,30 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
         console.log('✅ Second API Response (with PDF):', JSON.stringify(data2, null, 2));
 
         // Use second response if successful, otherwise use first
-        const finalData = (data2.results?.status === 'Success' && data2.results?.code === 200) ? data2 : data1;
+        const isSuccess2 = (data2.status === 'success' || data2.results?.status === 'Success') && 
+                          (data2.status_code === 200 || data2.results?.code === 200);
+        const finalData = isSuccess2 ? data2 : data1;
         
-        // Extract PDF URL from second response if available
-        let pdfUrl = finalData.results.message?.url || data2.results?.message?.url;
+        // Extract PDF URL from response (handle both formats)
+        let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl || data2.results?.message?.url || data2.pdfUrl;
         if (pdfUrl && !pdfUrl.startsWith('http')) {
           pdfUrl = `https://${pdfUrl}`;
         }
         
         console.log('📄 PDF URL:', pdfUrl);
         
+        // Extract values from response (handle both formats)
+        const ewbNumber = finalData.results?.message?.ewayBillNo || finalData.ewbNumber || formData.eway_bill_number;
+        const transporterId = finalData.results?.message?.transporterId || finalData.transporterId || formData.transporter_id;
+        const updateDate = finalData.results?.message?.transUpdateDate || finalData.updateDate;
+        
         const successResult = {
           success: true,
           message: finalData.message || 'Transporter updated successfully!',
-          ewbNumber: finalData.results.message?.ewayBillNo || formData.eway_bill_number,
-          transporterId: finalData.results.message?.transporterId || formData.transporter_id,
+          ewbNumber: ewbNumber,
+          transporterId: transporterId,
           transporterName: formData.transporter_name,
-          updateDate: finalData.results.message?.transUpdateDate,
+          updateDate: updateDate,
           pdfUrl: pdfUrl,
           rawResponse: finalData
         };
@@ -345,6 +355,12 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
 
         // Save to database (in background)
         if (currentUser?.id && formData.eway_bill_number) {
+          console.log('💾 Saving to database:', {
+            ewbNumber: formData.eway_bill_number,
+            transporterId: formData.transporter_id,
+            successResult
+          });
+          
           saveTransporterUpdate({
             challanNo: grData?.challan_no || null,
             grNo: grData?.gr_no || null,
@@ -352,11 +368,11 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
             transporterId: formData.transporter_id,
             transporterName: formData.transporter_name,
             userGstin: formData.user_gstin,
-            updateResult: successResult,
+            updateResult: successResult, // This contains success: true
             userId: currentUser.id
           }).then(saveResult => {
             if (saveResult.success) {
-              console.log('✅ Transporter update saved to database');
+              console.log('✅ Transporter update saved to database:', saveResult);
             } else {
               console.error('❌ Failed to save transporter update:', saveResult.error);
             }

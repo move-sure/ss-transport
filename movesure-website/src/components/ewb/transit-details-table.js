@@ -536,7 +536,10 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                               );
                             }
                             
-                            const isSuccess = transporterUpdate.update_result?.success === true;
+                            // Check both is_success (database field) and nested update_result.success
+                            const isSuccess = transporterUpdate.is_success === true || 
+                                            transporterUpdate.update_result?.success === true ||
+                                            transporterUpdate.raw_result_metadata?.success === true;
                             return (
                               <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
                                 {isSuccess ? (
@@ -566,7 +569,10 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                               );
                             }
                             
-                            const isSuccess = transporterUpdate.update_result?.success === true;
+                            // Check both is_success (database field) and nested update_result.success
+                            const isSuccess = transporterUpdate.is_success === true || 
+                                            transporterUpdate.update_result?.success === true ||
+                                            transporterUpdate.raw_result_metadata?.success === true;
                             return (
                               <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
                                 {isSuccess ? (

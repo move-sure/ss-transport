@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, AlertTriangle, Search } from 'lucide-react';
+import { Plus, AlertTriangle, Search, X } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
 import { 
   useConsignorConsigneeSearch,
@@ -1027,8 +1027,21 @@ const ConsignorConsigneeSection = ({
 
       {/* Add New Consignor Modal */}
       {showAddConsignor && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 backdrop-blur-md bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setShowAddConsignor(false);
+                setNewConsignorData({ company_name: '', gst_num: '', number: '' });
+                setConsignorSuggestions([]);
+                setConsignorExists(false);
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                 <Plus className="w-8 h-8 text-green-600" />
@@ -1130,18 +1143,6 @@ const ConsignorConsigneeSection = ({
                   </span>
                 )}
               </button>
-              
-              <button
-                onClick={() => {
-                  setShowAddConsignor(false);
-                  setNewConsignorData({ company_name: '', gst_num: '', number: '' });
-                  setConsignorSuggestions([]);
-                  setConsignorExists(false);
-                }}
-                className="w-full bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-medium hover:bg-gray-300 transition-all duration-200"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>
@@ -1149,8 +1150,21 @@ const ConsignorConsigneeSection = ({
 
       {/* Add New Consignee Modal */}
       {showAddConsignee && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 backdrop-blur-md bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setShowAddConsignee(false);
+                setNewConsigneeData({ company_name: '', gst_num: '', number: '' });
+                setConsigneeSuggestions([]);
+                setConsigneeExists(false);
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                 <Plus className="w-8 h-8 text-green-600" />
@@ -1251,18 +1265,6 @@ const ConsignorConsigneeSection = ({
                     Add New Consignee
                   </span>
                 )}
-              </button>
-              
-              <button
-                onClick={() => {
-                  setShowAddConsignee(false);
-                  setNewConsigneeData({ company_name: '', gst_num: '', number: '' });
-                  setConsigneeSuggestions([]);
-                  setConsigneeExists(false);
-                }}
-                className="w-full bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-medium hover:bg-gray-300 transition-all duration-200"
-              >
-                Cancel
               </button>
             </div>
           </div>

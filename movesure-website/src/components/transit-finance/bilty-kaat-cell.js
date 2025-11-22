@@ -63,6 +63,7 @@ export default function BiltyKaatCell({
     try {
       setLoading(true);
       
+      // Get all rates for this destination city
       const { data: rates, error: fetchError } = await supabase
         .from('transport_hub_rates')
         .select('*')
@@ -75,27 +76,49 @@ export default function BiltyKaatCell({
       // Get unique transport IDs
       const transportIds = [...new Set(rates.map(r => r.transport_id).filter(Boolean))];
 
-      // Fetch transport details
+      // Fetch transport details (city_id only, city_name doesn't exist in transports table)
       let transportsRes = { data: [] };
       if (transportIds.length > 0) {
         transportsRes = await supabase
           .from('transports')
-          .select('id, transport_name')
+          .select('id, transport_name, city_id')
           .in('id', transportIds);
       }
 
-      // Create transport map
-      const transportMap = {};
-      (transportsRes.data || []).forEach(t => {
-        transportMap[t.id] = t;
+      // Get unique city IDs from transports
+      const cityIds = [...new Set((transportsRes.data || []).map(t => t.city_id).filter(Boolean))];
+
+      // Fetch city details from cities table
+      let citiesRes = { data: [] };
+      if (cityIds.length > 0) {
+        citiesRes = await supabase
+          .from('cities')
+          .select('id, city_name')
+          .in('id', cityIds);
+      }
+
+      // Create city map
+      const cityMap = {};
+      (citiesRes.data || []).forEach(c => {
+        cityMap[c.id] = c.city_name;
       });
 
-      // Enrich rates
+      // Create transport map with city names
+      const transportMap = {};
+      (transportsRes.data || []).forEach(t => {
+        transportMap[t.id] = {
+          ...t,
+          city_name: t.city_id ? cityMap[t.city_id] : null
+        };
+      });
+
+      // Enrich rates with transport details
       const enrichedRates = rates.map(rate => ({
         ...rate,
         transport: rate.transport_id ? transportMap[rate.transport_id] : null
       }));
 
+      console.log('📦 Loaded hub rates:', enrichedRates.length, enrichedRates);
       setHubRates(enrichedRates);
     } catch (err) {
       console.error('Error loading hub rates:', err);
@@ -218,22 +241,43 @@ export default function BiltyKaatCell({
     return (
       <div className="min-w-[280px]">
         <div className="bg-blue-50 border border-blue-200 rounded p-2 space-y-2">
-          {/* Hub Rate Selection */}
-          <select
-            value={formData.transport_hub_rate_id}
-            onChange={(e) => handleHubRateSelect(e.target.value)}
-            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-            disabled={loading}
-          >
-            <option value="">Select Hub Rate (Optional)</option>
-            {hubRates.map(rate => (
-              <option key={rate.id} value={rate.id}>
-                {rate.transport_name || rate.transport?.transport_name || 'Unknown'} - 
-                {rate.rate_per_kg ? ` ₹${rate.rate_per_kg}/kg` : ''}
-                {rate.rate_per_pkg ? ` ₹${rate.rate_per_pkg}/pkg` : ''}
-              </option>
-            ))}
-          </select>
+          {/* Kaat Rate List */}
+          <div>
+            <label className="text-[9px] text-gray-700 font-semibold mb-1 block">Kaat Rate List (Select Existing Rate)</label>
+            <select
+              value={formData.transport_hub_rate_id}
+              onChange={(e) => handleHubRateSelect(e.target.value)}
+              className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+              disabled={loading}
+            >
+              <option value="">-- Select Rate (Optional) --</option>
+              {hubRates.map(rate => {
+                const transportName = rate.transport_name || rate.transport?.transport_name || 'Unknown Transport';
+                const cityName = rate.transport?.city_name || '';
+                const rateKg = rate.rate_per_kg ? `₹${parseFloat(rate.rate_per_kg).toFixed(2)}/kg` : '';
+                const ratePkg = rate.rate_per_pkg ? `₹${parseFloat(rate.rate_per_pkg).toFixed(2)}/pkg` : '';
+                const rateDisplay = [rateKg, ratePkg].filter(Boolean).join(' + ');
+                const minCharge = rate.min_charge > 0 ? ` (Min: ₹${parseFloat(rate.min_charge).toFixed(0)})` : '';
+                
+                return (
+                  <option key={rate.id} value={rate.id}>
+                    {transportName} {cityName ? `(${cityName})` : ''} → {rateDisplay}{minCharge}
+                  </option>
+                );
+              })}
+            </select>
+            {loading && (
+              <div className="text-[9px] text-blue-600 mt-1 flex items-center gap-1">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                Loading rates...
+              </div>
+            )}
+            {!loading && hubRates.length === 0 && (
+              <div className="text-[9px] text-orange-600 mt-1">
+                No kaat rates configured for this destination
+              </div>
+            )}
+          </div>
 
           {/* Rate Type */}
           <div className="flex gap-1">

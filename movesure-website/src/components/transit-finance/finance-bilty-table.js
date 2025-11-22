@@ -1,18 +1,23 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { FileText, Download, DollarSign, Package, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileText, Download, DollarSign, Package, TrendingUp, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
+import supabase from '../../app/utils/supabase';
 
 export default function FinanceBiltyTable({ 
   transitDetails, 
   selectedChallan,
   cities 
 }) {
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
   const [filterCity, setFilterCity] = useState('');
+  const [selectedCityId, setSelectedCityId] = useState('');
+  const [hubRates, setHubRates] = useState([]);
+  const [selectedHubRate, setSelectedHubRate] = useState('');
+  const [loadingRates, setLoadingRates] = useState(false);
+  const [applyingRates, setApplyingRates] = useState(false);
 
   // Get city name by ID
   const getCityName = (cityId) => {
@@ -37,26 +42,162 @@ export default function FinanceBiltyTable({
     return filtered;
   }, [transitDetails, selectedChallan]);
 
+  // Load hub rates when city is selected
+  useEffect(() => {
+    if (selectedCityId) {
+      loadHubRates();
+    } else {
+      setHubRates([]);
+      setSelectedHubRate('');
+    }
+  }, [selectedCityId]);
+
+  const loadHubRates = async () => {
+    try {
+      setLoadingRates(true);
+      
+      // Get all rates for selected city
+      const { data: rates, error: fetchError } = await supabase
+        .from('transport_hub_rates')
+        .select('*')
+        .eq('destination_city_id', selectedCityId)
+        .eq('is_active', true)
+        .order('transport_name');
+
+      if (fetchError) throw fetchError;
+
+      // Get unique transport IDs
+      const transportIds = [...new Set(rates.map(r => r.transport_id).filter(Boolean))];
+
+      // Fetch transport details
+      let transportsRes = { data: [] };
+      if (transportIds.length > 0) {
+        transportsRes = await supabase
+          .from('transports')
+          .select('id, transport_name, city_id')
+          .in('id', transportIds);
+      }
+
+      // Get unique city IDs from transports
+      const cityIds = [...new Set((transportsRes.data || []).map(t => t.city_id).filter(Boolean))];
+
+      // Fetch city details
+      let citiesRes = { data: [] };
+      if (cityIds.length > 0) {
+        citiesRes = await supabase
+          .from('cities')
+          .select('id, city_name')
+          .in('id', cityIds);
+      }
+
+      // Create city map
+      const cityMap = {};
+      (citiesRes.data || []).forEach(c => {
+        cityMap[c.id] = c.city_name;
+      });
+
+      // Create transport map with city names
+      const transportMap = {};
+      (transportsRes.data || []).forEach(t => {
+        transportMap[t.id] = {
+          ...t,
+          city_name: t.city_id ? cityMap[t.city_id] : null
+        };
+      });
+
+      // Enrich rates with transport details
+      const enrichedRates = rates.map(rate => ({
+        ...rate,
+        transport: rate.transport_id ? transportMap[rate.transport_id] : null
+      }));
+
+      setHubRates(enrichedRates);
+    } catch (err) {
+      console.error('Error loading hub rates:', err);
+    } finally {
+      setLoadingRates(false);
+    }
+  };
+
+  // Apply selected hub rate to all filtered bilties
+  const applyHubRateToAll = async () => {
+    if (!selectedHubRate || filteredTransits.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Apply selected hub rate to ${filteredTransits.length} filtered bilties?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setApplyingRates(true);
+
+      const selectedRate = hubRates.find(r => r.id === selectedHubRate);
+      if (!selectedRate) return;
+
+      // Get user session
+      let userId = null;
+      if (typeof window !== 'undefined') {
+        const userSession = localStorage.getItem('userSession');
+        if (userSession) {
+          const session = JSON.parse(userSession);
+          userId = session.user?.id || null;
+        }
+      }
+
+      // Prepare bulk upsert data
+      const upsertData = filteredTransits.map(transit => ({
+        gr_no: transit.gr_no,
+        challan_no: selectedChallan.challan_no,
+        destination_city_id: selectedCityId,
+        transport_hub_rate_id: selectedRate.id,
+        rate_type: selectedRate.pricing_mode,
+        rate_per_kg: selectedRate.rate_per_kg || 0,
+        rate_per_pkg: selectedRate.rate_per_pkg || 0,
+        created_by: userId,
+        updated_by: userId,
+        updated_at: new Date().toISOString()
+      }));
+
+      // Bulk upsert
+      const { error } = await supabase
+        .from('bilty_wise_kaat')
+        .upsert(upsertData, { 
+          onConflict: 'gr_no',
+          ignoreDuplicates: false 
+        });
+
+      if (error) throw error;
+
+      alert(`Successfully applied hub rate to ${filteredTransits.length} bilties!`);
+      
+      // Refresh the page data
+      window.location.reload();
+
+    } catch (err) {
+      console.error('Error applying hub rates:', err);
+      alert('Failed to apply hub rates: ' + err.message);
+    } finally {
+      setApplyingRates(false);
+    }
+  };
+
+  // Get unique city list from filtered transits
+  const uniqueCities = useMemo(() => {
+    const citySet = new Set();
+    challanTransits.forEach(t => {
+      if (t.bilty?.to_city_id) {
+        citySet.add(t.bilty.to_city_id);
+      }
+    });
+    return Array.from(citySet).map(cityId => {
+      const city = cities?.find(c => c.id === cityId);
+      return { id: cityId, name: city?.city_name || 'Unknown' };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [challanTransits, cities]);
+
   // Apply filters
   const filteredTransits = useMemo(() => {
     let filtered = challanTransits;
-
-    // Search filter
-    if (searchTerm.trim()) {
-      const query = searchTerm.toLowerCase();
-      filtered = filtered.filter(t => {
-        const bilty = t.bilty;
-        const station = t.station;
-        
-        return (
-          t.gr_no?.toLowerCase().includes(query) ||
-          bilty?.consignor_name?.toLowerCase().includes(query) ||
-          bilty?.consignee_name?.toLowerCase().includes(query) ||
-          station?.consignor?.toLowerCase().includes(query) ||
-          station?.consignee?.toLowerCase().includes(query)
-        );
-      });
-    }
 
     // Payment mode filter
     if (filterPaymentMode !== 'all') {
@@ -66,22 +207,18 @@ export default function FinanceBiltyTable({
       });
     }
 
-    // City filter - text search
-    if (filterCity.trim()) {
-      const cityQuery = filterCity.toLowerCase();
+    // City filter - exact match by city ID
+    if (selectedCityId) {
       filtered = filtered.filter(t => {
-        let cityName = '';
         if (t.bilty) {
-          cityName = getCityName(t.bilty.to_city_id).toLowerCase();
-        } else if (t.station) {
-          cityName = getCityNameByCode(t.station.station).toLowerCase();
+          return t.bilty.to_city_id === selectedCityId;
         }
-        return cityName.includes(cityQuery);
+        return false;
       });
     }
 
     return filtered;
-  }, [challanTransits, searchTerm, filterPaymentMode, filterCity, cities]);
+  }, [challanTransits, filterPaymentMode, selectedCityId]);
 
   // Calculate financial summary
   const financialSummary = useMemo(() => {
@@ -264,33 +401,79 @@ export default function FinanceBiltyTable({
 
       {/* Filters - Compact */}
       <div className="p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search GR, consignor, consignee..."
-            className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
-          />
-          
+        <div className="flex gap-2 items-center">
+          {/* Payment Mode - Narrow */}
           <select
             value={filterPaymentMode}
             onChange={(e) => setFilterPaymentMode(e.target.value)}
-            className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+            className="w-32 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
           >
-            <option value="all">All Payment Modes</option>
+            <option value="all">All</option>
             <option value="paid">Paid</option>
             <option value="to-pay">To Pay</option>
             <option value="foc">FOC</option>
           </select>
 
-          <input
-            type="text"
-            value={filterCity}
-            onChange={(e) => setFilterCity(e.target.value)}
-            placeholder="Search destination city..."
-            className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
-          />
+          {/* City Filter */}
+          <select
+            value={selectedCityId}
+            onChange={(e) => {
+              setSelectedCityId(e.target.value);
+              setSelectedHubRate('');
+            }}
+            className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-semibold"
+          >
+            <option value="">-- Select Destination City --</option>
+            {uniqueCities.map(city => (
+              <option key={city.id} value={city.id}>{city.name}</option>
+            ))}
+          </select>
+
+          {/* Hub Rate Selector - Only show when city selected */}
+          {selectedCityId && (
+            <>
+              <select
+                value={selectedHubRate}
+                onChange={(e) => setSelectedHubRate(e.target.value)}
+                disabled={loadingRates}
+                className="flex-1 px-2 py-1.5 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-blue-50"
+              >
+                <option value="">-- Select Hub Rate --</option>
+                {hubRates.map(rate => {
+                  const transportName = rate.transport_name || rate.transport?.transport_name || 'Unknown';
+                  const cityName = rate.transport?.city_name || '';
+                  const rateKg = rate.rate_per_kg ? `₹${parseFloat(rate.rate_per_kg).toFixed(2)}/kg` : '';
+                  const ratePkg = rate.rate_per_pkg ? `₹${parseFloat(rate.rate_per_pkg).toFixed(2)}/pkg` : '';
+                  const rateDisplay = [rateKg, ratePkg].filter(Boolean).join(' + ');
+                  const minCharge = rate.min_charge > 0 ? ` (Min: ₹${parseFloat(rate.min_charge).toFixed(0)})` : '';
+                  
+                  return (
+                    <option key={rate.id} value={rate.id}>
+                      {transportName} {cityName ? `(${cityName})` : ''} → {rateDisplay}{minCharge}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <button
+                onClick={applyHubRateToAll}
+                disabled={!selectedHubRate || applyingRates || filteredTransits.length === 0}
+                className="px-4 py-1.5 bg-green-600 text-white rounded-lg font-semibold text-xs hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1"
+              >
+                {applyingRates ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Applying...
+                  </>
+                ) : (
+                  <>
+                    <TrendingUp className="w-3 h-3" />
+                    Apply to {filteredTransits.length}
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

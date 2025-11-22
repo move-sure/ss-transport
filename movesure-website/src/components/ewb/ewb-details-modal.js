@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertTriangle, XCircle, Shield, Edit3 } from 'lucide-react';
-import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation';
+import { formatEwbNumber } from '../../utils/ewbValidation';
 import { getTransporterUpdatesByEwbNumbers, getEwbValidationsByNumbers } from '../../utils/ewbValidationStorage';
 
 export default function EWBDetailsModal({ isOpen, onClose, grData }) {
@@ -31,7 +31,7 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
       }
     });
 
-    // Fetch validation statuses from database first, then fallback to cache
+    // Fetch validation statuses from database
     getEwbValidationsByNumbers(allEwbNumbers).then(result => {
       const statuses = {};
       
@@ -45,20 +45,6 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
           };
         });
       }
-      
-      // Fallback to localStorage cache for any missing EWBs
-      allEwbNumbers.forEach(ewb => {
-        if (!statuses[ewb]) {
-          const cached = getCachedValidation(ewb);
-          if (cached) {
-            statuses[ewb] = {
-              isValid: cached.verified === true,
-              data: cached,
-              source: 'cache'
-            };
-          }
-        }
-      });
       
       setValidationStatuses(statuses);
     });

@@ -191,11 +191,19 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
 
   const canConsolidateSelected = useMemo(() => {
     if (!selectedEwbNumbers || selectedEwbNumbers.length < 2) return false;
+    // Check if ALL EWBs in the challan are validated (not just selected ones)
+    const allEwbs = allEwbNumbers || [];
+    const allValidated = allEwbs.every(ewb => {
+      const entry = validationMap[String(ewb).trim()];
+      return entry?.isValidated && entry?.success;
+    });
+    if (!allValidated) return false;
+    // Also check if selected EWBs are validated
     return selectedEwbNumbers.every(ewb => {
       const entry = validationMap[String(ewb).trim()];
       return entry?.isValidated && entry?.success;
     });
-  }, [selectedEwbNumbers, validationMap]);
+  }, [selectedEwbNumbers, validationMap, allEwbNumbers]);
 
   // Check if destination is Kanpur
   const isKanpurDestination = (transit) => {
@@ -296,16 +304,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     return biltyEWBs.length + stationEWBs.length;
   };
 
-  const getSelectedEWBCount = () => {
-    return transitDetails
-      ?.filter(t => selectedGRs.includes(t.gr_no))
-      .reduce((total, t) => {
-        const biltyEWBs = t.bilty?.e_way_bill ? t.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
-        const stationEWBs = t.station?.e_way_bill ? t.station.e_way_bill.split(',').filter(e => e.trim()) : [];
-        return total + biltyEWBs.length + stationEWBs.length;
-      }, 0) || 0;
-  };
-
   const getStatusBadge = (transit) => {
     if (transit.is_delivered_at_destination) {
       return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>;
@@ -377,23 +375,14 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
             >
               {selectedGRs.length === filteredTransitDetails.length && filteredTransitDetails.length > 0 ? 'Deselect All' : 'Select All'}
             </button>
-            {selectedGRs.length > 0 && (
-              <>
-                <button
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                >
-                  Generate EWB ({getSelectedEWBCount()})
-                </button>
-                {canConsolidateSelected && (
-                  <button
-                    onClick={() => setShowConsolidatedForm(true)}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
-                  >
-                    <FileStack className="w-4 h-4" />
-                    Consolidate EWBs ({selectedEwbNumbers.length})
-                  </button>
-                )}
-              </>
+            {selectedGRs.length > 0 && canConsolidateSelected && (
+              <button
+                onClick={() => setShowConsolidatedForm(true)}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
+              >
+                <FileStack className="w-4 h-4" />
+                Consolidate EWBs ({selectedEwbNumbers.length})
+              </button>
             )}
           </div>
         </div>

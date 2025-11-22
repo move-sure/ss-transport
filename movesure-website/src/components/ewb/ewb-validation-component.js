@@ -1,11 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Shield, Loader2, Database, FileStack } from 'lucide-react';
+import { Shield, Loader2, FileStack } from 'lucide-react';
 import { 
   validateEwbNumber, 
-  validateMultipleEwbNumbers, 
-  getCachedValidation,
-  formatEwbNumber,
-  getCacheStats
+  formatEwbNumber
 } from '../../utils/ewbValidation';
 import { 
   saveEwbValidation, 
@@ -20,23 +17,16 @@ const EwbValidationComponent = ({
   ewbToGrMapping = {},
   challanNo = null,
   onValidationComplete = null,
-  showCacheControls = false,
   onConsolidateClick = null,
   className = ""
 }) => {
   const [validationResults, setValidationResults] = useState({});
   const [isValidating, setIsValidating] = useState(false);
   const [validationProgress, setValidationProgress] = useState(null);
-  const [cacheStats, setCacheStats] = useState(null);
   const [selectedEwbForPrint, setSelectedEwbForPrint] = useState(null);
   
   // Get current user from auth context
   const { user: currentUser } = useAuth();
-
-  // Update cache stats
-  const updateCacheStats = useCallback(() => {
-    setCacheStats(getCacheStats());
-  }, []);
 
   // Fetch validation history from database
   const fetchValidationHistory = useCallback(async () => {
@@ -102,14 +92,12 @@ const EwbValidationComponent = ({
       if (onValidationComplete) {
         onValidationComplete([{ ewbNumber, ...result }]);
       }
-      
-      updateCacheStats();
     } catch (error) {
       console.error('Validation error:', error);
     } finally {
       setIsValidating(false);
     }
-  }, [onValidationComplete, updateCacheStats, currentUser, challanNo, ewbToGrMapping]);
+  }, [onValidationComplete, currentUser, challanNo, ewbToGrMapping]);
 
   // Validate all EWBs
   const validateAll = useCallback(async () => {
@@ -166,41 +154,18 @@ const EwbValidationComponent = ({
       if (onValidationComplete) {
         onValidationComplete(results);
       }
-      
-      updateCacheStats();
     } catch (error) {
       console.error('Validation error:', error);
     } finally {
       setIsValidating(false);
       setValidationProgress(null);
     }
-  }, [ewbNumbers, onValidationComplete, updateCacheStats, currentUser, challanNo, ewbToGrMapping]);
+  }, [ewbNumbers, onValidationComplete, currentUser, challanNo, ewbToGrMapping]);
 
-  // Check for cached data
-  const checkCachedData = useCallback(() => {
-    const cachedResults = {};
-    
-    ewbNumbers.forEach(ewbNumber => {
-      const cached = getCachedValidation(ewbNumber);
-      if (cached) {
-        cachedResults[ewbNumber] = {
-          success: true,
-          data: cached,
-          source: 'cache'
-        };
-      }
-    });
-    
-    setValidationResults(cachedResults);
-    updateCacheStats();
-  }, [ewbNumbers, updateCacheStats]);
-
-  // Initialize: fetch from database first, then check cache
+  // Initialize: fetch from database
   React.useEffect(() => {
-    updateCacheStats();
-    fetchValidationHistory(); // Fetch from database first
-    checkCachedData(); // Then check cache for any additional data
-  }, [updateCacheStats, fetchValidationHistory, checkCachedData]);
+    fetchValidationHistory();
+  }, [fetchValidationHistory]);
 
   // Check if all EWBs are validated successfully
   const allValidated = useMemo(() => {
@@ -237,14 +202,7 @@ const EwbValidationComponent = ({
         </div>
         
         <div className="flex items-center gap-2">
-          {cacheStats && showCacheControls && (
-            <div className="flex items-center gap-2 text-xs text-slate-600 mr-2 px-3 py-2 bg-slate-100 rounded-lg">
-              <Database className="w-4 h-4" />
-              <span>Cache: {cacheStats.valid}/{cacheStats.total}</span>
-            </div>
-          )}
-          
-          {ewbNumbers.length > 1 && onConsolidateClick && (
+          {ewbNumbers.length > 1 && onConsolidateClick && allValidated && (
             <button
               onClick={onConsolidateClick}
               className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2 shadow-sm"

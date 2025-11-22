@@ -378,7 +378,7 @@ export default function FinanceBiltyTable({
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
             <div className="text-[10px] font-semibold opacity-90">Freight</div>
-            <div className="text-sm font-bold">₹{(financialSummary.totalFreight / 1000).toFixed(0)}K</div>
+            <div className="text-sm font-bold">{Math.round(financialSummary.totalFreight)} KG</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2">
             <div className="text-[10px] font-semibold opacity-90">Paid</div>

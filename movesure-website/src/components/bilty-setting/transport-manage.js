@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
+import TransportSearchBar from './transport-search-bar';
+import { 
+  searchTransporters, 
+  filterByCity,
+  sortTransporters,
+  isValidGST,
+  isValidMobile,
+  formatMobile,
+  exportToCSV 
+} from './transport-search-helper';
 
 const TransportersComponent = () => {
   const { user } = useAuth();
@@ -11,6 +21,10 @@ const TransportersComponent = () => {
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     transport_name: '',
     city_id: '',
@@ -22,6 +36,7 @@ const TransportersComponent = () => {
     website: ''
   });
   const [editingId, setEditingId] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
 
   useEffect(() => {
     fetchCities();
@@ -29,29 +44,43 @@ const TransportersComponent = () => {
   }, []);
 
   useEffect(() => {
-    filterTransporters();
-  }, [transporters, searchTerm]);
+    filterAndSortTransporters();
+  }, [transporters, searchTerm, selectedCity, sortBy, sortOrder]);
 
-  const filterTransporters = () => {
-    if (!searchTerm.trim()) {
-      setFilteredTransporters(transporters);
-      return;
+  const filterAndSortTransporters = () => {
+    let result = [...transporters];
+
+    // Apply city filter
+    if (selectedCity) {
+      result = filterByCity(result, selectedCity);
     }
 
-    const filtered = transporters.filter(transporter => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        transporter.transport_name?.toLowerCase().includes(searchLower) ||
-        transporter.city_name?.toLowerCase().includes(searchLower) ||
-        transporter.cities?.city_name?.toLowerCase().includes(searchLower) ||
-        transporter.address?.toLowerCase().includes(searchLower) ||
-        transporter.gst_number?.toLowerCase().includes(searchLower) ||
-        transporter.mob_number?.toLowerCase().includes(searchLower) ||
-        transporter.branch_owner_name?.toLowerCase().includes(searchLower)
-      );
-    });
+    // Apply search filter
+    if (searchTerm.trim()) {
+      result = searchTransporters(result, searchTerm);
+    }
 
-    setFilteredTransporters(filtered);
+    // Apply sorting
+    result = sortTransporters(result, sortBy, sortOrder);
+
+    setFilteredTransporters(result);
+  };
+
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+  };
+
+  const handleCityFilter = (cityId) => {
+    setSelectedCity(cityId);
+  };
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
   };
 
   const fetchCities = async () => {
@@ -109,6 +138,18 @@ const TransportersComponent = () => {
       return;
     }
 
+    // Validate GST number
+    if (formData.gst_number && !isValidGST(formData.gst_number)) {
+      alert('Invalid GST number format. Please enter a valid 15-digit GST number.');
+      return;
+    }
+
+    // Validate mobile number
+    if (formData.mob_number && !isValidMobile(formData.mob_number)) {
+      alert('Invalid mobile number. Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -151,6 +192,8 @@ const TransportersComponent = () => {
         website: ''
       });
       setEditingId(null);
+      setShowForm(false);
+      setExpandedRows({});
       fetchTransporters();
     } catch (error) {
       console.error('Error saving transporter:', error);
@@ -172,6 +215,22 @@ const TransportersComponent = () => {
       website: transporter.website || ''
     });
     setEditingId(transporter.id);
+    setExpandedRows({ [transporter.id]: true });
+  };
+
+  const handleInlineCancel = () => {
+    setEditingId(null);
+    setExpandedRows({});
+    setFormData({
+      transport_name: '',
+      city_id: '',
+      city_name: '',
+      address: '',
+      gst_number: '',
+      mob_number: '',
+      branch_owner_name: '',
+      website: ''
+    });
   };
 
   const handleDelete = async (id) => {
@@ -207,30 +266,18 @@ const TransportersComponent = () => {
       website: ''
     });
     setEditingId(null);
+    setShowForm(false);
   };
 
   const downloadCSV = () => {
-    const dataToExport = searchTerm && filteredTransporters.length > 0 ? filteredTransporters : transporters;
+    const dataToExport = filteredTransporters.length > 0 ? filteredTransporters : transporters;
     
     if (dataToExport.length === 0) {
       alert('No data to export');
       return;
     }
 
-    const headers = ['Transport Name', 'City', 'Address', 'GST Number', 'Mobile', 'Owner Name', 'Website'];
-    const csvContent = [
-      headers.join(','),
-      ...dataToExport.map(transporter => [
-        `"${transporter.transport_name || ''}"`,
-        `"${transporter.cities?.city_name || transporter.city_name || ''}"`,
-        `"${transporter.address || ''}"`,
-        `"${transporter.gst_number || ''}"`,
-        `"${transporter.mob_number || ''}"`,
-        `"${transporter.branch_owner_name || ''}"`,
-        `"${transporter.website || ''}"`
-      ].join(','))
-    ].join('\n');
-
+    const csvContent = exportToCSV(dataToExport);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -244,294 +291,516 @@ const TransportersComponent = () => {
     alert(`Exported ${dataToExport.length} transporters to CSV`);
   };
 
-  const clearSearch = () => {
-    setSearchTerm('');
+  const getSortIcon = (field) => {
+    if (sortBy !== field) return '⇅';
+    return sortOrder === 'asc' ? '↑' : '↓';
+  };
+
+  const getGroupedTransporters = () => {
+    const grouped = {};
+    filteredTransporters.forEach(transporter => {
+      const cityName = transporter.cities?.city_name || transporter.city_name || 'Unknown';
+      if (!grouped[cityName]) {
+        grouped[cityName] = {
+          cityName: cityName,
+          cityCode: transporter.cities?.city_code || '',
+          cityId: transporter.city_id,
+          transporters: []
+        };
+      }
+      grouped[cityName].transporters.push(transporter);
+    });
+    return Object.values(grouped).sort((a, b) => a.cityName.localeCompare(b.cityName));
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-black">Manage Transporters</h2>
-        <button
-          onClick={downloadCSV}
-          disabled={transporters.length === 0}
-          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          📥 Export CSV
-        </button>
+    <div className="w-full">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200 mb-3">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">🚛 Transport Management</h2>
+            <p className="text-xs text-gray-600">Manage transport companies</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-1 text-xs font-medium shadow"
+            >
+              {showForm ? '📋 List' : '➕ Add'}
+            </button>
+            <button
+              onClick={downloadCSV}
+              disabled={transporters.length === 0}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-1 disabled:opacity-50 text-xs font-medium shadow"
+            >
+              📥 Export
+            </button>
+          </div>
+        </div>
       </div>
 
       {cities.length === 0 && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg mb-6 flex items-center">
-          <span className="mr-2">⚠️</span>
-          <span className="font-medium">Please add cities first before adding transporters.</span>
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-900 px-3 py-2 rounded-lg flex items-center mb-3">
+          <span className="text-base mr-2">⚠️</span>
+          <p className="text-xs font-medium">Please add cities first before adding transporters.</p>
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black pl-10"
-            placeholder="🔍 Search transporters by name, city, address, GST, mobile, or owner..."
+      {/* Enhanced Search Bar with City Filter */}
+      {!showForm && (
+        <div className="bg-white p-3 rounded-lg shadow border border-gray-200 mb-3">
+          <TransportSearchBar
+            transporters={transporters}
+            onSearch={handleSearch}
+            onCityFilter={handleCityFilter}
+            selectedCity={selectedCity}
+            cities={cities}
           />
-          {searchTerm && (
-            <button
-              onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              ✖
-            </button>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Add/Edit Form */}
-      <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 p-6 rounded-lg">
-        <h3 className="text-lg font-semibold text-black mb-4">
-          {editingId ? '✏️ Edit Transporter' : '➕ Add New Transporter'}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Transport Name *
-            </label>
-            <input
-              type="text"
-              value={formData.transport_name}
-              onChange={(e) => setFormData({ ...formData, transport_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter transport company name"
-              disabled={loading}
-              required
-              maxLength={100}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              City *
-            </label>
-            <select
-              value={formData.city_id}
-              onChange={(e) => handleCityChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              disabled={loading || cities.length === 0}
-              required
-            >
-              <option value="">Select City</option>
-              {cities.map((city) => (
-                <option key={city.id} value={city.id}>
-                  {city.city_name} ({city.city_code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-black mb-2">
-              Address *
-            </label>
-            <textarea
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter complete address"
-              rows="3"
-              disabled={loading}
-              required
-              maxLength={500}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              GST Number
-            </label>
-            <input
-              type="text"
-              value={formData.gst_number}
-              onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter GST number"
-              disabled={loading}
-              maxLength={15}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Mobile Number
-            </label>
-            <input
-              type="tel"
-              value={formData.mob_number}
-              onChange={(e) => setFormData({ ...formData, mob_number: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter mobile number"
-              disabled={loading}
-              maxLength={15}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Branch Owner Name
-            </label>
-            <input
-              type="text"
-              value={formData.branch_owner_name}
-              onChange={(e) => setFormData({ ...formData, branch_owner_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter branch owner name"
-              disabled={loading}
-              maxLength={100}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Website
-            </label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="https://example.com"
-              disabled={loading}
-            />
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={loading || cities.length === 0}
-            className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? '⏳ Saving...' : editingId ? '✏️ Update Transporter' : '➕ Add Transporter'}
-          </button>
-          
-          {editingId && (
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow border border-gray-200 mb-3">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-base font-bold text-gray-900">
+              {editingId ? '✏️ Edit Transporter' : '➕ Add Transporter'}
+            </h3>
             <button
               type="button"
               onClick={cancelEdit}
-              className="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600 font-medium"
+              className="text-gray-500 hover:text-gray-700 text-lg"
+            >
+              ✖
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Transport Name *</label>
+              <input
+                type="text"
+                value={formData.transport_name}
+                onChange={(e) => setFormData({ ...formData, transport_name: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Transport name"
+                disabled={loading}
+                required
+                maxLength={100}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">City *</label>
+              <select
+                value={formData.city_id}
+                onChange={(e) => handleCityChange(e.target.value)}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                disabled={loading || cities.length === 0}
+                required
+              >
+                <option value="">Select City</option>
+                {cities.map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.city_name} ({city.city_code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">GST Number</label>
+              <input
+                type="text"
+                value={formData.gst_number}
+                onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="GST (15 digits)"
+                disabled={loading}
+                maxLength={15}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Mobile Number</label>
+              <input
+                type="tel"
+                value={formData.mob_number}
+                onChange={(e) => setFormData({ ...formData, mob_number: e.target.value.replace(/\D/g, '') })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="10 digits"
+                disabled={loading}
+                maxLength={10}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Owner Name</label>
+              <input
+                type="text"
+                value={formData.branch_owner_name}
+                onChange={(e) => setFormData({ ...formData, branch_owner_name: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Owner name"
+                disabled={loading}
+                maxLength={100}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Website</label>
+              <input
+                type="url"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="https://example.com"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Address *</label>
+              <textarea
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Complete address"
+                rows="2"
+                disabled={loading}
+                required
+                maxLength={500}
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 pt-2 border-t border-gray-200">
+            <button
+              type="submit"
+              disabled={loading || cities.length === 0}
+              className="bg-blue-600 text-white px-4 py-1.5 rounded text-xs hover:bg-blue-700 disabled:opacity-50 font-medium shadow"
+            >
+              {loading ? '⏳ Saving...' : editingId ? '✏️ Update' : '➕ Add'}
+            </button>
+            
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="bg-gray-500 text-white px-4 py-1.5 rounded text-xs hover:bg-gray-600 font-medium shadow"
             >
               ❌ Cancel
             </button>
-          )}
-        </div>
-      </form>
+          </div>
+        </form>
+      )}
 
-      {/* Statistics */}
-      <div className="mb-4 flex justify-between items-center">
-        <div className="text-sm text-black">
-          <span className="font-medium">Total Transporters: {transporters.length}</span>
-          {searchTerm && (
-            <span className="ml-4 text-blue-600">
-              Filtered: {filteredTransporters.length} of {transporters.length}
-            </span>
-          )}
-        </div>
-        {searchTerm && (
-          <button
-            onClick={clearSearch}
-            className="text-blue-600 hover:text-blue-800 text-sm underline"
-          >
-            Clear Search
-          </button>
-        )}
-      </div>
+      {/* Statistics & Results */}
+      {!showForm && (
+        <div className="bg-white p-3 rounded-lg shadow border border-gray-200">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center space-x-2">
+              <div className="bg-blue-100 px-2 py-1 rounded">
+                <span className="text-xs font-medium text-gray-600">Total: </span>
+                <span className="text-sm font-bold text-blue-600">{transporters.length}</span>
+              </div>
+              {(searchTerm || selectedCity) && (
+                <div className="bg-green-100 px-2 py-1 rounded">
+                  <span className="text-xs font-medium text-gray-600">Filtered: </span>
+                  <span className="text-sm font-bold text-green-600">{filteredTransporters.length}</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-1">
+              <span className="text-xs text-gray-600">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-2 py-1 border border-gray-300 rounded text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="name">Name</option>
+                <option value="city">City</option>
+                <option value="owner">Owner</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs"
+                title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
 
-      {/* Transporters List */}
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full table-auto border-collapse">
-          <thead>
-            <tr className="bg-gray-100 border-b">
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Transport Name</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">City</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Address</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">GST Number</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Mobile</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Owner</th>
-              <th className="px-4 py-3 text-left font-bold text-black">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransporters.length > 0 ? filteredTransporters.map((transporter, index) => (
-              <tr key={transporter.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                <td className="border-r px-4 py-3 text-black font-medium">{transporter.transport_name}</td>
-                <td className="border-r px-4 py-3 text-black">
-                  {transporter.cities ? transporter.cities.city_name : transporter.city_name}
-                </td>
-                <td className="border-r px-4 py-3 text-black text-sm">
-                  {transporter.address.length > 50 
-                    ? transporter.address.substring(0, 50) + '...'
-                    : transporter.address
-                  }
-                </td>
-                <td className="border-r px-4 py-3 text-black">{transporter.gst_number || '-'}</td>
-                <td className="border-r px-4 py-3 text-black">{transporter.mob_number || '-'}</td>
-                <td className="border-r px-4 py-3 text-black">{transporter.branch_owner_name || '-'}</td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(transporter)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
-                      disabled={loading}
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(transporter.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors"
-                      disabled={loading}
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                      Loading transporters...
+          {/* Transporters Table */}
+          <div className="overflow-x-auto rounded border border-gray-200">
+            <table className="min-w-full table-auto border-collapse text-xs">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th 
+                    onClick={() => handleSort('name')}
+                    className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-200"
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Transport</span>
+                      <span className="text-xs">{getSortIcon('name')}</span>
                     </div>
-                  ) : searchTerm ? (
-                    <div>
-                      <p className="text-lg mb-2">🔍 No transporters found matching {searchTerm}</p>
-                      <button
-                        onClick={clearSearch}
-                        className="text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Clear search to see all transporters
-                      </button>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('city')}
+                    className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-200"
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>City</span>
+                      <span className="text-xs">{getSortIcon('city')}</span>
                     </div>
-                  ) : cities.length === 0 ? (
-                    <div>
-                      <p className="text-lg mb-2">🏙️ No cities available</p>
-                      <p className="text-sm">Please add cities first before adding transporters</p>
+                  </th>
+                  <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">Address</th>
+                  <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">GST</th>
+                  <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">Mobile</th>
+                  <th 
+                    onClick={() => handleSort('owner')}
+                    className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-200"
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Owner</span>
+                      <span className="text-xs">{getSortIcon('owner')}</span>
                     </div>
-                  ) : (
-                    <div>
-                      <p className="text-lg mb-2">🚛 No transporters found</p>
-                      <p className="text-sm">Add your first transporter using the form above</p>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </th>
+                  <th className="px-2 py-2 text-left font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransporters.length > 0 ? (
+                  getGroupedTransporters().map((cityGroup, groupIndex) => (
+                    <React.Fragment key={`city-group-${cityGroup.cityId}-${groupIndex}`}>
+                      {/* City Group Header */}
+                      <tr className="bg-gradient-to-r from-indigo-50 to-blue-50 border-t border-b border-indigo-200">
+                        <td colSpan="7" className="px-2 py-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-base">🏙️</span>
+                              <span className="text-sm font-bold text-indigo-900">{cityGroup.cityName}</span>
+                              {cityGroup.cityCode && (
+                                <span className="text-xs text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">
+                                  {cityGroup.cityCode}
+                                </span>
+                              )}
+                            </div>
+                            <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded shadow-sm">
+                              {cityGroup.transporters.length}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Transport Rows for this City */}
+                      {cityGroup.transporters.map((transporter, index) => (
+                        <React.Fragment key={transporter.id}>
+                          <tr className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              <span className="font-medium">{transporter.transport_name}</span>
+                            </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              <div>
+                                <p className="font-medium">{transporter.cities?.city_name || transporter.city_name}</p>
+                                {transporter.cities?.city_code && (
+                                  <p className="text-xs text-gray-500">({transporter.cities.city_code})</p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              <div className="max-w-xs truncate" title={transporter.address}>
+                                {transporter.address.length > 40 
+                                  ? transporter.address.substring(0, 40) + '...'
+                                  : transporter.address
+                                }
+                              </div>
+                            </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              {transporter.gst_number ? (
+                                <span className="font-mono text-xs">{transporter.gst_number}</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              {transporter.mob_number || '-'}
+                            </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              {transporter.branch_owner_name || '-'}
+                            </td>
+                            <td className="px-2 py-2">
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleEdit(transporter)}
+                                  className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-2 py-1 rounded text-xs font-medium"
+                                  disabled={loading}
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(transporter.id)}
+                                  className="bg-red-100 text-red-700 hover:bg-red-200 px-2 py-1 rounded text-xs font-medium"
+                                  disabled={loading}
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          
+                          {/* Inline Edit Row */}
+                          {editingId === transporter.id && expandedRows[transporter.id] && (
+                            <tr className="bg-blue-50">
+                              <td colSpan="7" className="px-2 py-2">
+                                <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <input
+                                      type="text"
+                                      value={formData.transport_name}
+                                      onChange={(e) => setFormData({ ...formData, transport_name: e.target.value })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="Transport name"
+                                      required
+                                    />
+                                  </div>
+                                  <div>
+                                    <select
+                                      value={formData.city_id}
+                                      onChange={(e) => handleCityChange(e.target.value)}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      required
+                                    >
+                                      <option value="">Select City</option>
+                                      {cities.map((city) => (
+                                        <option key={city.id} value={city.id}>
+                                          {city.city_name} ({city.city_code})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="text"
+                                      value={formData.gst_number}
+                                      onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="GST"
+                                      maxLength={15}
+                                    />
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="tel"
+                                      value={formData.mob_number}
+                                      onChange={(e) => setFormData({ ...formData, mob_number: e.target.value.replace(/\D/g, '') })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="Mobile"
+                                      maxLength={10}
+                                    />
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="text"
+                                      value={formData.branch_owner_name}
+                                      onChange={(e) => setFormData({ ...formData, branch_owner_name: e.target.value })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="Owner"
+                                    />
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="url"
+                                      value={formData.website}
+                                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="Website"
+                                    />
+                                  </div>
+                                  <div className="col-span-3">
+                                    <textarea
+                                      value={formData.address}
+                                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="Address"
+                                      rows="2"
+                                      required
+                                    />
+                                  </div>
+                                  <div className="col-span-3 flex gap-2">
+                                    <button
+                                      type="submit"
+                                      className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
+                                    >
+                                      💾 Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleInlineCancel}
+                                      className="bg-gray-500 text-white px-3 py-1 rounded text-xs hover:bg-gray-600"
+                                    >
+                                      ❌ Cancel
+                                    </button>
+                                  </div>
+                                </form>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-16 text-center">
+                      {loading ? (
+                        <div className="flex flex-col items-center justify-center space-y-4">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
+                          <p className="text-gray-600 font-medium">Loading transporters...</p>
+                        </div>
+                      ) : (searchTerm || selectedCity) ? (
+                        <div className="space-y-4">
+                          <span className="text-5xl">🔍</span>
+                          <p className="text-xl text-gray-700 font-medium">No transporters found</p>
+                          <p className="text-gray-500">Try adjusting your search or filters</p>
+                          <button
+                            onClick={() => {
+                              setSearchTerm('');
+                              setSelectedCity('');
+                            }}
+                            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+                          >
+                            Clear All Filters
+                          </button>
+                        </div>
+                      ) : cities.length === 0 ? (
+                        <div className="space-y-4">
+                          <span className="text-5xl">🏙️</span>
+                          <p className="text-xl text-gray-700 font-medium">No cities available</p>
+                          <p className="text-gray-500">Please add cities first before adding transporters</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <span className="text-5xl">🚛</span>
+                          <p className="text-xl text-gray-700 font-medium">No transporters found</p>
+                          <p className="text-gray-500">Click "Add Transport" button to get started</p>
+                          <button
+                            onClick={() => setShowForm(true)}
+                            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+                          >
+                            ➕ Add First Transporter
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

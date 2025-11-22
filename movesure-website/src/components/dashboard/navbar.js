@@ -100,6 +100,12 @@ const MODULE_CONFIG = {
     icon: 'MapPin',
     shortcut: 'Alt+T'
   },
+  'transit-finance': {
+    name: 'Transit Finance',
+    path: '/transit-finance',
+    icon: 'DollarSign',
+    shortcut: 'Alt+F'
+  },
   'crm': {
     name: 'CRM',
     path: '/crm',
@@ -144,6 +150,7 @@ const ROUTE_MODULE_MAP = {
   '/complains': 'complains',
   '/available': 'available',
   '/fnance': 'fnance',
+  '/transit-finance': 'transit-finance',
 };
 
 // Public routes that don't require module access
@@ -299,7 +306,7 @@ export default function Navbar() {
     const navigationItems = [];
     
     // Icon-only modules (left side) - MUST match module names in database
-    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'fnance', 'staff', 'danger'];
+    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'transit-finance', 'fnance', 'staff', 'danger'];
     // Text modules (right side)
     const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available'];
 
@@ -356,7 +363,8 @@ export default function Navbar() {
       'crm': <Users className="h-4 w-4" />,
       'complains': <AlertTriangle className="h-4 w-4" />,
       'available': <Package className="h-4 w-4" />,
-      'fnance': <DollarSign className="h-4 w-4" />
+      'fnance': <DollarSign className="h-4 w-4" />,
+      'transit-finance': <DollarSign className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

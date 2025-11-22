@@ -26,7 +26,8 @@ const AVAILABLE_MODULES = [
   { name: 'crm', label: 'CRM', description: 'Customer relationship management' },
   { name: 'complains', label: 'Complaints', description: 'Manage customer complaints' },
   { name: 'available', label: 'Available', description: 'Available items management' },
-  { name: 'fnance', label: 'Finance', description: 'Financial dashboard and reports' }
+  { name: 'fnance', label: 'Finance', description: 'Financial dashboard and reports' },
+  { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations and billing' }
 ];
 
 export default function UserModulesPage() {

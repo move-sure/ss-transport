@@ -39,8 +39,13 @@ export default function FinanceChallanSelector({
     return transitDetails.filter(t => t.challan_no === challanNo).length;
   };
 
-  // Filter challans
+  // Filter challans - ONLY SHOW DISPATCHED CHALLANS
   const filteredChallans = challans?.filter(challan => {
+    // Only show dispatched challans
+    if (!challan.is_dispatched) {
+      return false;
+    }
+
     // Branch filter
     if (filterBranch !== 'all' && challan.branch_id !== filterBranch) {
       return false;

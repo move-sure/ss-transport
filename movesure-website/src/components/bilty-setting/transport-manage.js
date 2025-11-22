@@ -37,6 +37,7 @@ const TransportersComponent = () => {
   });
   const [editingId, setEditingId] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
+  const [groupBy, setGroupBy] = useState('city'); // 'city', 'gst', 'name', 'mobile'
 
   useEffect(() => {
     fetchCities();
@@ -298,19 +299,55 @@ const TransportersComponent = () => {
 
   const getGroupedTransporters = () => {
     const grouped = {};
+    
     filteredTransporters.forEach(transporter => {
-      const cityName = transporter.cities?.city_name || transporter.city_name || 'Unknown';
-      if (!grouped[cityName]) {
-        grouped[cityName] = {
-          cityName: cityName,
+      let groupKey, groupLabel, groupCount, isDuplicate;
+      
+      switch(groupBy) {
+        case 'gst':
+          groupKey = transporter.gst_number?.trim() || 'No GST';
+          groupLabel = groupKey;
+          break;
+        case 'name':
+          groupKey = transporter.transport_name?.trim() || 'No Name';
+          groupLabel = groupKey;
+          break;
+        case 'mobile':
+          groupKey = transporter.mob_number?.trim() || 'No Mobile';
+          groupLabel = groupKey;
+          break;
+        case 'city':
+        default:
+          groupKey = transporter.cities?.city_name || transporter.city_name || 'Unknown';
+          groupLabel = groupKey;
+          break;
+      }
+      
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = {
+          groupLabel: groupLabel,
+          cityName: transporter.cities?.city_name || transporter.city_name || '',
           cityCode: transporter.cities?.city_code || '',
           cityId: transporter.city_id,
           transporters: []
         };
       }
-      grouped[cityName].transporters.push(transporter);
+      grouped[groupKey].transporters.push(transporter);
     });
-    return Object.values(grouped).sort((a, b) => a.cityName.localeCompare(b.cityName));
+    
+    // Mark groups with duplicates (more than 1 transporter with same key)
+    const groupedArray = Object.values(grouped).map(group => ({
+      ...group,
+      isDuplicate: group.transporters.length > 1,
+      count: group.transporters.length
+    }));
+    
+    // Sort: duplicates first, then alphabetically
+    return groupedArray.sort((a, b) => {
+      if (a.isDuplicate && !b.isDuplicate) return -1;
+      if (!a.isDuplicate && b.isDuplicate) return 1;
+      return a.groupLabel.localeCompare(b.groupLabel);
+    });
   };
 
   return (
@@ -339,6 +376,64 @@ const TransportersComponent = () => {
           </div>
         </div>
       </div>
+      
+      {/* Group By Controls */}
+      {!showForm && (
+        <div className="bg-white p-2 rounded-lg border border-gray-200 mb-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-700">Group By:</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setGroupBy('city')}
+                className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                  groupBy === 'city' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🏙️ City
+              </button>
+              <button
+                onClick={() => setGroupBy('gst')}
+                className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                  groupBy === 'gst' 
+                    ? 'bg-orange-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                📋 GST Number
+              </button>
+              <button
+                onClick={() => setGroupBy('name')}
+                className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                  groupBy === 'name' 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🏢 Transport Name
+              </button>
+              <button
+                onClick={() => setGroupBy('mobile')}
+                className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                  groupBy === 'mobile' 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                📱 Mobile Number
+              </button>
+            </div>
+          </div>
+          {groupBy !== 'city' && (
+            <div className="mt-2 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
+              <p className="text-xs text-yellow-800">
+                <span className="font-semibold">⚠️ Duplicate Detection:</span> Groups with multiple entries are highlighted to help identify incorrect GST, names, or mobile numbers.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {cities.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-300 text-yellow-900 px-3 py-2 rounded-lg flex items-center mb-3">
@@ -572,32 +667,59 @@ const TransportersComponent = () => {
               </thead>
               <tbody>
                 {filteredTransporters.length > 0 ? (
-                  getGroupedTransporters().map((cityGroup, groupIndex) => (
-                    <React.Fragment key={`city-group-${cityGroup.cityId}-${groupIndex}`}>
-                      {/* City Group Header */}
-                      <tr className="bg-gradient-to-r from-indigo-50 to-blue-50 border-t border-b border-indigo-200">
+                  getGroupedTransporters().map((group, groupIndex) => (
+                    <React.Fragment key={`group-${groupBy}-${groupIndex}`}>
+                      {/* Group Header */}
+                      <tr className={`border-t border-b ${
+                        group.isDuplicate 
+                          ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-300' 
+                          : groupBy === 'city'
+                            ? 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200'
+                            : 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300'
+                      }`}>
                         <td colSpan="7" className="px-2 py-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                              <span className="text-base">🏙️</span>
-                              <span className="text-sm font-bold text-indigo-900">{cityGroup.cityName}</span>
-                              {cityGroup.cityCode && (
+                              {groupBy === 'city' && <span className="text-base">🏙️</span>}
+                              {groupBy === 'gst' && <span className="text-base">📋</span>}
+                              {groupBy === 'name' && <span className="text-base">🏢</span>}
+                              {groupBy === 'mobile' && <span className="text-base">📱</span>}
+                              
+                              <span className={`text-sm font-bold ${
+                                group.isDuplicate ? 'text-red-900' : 'text-indigo-900'
+                              }`}>
+                                {group.groupLabel}
+                              </span>
+                              
+                              {group.isDuplicate && (
+                                <span className="text-xs text-red-700 bg-red-100 px-1.5 py-0.5 rounded font-semibold">
+                                  ⚠️ DUPLICATE
+                                </span>
+                              )}
+                              
+                              {groupBy === 'city' && group.cityCode && (
                                 <span className="text-xs text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">
-                                  {cityGroup.cityCode}
+                                  {group.cityCode}
                                 </span>
                               )}
                             </div>
-                            <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded shadow-sm">
-                              {cityGroup.transporters.length}
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded shadow-sm ${
+                              group.isDuplicate 
+                                ? 'bg-red-600 text-white' 
+                                : 'bg-indigo-600 text-white'
+                            }`}>
+                              {group.count} {group.count === 1 ? 'entry' : 'entries'}
                             </span>
                           </div>
                         </td>
                       </tr>
                       
-                      {/* Transport Rows for this City */}
-                      {cityGroup.transporters.map((transporter, index) => (
+                      {/* Transport Rows for this Group */}
+                      {group.transporters.map((transporter, index) => (
                         <React.Fragment key={transporter.id}>
-                          <tr className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <tr className={`hover:bg-blue-50 transition-colors ${
+                            group.isDuplicate ? 'bg-red-50' : (index % 2 === 0 ? 'bg-white' : 'bg-gray-50')
+                          }`}>
                             <td className="border-r border-gray-200 px-2 py-2 text-black">
                               <span className="font-medium">{transporter.transport_name}</span>
                             </td>
@@ -660,7 +782,7 @@ const TransportersComponent = () => {
                                       type="text"
                                       value={formData.transport_name}
                                       onChange={(e) => setFormData({ ...formData, transport_name: e.target.value })}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       placeholder="Transport name"
                                       required
                                     />
@@ -669,7 +791,7 @@ const TransportersComponent = () => {
                                     <select
                                       value={formData.city_id}
                                       onChange={(e) => handleCityChange(e.target.value)}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       required
                                     >
                                       <option value="">Select City</option>
@@ -685,7 +807,7 @@ const TransportersComponent = () => {
                                       type="text"
                                       value={formData.gst_number}
                                       onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       placeholder="GST"
                                       maxLength={15}
                                     />
@@ -695,7 +817,7 @@ const TransportersComponent = () => {
                                       type="tel"
                                       value={formData.mob_number}
                                       onChange={(e) => setFormData({ ...formData, mob_number: e.target.value.replace(/\D/g, '') })}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       placeholder="Mobile"
                                       maxLength={10}
                                     />
@@ -705,7 +827,7 @@ const TransportersComponent = () => {
                                       type="text"
                                       value={formData.branch_owner_name}
                                       onChange={(e) => setFormData({ ...formData, branch_owner_name: e.target.value })}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       placeholder="Owner"
                                     />
                                   </div>
@@ -714,7 +836,7 @@ const TransportersComponent = () => {
                                       type="url"
                                       value={formData.website}
                                       onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       placeholder="Website"
                                     />
                                   </div>
@@ -722,7 +844,7 @@ const TransportersComponent = () => {
                                     <textarea
                                       value={formData.address}
                                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
                                       placeholder="Address"
                                       rows="2"
                                       required

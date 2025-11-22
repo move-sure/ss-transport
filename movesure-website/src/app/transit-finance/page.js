@@ -2,16 +2,222 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
+import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
-import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles } from 'lucide-react';
+import FinanceChallanSelector from '../../components/transit-finance/finance-challan-selector';
+import FinanceBiltyTable from '../../components/transit-finance/finance-bilty-table';
+import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 
 export default function TransitFinancePage() {
   const { user, requireAuth } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Data states
+  const [challans, setChallans] = useState([]);
+  const [transitDetails, setTransitDetails] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedChallan, setSelectedChallan] = useState(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (mounted && user) {
+      loadAllFinanceData();
+    }
+  }, [mounted, user]);
+
+  const loadAllFinanceData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔄 Loading ALL finance data (no branch/user filters)...');
+
+      // Fetch all data in parallel - NO BRANCH FILTERS for finance view
+      const [challansRes, transitRes, citiesRes, branchesRes] = await Promise.all([
+        // Get ALL challans (active and dispatched) from ALL branches
+        supabase
+          .from('challan_details')
+          .select(`
+            id, challan_no, branch_id, truck_id, owner_id, driver_id, date,
+            total_bilty_count, remarks, is_active, is_dispatched, dispatch_date,
+            created_by, created_at, updated_at,
+            truck:trucks(id, truck_number, truck_type),
+            owner:staff!challan_details_owner_id_fkey(id, name, mobile_number),
+            driver:staff!challan_details_driver_id_fkey(id, name, mobile_number, license_number)
+          `)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false }),
+
+        // Get ALL transit details from ALL branches
+        supabase
+          .from('transit_details')
+          .select(`
+            id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
+            is_out_of_delivery_from_branch1, is_delivered_at_branch2,
+            is_delivered_at_destination, created_at
+          `)
+          .order('created_at', { ascending: false }),
+
+        // Get all cities
+        supabase
+          .from('cities')
+          .select('*')
+          .order('city_name'),
+
+        // Get all branches
+        supabase
+          .from('branches')
+          .select('*')
+          .eq('is_active', true)
+          .order('branch_name')
+      ]);
+
+      if (challansRes.error) throw challansRes.error;
+      if (transitRes.error) throw transitRes.error;
+      if (citiesRes.error) throw citiesRes.error;
+      if (branchesRes.error) throw branchesRes.error;
+
+      console.log('✅ Finance data loaded:', {
+        challans: challansRes.data?.length || 0,
+        transitDetails: transitRes.data?.length || 0,
+        cities: citiesRes.data?.length || 0,
+        branches: branchesRes.data?.length || 0
+      });
+
+      setCities(citiesRes.data || []);
+      setBranches(branchesRes.data || []);
+      setChallans(challansRes.data || []);
+
+      // Now fetch bilty details for all transit records
+      if (transitRes.data && transitRes.data.length > 0) {
+        await loadBiltyDetailsForTransit(transitRes.data, citiesRes.data || []);
+      } else {
+        setTransitDetails([]);
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading finance data:', error);
+      setError(error.message || 'Failed to load finance data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBiltyDetailsForTransit = async (transitData, citiesData) => {
+    try {
+      // Get unique GR numbers - keep original format for querying
+      const grNumbers = [...new Set(
+        transitData
+          .map(t => t.gr_no)
+          .filter(Boolean)
+      )];
+      
+      console.log('🔍 Loading bilty details for', grNumbers.length, 'GR numbers...');
+      console.log('📋 Sample GR numbers (original):', grNumbers.slice(0, 10));
+
+      // Also try case-insensitive search using OR filters
+      // Fetch ALL bilties without GR filter first, then match in memory
+      const [regularBiltiesRes, stationBiltiesRes] = await Promise.all([
+        supabase
+          .from('bilty')
+          .select(`
+            id, gr_no, bilty_date, consignor_name, consignee_name,
+            payment_mode, no_of_pkg, total, to_city_id, wt, rate,
+            freight_amount, created_at, contain, e_way_bill, pvt_marks,
+            consignor_gst, consignor_number, consignee_gst, consignee_number,
+            transport_name, transport_gst, transport_number, delivery_type,
+            invoice_no, invoice_value, invoice_date, document_number,
+            labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark,
+            branch_id, saving_option, is_active
+          `)
+          .eq('is_active', true),
+
+        supabase
+          .from('station_bilty_summary')
+          .select(`
+            id, station, gr_no, consignor, consignee, contents,
+            no_of_packets, weight, payment_status, amount, pvt_marks,
+            e_way_bill, created_at, updated_at
+          `)
+      ]);
+
+      console.log('📊 Bilty fetch results (ALL active records):', {
+        totalRegularBilties: regularBiltiesRes.data?.length || 0,
+        totalStationBilties: stationBiltiesRes.data?.length || 0,
+        regularError: regularBiltiesRes.error,
+        stationError: stationBiltiesRes.error
+      });
+
+      // Create normalized GR number set for matching
+      const normalizedGrNumbers = new Set(
+        grNumbers.map(gr => gr?.toString().trim().toUpperCase())
+      );
+
+      // Filter and create maps - only include bilties with matching GR numbers
+      const biltyMap = {};
+      const stationBiltyMap = {};
+
+      (regularBiltiesRes.data || []).forEach(bilty => {
+        const normalizedGrNo = bilty.gr_no?.toString().trim().toUpperCase();
+        if (normalizedGrNo && normalizedGrNumbers.has(normalizedGrNo)) {
+          biltyMap[normalizedGrNo] = bilty;
+        }
+      });
+
+      (stationBiltiesRes.data || []).forEach(station => {
+        const normalizedGrNo = station.gr_no?.toString().trim().toUpperCase();
+        if (normalizedGrNo && normalizedGrNumbers.has(normalizedGrNo)) {
+          stationBiltyMap[normalizedGrNo] = station;
+        }
+      });
+
+      console.log('🗺️ Sample GR numbers we\'re looking for:', grNumbers.slice(0, 5));
+      console.log('🔍 Regular bilties matched:', Object.keys(biltyMap).length, '- Sample:', Object.keys(biltyMap).slice(0, 5));
+      console.log('🔍 Station bilties matched:', Object.keys(stationBiltyMap).length, '- Sample:', Object.keys(stationBiltyMap).slice(0, 5));
+
+      // Combine transit data with bilty details - normalize GR numbers for matching
+      const enrichedTransitDetails = transitData.map(transit => {
+        const normalizedGrNo = transit.gr_no?.toString().trim().toUpperCase();
+        const bilty = biltyMap[normalizedGrNo];
+        const station = stationBiltyMap[normalizedGrNo];
+        
+        return {
+          ...transit,
+          bilty: bilty || null,
+          station: station || null
+        };
+      });
+
+      console.log('✅ Enriched transit details:', enrichedTransitDetails.length);
+      console.log('📊 Sample enriched transit:', enrichedTransitDetails[0]);
+      console.log('📋 Total bilties found:', Object.keys(biltyMap).length);
+      console.log('🏪 Total station bilties found:', Object.keys(stationBiltyMap).length);
+      
+      // Count how many transits have bilty data
+      const transitsWithBilty = enrichedTransitDetails.filter(t => t.bilty !== null).length;
+      const transitsWithStation = enrichedTransitDetails.filter(t => t.station !== null).length;
+      const transitsWithNoData = enrichedTransitDetails.filter(t => t.bilty === null && t.station === null).length;
+      
+      console.log('📈 Data enrichment stats:', {
+        withBilty: transitsWithBilty,
+        withStation: transitsWithStation,
+        withNoData: transitsWithNoData,
+        total: enrichedTransitDetails.length
+      });
+      
+      setTransitDetails(enrichedTransitDetails);
+
+    } catch (error) {
+      console.error('❌ Error loading bilty details:', error);
+      throw error;
+    }
+  };
 
   if (!mounted) {
     return (
@@ -24,139 +230,81 @@ export default function TransitFinancePage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[80vh]">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-blue-200">
+            <div className="text-2xl font-bold text-indigo-800 flex items-center gap-3">
+              <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />
+              Loading Transit Finance Data...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <Navbar />
+        <div className="container mx-auto px-6 py-16">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-red-200 max-w-md mx-auto">
+            <div className="text-center">
+              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-red-800 mb-2">Error Loading Data</h2>
+              <p className="text-red-600 mb-4">{error}</p>
+              <button
+                onClick={loadAllFinanceData}
+                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Navbar />
       
-      <div className="container mx-auto px-6 py-16">
-        <div className="max-w-4xl mx-auto">
-          {/* Main Coming Soon Card */}
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-            {/* Header Section */}
-            <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-white">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
-                  <DollarSign className="h-16 w-16" />
-                </div>
-              </div>
-              <h1 className="text-4xl font-bold text-center mb-2">Transit Finance</h1>
-              <p className="text-xl text-center text-white/90">Coming Soon</p>
-            </div>
+      <div className="container mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <DollarSign className="w-8 h-8 text-blue-600" />
+            Transit Finance Dashboard
+          </h1>
+          <p className="text-gray-600 mt-2">
+            View all challans and bilty details across all branches for financial analysis
+          </p>
+        </div>
 
-            {/* Content Section */}
-            <div className="p-8">
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full text-sm font-semibold mb-6">
-                  <Sparkles className="h-4 w-4" />
-                  Under Development
-                </div>
-                <p className="text-gray-600 text-lg leading-relaxed">
-                  We&apos;re building something amazing for you! Our Transit Finance module will revolutionize
-                  how you manage your financial operations.
-                </p>
-              </div>
-
-              {/* Features Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border-2 border-blue-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-blue-600 text-white p-3 rounded-lg">
-                      <TrendingUp className="h-6 w-6" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 text-lg">Financial Analytics</h3>
-                  </div>
-                  <p className="text-gray-600 text-sm">
-                    Real-time insights and analytics for better financial decision making
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border-2 border-purple-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-purple-600 text-white p-3 rounded-lg">
-                      <FileText className="h-6 w-6" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 text-lg">Invoice Management</h3>
-                  </div>
-                  <p className="text-gray-600 text-sm">
-                    Streamlined invoice creation, tracking, and payment management
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-6 rounded-xl border-2 border-pink-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-pink-600 text-white p-3 rounded-lg">
-                      <Package className="h-6 w-6" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 text-lg">Transit Billing</h3>
-                  </div>
-                  <p className="text-gray-600 text-sm">
-                    Automated billing for transit operations with detailed breakdowns
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border-2 border-green-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-green-600 text-white p-3 rounded-lg">
-                      <Clock className="h-6 w-6" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 text-lg">Payment Tracking</h3>
-                  </div>
-                  <p className="text-gray-600 text-sm">
-                    Track payments, pending dues, and receivables in real-time
-                  </p>
-                </div>
-              </div>
-
-              {/* Info Box */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 text-white p-3 rounded-lg">
-                    <Sparkles className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">What to Expect</h3>
-                    <ul className="space-y-2 text-gray-600">
-                      <li className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                        Comprehensive financial dashboard with key metrics
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        Automated billing and invoice generation
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-pink-600 rounded-full"></span>
-                        Payment tracking and reminder system
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                        Detailed financial reports and analytics
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Section */}
-              <div className="text-center mt-8">
-                <p className="text-gray-500 text-sm mb-4">
-                  Stay tuned for updates! This feature will be available soon.
-                </p>
-                <button
-                  onClick={() => window.history.back()}
-                  className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-3 rounded-lg hover:shadow-lg transition-all duration-300 font-semibold"
-                >
-                  Go Back
-                </button>
-              </div>
-            </div>
+        {/* Main Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+          {/* Left Panel - Challan Selector */}
+          <div>
+            <FinanceChallanSelector
+              challans={challans}
+              selectedChallan={selectedChallan}
+              setSelectedChallan={setSelectedChallan}
+              branches={branches}
+              transitDetails={transitDetails}
+            />
           </div>
 
-          {/* Timeline Info */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 text-sm">
-              Questions or suggestions? Contact your system administrator.
-            </p>
+          {/* Right Panel - Bilty Table */}
+          <div>
+            <FinanceBiltyTable
+              transitDetails={transitDetails}
+              selectedChallan={selectedChallan}
+              cities={cities}
+            />
           </div>
         </div>
       </div>

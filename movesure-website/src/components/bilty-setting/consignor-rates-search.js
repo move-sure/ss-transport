@@ -170,7 +170,7 @@ const ConsignorRatesSearch = () => {
 
         {showSuggestions && searchInput && filteredConsignors.length === 0 && (
           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
-            No consignors found matching "{searchInput}"
+            No consignors found matching &quot;{searchInput}&quot;
           </div>
         )}
       </div>
@@ -426,7 +426,7 @@ const ConsignorRatesSearch = () => {
             <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <div className="text-4xl mb-4">📦</div>
               <p className="text-gray-600 text-lg">No rates found for {selectedConsignor.company_name}</p>
-              <p className="text-gray-500 text-sm mt-2">This company hasn't dealt with any cities yet.</p>
+              <p className="text-gray-500 text-sm mt-2">This company hasn&quot;t dealt with any cities yet.</p>
             </div>
           )}
         </div>

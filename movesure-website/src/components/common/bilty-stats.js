@@ -1,99 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import supabase from '../../app/utils/supabase';
-
-export default function BiltyStats({ userId }) {
-  const [stats, setStats] = useState({
-    totalBilties: 0,
-    totalStationBilties: 0,
-    monthlyBilties: 0,
-    monthlyStationBilties: 0,
-    weeklyBilties: 0,
-    weeklyStationBilties: 0,
-    loading: true
-  });
-
-  const fetchBiltyStats = useCallback(async () => {
-    try {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-
-      // Fetch total bilty count
-      const { count: biltyCount } = await supabase
-        .from('bilty')
-        .select('*', { count: 'exact', head: true })
-        .eq('staff_id', userId)
-        .eq('is_active', true);
-
-      // Fetch monthly bilty count
-      const { count: monthlyBiltyCount } = await supabase
-        .from('bilty')
-        .select('*', { count: 'exact', head: true })
-        .eq('staff_id', userId)
-        .eq('is_active', true)
-        .gte('created_at', startOfMonth.toISOString());
-
-      // Fetch weekly bilty count
-      const { count: weeklyBiltyCount } = await supabase
-        .from('bilty')
-        .select('*', { count: 'exact', head: true })
-        .eq('staff_id', userId)
-        .eq('is_active', true)
-        .gte('created_at', startOfWeek.toISOString());
-
-      // Fetch total station bilty count
-      const { count: stationBiltyCount } = await supabase
-        .from('station_bilty_summary')
-        .select('*', { count: 'exact', head: true })
-        .eq('staff_id', userId);
-
-      // Fetch monthly station bilty count
-      const { count: monthlyStationBiltyCount } = await supabase
-        .from('station_bilty_summary')
-        .select('*', { count: 'exact', head: true })
-        .eq('staff_id', userId)
-        .gte('created_at', startOfMonth.toISOString());
-
-      // Fetch weekly station bilty count
-      const { count: weeklyStationBiltyCount } = await supabase
-        .from('station_bilty_summary')
-        .select('*', { count: 'exact', head: true })
-        .eq('staff_id', userId)
-        .gte('created_at', startOfWeek.toISOString());
-
-      setStats({
-        totalBilties: biltyCount || 0,
-        totalStationBilties: stationBiltyCount || 0,
-        monthlyBilties: monthlyBiltyCount || 0,
-        monthlyStationBilties: monthlyStationBiltyCount || 0,
-        weeklyBilties: weeklyBiltyCount || 0,
-        weeklyStationBilties: weeklyStationBiltyCount || 0,
-        loading: false
-      });
-    } catch (error) {
-      console.error('Error fetching bilty stats:', error);
-      setStats({
-        totalBilties: 0,
-        totalStationBilties: 0,
-        monthlyBilties: 0,
-        monthlyStationBilties: 0,
-        weeklyBilties: 0,
-        weeklyStationBilties: 0,
-        loading: false
-      });
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId) {
-      fetchBiltyStats();
-    }
-  }, [userId, fetchBiltyStats]);
-
-  if (stats.loading) {
+export default function BiltyStats({ data, loading }) {
+  if (loading || !data) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[...Array(4)].map((_, index) => (
@@ -115,9 +23,9 @@ export default function BiltyStats({ userId }) {
     );
   }
 
-  const totalCombined = stats.totalBilties + stats.totalStationBilties;
-  const monthlyCombined = stats.monthlyBilties + stats.monthlyStationBilties;
-  const weeklyCombined = stats.weeklyBilties + stats.weeklyStationBilties;
+  const totalCombined = data.totalBilties + data.totalStationBilties;
+  const monthlyCombined = data.monthlyBilties + data.monthlyStationBilties;
+  const weeklyCombined = data.weeklyBilties + data.weeklyStationBilties;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -135,7 +43,7 @@ export default function BiltyStats({ userId }) {
                 <dt className="text-xs font-medium text-gray-600 truncate">Total Bilties</dt>
                 <dd className="text-xl font-bold text-gray-900 mt-1">{totalCombined.toLocaleString()}</dd>
                 <dd className="text-xs text-gray-500 mt-1">
-                  Regular: {stats.totalBilties} | Station: {stats.totalStationBilties}
+                  Regular: {data.totalBilties} | Station: {data.totalStationBilties}
                 </dd>
               </dl>
             </div>
@@ -157,7 +65,7 @@ export default function BiltyStats({ userId }) {
                 <dt className="text-xs font-medium text-gray-600 truncate">This Month</dt>
                 <dd className="text-xl font-bold text-gray-900 mt-1">{monthlyCombined.toLocaleString()}</dd>
                 <dd className="text-xs text-gray-500 mt-1">
-                  Regular: {stats.monthlyBilties} | Station: {stats.monthlyStationBilties}
+                  Regular: {data.monthlyBilties} | Station: {data.monthlyStationBilties}
                 </dd>
               </dl>
             </div>
@@ -179,7 +87,7 @@ export default function BiltyStats({ userId }) {
                 <dt className="text-xs font-medium text-gray-600 truncate">This Week</dt>
                 <dd className="text-xl font-bold text-gray-900 mt-1">{weeklyCombined.toLocaleString()}</dd>
                 <dd className="text-xs text-gray-500 mt-1">
-                  Regular: {stats.weeklyBilties} | Station: {stats.weeklyStationBilties}
+                  Regular: {data.weeklyBilties} | Station: {data.weeklyStationBilties}
                 </dd>
               </dl>
             </div>

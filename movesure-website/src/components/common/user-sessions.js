@@ -1,68 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import supabase from '../../app/utils/supabase';
-
-export default function UserSessions({ userId }) {
-  const [sessions, setSessions] = useState([]);
-  const [totalWorkingTime, setTotalWorkingTime] = useState({
-    hours: 0,
-    minutes: 0,
-    totalMinutes: 0  });
-  const [loading, setLoading] = useState(true);
-
-  const fetchUserSessions = useCallback(async () => {
-    try {
-      const { data: sessionsData, error } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('login_time', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-
-      // Calculate session durations
-      const processedSessions = sessionsData.map(session => {
-        const loginTime = new Date(session.login_time);
-        const logoutTime = session.logout_time ? new Date(session.logout_time) : new Date();
-        const duration = logoutTime - loginTime;
-        const hours = Math.floor(duration / (1000 * 60 * 60));
-        const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-        
-        return {
-          ...session,
-          duration: {
-            hours,
-            minutes,
-            totalMinutes: Math.floor(duration / (1000 * 60))
-          }
-        };
-      });
-
-      // Calculate total working time
-      const totalMinutes = processedSessions.reduce((total, session) => {
-        return total + session.duration.totalMinutes;
-      }, 0);
-
-      setTotalWorkingTime({
-        hours: Math.floor(totalMinutes / 60),
-        minutes: totalMinutes % 60,
-        totalMinutes
-      });
-
-      setSessions(processedSessions);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching user sessions:', error);      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId) {
-      fetchUserSessions();
-    }
-  }, [userId, fetchUserSessions]);
+export default function UserSessions({ data, totalWorkingTime, loading }) {
+  const sessions = data || [];
 
   const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString('en-IN', {
@@ -117,11 +56,13 @@ export default function UserSessions({ userId }) {
       <div className="px-4 py-5 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-medium text-gray-900">Work Sessions</h2>
-          <div className="bg-gradient-to-r from-blue-100 to-purple-100 px-4 py-2 rounded-lg">
-            <p className="text-sm font-medium text-gray-700">
-              Total Working Time: {totalWorkingTime.hours}h {totalWorkingTime.minutes}m
-            </p>
-          </div>
+          {totalWorkingTime && (
+            <div className="bg-gradient-to-r from-blue-100 to-purple-100 px-4 py-2 rounded-lg">
+              <p className="text-sm font-medium text-gray-700">
+                Total Working Time: {totalWorkingTime.hours}h {totalWorkingTime.minutes}m
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -199,7 +140,7 @@ export default function UserSessions({ userId }) {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  {sessions.length > 0 ? Math.round(totalWorkingTime.totalMinutes / sessions.length) : 0}m
+                  {sessions.length > 0 && totalWorkingTime ? Math.round(totalWorkingTime.totalMinutes / sessions.length) : 0}m
                 </p>
                 <p className="text-xs text-gray-500">Avg Session</p>
               </div>

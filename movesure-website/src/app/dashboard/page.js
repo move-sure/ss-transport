@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../utils/auth';
@@ -14,15 +14,46 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, isAuthenticated, initialized } = useAuth();
   const [batteryInfo, setBatteryInfo] = useState({ level: null, charging: false, supported: false });
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState(null);
+  const [selectedPeriod, setSelectedPeriod] = useState('1week');
+
+  // Fetch dashboard data
+  const fetchDashboardData = useCallback(async (period) => {
+    if (!user?.id) return;
+    
+    setDashboardLoading(true);
+    setDashboardError(null);
+    
+    try {
+      const response = await fetch(`/api/dashboard/stats?userId=${user.id}&period=${period}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      
+      const data = await response.json();
+      setDashboardData(data);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setDashboardError(error.message);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (initialized && !loading) {
       if (!isAuthenticated || !user) {
         console.log('Not authenticated, redirecting to login');
         router.push('/login');
+      } else {
+        // Fetch dashboard data when user is authenticated
+        fetchDashboardData(selectedPeriod);
       }
     }
-  }, [initialized, loading, isAuthenticated, user, router]);
+  }, [initialized, loading, isAuthenticated, user, router, fetchDashboardData, selectedPeriod]);
 
   // Battery API
   useEffect(() => {
@@ -192,28 +223,37 @@ export default function DashboardPage() {
                 
                 {/* Last Login Info */}
                 <div className="border-t border-gray-200 pt-4">
-                  <LastLoginInfo userId={user.id} />
+                  <LastLoginInfo data={dashboardData?.loginInfo} loading={dashboardLoading} />
                 </div>
               </div>
             </div>
 
             {/* Right: Bilty Statistics */}
             <div>
-              <BiltyStats userId={user.id} />
+              <BiltyStats data={dashboardData?.stats} loading={dashboardLoading} />
             </div>
           </div>
 
           {/* Bilty Activity Chart - Centered with max width */}
           <div className="mb-8 flex justify-center">
             <div className="w-full max-w-6xl">
-              <BiltyActivityChart userId={user.id} />
+              <BiltyActivityChart 
+                data={dashboardData?.chartData} 
+                loading={dashboardLoading}
+                selectedPeriod={selectedPeriod}
+                onPeriodChange={setSelectedPeriod}
+              />
             </div>
           </div>
 
           {/* Recent Sessions */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Recent Activity</h2>
-            <UserSessions userId={user.id} />
+            <UserSessions 
+              data={dashboardData?.sessions} 
+              totalWorkingTime={dashboardData?.totalWorkingTime}
+              loading={dashboardLoading}
+            />
           </div>
 
           {/* Additional Info Cards */}

@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import supabase from '../../app/utils/supabase';
 
 // Dynamically import Recharts to avoid SSR issues
 const LineChart = dynamic(() => import('recharts').then((mod) => mod.LineChart), { ssr: false });
@@ -14,112 +12,12 @@ const Tooltip = dynamic(() => import('recharts').then((mod) => mod.Tooltip), { s
 const Legend = dynamic(() => import('recharts').then((mod) => mod.Legend), { ssr: false });
 const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => mod.ResponsiveContainer), { ssr: false });
 
-export default function BiltyActivityChart({ userId }) {
-  const [chartData, setChartData] = useState({
-    data: [],
-    loading: true,
-    selectedPeriod: '1week' // 1week, 2weeks, 3weeks
-  });
-
-  const fetchActivityData = useCallback(async (period) => {
-    try {
-      const now = new Date();
-      let daysToFetch = 7;
-      
-      if (period === '2weeks') daysToFetch = 14;
-      if (period === '3weeks') daysToFetch = 21;
-
-      const startDate = new Date(now);
-      startDate.setDate(now.getDate() - daysToFetch);
-      startDate.setHours(0, 0, 0, 0);
-
-      // Fetch bilty data
-      const { data: biltyData, error: biltyError } = await supabase
-        .from('bilty')
-        .select('created_at')
-        .eq('staff_id', userId)
-        .eq('is_active', true)
-        .gte('created_at', startDate.toISOString());
-
-      if (biltyError) throw biltyError;
-
-      // Fetch station bilty data
-      const { data: stationBiltyData, error: stationError } = await supabase
-        .from('station_bilty_summary')
-        .select('created_at')
-        .eq('staff_id', userId)
-        .gte('created_at', startDate.toISOString());
-
-      if (stationError) throw stationError;
-
-      // Create daily counts
-      const dailyCounts = {};
-      for (let i = 0; i < daysToFetch; i++) {
-        const date = new Date(now);
-        date.setDate(now.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-        dailyCounts[dateStr] = {
-          date: dateStr,
-          bilty: 0,
-          stationBilty: 0,
-          total: 0,
-          dayName: date.toLocaleDateString('en-IN', { weekday: 'short' }),
-          dayMonth: date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-        };
-      }
-
-      // Count bilties per day
-      biltyData?.forEach(item => {
-        const dateStr = new Date(item.created_at).toISOString().split('T')[0];
-        if (dailyCounts[dateStr]) {
-          dailyCounts[dateStr].bilty++;
-          dailyCounts[dateStr].total++;
-        }
-      });
-
-      // Count station bilties per day
-      stationBiltyData?.forEach(item => {
-        const dateStr = new Date(item.created_at).toISOString().split('T')[0];
-        if (dailyCounts[dateStr]) {
-          dailyCounts[dateStr].stationBilty++;
-          dailyCounts[dateStr].total++;
-        }
-      });
-
-      // Convert to array and reverse (oldest to newest)
-      const dataArray = Object.values(dailyCounts).reverse();
-
-      setChartData(prev => ({
-        ...prev,
-        data: dataArray,
-        loading: false
-      }));
-    } catch (error) {
-      console.error('Error fetching activity data:', error);
-      setChartData(prev => ({
-        ...prev,
-        loading: false
-      }));
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId) {
-      fetchActivityData(chartData.selectedPeriod);
-    }
-  }, [userId, chartData.selectedPeriod, fetchActivityData]);
-
-  const handlePeriodChange = (period) => {
-    setChartData(prev => ({
-      ...prev,
-      selectedPeriod: period,
-      loading: true
-    }));
-  };
-
-  const maxValue = Math.max(...chartData.data.map(d => d.total), 1);
-  const totalBilties = chartData.data.reduce((sum, d) => sum + d.total, 0);
-  const avgPerDay = chartData.data.length > 0 ? (totalBilties / chartData.data.length).toFixed(1) : 0;
+export default function BiltyActivityChart({ data, loading, selectedPeriod, onPeriodChange }) {
+  const chartData = data || [];
+  
+  const maxValue = chartData.length > 0 ? Math.max(...chartData.map(d => d.total), 1) : 1;
+  const totalBilties = chartData.reduce((sum, d) => sum + d.total, 0);
+  const avgPerDay = chartData.length > 0 ? (totalBilties / chartData.length).toFixed(1) : 0;
 
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }) => {
@@ -138,7 +36,7 @@ export default function BiltyActivityChart({ userId }) {
     return null;
   };
 
-  if (chartData.loading) {
+  if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <div className="animate-pulse">
@@ -163,9 +61,9 @@ export default function BiltyActivityChart({ userId }) {
           </div>
           <div className="flex space-x-2">
             <button
-              onClick={() => handlePeriodChange('1week')}
+              onClick={() => onPeriodChange('1week')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                chartData.selectedPeriod === '1week'
+                selectedPeriod === '1week'
                   ? 'bg-gray-900 text-white shadow-sm'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
@@ -173,9 +71,9 @@ export default function BiltyActivityChart({ userId }) {
               1 Week
             </button>
             <button
-              onClick={() => handlePeriodChange('2weeks')}
+              onClick={() => onPeriodChange('2weeks')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                chartData.selectedPeriod === '2weeks'
+                selectedPeriod === '2weeks'
                   ? 'bg-gray-900 text-white shadow-sm'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
@@ -183,9 +81,9 @@ export default function BiltyActivityChart({ userId }) {
               2 Weeks
             </button>
             <button
-              onClick={() => handlePeriodChange('3weeks')}
+              onClick={() => onPeriodChange('3weeks')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                chartData.selectedPeriod === '3weeks'
+                selectedPeriod === '3weeks'
                   ? 'bg-gray-900 text-white shadow-sm'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
@@ -215,7 +113,7 @@ export default function BiltyActivityChart({ userId }) {
       {/* Line Chart */}
       <div className="p-6">
         <ResponsiveContainer width="100%" height={500}>
-          <LineChart data={chartData.data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 
               dataKey="dayMonth" 

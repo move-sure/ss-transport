@@ -1,54 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import supabase from '../../app/utils/supabase';
-
-export default function LastLoginInfo({ userId }) {
-  const [loginInfo, setLoginInfo] = useState({
-    lastLogin: null,
-    totalLogins: 0,
-    loading: true
-  });
-
-  useEffect(() => {
-    if (userId) {
-      fetchLoginInfo();
-    }
-  }, [userId]);
-
-  const fetchLoginInfo = async () => {
-    try {
-      // Get total login count
-      const { count: totalLogins } = await supabase
-        .from('user_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-
-      // Get last login (excluding current session)
-      const { data: sessions, error } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .neq('is_active', true) // Exclude current active session
-        .order('login_time', { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      setLoginInfo({
-        lastLogin: sessions && sessions.length > 0 ? sessions[0] : null,
-        totalLogins: totalLogins || 0,
-        loading: false
-      });
-    } catch (error) {
-      console.error('Error fetching login info:', error);
-      setLoginInfo({
-        lastLogin: null,
-        totalLogins: 0,
-        loading: false
-      });
-    }
-  };
+export default function LastLoginInfo({ data, loading }) {
+  const loginInfo = data || { lastLogin: null, totalLogins: 0 };
 
   const formatLastLogin = (loginTime) => {
     if (!loginTime) return 'Never';
@@ -74,7 +27,7 @@ export default function LastLoginInfo({ userId }) {
     }
   };
 
-  if (loginInfo.loading) {
+  if (loading) {
     return (
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200 animate-pulse">
         <div className="h-4 bg-gray-300 rounded mb-2 w-3/4"></div>

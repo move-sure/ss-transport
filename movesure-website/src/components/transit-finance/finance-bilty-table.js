@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Download, DollarSign, Package, TrendingUp, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
+import TransportFilter from './transport-filter';
+import StationTransportCell from './station-transport-cell';
 import supabase from '../../app/utils/supabase';
 import { generateFinanceBiltyPDF } from './finance-bilty-pdf-generator';
 
@@ -15,6 +17,8 @@ export default function FinanceBiltyTable({
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
   const [filterCity, setFilterCity] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
+  const [selectedTransports, setSelectedTransports] = useState([]);
+  const [availableTransports, setAvailableTransports] = useState([]);
   const [hubRates, setHubRates] = useState([]);
   const [selectedHubRate, setSelectedHubRate] = useState('');
   const [loadingRates, setLoadingRates] = useState(false);
@@ -208,6 +212,43 @@ export default function FinanceBiltyTable({
       });
     }
 
+    // Transport filter - match by transport name from database
+    if (selectedTransports.length > 0 && availableTransports.length > 0) {
+      filtered = filtered.filter(t => {
+        // Get destination city ID
+        let destinationCityId = null;
+        
+        if (t.bilty?.to_city_id) {
+          destinationCityId = t.bilty.to_city_id;
+        } else if (t.station?.station) {
+          const city = cities?.find(c => c.city_code === t.station.station);
+          destinationCityId = city?.id;
+        }
+        
+        if (!destinationCityId) return false;
+        
+        // Get all transports available for this destination city
+        const cityTransports = availableTransports.filter(at => at.city_id === destinationCityId);
+        
+        // Check if any of the city's transports match the selected transports
+        return cityTransports.some(cityTransport => {
+          return selectedTransports.some(selectedTransport => {
+            // Match by GST if available
+            if (selectedTransport.gst && cityTransport.gst_number) {
+              return cityTransport.gst_number.trim() === selectedTransport.gst;
+            }
+            
+            // Match by transport name (case-insensitive)
+            if (!selectedTransport.gst && !cityTransport.gst_number) {
+              return cityTransport.transport_name.toLowerCase().trim() === selectedTransport.name.toLowerCase().trim();
+            }
+            
+            return false;
+          });
+        });
+      });
+    }
+
     // City filter - exact match by city ID
     if (selectedCityId) {
       filtered = filtered.filter(t => {
@@ -219,7 +260,7 @@ export default function FinanceBiltyTable({
     }
 
     return filtered;
-  }, [challanTransits, filterPaymentMode, selectedCityId]);
+  }, [challanTransits, filterPaymentMode, selectedTransports, selectedCityId, availableTransports, cities]);
 
   // Calculate financial summary
   const financialSummary = useMemo(() => {
@@ -303,7 +344,7 @@ export default function FinanceBiltyTable({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-full">
       {/* Header - Compact */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -353,42 +394,58 @@ export default function FinanceBiltyTable({
       {/* Filters - Compact */}
       <div className="p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
         <div className="flex gap-2 items-center">
-          {/* Payment Mode - Narrow */}
-          <select
-            value={filterPaymentMode}
-            onChange={(e) => setFilterPaymentMode(e.target.value)}
-            className="w-32 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
-          >
-            <option value="all">All</option>
-            <option value="paid">Paid</option>
-            <option value="to-pay">To Pay</option>
-            <option value="foc">FOC</option>
-          </select>
+          {/* Transport Filter */}
+          <div className="flex-1">
+            <TransportFilter
+              challanTransits={challanTransits}
+              selectedTransports={selectedTransports}
+              onTransportSelect={setSelectedTransports}
+              onTransportClear={() => setSelectedTransports([])}
+              cities={cities}
+              onAvailableTransportsUpdate={setAvailableTransports}
+            />
+          </div>
+          {/* Payment Mode */}
+          <div className="w-32 flex-shrink-0">
+            <select
+              value={filterPaymentMode}
+              onChange={(e) => setFilterPaymentMode(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+            >
+              <option value="all">All</option>
+              <option value="paid">Paid</option>
+              <option value="to-pay">To Pay</option>
+              <option value="foc">FOC</option>
+            </select>
+          </div>
 
           {/* City Filter */}
-          <select
-            value={selectedCityId}
-            onChange={(e) => {
-              setSelectedCityId(e.target.value);
-              setSelectedHubRate('');
-            }}
-            className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-semibold"
-          >
-            <option value="">-- Select Destination City --</option>
-            {uniqueCities.map(city => (
-              <option key={city.id} value={city.id}>{city.name}</option>
-            ))}
-          </select>
+          <div className="flex-1">
+            <select
+              value={selectedCityId}
+              onChange={(e) => {
+                setSelectedCityId(e.target.value);
+                setSelectedHubRate('');
+              }}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs font-semibold"
+            >
+              <option value="">-- Select Destination City --</option>
+              {uniqueCities.map(city => (
+                <option key={city.id} value={city.id}>{city.name}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Hub Rate Selector - Only show when city selected */}
           {selectedCityId && (
             <>
-              <select
-                value={selectedHubRate}
-                onChange={(e) => setSelectedHubRate(e.target.value)}
-                disabled={loadingRates}
-                className="flex-1 px-2 py-1.5 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-blue-50"
-              >
+              <div className="flex-1">
+                <select
+                  value={selectedHubRate}
+                  onChange={(e) => setSelectedHubRate(e.target.value)}
+                  disabled={loadingRates}
+                  className="w-full px-2 py-1.5 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-blue-50"
+                >
                 <option value="">-- Select Hub Rate --</option>
                 {hubRates.map(rate => {
                   const transportName = rate.transport_name || rate.transport?.transport_name || 'Unknown';
@@ -404,12 +461,13 @@ export default function FinanceBiltyTable({
                     </option>
                   );
                 })}
-              </select>
+                </select>
+              </div>
 
               <button
                 onClick={applyHubRateToAll}
                 disabled={!selectedHubRate || applyingRates || filteredTransits.length === 0}
-                className="px-4 py-1.5 bg-green-600 text-white rounded-lg font-semibold text-xs hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1"
+                className="px-4 py-1.5 bg-green-600 text-white rounded-lg font-semibold text-xs hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1 flex-shrink-0"
               >
                 {applyingRates ? (
                   <>
@@ -437,6 +495,7 @@ export default function FinanceBiltyTable({
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Date</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Consignor</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Consignee</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Transport</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Destination</th>
               <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Contents</th>
               <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Pkgs</th>
@@ -474,6 +533,20 @@ export default function FinanceBiltyTable({
                   </td>
                   <td className="px-2 py-1.5 text-gray-800 truncate max-w-[100px]" title={bilty?.consignee_name || station?.consignee || 'N/A'}>
                     {bilty?.consignee_name || station?.consignee || 'N/A'}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {bilty?.transport_name ? (
+                      <div className="max-w-[150px]" title={bilty.transport_name}>
+                        <div className="font-semibold text-indigo-700 text-[10px] break-words leading-tight">{bilty.transport_name}</div>
+                        {bilty.transport_gst && (
+                          <div className="text-[8px] text-gray-500 truncate mt-0.5">{bilty.transport_gst}</div>
+                        )}
+                      </div>
+                    ) : station?.station ? (
+                      <StationTransportCell stationCode={station.station} cities={cities} />
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
                   </td>
                   <td className="px-2 py-1.5">
                     <span className="font-semibold text-purple-700 text-xs">
@@ -532,7 +605,7 @@ export default function FinanceBiltyTable({
         <table className="w-full text-xs">
           <tfoot>
             <tr className="font-bold">
-              <td colSpan="6" className="px-2 py-1.5 text-right">Total:</td>
+              <td colSpan="7" className="px-2 py-1.5 text-right">Total:</td>
               <td className="px-2 py-1.5 text-right">{financialSummary.totalPackages}</td>
               <td className="px-2 py-1.5 text-right">{financialSummary.totalWeight.toFixed(2)} KG</td>
               <td className="px-2 py-1.5 text-right text-gray-900">

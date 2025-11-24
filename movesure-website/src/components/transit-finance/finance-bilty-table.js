@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, Download, DollarSign, Package, TrendingUp, Loader2, Save } from 'lucide-react';
+import { FileText, Download, DollarSign, Package, TrendingUp, Loader2, Save, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
 import TransportFilter from './transport-filter';
@@ -321,52 +321,53 @@ export default function FinanceBiltyTable({
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-full">
       {/* Header - Compact */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white flex-shrink-0">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <FileText className="w-5 h-5" />
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <FileText className="w-6 h-6" />
               {selectedChallan.challan_no}
-              {editMode && <span className="ml-2 text-sm bg-orange-500 px-2 py-1 rounded-full">EDIT MODE</span>}
+              {editMode && <span className="ml-3 text-xs bg-orange-500 px-3 py-1.5 rounded-full font-semibold animate-pulse">✏️ EDIT MODE</span>}
             </h2>
-            <p className="text-xs text-white/80">
+            <p className="text-sm text-white/90 mt-1">
               {filteredTransits.length} {filteredTransits.length === 1 ? 'bilty' : 'bilties'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {onViewKaatBills && !editMode && (
+              <button
+                onClick={onViewKaatBills}
+                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg border border-white/20"
+                title="View saved kaat bills for this challan"
+              >
+                <FileText className="w-4 h-4" />
+                View Kaat Bills
+              </button>
+            )}
             {editMode && onCancelEdit && (
               <button
                 onClick={onCancelEdit}
-                className="bg-red-500/30 backdrop-blur-sm hover:bg-red-500/40 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-semibold"
+                className="bg-red-500 hover:bg-red-600 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg"
               >
+                <XCircle className="w-4 h-4" />
                 Cancel Edit
-              </button>
-            )}
-            {onViewKaatBills && (
-              <button
-                onClick={onViewKaatBills}
-                className="bg-indigo-500/30 backdrop-blur-sm hover:bg-indigo-500/40 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-semibold"
-                title="View saved kaat bills for this challan"
-              >
-                <FileText className="w-3 h-3" />
-                View Kaat Bills
               </button>
             )}
             <button
               onClick={handleSaveKaatBill}
               disabled={selectedBiltiesForSave.length === 0 || savingKaatBill}
-              className="bg-green-500/30 backdrop-blur-sm hover:bg-green-500/40 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-green-600 hover:bg-green-700 px-5 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               title={selectedBiltiesForSave.length === 0 ? 'Select bilties from the table below' : `${editMode ? 'Update' : 'Save'} ${selectedBiltiesForSave.length} selected bilties`}
             >
-              <Save className="w-3 h-3" />
+              <Save className="w-4 h-4" />
               {editMode ? 'Update' : 'Save'} Kaat Bill {selectedBiltiesForSave.length > 0 && `(${selectedBiltiesForSave.length})`}
             </button>
             {!editMode && (
               <button
                 onClick={handleDownloadPDF}
-                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-semibold"
+                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg border border-white/20"
               >
-                <Download className="w-3 h-3" />
+                <Download className="w-4 h-4" />
                 Download PDF
               </button>
             )}

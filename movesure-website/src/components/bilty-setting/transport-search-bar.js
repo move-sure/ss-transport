@@ -304,7 +304,7 @@ const TransportSearchBar = ({
           
           {searchInput && (
             <span className="inline-flex items-center space-x-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full border-2 border-blue-300">
-              <span className="font-medium">Transport: "{searchInput}"</span>
+              <span className="font-medium">Transport: &quot;{searchInput}&quot;</span>
               <button
                 onClick={clearSearch}
                 className="text-blue-600 hover:text-blue-800 font-bold"

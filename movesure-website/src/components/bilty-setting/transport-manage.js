@@ -906,7 +906,7 @@ const TransportersComponent = () => {
                         <div className="space-y-4">
                           <span className="text-5xl">🚛</span>
                           <p className="text-xl text-gray-700 font-medium">No transporters found</p>
-                          <p className="text-gray-500">Click "Add Transport" button to get started</p>
+                          <p className="text-gray-500">Click &quot;Add Transport&quot; button to get started</p>
                           <button
                             onClick={() => setShowForm(true)}
                             className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"

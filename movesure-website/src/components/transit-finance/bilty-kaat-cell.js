@@ -11,12 +11,14 @@ export default function BiltyKaatCell({
   biltyWeight,
   biltyPackages,
   biltyTransportGst,
-  onKaatUpdate 
+  kaatData: initialKaatData = null,
+  onKaatUpdate,
+  onKaatDelete
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [kaatData, setKaatData] = useState(null);
+  const [kaatData, setKaatData] = useState(initialKaatData);
   const [hubRates, setHubRates] = useState([]);
   
   const [formData, setFormData] = useState({
@@ -26,21 +28,20 @@ export default function BiltyKaatCell({
     rate_per_pkg: ''
   });
 
-  // Load kaat data only when component mounts or when explicitly triggered
+  // Update local state when prop changes
   useEffect(() => {
-    // Only load if we're not in a large table view - defer loading
-    const timer = setTimeout(() => {
-      loadKaatData();
-    }, 100); // Small delay to batch multiple renders
-    return () => clearTimeout(timer);
-  }, [grNo]);
+    setKaatData(initialKaatData);
+    if (initialKaatData) {
+      setFormData({
+        transport_hub_rate_id: initialKaatData.transport_hub_rate_id || '',
+        rate_type: initialKaatData.rate_type || 'per_kg',
+        rate_per_kg: initialKaatData.rate_per_kg || '',
+        rate_per_pkg: initialKaatData.rate_per_pkg || ''
+      });
+    }
+  }, [initialKaatData]);
 
   useEffect(() => {
-    // Listen for bulk kaat updates
-    const handleKaatUpdate = () => {
-      loadKaatData();
-    };
-
     // Listen for hub rate additions/updates
     const handleHubRateUpdate = () => {
       if (isEditing && destinationCityId) {
@@ -48,44 +49,18 @@ export default function BiltyKaatCell({
       }
     };
 
-    window.addEventListener('kaatDataUpdated', handleKaatUpdate);
     window.addEventListener('hubRateUpdated', handleHubRateUpdate);
     
     return () => {
-      window.removeEventListener('kaatDataUpdated', handleKaatUpdate);
       window.removeEventListener('hubRateUpdated', handleHubRateUpdate);
     };
-  }, [grNo, isEditing, destinationCityId]);
+  }, [isEditing, destinationCityId]);
 
   useEffect(() => {
     if (isEditing && destinationCityId) {
       loadHubRates();
     }
   }, [isEditing, destinationCityId]);
-
-  const loadKaatData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('bilty_wise_kaat')
-        .select('*')
-        .eq('gr_no', grNo)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error;
-
-      if (data) {
-        setKaatData(data);
-        setFormData({
-          transport_hub_rate_id: data.transport_hub_rate_id || '',
-          rate_type: data.rate_type || 'per_kg',
-          rate_per_kg: data.rate_per_kg || '',
-          rate_per_pkg: data.rate_per_pkg || ''
-        });
-      }
-    } catch (err) {
-      console.error('Error loading kaat data:', err);
-    }
-  };
 
   const loadHubRates = async () => {
     try {
@@ -307,6 +282,7 @@ export default function BiltyKaatCell({
 
         if (error) throw error;
         setKaatData(data);
+        if (onKaatUpdate) onKaatUpdate(data);
       } else {
         // Insert new
         saveData.created_by = userId;
@@ -318,10 +294,10 @@ export default function BiltyKaatCell({
 
         if (error) throw error;
         setKaatData(data);
+        if (onKaatUpdate) onKaatUpdate(data);
       }
 
       setIsEditing(false);
-      if (onKaatUpdate) onKaatUpdate();
 
     } catch (err) {
       console.error('Error saving kaat:', err);
@@ -373,7 +349,7 @@ export default function BiltyKaatCell({
         rate_per_pkg: ''
       });
       
-      if (onKaatUpdate) onKaatUpdate();
+      if (onKaatDelete) onKaatDelete();
     } catch (err) {
       console.error('Error deleting kaat:', err);
       alert('Failed to delete kaat: ' + err.message);

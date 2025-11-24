@@ -1,47 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import supabase from '../../app/utils/supabase';
 
-export default function StationTransportCell({ stationCode, cities }) {
-  const [transports, setTransports] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function StationTransportCell({ stationCode, cities, transportsByCity = {} }) {
+  const transports = useMemo(() => {
+    // Find city by station code
+    const city = cities?.find(c => c.city_code === stationCode);
+    
+    if (!city) return [];
 
-  useEffect(() => {
-    loadTransports();
-  }, [stationCode]);
+    // Get pre-loaded transports for this city
+    return (transportsByCity[city.id] || []).slice(0, 3); // Show max 3 transports
+  }, [stationCode, cities, transportsByCity]);
 
-  const loadTransports = async () => {
-    try {
-      setLoading(true);
-
-      // Find city by station code
-      const city = cities?.find(c => c.city_code === stationCode);
-      
-      if (!city) {
-        setTransports([]);
-        return;
-      }
-
-      // Fetch transports for this city
-      const { data, error } = await supabase
-        .from('transports')
-        .select('transport_name, gst_number')
-        .eq('city_id', city.id)
-        .limit(3); // Show max 3 transports
-
-      if (error) throw error;
-
-      setTransports(data || []);
-
-    } catch (err) {
-      console.error('Error loading station transports:', err);
-      setTransports([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = false; // Data is pre-loaded
 
   if (loading) {
     return (

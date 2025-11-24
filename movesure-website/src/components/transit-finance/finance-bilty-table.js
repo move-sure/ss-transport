@@ -56,6 +56,11 @@ export default function FinanceBiltyTable({
   const [showBiltySelector, setShowBiltySelector] = useState(false);
   const [kaatDetails, setKaatDetails] = useState([]);
   const [alreadySavedGrNos, setAlreadySavedGrNos] = useState([]);
+  
+  // NEW: Batch loaded data to avoid per-cell requests
+  const [allKaatData, setAllKaatData] = useState({});
+  const [transportsByCity, setTransportsByCity] = useState({});
+  const [loadingBatchData, setLoadingBatchData] = useState(false);
 
   // Initialize selected bilties from edit mode
   useEffect(() => {
@@ -66,6 +71,114 @@ export default function FinanceBiltyTable({
       setSelectedBiltiesForSave([]);
     }
   }, [editMode, editingBillGrNumbers]);
+
+  // Filter transit details for selected challan - DEFINE BEFORE USE
+  const challanTransits = useMemo(() => {
+    if (!transitDetails || !selectedChallan) return [];
+    const filtered = transitDetails.filter(t => t.challan_no === selectedChallan.challan_no);
+    console.log('🔍 Challan transits for', selectedChallan.challan_no, ':', filtered.length);
+    if (filtered.length > 0) {
+      console.log('📊 Sample transit data:', filtered[0]);
+    }
+    return filtered;
+  }, [transitDetails, selectedChallan]);
+
+  // NEW: Batch load all kaat data for the challan
+  useEffect(() => {
+    if (challanTransits.length > 0) {
+      loadAllKaatData();
+      loadAllTransportData();
+    }
+  }, [challanTransits]);
+
+  const loadAllKaatData = async () => {
+    try {
+      setLoadingBatchData(true);
+      
+      // Get all unique GR numbers
+      const grNumbers = [...new Set(challanTransits.map(t => t.gr_no).filter(Boolean))];
+      
+      if (grNumbers.length === 0) {
+        setAllKaatData({});
+        return;
+      }
+      
+      console.log('📦 Batch loading kaat data for', grNumbers.length, 'GR numbers');
+      
+      // Fetch all kaat data in one query using .in() filter
+      const { data, error } = await supabase
+        .from('bilty_wise_kaat')
+        .select('*')
+        .in('gr_no', grNumbers);
+
+      if (error) throw error;
+
+      // Create a map of GR number -> kaat data
+      const kaatMap = {};
+      (data || []).forEach(kaat => {
+        kaatMap[kaat.gr_no] = kaat;
+      });
+
+      console.log('✅ Loaded', Object.keys(kaatMap).length, 'kaat records in one request');
+      setAllKaatData(kaatMap);
+    } catch (err) {
+      console.error('❌ Error batch loading kaat data:', err);
+      setAllKaatData({});
+    } finally {
+      setLoadingBatchData(false);
+    }
+  };
+
+  const loadAllTransportData = async () => {
+    try {
+      // Get unique city IDs from station bilties
+      const stationCodes = [...new Set(
+        challanTransits
+          .filter(t => t.station?.station)
+          .map(t => t.station.station)
+      )];
+      
+      if (stationCodes.length === 0) {
+        setTransportsByCity({});
+        return;
+      }
+
+      // Find cities by station codes
+      const cityIds = stationCodes
+        .map(code => cities?.find(c => c.city_code === code)?.id)
+        .filter(Boolean);
+
+      if (cityIds.length === 0) {
+        setTransportsByCity({});
+        return;
+      }
+
+      console.log('📦 Batch loading transports for', cityIds.length, 'cities');
+
+      // Fetch all transports for these cities in one query
+      const { data, error } = await supabase
+        .from('transports')
+        .select('id, transport_name, gst_number, city_id')
+        .in('city_id', cityIds);
+
+      if (error) throw error;
+
+      // Group transports by city_id
+      const transportMap = {};
+      (data || []).forEach(transport => {
+        if (!transportMap[transport.city_id]) {
+          transportMap[transport.city_id] = [];
+        }
+        transportMap[transport.city_id].push(transport);
+      });
+
+      console.log('✅ Loaded transports for', Object.keys(transportMap).length, 'cities in one request');
+      setTransportsByCity(transportMap);
+    } catch (err) {
+      console.error('❌ Error batch loading transport data:', err);
+      setTransportsByCity({});
+    }
+  };
 
   // City helper functions
   const getCityName = (cityId) => getCityNameById(cityId, cities);
@@ -107,18 +220,7 @@ export default function FinanceBiltyTable({
     };
     
     fetchAlreadySavedBilties();
-  }, [selectedChallan?.challan_no]);
-
-  // Filter transit details for selected challan
-  const challanTransits = useMemo(() => {
-    if (!transitDetails || !selectedChallan) return [];
-    const filtered = transitDetails.filter(t => t.challan_no === selectedChallan.challan_no);
-    console.log('🔍 Challan transits for', selectedChallan.challan_no, ':', filtered.length);
-    if (filtered.length > 0) {
-      console.log('📊 Sample transit data:', filtered[0]);
-    }
-    return filtered;
-  }, [transitDetails, selectedChallan]);
+  }, [selectedChallan?.challan_no, challanTransits]);
 
   // Load hub rates when city is selected
   useEffect(() => {
@@ -137,6 +239,22 @@ export default function FinanceBiltyTable({
       setHubRates(rates);
     }
     setLoadingRates(false);
+  };
+
+  // NEW: Handler for kaat updates to refresh batch data
+  const handleKaatUpdated = async (grNo, newKaatData) => {
+    setAllKaatData(prev => ({
+      ...prev,
+      [grNo]: newKaatData
+    }));
+  };
+
+  const handleKaatDeleted = async (grNo) => {
+    setAllKaatData(prev => {
+      const updated = { ...prev };
+      delete updated[grNo];
+      return updated;
+    });
   };
 
   // Apply selected hub rate to all filtered bilties
@@ -648,7 +766,11 @@ export default function FinanceBiltyTable({
                         )}
                       </div>
                     ) : station?.station ? (
-                      <StationTransportCell stationCode={station.station} cities={cities} />
+                      <StationTransportCell 
+                        stationCode={station.station} 
+                        cities={cities}
+                        transportsByCity={transportsByCity}
+                      />
                     ) : (
                       <span className="text-gray-400 text-xs">-</span>
                     )}
@@ -693,10 +815,9 @@ export default function FinanceBiltyTable({
                       biltyWeight={bilty?.wt || station?.weight || 0}
                       biltyPackages={bilty?.no_of_pkg || station?.no_of_packets || 0}
                       biltyTransportGst={bilty?.transport_gst || null}
-                      onKaatUpdate={() => {
-                        // Optional: refresh data or show notification
-                        console.log('Kaat updated for', transit.gr_no);
-                      }}
+                      kaatData={allKaatData[transit.gr_no] || null}
+                      onKaatUpdate={(newData) => handleKaatUpdated(transit.gr_no, newData)}
+                      onKaatDelete={() => handleKaatDeleted(transit.gr_no)}
                     />
                   </td>
                 </tr>

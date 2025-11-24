@@ -310,7 +310,7 @@ export default function TransitFinancePage() {
               className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
             >
               <List className="w-5 h-5" />
-              View Kaat List
+             Kaat Rate List
             </button>
           </div>
         </div>

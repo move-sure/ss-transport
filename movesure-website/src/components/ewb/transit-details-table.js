@@ -304,6 +304,24 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     return biltyEWBs.length + stationEWBs.length;
   };
 
+  // Check if this GR has any successfully updated transporter
+  const hasSuccessfulTransporterUpdate = (transit) => {
+    if (!hasEWB(transit) || isKanpurDestination(transit)) return false;
+    
+    const biltyEWBs = transit.bilty?.e_way_bill ? transit.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
+    const stationEWBs = transit.station?.e_way_bill ? transit.station.e_way_bill.split(',').filter(e => e.trim()) : [];
+    const allEWBs = [...biltyEWBs, ...stationEWBs].map(e => e.trim());
+    
+    return allEWBs.some(ewb => {
+      const transporterUpdate = transporterUpdatesMap[ewb];
+      if (!transporterUpdate) return false;
+      
+      return transporterUpdate.is_success === true || 
+             transporterUpdate.update_result?.success === true ||
+             transporterUpdate.raw_result_metadata?.success === true;
+    });
+  };
+
   const getStatusBadge = (transit) => {
     if (transit.is_delivered_at_destination) {
       return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>;
@@ -423,11 +441,17 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredTransitDetails.map((transit) => (
+              {filteredTransitDetails.map((transit) => {
+                const hasUpdate = hasSuccessfulTransporterUpdate(transit);
+                return (
                 <tr 
                   key={transit.id} 
-                  className={`hover:bg-gray-50 transition-colors ${
-                    selectedGRs.includes(transit.gr_no) ? 'bg-blue-50' : ''
+                  className={`transition-colors ${
+                    hasUpdate 
+                      ? 'bg-gradient-to-r from-green-100 via-green-50 to-green-100 border-l-4 border-green-500 hover:from-green-200 hover:via-green-100 hover:to-green-200' 
+                      : selectedGRs.includes(transit.gr_no) 
+                        ? 'bg-blue-50 hover:bg-blue-100' 
+                        : 'hover:bg-gray-50'
                   }`}
                 >
                   <td className="px-4 py-3">
@@ -441,6 +465,12 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">{transit.gr_no}</span>
+                      {hasSuccessfulTransporterUpdate(transit) && (
+                        <span className="flex items-center gap-1 bg-green-600 text-white px-2 py-0.5 rounded-full text-xs font-bold animate-pulse">
+                          <CheckCircle className="w-3 h-3" />
+                          UPDATED
+                        </span>
+                      )}
                       {hasEWB(transit) && (
                         <span className="flex items-center gap-1">
                           <span className="w-2 h-2 rounded-full bg-green-500" title="Has E-Way Bill"></span>
@@ -635,7 +665,7 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

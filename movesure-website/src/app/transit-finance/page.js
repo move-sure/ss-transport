@@ -6,7 +6,8 @@ import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
 import FinanceChallanSelector from '../../components/transit-finance/finance-challan-selector';
 import FinanceBiltyTable from '../../components/transit-finance/finance-bilty-table';
-import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles, Loader2, AlertCircle, List, Plus } from 'lucide-react';
+import KaatBillListModal from '../../components/transit-finance/kaat-bill-list-modal';
+import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles, Loader2, AlertCircle, List, Plus, Receipt } from 'lucide-react';
 import KaatListModal from '../../components/transit-finance/kaat-list-modal';
 import AddKaatModal from '../../components/transit-finance/add-kaat-modal';
 
@@ -24,6 +25,13 @@ export default function TransitFinancePage() {
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [showKaatList, setShowKaatList] = useState(false);
   const [showKaatModal, setShowKaatModal] = useState(false);
+  
+  // Edit mode states
+  const [editMode, setEditMode] = useState(false);
+  const [editingBillId, setEditingBillId] = useState(null);
+  const [editingBillGrNumbers, setEditingBillGrNumbers] = useState([]);
+  const [kaatBillRefreshTrigger, setKaatBillRefreshTrigger] = useState(0);
+  const [showKaatBillList, setShowKaatBillList] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -309,13 +317,29 @@ export default function TransitFinancePage() {
 
         {/* Challan Selector - Full Width at Top */}
         <div className="mb-4">
-          <FinanceChallanSelector
-            challans={challans}
-            selectedChallan={selectedChallan}
-            setSelectedChallan={setSelectedChallan}
-            branches={branches}
-            transitDetails={transitDetails}
-          />
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <FinanceChallanSelector
+                challans={challans}
+                selectedChallan={selectedChallan}
+                setSelectedChallan={setSelectedChallan}
+                branches={branches}
+                transitDetails={transitDetails}
+              />
+            </div>
+            {selectedChallan && (
+              <div className="flex-shrink-0">
+                <button
+                  onClick={() => setShowKaatBillList(true)}
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2 h-full"
+                  title="View saved kaat bills for this challan"
+                >
+                  <Receipt className="w-5 h-5" />
+                  View Kaat Bills
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bilty Table - Full Width */}
@@ -324,6 +348,21 @@ export default function TransitFinancePage() {
             transitDetails={transitDetails}
             selectedChallan={selectedChallan}
             cities={cities}
+            editMode={editMode}
+            editingBillId={editingBillId}
+            editingBillGrNumbers={editingBillGrNumbers}
+            onKaatBillSaved={() => {
+              setEditMode(false);
+              setEditingBillId(null);
+              setEditingBillGrNumbers([]);
+              setKaatBillRefreshTrigger(prev => prev + 1);
+            }}
+            onCancelEdit={() => {
+              setEditMode(false);
+              setEditingBillId(null);
+              setEditingBillGrNumbers([]);
+            }}
+            onViewKaatBills={() => setShowKaatBillList(true)}
           />
         </div>
       </div>
@@ -345,6 +384,23 @@ export default function TransitFinancePage() {
         onClose={() => setShowKaatList(false)}
         cities={cities}
       />
+
+      {/* Kaat Bill List Modal */}
+      {selectedChallan && (
+        <KaatBillListModal
+          isOpen={showKaatBillList}
+          onClose={() => setShowKaatBillList(false)}
+          selectedChallan={selectedChallan}
+          onEditKaatBill={(bill) => {
+            setEditMode(true);
+            setEditingBillId(bill.id);
+            setEditingBillGrNumbers(bill.gr_numbers || []);
+            setShowKaatBillList(false);
+            // Scroll to top to show bilty table
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
     </div>
   );
 }

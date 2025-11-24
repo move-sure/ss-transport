@@ -154,17 +154,19 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
 
     // Helper function to format payment/delivery
     const formatPaymentDelivery = (paymentMode, deliveryType, paymentStatus) => {
+      const delivery = deliveryType || '';
+      
       // For bilty table (has payment_mode)
       if (paymentMode) {
         const payment = paymentMode.toUpperCase();
-        const delivery = deliveryType === 'door' ? ' / DD' : '';
-        return payment + delivery;
+        const suffix = delivery.toLowerCase().includes('door') ? '/DD' : '';
+        return payment + suffix;
       }
       // For station bilty table (has payment_status)
       if (paymentStatus) {
         const payment = paymentStatus.toUpperCase().replace('-', ' ');
-        const delivery = deliveryType === 'door' ? ' / DD' : '';
-        return payment + delivery;
+        const suffix = delivery.toLowerCase().includes('door') ? '/DD' : '';
+        return payment + suffix;
       }
       return 'N/A';
     };

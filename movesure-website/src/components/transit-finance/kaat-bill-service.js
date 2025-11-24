@@ -6,26 +6,40 @@ import supabase from '../../app/utils/supabase';
  */
 export const loadHubRatesForCity = async (selectedCityId) => {
   try {
-    // Get all rates for selected city
+    // Check cache first
+    const cacheKey = `city_hub_rates_${selectedCityId}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Use cache if less than 10 minutes old
+      if (Date.now() - timestamp < 10 * 60 * 1000) {
+        console.log('📦 Using cached city hub rates');
+        return { rates: data, error: null };
+      }
+    }
+
+    // Get rates with minimal necessary fields
     const { data: rates, error: fetchError } = await supabase
       .from('transport_hub_rates')
-      .select('*')
+      .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
       .eq('destination_city_id', selectedCityId)
       .eq('is_active', true)
-      .order('transport_name');
+      .order('transport_name')
+      .limit(100);
 
     if (fetchError) throw fetchError;
 
     // Get unique transport IDs
     const transportIds = [...new Set(rates.map(r => r.transport_id).filter(Boolean))];
 
-    // Fetch transport details
+    // Fetch transport details only if needed
     let transportsRes = { data: [] };
     if (transportIds.length > 0) {
       transportsRes = await supabase
         .from('transports')
         .select('id, transport_name, city_id')
-        .in('id', transportIds);
+        .in('id', transportIds)
+        .limit(100);
     }
 
     // Get unique city IDs from transports
@@ -60,6 +74,16 @@ export const loadHubRatesForCity = async (selectedCityId) => {
       ...rate,
       transport: rate.transport_id ? transportMap[rate.transport_id] : null
     }));
+
+    // Cache the results
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        data: enrichedRates,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Failed to cache city hub rates:', e);
+    }
 
     return { rates: enrichedRates, error: null };
   } catch (err) {

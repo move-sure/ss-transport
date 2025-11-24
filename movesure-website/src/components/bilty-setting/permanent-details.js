@@ -61,33 +61,65 @@ const PermanentDetailsComponent = () => {
       await fetchPermanentDetails();
     } catch (error) {
       console.error('Error fetching data:', error);
+      alert('Error loading data. Please check your database connection.');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchBranches = async () => {
-    const { data, error } = await supabase
-      .from('branches')
-      .select('*')
-      .eq('is_active', true)
-      .order('branch_name');
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('is_active', true)
+        .order('branch_name');
 
-    if (error) throw error;
-    setBranches(data || []);
+      if (error) {
+        console.error('Error fetching branches:', error);
+        throw error;
+      }
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Branch fetch error:', error);
+      setBranches([]);
+    }
   };
 
   const fetchPermanentDetails = async () => {
-    const { data, error } = await supabase
-      .from('permanent_details')
-      .select(`
-        *,
-        branches (branch_name, branch_code)
-      `)
-      .order('transport_name');
+    try {
+      const { data, error } = await supabase
+        .from('permanent_details')
+        .select(`
+          id,
+          branch_id,
+          transport_name,
+          gst,
+          mobile_number,
+          bank_act_no_1,
+          ifsc_code_1,
+          bank_act_no_2,
+          ifsc_code_2,
+          transport_address,
+          website,
+          branches (
+            branch_name,
+            branch_code
+          )
+        `)
+        .order('transport_name');
 
-    if (error) throw error;
-    setPermanentDetails(data || []);
+      if (error) {
+        console.error('Error fetching permanent details:', error);
+        throw error;
+      }
+      
+      console.log('Fetched permanent details:', data);
+      setPermanentDetails(data || []);
+    } catch (error) {
+      console.error('Permanent details fetch error:', error);
+      setPermanentDetails([]);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -214,11 +246,12 @@ const PermanentDetailsComponent = () => {
       return;
     }
 
-    const headers = ['Branch', 'Transport Name', 'GST', 'Mobile', 'Bank A/C 1', 'IFSC 1', 'Bank A/C 2', 'IFSC 2', 'Address', 'Website'];
+    const headers = ['Branch Name', 'Branch Code', 'Transport Name', 'GST', 'Mobile', 'Bank A/C 1', 'IFSC 1', 'Bank A/C 2', 'IFSC 2', 'Address', 'Website'];
     const csvContent = [
       headers.join(','),
       ...dataToExport.map(detail => [
         `"${detail.branches?.branch_name || ''}"`,
+        `"${detail.branches?.branch_code || ''}"`,
         `"${detail.transport_name || ''}"`,
         `"${detail.gst || ''}"`,
         `"${detail.mobile_number || ''}"`,
@@ -226,7 +259,7 @@ const PermanentDetailsComponent = () => {
         `"${detail.ifsc_code_1 || ''}"`,
         `"${detail.bank_act_no_2 || ''}"`,
         `"${detail.ifsc_code_2 || ''}"`,
-        `"${detail.transport_address || ''}"`,
+        `"${(detail.transport_address || '').replace(/"/g, '""')}"`,
         `"${detail.website || ''}"`
       ].join(','))
     ].join('\n');
@@ -494,56 +527,87 @@ const PermanentDetailsComponent = () => {
 
       {/* Details List */}
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full table-auto border-collapse">
+        <table className="min-w-full table-auto border-collapse text-sm">
           <thead>
             <tr className="bg-gray-100 border-b">
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Branch</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Transport Name</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">GST</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Mobile</th>
-              <th className="border-r px-4 py-3 text-left font-bold text-black">Bank Details</th>
-              <th className="px-4 py-3 text-left font-bold text-black">Actions</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Branch</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Transport Name</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">GST</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Mobile</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Bank 1</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Bank 2</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Address</th>
+              <th className="border-r px-3 py-2 text-left font-bold text-black">Website</th>
+              <th className="px-3 py-2 text-left font-bold text-black">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredDetails.length > 0 ? filteredDetails.map((detail, index) => (
               <tr key={detail.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                <td className="border-r px-4 py-3 text-black">
-                  {detail.branches?.branch_name} ({detail.branches?.branch_code})
+                <td className="border-r px-3 py-2 text-black">
+                  <div className="font-medium">{detail.branches?.branch_name || 'N/A'}</div>
+                  <div className="text-xs text-gray-600">{detail.branches?.branch_code || ''}</div>
                 </td>
-                <td className="border-r px-4 py-3 text-black font-medium">{detail.transport_name}</td>
-                <td className="border-r px-4 py-3 text-black">{detail.gst || '-'}</td>
-                <td className="border-r px-4 py-3 text-black">{detail.mobile_number || '-'}</td>
-                <td className="border-r px-4 py-3 text-black text-sm">
+                <td className="border-r px-3 py-2 text-black font-medium">{detail.transport_name || '-'}</td>
+                <td className="border-r px-3 py-2 text-black">{detail.gst || '-'}</td>
+                <td className="border-r px-3 py-2 text-black">{detail.mobile_number || '-'}</td>
+                <td className="border-r px-3 py-2 text-black">
                   {detail.bank_act_no_1 ? (
                     <div>
-                      <div>A/C: {detail.bank_act_no_1}</div>
-                      <div>IFSC: {detail.ifsc_code_1}</div>
+                      <div className="font-medium">{detail.bank_act_no_1}</div>
+                      <div className="text-xs text-gray-600">{detail.ifsc_code_1 || ''}</div>
                     </div>
                   ) : '-'}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
+                <td className="border-r px-3 py-2 text-black">
+                  {detail.bank_act_no_2 ? (
+                    <div>
+                      <div className="font-medium">{detail.bank_act_no_2}</div>
+                      <div className="text-xs text-gray-600">{detail.ifsc_code_2 || ''}</div>
+                    </div>
+                  ) : '-'}
+                </td>
+                <td className="border-r px-3 py-2 text-black">
+                  <div className="max-w-xs truncate" title={detail.transport_address}>
+                    {detail.transport_address || '-'}
+                  </div>
+                </td>
+                <td className="border-r px-3 py-2 text-black">
+                  {detail.website ? (
+                    <a 
+                      href={detail.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      🔗 Link
+                    </a>
+                  ) : '-'}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex gap-1">
                     <button
                       onClick={() => handleEdit(detail)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
+                      className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1"
                       disabled={loading}
+                      title="Edit"
                     >
-                      ✏️ Edit
+                      ✏️
                     </button>
                     <button
                       onClick={() => handleDelete(detail.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors"
+                      className="text-red-600 hover:text-red-800 text-xs px-2 py-1"
                       disabled={loading}
+                      title="Delete"
                     >
-                      🗑️ Delete
+                      🗑️
                     </button>
                   </div>
                 </td>
               </tr>
             )) : (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                   {loading ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>

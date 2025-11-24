@@ -48,11 +48,16 @@ export default function TransitFinancePage() {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Loading ALL finance data (no branch/user filters)...');
+      console.log('🔄 Loading finance data with optimizations...');
 
-      // Fetch all data in parallel - NO BRANCH FILTERS for finance view
+      // Calculate date range - last 60 days
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      const dateFilter = sixtyDaysAgo.toISOString();
+
+      // Fetch all data in parallel - WITH PAGINATION AND DATE FILTERS
       const [challansRes, transitRes, citiesRes, branchesRes] = await Promise.all([
-        // Get ALL challans (active and dispatched) from ALL branches
+        // Get recent challans with limit
         supabase
           .from('challan_details')
           .select(`
@@ -64,9 +69,11 @@ export default function TransitFinancePage() {
             driver:staff!challan_details_driver_id_fkey(id, name, mobile_number, license_number)
           `)
           .eq('is_active', true)
-          .order('created_at', { ascending: false }),
+          .gte('created_at', dateFilter)
+          .order('created_at', { ascending: false })
+          .limit(100),
 
-        // Get ALL transit details from ALL branches
+        // Get recent transit details with limit
         supabase
           .from('transit_details')
           .select(`
@@ -74,7 +81,9 @@ export default function TransitFinancePage() {
             is_out_of_delivery_from_branch1, is_delivered_at_branch2,
             is_delivered_at_destination, created_at
           `)
-          .order('created_at', { ascending: false }),
+          .gte('created_at', dateFilter)
+          .order('created_at', { ascending: false })
+          .limit(500),
 
         // Get all cities
         supabase
@@ -133,31 +142,50 @@ export default function TransitFinancePage() {
       console.log('🔍 Loading bilty details for', grNumbers.length, 'GR numbers...');
       console.log('📋 Sample GR numbers (original):', grNumbers.slice(0, 10));
 
-      // Also try case-insensitive search using OR filters
-      // Fetch ALL bilties without GR filter first, then match in memory
-      const [regularBiltiesRes, stationBiltiesRes] = await Promise.all([
-        supabase
-          .from('bilty')
-          .select(`
-            id, gr_no, bilty_date, consignor_name, consignee_name,
-            payment_mode, no_of_pkg, total, to_city_id, wt, rate,
-            freight_amount, created_at, contain, e_way_bill, pvt_marks,
-            consignor_gst, consignor_number, consignee_gst, consignee_number,
-            transport_name, transport_gst, transport_number, delivery_type,
-            invoice_no, invoice_value, invoice_date, document_number,
-            labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark,
-            branch_id, saving_option, is_active
-          `)
-          .eq('is_active', true),
+      // Batch GR numbers to avoid query size limits (max 100 per batch)
+      const batchSize = 100;
+      const batches = [];
+      for (let i = 0; i < grNumbers.length; i += batchSize) {
+        batches.push(grNumbers.slice(i, i + batchSize));
+      }
 
-        supabase
-          .from('station_bilty_summary')
-          .select(`
-            id, station, gr_no, consignor, consignee, contents,
-            no_of_packets, weight, payment_status, amount, pvt_marks,
-            e_way_bill, created_at, updated_at
-          `)
-      ]);
+      let regularBiltiesData = [];
+      let stationBiltiesData = [];
+
+      // Fetch bilties in batches using .in() filter
+      for (const batch of batches) {
+        const [regularRes, stationRes] = await Promise.all([
+          supabase
+            .from('bilty')
+            .select(`
+              id, gr_no, bilty_date, consignor_name, consignee_name,
+              payment_mode, no_of_pkg, total, to_city_id, wt, rate,
+              freight_amount, created_at, contain, e_way_bill, pvt_marks,
+              consignor_gst, consignor_number, consignee_gst, consignee_number,
+              transport_name, transport_gst, transport_number, delivery_type,
+              invoice_no, invoice_value, invoice_date, document_number,
+              labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark,
+              branch_id, saving_option, is_active
+            `)
+            .in('gr_no', batch)
+            .eq('is_active', true),
+
+          supabase
+            .from('station_bilty_summary')
+            .select(`
+              id, station, gr_no, consignor, consignee, contents,
+              no_of_packets, weight, payment_status, amount, pvt_marks,
+              e_way_bill, created_at, updated_at
+            `)
+            .in('gr_no', batch)
+        ]);
+
+        regularBiltiesData = [...regularBiltiesData, ...(regularRes.data || [])];
+        stationBiltiesData = [...stationBiltiesData, ...(stationRes.data || [])];
+      }
+
+      const regularBiltiesRes = { data: regularBiltiesData, error: null };
+      const stationBiltiesRes = { data: stationBiltiesData, error: null };
 
       console.log('📊 Bilty fetch results (ALL active records):', {
         totalRegularBilties: regularBiltiesRes.data?.length || 0,

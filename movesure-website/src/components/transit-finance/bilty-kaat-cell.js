@@ -26,8 +26,13 @@ export default function BiltyKaatCell({
     rate_per_pkg: ''
   });
 
+  // Load kaat data only when component mounts or when explicitly triggered
   useEffect(() => {
-    loadKaatData();
+    // Only load if we're not in a large table view - defer loading
+    const timer = setTimeout(() => {
+      loadKaatData();
+    }, 100); // Small delay to batch multiple renders
+    return () => clearTimeout(timer);
   }, [grNo]);
 
   useEffect(() => {
@@ -88,12 +93,27 @@ export default function BiltyKaatCell({
       
       console.log('🔍 Loading hub rates for:', { destinationCityId, biltyTransportGst });
       
-      // Fetch rates by destination city
+      // Check cache first
+      const cacheKey = `hub_rates_${destinationCityId}_${biltyTransportGst || 'all'}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Use cache if less than 5 minutes old
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          console.log('📦 Using cached hub rates');
+          setHubRates(data);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Fetch rates by destination city with minimal fields first
       const { data: ratesByCity, error: cityError } = await supabase
         .from('transport_hub_rates')
-        .select('*')
+        .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
         .eq('destination_city_id', destinationCityId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .limit(50); // Limit to prevent over-fetching
 
       if (cityError) throw cityError;
 
@@ -105,7 +125,8 @@ export default function BiltyKaatCell({
         const { data: transportsWithGst, error: gstError } = await supabase
           .from('transports')
           .select('id, transport_name, gst_number, city_id')
-          .eq('gst_number', biltyTransportGst);
+          .eq('gst_number', biltyTransportGst)
+          .limit(5);
 
         if (!gstError && transportsWithGst && transportsWithGst.length > 0) {
           const transportIds = transportsWithGst.map(t => t.id);
@@ -113,9 +134,10 @@ export default function BiltyKaatCell({
           // Fetch rates for these transports
           const { data: gstRates, error: gstRatesError } = await supabase
             .from('transport_hub_rates')
-            .select('*')
+            .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
             .in('transport_id', transportIds)
-            .eq('is_active', true);
+            .eq('is_active', true)
+            .limit(20);
 
           if (!gstRatesError) {
             ratesByTransport = gstRates || [];
@@ -198,6 +220,18 @@ export default function BiltyKaatCell({
 
       console.log('✅ Loaded hub rates:', enrichedRates.length, 'rates');
       setHubRates(enrichedRates);
+      
+      // Cache the results
+      try {
+        const cacheKey = `hub_rates_${destinationCityId}_${biltyTransportGst || 'all'}`;
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          data: enrichedRates,
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        // Ignore cache errors
+        console.warn('Failed to cache hub rates:', e);
+      }
     } catch (err) {
       console.error('Error loading hub rates:', err);
       setHubRates([]);

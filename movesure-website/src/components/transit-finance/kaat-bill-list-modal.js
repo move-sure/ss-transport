@@ -24,15 +24,13 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
   const fetchKaatBills = async () => {
     setLoading(true);
     try {
+      // Fetch kaat bills without user joins first for speed
       const { data, error } = await supabase
         .from('kaat_bill_master')
-        .select(`
-          *,
-          created_user:users!fk_kaat_bill_created_by(username, name),
-          updated_user:users!fk_kaat_bill_updated_by(username, name)
-        `)
+        .select('*')
         .eq('challan_no', selectedChallan.challan_no)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
       setKaatBills(data || []);

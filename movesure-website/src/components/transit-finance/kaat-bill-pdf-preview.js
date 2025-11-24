@@ -119,29 +119,55 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
 
     doc.setTextColor(0, 0, 0);
 
-    // Transport Details
+    // Transport Details - CENTERED
     let yPos = 45;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('Transport Details:', margin, yPos);
+    doc.text('Transport Details:', pageWidth / 2, yPos, { align: 'center' });
     
     yPos += 6;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text(`Name: ${formData.transport_name || 'N/A'}`, margin, yPos);
+    doc.text(`Name: ${formData.transport_name || 'N/A'}`, pageWidth / 2, yPos, { align: 'center' });
     
     yPos += 5;
     if (formData.transport_gst) {
-      doc.text(`GST: ${formData.transport_gst}`, margin, yPos);
+      doc.text(`GST: ${formData.transport_gst}`, pageWidth / 2, yPos, { align: 'center' });
       yPos += 5;
     }
     
     if (formData.transport_number) {
-      doc.text(`Phone: ${formData.transport_number}`, margin, yPos);
+      doc.text(`Phone: ${formData.transport_number}`, pageWidth / 2, yPos, { align: 'center' });
       yPos += 5;
     }
 
     yPos += 5;
+
+    // Check if we need rate columns (any kaat exists)
+    const hasKaatRates = enrichedData.some(item => item.kaat);
+    const hasPerKgRate = enrichedData.some(item => 
+      item.kaat && (item.kaat.rate_type === 'per_kg' || item.kaat.rate_type === 'hybrid')
+    );
+    const hasPerPkgRate = enrichedData.some(item => 
+      item.kaat && (item.kaat.rate_type === 'per_pkg' || item.kaat.rate_type === 'hybrid')
+    );
+
+    // Helper function to format payment/delivery
+    const formatPaymentDelivery = (paymentMode, deliveryType, paymentStatus) => {
+      // For bilty table (has payment_mode)
+      if (paymentMode) {
+        const payment = paymentMode.toUpperCase();
+        const delivery = deliveryType === 'door' ? ' / DD' : '';
+        return payment + delivery;
+      }
+      // For station bilty table (has payment_status)
+      if (paymentStatus) {
+        const payment = paymentStatus.toUpperCase().replace('-', ' ');
+        const delivery = deliveryType === 'door' ? ' / DD' : '';
+        return payment + delivery;
+      }
+      return 'N/A';
+    };
 
     // Bilty Details Table
     const tableData = enrichedData.map((item, index) => {
@@ -165,57 +191,97 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
         }
       }
 
-      return [
+      // Format payment/delivery
+      const paymentDelivery = formatPaymentDelivery(
+        bilty?.payment_mode,
+        bilty?.delivery_type || station?.delivery_type,
+        station?.payment_status
+      );
+
+      // Build row dynamically
+      const row = [
         (index + 1).toString(),
         item.gr_no || 'N/A',
         bilty?.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM/yy') : 
         station?.created_at ? format(new Date(station.created_at), 'dd/MM/yy') : '-',
-        (bilty?.consignor_name || station?.consignor || 'N/A').substring(0, 20),
-        (bilty?.consignee_name || station?.consignee || 'N/A').substring(0, 20),
+        (bilty?.consignor_name || station?.consignor || 'N/A').substring(0, 18),
+        (bilty?.consignee_name || station?.consignee || 'N/A').substring(0, 18),
+        paymentDelivery,
         packages.toString(),
-        weight.toFixed(2),
-        kaat?.rate_type === 'per_kg' || kaat?.rate_type === 'hybrid' ? rateKg.toFixed(2) : '-',
-        kaat?.rate_type === 'per_pkg' || kaat?.rate_type === 'hybrid' ? ratePkg.toFixed(2) : '-',
-        kaatAmount.toFixed(2)
+        weight.toFixed(2)
       ];
+
+      // Add rate columns only if needed
+      if (hasPerKgRate) {
+        row.push(kaat?.rate_type === 'per_kg' || kaat?.rate_type === 'hybrid' ? rateKg.toFixed(2) : '-');
+      }
+      if (hasPerPkgRate) {
+        row.push(kaat?.rate_type === 'per_pkg' || kaat?.rate_type === 'hybrid' ? ratePkg.toFixed(2) : '-');
+      }
+
+      row.push(kaatAmount.toFixed(2));
+      return row;
     });
+
+    // Build table headers dynamically
+    const headers = ['S.No', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Pay/Del', 'Pkg', 'Weight'];
+    if (hasPerKgRate) headers.push('Rate/Kg');
+    if (hasPerPkgRate) headers.push('Rate/Pkg');
+    headers.push('Kaat Amt');
+
+    // Build column styles dynamically
+    const columnStyles = {
+      0: { halign: 'center', cellWidth: 10 },
+      1: { halign: 'center', cellWidth: 20 },
+      2: { halign: 'center', cellWidth: 16 },
+      3: { cellWidth: 'auto' },
+      4: { cellWidth: 'auto' },
+      5: { halign: 'center', cellWidth: 18 },
+      6: { halign: 'center', cellWidth: 12 },
+      7: { halign: 'right', cellWidth: 16 }
+    };
+
+    let colIndex = 8;
+    if (hasPerKgRate) {
+      columnStyles[colIndex] = { halign: 'right', cellWidth: 16 };
+      colIndex++;
+    }
+    if (hasPerPkgRate) {
+      columnStyles[colIndex] = { halign: 'right', cellWidth: 16 };
+      colIndex++;
+    }
+    columnStyles[colIndex] = { halign: 'right', cellWidth: 20, fontStyle: 'bold' };
 
     autoTable(doc, {
       startY: yPos,
-      head: [['S.No', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Pkg', 'Weight', 'Rate/Kg', 'Rate/Pkg', 'Kaat Amt']],
+      head: [headers],
       body: tableData,
       theme: 'grid',
       headStyles: {
         fillColor: [79, 70, 229],
         textColor: [255, 255, 255],
-        fontSize: 9,
+        fontSize: 8,
         fontStyle: 'bold',
         halign: 'center'
       },
       styles: {
-        fontSize: 8,
-        cellPadding: 2
+        fontSize: 7,
+        cellPadding: 1.5
       },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 12 },
-        1: { halign: 'center', cellWidth: 22 },
-        2: { halign: 'center', cellWidth: 18 },
-        3: { cellWidth: 'auto' },
-        4: { cellWidth: 'auto' },
-        5: { halign: 'center', cellWidth: 12 },
-        6: { halign: 'right', cellWidth: 18 },
-        7: { halign: 'right', cellWidth: 18 },
-        8: { halign: 'right', cellWidth: 18 },
-        9: { halign: 'right', cellWidth: 20, fontStyle: 'bold' }
-      },
+      columnStyles: columnStyles,
       margin: { left: margin, right: margin }
     });
 
-    // Total Row
+    // Total Row - build dynamically
     const finalY = doc.lastAutoTable.finalY;
+    const totalRow = ['', '', '', '', 'TOTAL', '', bill.total_bilty_count, ''];
+    if (hasPerKgRate) totalRow.push('');
+    if (hasPerPkgRate) totalRow.push('');
+    totalRow.push(bill.total_kaat_amount);
+
     autoTable(doc, {
       startY: finalY,
-      body: [['', '', '', '', 'TOTAL', bill.total_bilty_count, '', '', '', bill.total_kaat_amount]],
+      body: [totalRow],
       theme: 'grid',
       styles: {
         fontSize: 9,
@@ -223,18 +289,7 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
         fillColor: [240, 240, 240],
         cellPadding: 2
       },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 12 },
-        1: { halign: 'center', cellWidth: 22 },
-        2: { halign: 'center', cellWidth: 18 },
-        3: { cellWidth: 'auto' },
-        4: { halign: 'right', cellWidth: 'auto' },
-        5: { halign: 'center', cellWidth: 12 },
-        6: { halign: 'right', cellWidth: 18 },
-        7: { halign: 'right', cellWidth: 18 },
-        8: { halign: 'right', cellWidth: 18 },
-        9: { halign: 'right', cellWidth: 20, fontStyle: 'bold' }
-      },
+      columnStyles: columnStyles,
       margin: { left: margin, right: margin }
     });
 

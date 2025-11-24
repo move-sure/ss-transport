@@ -676,7 +676,13 @@ export default function FinanceBiltyTable({
                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
                       getPaymentModeBadgeClass(bilty?.payment_mode || station?.payment_status)
                     }`}>
-                      {(bilty?.payment_mode || station?.payment_status)?.toUpperCase() || 'N/A'}
+                      {(() => {
+                        const paymentMode = bilty?.payment_mode || station?.payment_status;
+                        const deliveryType = bilty?.delivery_type || station?.delivery_type || '';
+                        const payment = paymentMode?.toUpperCase().replace('-', ' ') || 'N/A';
+                        const delivery = deliveryType.toLowerCase().includes('door') ? '/DD' : '';
+                        return payment + delivery;
+                      })()}
                     </span>
                   </td>
                   <td className="px-2 py-1.5">

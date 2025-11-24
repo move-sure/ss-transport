@@ -204,10 +204,19 @@ export const useConsignorRatesSearch = () => {
 
       if (error) throw error;
 
-      // Refresh the rates
-      await fetchConsignorRates(selectedConsignor.id);
+      // Update rates in state without re-fetching
+      setConsignorRates(prevRates => 
+        prevRates.map(rate => 
+          rate.id === rateId ? { ...rate, rate: newRate } : rate
+        )
+      );
+
       if (compareConsignor) {
-        await fetchCompareConsignorRates(compareConsignor.id);
+        setCompareRates(prevRates => 
+          prevRates.map(rate => 
+            rate.id === rateId ? { ...rate, rate: newRate } : rate
+          )
+        );
       }
       
       cancelEdit();
@@ -228,10 +237,11 @@ export const useConsignorRatesSearch = () => {
 
       if (error) throw error;
 
-      // Refresh the rates
-      await fetchConsignorRates(selectedConsignor.id);
+      // Remove rate from state without re-fetching
+      setConsignorRates(prevRates => prevRates.filter(rate => rate.id !== rateId));
+      
       if (compareConsignor) {
-        await fetchCompareConsignorRates(compareConsignor.id);
+        setCompareRates(prevRates => prevRates.filter(rate => rate.id !== rateId));
       }
     } catch (error) {
       console.error('Error deleting rate:', error);

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useConsignorRatesSearch } from './consignor-rates-search-helper';
+import RecentBiltiesByCity from './recent-bilties-by-city';
 
 const ConsignorRatesSearch = () => {
   const {
@@ -333,6 +334,7 @@ const ConsignorRatesSearch = () => {
                     <th className="border border-gray-300 px-3 py-1.5 text-left font-semibold text-gray-900">City</th>
                     <th className="border border-gray-300 px-3 py-1.5 text-left font-semibold text-gray-900">City Code</th>
                     <th className="border border-gray-300 px-3 py-1.5 text-right font-semibold text-gray-900">Rate</th>
+                    <th className="border border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900">Recent Bilties</th>
                     <th className="border border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
@@ -358,6 +360,13 @@ const ConsignorRatesSearch = () => {
                         ) : (
                           <span className="font-semibold text-green-600">₹{parseFloat(rate.rate).toFixed(2)}</span>
                         )}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-1.5 text-center">
+                        <RecentBiltiesByCity
+                          consignorName={selectedConsignor?.company_name}
+                          cityId={rate.city_id}
+                          cityName={rate.city?.city_name}
+                        />
                       </td>
                       <td className="border border-gray-300 px-3 py-1.5 text-center">
                         {editingId === rate.id ? (
@@ -407,6 +416,7 @@ const ConsignorRatesSearch = () => {
                     <td className="border border-gray-300 px-3 py-1.5 text-right text-green-600">
                       ₹{(consignorRates.reduce((sum, rate) => sum + parseFloat(rate.rate), 0) / consignorRates.length).toFixed(2)}
                     </td>
+                    <td className="border border-gray-300 px-3 py-1.5"></td>
                     <td className="border border-gray-300 px-3 py-1.5"></td>
                   </tr>
                 </tfoot>

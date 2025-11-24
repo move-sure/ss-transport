@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Eye, Edit, Trash2, Calendar, Package, DollarSign, User } from 'lucide-react';
+import { FileText, Edit, Trash2, Calendar, Package, DollarSign, User, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import supabase from '../../app/utils/supabase';
-import KaatBillDetailModal from './kaat-bill-detail-modal';
+import KaatBillPrintForm from './kaat-bill-print-form';
+import KaatBillPDFPreview from './kaat-bill-pdf-preview';
 
 export default function KaatBillList({ selectedChallan, onEditKaatBill, refreshTrigger }) {
   const [kaatBills, setKaatBills] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedBill, setSelectedBill] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showPrintForm, setShowPrintForm] = useState(false);
+  const [showPDFPreview, setShowPDFPreview] = useState(false);
+  const [billForPrint, setBillForPrint] = useState(null);
+  const [printFormData, setPrintFormData] = useState(null);
 
   useEffect(() => {
     if (selectedChallan?.challan_no) {
@@ -42,13 +45,19 @@ export default function KaatBillList({ selectedChallan, onEditKaatBill, refreshT
     }
   };
 
-  const handleViewDetails = (bill) => {
-    setSelectedBill(bill);
-    setShowDetailModal(true);
-  };
-
   const handleEdit = (bill) => {
     onEditKaatBill(bill);
+  };
+
+  const handlePrint = (bill) => {
+    setBillForPrint(bill);
+    setShowPrintForm(true);
+  };
+
+  const handleProceedToPrint = (formData) => {
+    setPrintFormData(formData);
+    setShowPrintForm(false);
+    setShowPDFPreview(true);
   };
 
   const handleDelete = async (bill) => {
@@ -175,12 +184,12 @@ export default function KaatBillList({ selectedChallan, onEditKaatBill, refreshT
 
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   <button
-                    onClick={() => handleViewDetails(bill)}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-semibold"
-                    title="View full details"
+                    onClick={() => handlePrint(bill)}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-semibold"
+                    title="Print/Download PDF"
                   >
-                    <Eye className="w-4 h-4" />
-                    View
+                    <Printer className="w-4 h-4" />
+                    Print
                   </button>
                   <button
                     onClick={() => handleEdit(bill)}
@@ -205,12 +214,28 @@ export default function KaatBillList({ selectedChallan, onEditKaatBill, refreshT
         </div>
       </div>
 
-      {showDetailModal && selectedBill && (
-        <KaatBillDetailModal
-          bill={selectedBill}
+      {showPrintForm && billForPrint && (
+        <KaatBillPrintForm
+          bill={billForPrint}
           onClose={() => {
-            setShowDetailModal(false);
-            setSelectedBill(null);
+            setShowPrintForm(false);
+            setBillForPrint(null);
+          }}
+          onProceedToPrint={handleProceedToPrint}
+        />
+      )}
+
+      {showPDFPreview && billForPrint && printFormData && (
+        <KaatBillPDFPreview
+          bill={billForPrint}
+          printFormData={printFormData}
+          onClose={() => {
+            setShowPDFPreview(false);
+            setBillForPrint(null);
+            setPrintFormData(null);
+          }}
+          onDownloadComplete={() => {
+            fetchKaatBills();
           }}
         />
       )}

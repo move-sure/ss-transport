@@ -10,6 +10,7 @@ export default function BiltyKaatCell({
   destinationCityId,
   biltyWeight,
   biltyPackages,
+  biltyTransportGst,
   onKaatUpdate 
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -35,9 +36,21 @@ export default function BiltyKaatCell({
       loadKaatData();
     };
 
+    // Listen for hub rate additions/updates
+    const handleHubRateUpdate = () => {
+      if (isEditing && destinationCityId) {
+        loadHubRates();
+      }
+    };
+
     window.addEventListener('kaatDataUpdated', handleKaatUpdate);
-    return () => window.removeEventListener('kaatDataUpdated', handleKaatUpdate);
-  }, [grNo]);
+    window.addEventListener('hubRateUpdated', handleHubRateUpdate);
+    
+    return () => {
+      window.removeEventListener('kaatDataUpdated', handleKaatUpdate);
+      window.removeEventListener('hubRateUpdated', handleHubRateUpdate);
+    };
+  }, [grNo, isEditing, destinationCityId]);
 
   useEffect(() => {
     if (isEditing && destinationCityId) {
@@ -73,32 +86,73 @@ export default function BiltyKaatCell({
     try {
       setLoading(true);
       
-      // Get all rates for this destination city
-      const { data: rates, error: fetchError } = await supabase
+      console.log('🔍 Loading hub rates for:', { destinationCityId, biltyTransportGst });
+      
+      // Fetch rates by destination city
+      const { data: ratesByCity, error: cityError } = await supabase
         .from('transport_hub_rates')
         .select('*')
         .eq('destination_city_id', destinationCityId)
-        .eq('is_active', true)
-        .order('transport_name');
+        .eq('is_active', true);
 
-      if (fetchError) throw fetchError;
+      if (cityError) throw cityError;
+
+      let ratesByTransport = [];
+      
+      // If bilty has transport GST, also fetch rates by that transport
+      if (biltyTransportGst) {
+        // First find transport(s) with this GST
+        const { data: transportsWithGst, error: gstError } = await supabase
+          .from('transports')
+          .select('id, transport_name, gst_number, city_id')
+          .eq('gst_number', biltyTransportGst);
+
+        if (!gstError && transportsWithGst && transportsWithGst.length > 0) {
+          const transportIds = transportsWithGst.map(t => t.id);
+          
+          // Fetch rates for these transports
+          const { data: gstRates, error: gstRatesError } = await supabase
+            .from('transport_hub_rates')
+            .select('*')
+            .in('transport_id', transportIds)
+            .eq('is_active', true);
+
+          if (!gstRatesError) {
+            ratesByTransport = gstRates || [];
+          }
+        }
+      }
+
+      // Combine and deduplicate rates
+      const allRatesMap = new Map();
+      [...(ratesByCity || []), ...ratesByTransport].forEach(rate => {
+        allRatesMap.set(rate.id, rate);
+      });
+      
+      const rates = Array.from(allRatesMap.values());
+      
+      console.log('📊 Found rates:', {
+        byCity: ratesByCity?.length || 0,
+        byTransport: ratesByTransport.length,
+        total: rates.length
+      });
 
       // Get unique transport IDs
       const transportIds = [...new Set(rates.map(r => r.transport_id).filter(Boolean))];
 
-      // Fetch transport details (city_id only, city_name doesn't exist in transports table)
+      // Fetch transport details
       let transportsRes = { data: [] };
       if (transportIds.length > 0) {
         transportsRes = await supabase
           .from('transports')
-          .select('id, transport_name, city_id')
+          .select('id, transport_name, city_id, gst_number')
           .in('id', transportIds);
       }
 
       // Get unique city IDs from transports
       const cityIds = [...new Set((transportsRes.data || []).map(t => t.city_id).filter(Boolean))];
 
-      // Fetch city details from cities table
+      // Fetch city details
       let citiesRes = { data: [] };
       if (cityIds.length > 0) {
         citiesRes = await supabase
@@ -122,16 +176,31 @@ export default function BiltyKaatCell({
         };
       });
 
-      // Enrich rates with transport details
-      const enrichedRates = rates.map(rate => ({
-        ...rate,
-        transport: rate.transport_id ? transportMap[rate.transport_id] : null
-      }));
+      // Enrich rates with transport details and sort
+      const enrichedRates = rates
+        .map(rate => ({
+          ...rate,
+          transport: rate.transport_id ? transportMap[rate.transport_id] : null
+        }))
+        .sort((a, b) => {
+          // Prioritize rates matching bilty's transport GST
+          if (biltyTransportGst) {
+            const aMatchesGst = a.transport?.gst_number === biltyTransportGst;
+            const bMatchesGst = b.transport?.gst_number === biltyTransportGst;
+            if (aMatchesGst && !bMatchesGst) return -1;
+            if (!aMatchesGst && bMatchesGst) return 1;
+          }
+          // Then sort by transport name
+          const aName = a.transport_name || a.transport?.transport_name || '';
+          const bName = b.transport_name || b.transport?.transport_name || '';
+          return aName.localeCompare(bName);
+        });
 
-      console.log('📦 Loaded hub rates:', enrichedRates.length, enrichedRates);
+      console.log('✅ Loaded hub rates:', enrichedRates.length, 'rates');
       setHubRates(enrichedRates);
     } catch (err) {
       console.error('Error loading hub rates:', err);
+      setHubRates([]);
     } finally {
       setLoading(false);
     }
@@ -296,14 +365,16 @@ export default function BiltyKaatCell({
               {hubRates.map(rate => {
                 const transportName = rate.transport_name || rate.transport?.transport_name || 'Unknown Transport';
                 const cityName = rate.transport?.city_name || '';
+                const gstNumber = rate.transport?.gst_number || '';
                 const rateKg = rate.rate_per_kg ? `₹${parseFloat(rate.rate_per_kg).toFixed(2)}/kg` : '';
                 const ratePkg = rate.rate_per_pkg ? `₹${parseFloat(rate.rate_per_pkg).toFixed(2)}/pkg` : '';
                 const rateDisplay = [rateKg, ratePkg].filter(Boolean).join(' + ');
                 const minCharge = rate.min_charge > 0 ? ` (Min: ₹${parseFloat(rate.min_charge).toFixed(0)})` : '';
+                const matchesBiltyGst = biltyTransportGst && gstNumber === biltyTransportGst;
                 
                 return (
                   <option key={rate.id} value={rate.id}>
-                    {transportName} {cityName ? `(${cityName})` : ''} → {rateDisplay}{minCharge}
+                    {matchesBiltyGst ? '⭐ ' : ''}{transportName} {cityName ? `(${cityName})` : ''} → {rateDisplay}{minCharge}
                   </option>
                 );
               })}

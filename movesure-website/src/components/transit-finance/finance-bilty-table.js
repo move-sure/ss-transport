@@ -584,9 +584,10 @@ export default function FinanceBiltyTable({
                     <BiltyKaatCell
                       grNo={transit.gr_no}
                       challanNo={selectedChallan.challan_no}
-                      destinationCityId={bilty?.to_city_id || null}
+                      destinationCityId={bilty?.to_city_id || (station?.station ? cities?.find(c => c.city_code === station.station)?.id : null)}
                       biltyWeight={bilty?.wt || station?.weight || 0}
                       biltyPackages={bilty?.no_of_pkg || station?.no_of_packets || 0}
+                      biltyTransportGst={bilty?.transport_gst || null}
                       onKaatUpdate={() => {
                         // Optional: refresh data or show notification
                         console.log('Kaat updated for', transit.gr_no);

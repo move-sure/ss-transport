@@ -215,6 +215,9 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       console.log('✅ Kaat rate added successfully:', data);
       setSuccess('Hub rate added successfully!');
       
+      // Trigger event to refresh kaat cells
+      window.dispatchEvent(new CustomEvent('hubRateUpdated'));
+      
       setTimeout(() => {
         if (onSuccess) onSuccess(data);
         onClose();

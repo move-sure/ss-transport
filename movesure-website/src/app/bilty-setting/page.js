@@ -10,6 +10,7 @@ import ConsignorComponent from '../../components/bilty-setting/consignor-manage'
 import ConsigneeComponent from '../../components/bilty-setting/consignee-manage';
 import RatesComponent from '../../components/bilty-setting/rates-manager';
 import PermanentDetailsComponent from '../../components/bilty-setting/permanent-details';
+import ConsignorRatesSearch from '../../components/bilty-setting/consignor-rates-search';
 
 const BiltySettingsPage = () => {
   const { user, requireAuth, loading: authLoading } = useAuth();
@@ -70,6 +71,7 @@ const BiltySettingsPage = () => {
     { id: 'consignors', name: 'Consignors', icon: '📦', description: 'Shipping parties' },
     { id: 'consignees', name: 'Consignees', icon: '🏢', description: 'Receiving parties' },
     { id: 'rates', name: 'Rates', icon: '💰', description: 'Pricing management' },
+    { id: 'company-rates', name: 'Company Rates', icon: '🔍', description: 'Search rates by company' },
     { id: 'permanent-details', name: 'Permanent Details', icon: '📋', description: 'Branch configurations' }
   ];
 
@@ -193,6 +195,7 @@ const BiltySettingsPage = () => {
               {activeTab === 'consignors' && <ConsignorComponent />}
               {activeTab === 'consignees' && <ConsigneeComponent />}
               {activeTab === 'rates' && <RatesComponent />}
+              {activeTab === 'company-rates' && <ConsignorRatesSearch />}
               {activeTab === 'permanent-details' && <PermanentDetailsComponent />}
             </div>
           </div>

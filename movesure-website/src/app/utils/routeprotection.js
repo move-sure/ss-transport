@@ -31,6 +31,7 @@ const ROUTE_MODULE_MAP = {
   '/complains': 'complains',
   '/available': 'available',
   '/fnance': 'fnance',
+  '/analytics': 'analytics',
 };
 
 // Routes that don't require any module (public or auth-only routes)
@@ -289,7 +290,8 @@ function AccessDeniedPage({ requiredModule }) {
       'crm': 'CRM',
       'complains': 'Complaints',
       'available': 'Available Items',
-      'fnance': 'Finance Management'
+      'fnance': 'Finance Management',
+      'analytics': 'Analytics Dashboard'
     };
     return moduleNames[module] || module.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };

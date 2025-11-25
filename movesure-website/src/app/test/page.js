@@ -27,7 +27,8 @@ const AVAILABLE_MODULES = [
   { name: 'complains', label: 'Complaints', description: 'Manage customer complaints' },
   { name: 'available', label: 'Available', description: 'Available items management' },
   { name: 'fnance', label: 'Finance', description: 'Financial dashboard and reports' },
-  { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations and billing' }
+  { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations and billing' },
+  { name: 'analytics', label: 'Analytics', description: 'Business insights and performance metrics' }
 ];
 
 export default function UserModulesPage() {

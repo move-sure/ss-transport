@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3 } from 'lucide-react';
 
 // Module configuration - MUST match routeprotection.js ROUTE_MODULE_MAP
 const MODULE_CONFIG = {
@@ -126,6 +126,12 @@ const MODULE_CONFIG = {
     path: '/fnance',
     icon: 'DollarSign',
     shortcut: 'Alt+F'
+  },
+  'analytics': {
+    name: 'Analytics',
+    path: '/analytics',
+    icon: 'BarChart3',
+    shortcut: 'Alt+Y'
   }
 };
 
@@ -151,6 +157,7 @@ const ROUTE_MODULE_MAP = {
   '/available': 'available',
   '/fnance': 'fnance',
   '/transit-finance': 'transit-finance',
+  '/analytics': 'analytics',
 };
 
 // Public routes that don't require module access
@@ -364,7 +371,8 @@ export default function Navbar() {
       'complains': <AlertTriangle className="h-4 w-4" />,
       'available': <Package className="h-4 w-4" />,
       'fnance': <DollarSign className="h-4 w-4" />,
-      'transit-finance': <DollarSign className="h-4 w-4" />
+      'transit-finance': <DollarSign className="h-4 w-4" />,
+      'analytics': <BarChart3 className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

@@ -19,6 +19,7 @@ export const ROUTE_MODULE_MAP = {
   '/users': 'staff',
   '/fnance': 'fnance',
   '/transit-finance': 'transit-finance',
+  '/analytics': 'analytics',
   
   // Nested routes - Bilty
   '/bilty/create': 'bilty',
@@ -253,7 +254,8 @@ export const getModuleDisplayName = (module) => {
     'report': 'Reports & Analytics',
     'setting': 'Settings',
     'staff': 'Administrative Access',
-    'transit-finance': 'Transit Finance'
+    'transit-finance': 'Transit Finance',
+    'analytics': 'Analytics Dashboard'
   };
   return moduleNames[module] || module;
 };

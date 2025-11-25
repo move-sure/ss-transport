@@ -644,8 +644,8 @@ export default function FinanceBiltyTable({
         <table className="w-full text-xs">
           <thead className="bg-gray-200 sticky top-0 z-10">
             <tr>
-              <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px] w-12">#</th>
-              <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px] w-10">
+              <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px] w-8">#</th>
+              <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px] w-8">
                 <input
                   type="checkbox"
                   checked={selectedBiltiesForSave.length === filteredTransits.filter(t => !alreadySavedGrNos.includes(String(t.gr_no).trim().toUpperCase())).length && filteredTransits.filter(t => !alreadySavedGrNos.includes(String(t.gr_no).trim().toUpperCase())).length > 0}
@@ -662,18 +662,19 @@ export default function FinanceBiltyTable({
                   className="cursor-pointer w-4 h-4"
                 />
               </th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">GR Number</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Date</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Consignor</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Consignee</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Transport</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Destination</th>
-              <th className="px-2 py-1.5 text-left font-semibold text-gray-900 text-[11px]">Contents</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Pkgs</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Weight (KG)</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-gray-900 text-[11px]">Total</th>
-              <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px]">Payment</th>
-              <th className="px-2 py-1.5 text-center font-semibold text-gray-900 text-[11px]">Kaat</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px]">GR No</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px]">Date</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px]">Consignor</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px]">Consignee</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px]">Transport</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px] w-16">Dest</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold text-gray-900 text-[10px]">Contents</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px]">Pkg</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px]">Wt(KG)</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Total</th>
+              <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px]">Pay</th>
+              <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px] w-28">Kaat</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Profit</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -719,8 +720,8 @@ export default function FinanceBiltyTable({
                   }`}
                   title={isClickable ? 'Click to select/deselect' : 'Already saved in another kaat bill'}
                 >
-                  <td className="px-2 py-1.5 text-center font-semibold text-gray-700">{index + 1}</td>
-                  <td className="px-2 py-1.5 text-center">
+                  <td className="px-1.5 py-1.5 text-center font-semibold text-gray-700 text-[10px]">{index + 1}</td>
+                  <td className="px-1.5 py-1.5 text-center">
                     {isAlreadySaved ? (
                       <span className="text-yellow-600 font-bold text-xs" title="Already saved in a kaat bill">🔒</span>
                     ) : (
@@ -740,26 +741,26 @@ export default function FinanceBiltyTable({
                       />
                     )}
                   </td>
-                  <td className="px-2 py-1.5">
-                    <span className={`font-bold text-xs ${isAlreadySaved ? 'text-orange-700' : 'text-blue-700'}`}>
+                  <td className="px-1.5 py-1.5">
+                    <span className={`font-bold text-[10px] ${isAlreadySaved ? 'text-orange-700' : 'text-blue-700'}`}>
                       {transit.gr_no}
-                      {isAlreadySaved && <span className="ml-1 text-[9px] text-orange-600">✓ SAVED</span>}
+                      {isAlreadySaved && <span className="ml-1 text-[9px] text-orange-600">✓</span>}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-gray-600">
+                  <td className="px-1.5 py-1.5 text-gray-600 text-[10px]">
                     {data?.bilty_date || data?.created_at 
                       ? format(new Date(data.bilty_date || data.created_at), 'dd/MM')
                       : '-'}
                   </td>
-                  <td className="px-2 py-1.5 text-gray-800 truncate max-w-[100px]" title={bilty?.consignor_name || station?.consignor || 'N/A'}>
+                  <td className="px-1.5 py-1.5 text-gray-800 truncate max-w-[80px] text-[10px]" title={bilty?.consignor_name || station?.consignor || 'N/A'}>
                     {bilty?.consignor_name || station?.consignor || 'N/A'}
                   </td>
-                  <td className="px-2 py-1.5 text-gray-800 truncate max-w-[100px]" title={bilty?.consignee_name || station?.consignee || 'N/A'}>
+                  <td className="px-1.5 py-1.5 text-gray-800 truncate max-w-[80px] text-[10px]" title={bilty?.consignee_name || station?.consignee || 'N/A'}>
                     {bilty?.consignee_name || station?.consignee || 'N/A'}
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-1.5 py-1.5">
                     {bilty?.transport_name ? (
-                      <div className="max-w-[150px]" title={bilty.transport_name}>
+                      <div className="max-w-[120px]" title={bilty.transport_name}>
                         <div className="font-semibold text-indigo-700 text-[10px] break-words leading-tight">{bilty.transport_name}</div>
                         {bilty.transport_gst && (
                           <div className="text-[8px] text-gray-500 truncate mt-0.5">{bilty.transport_gst}</div>
@@ -772,30 +773,30 @@ export default function FinanceBiltyTable({
                         transportsByCity={transportsByCity}
                       />
                     ) : (
-                      <span className="text-gray-400 text-xs">-</span>
+                      <span className="text-gray-400 text-[10px]">-</span>
                     )}
                   </td>
-                  <td className="px-2 py-1.5">
-                    <span className="font-semibold text-purple-700 text-xs">
+                  <td className="px-1.5 py-1.5">
+                    <span className="font-semibold text-purple-700 text-[10px]">
                       {bilty ? getCityName(bilty.to_city_id) : getCityByCode(station?.station)}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-gray-600 truncate max-w-[80px]" title={bilty?.contain || station?.contents || 'N/A'}>
+                  <td className="px-1.5 py-1.5 text-gray-600 truncate max-w-[70px] text-[10px]" title={bilty?.contain || station?.contents || 'N/A'}>
                     {bilty?.contain || station?.contents || 'N/A'}
                   </td>
-                  <td className="px-2 py-1.5 text-right text-gray-800">
+                  <td className="px-1.5 py-1.5 text-right text-gray-800 text-[10px]">
                     {bilty?.no_of_pkg || station?.no_of_packets || 0}
                   </td>
-                  <td className="px-2 py-1.5 text-right">
-                    <span className="font-semibold text-gray-900 text-xs">
-                      {formatWeight(bilty?.wt || station?.weight || 0)} KG
+                  <td className="px-1.5 py-1.5 text-right">
+                    <span className="font-semibold text-gray-900 text-[10px]">
+                      {formatWeight(bilty?.wt || station?.weight || 0)}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-gray-900">
+                  <td className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px]">
                     {formatCurrency(bilty?.total || station?.amount || 0)}
                   </td>
-                  <td className="px-2 py-1.5 text-center">
-                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                  <td className="px-1.5 py-1.5 text-center">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
                       getPaymentModeBadgeClass(bilty?.payment_mode || station?.payment_status)
                     }`}>
                       {(() => {
@@ -807,7 +808,7 @@ export default function FinanceBiltyTable({
                       })()}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-1.5 py-1.5">
                     <BiltyKaatCell
                       grNo={transit.gr_no}
                       challanNo={selectedChallan.challan_no}
@@ -819,6 +820,39 @@ export default function FinanceBiltyTable({
                       onKaatUpdate={(newData) => handleKaatUpdated(transit.gr_no, newData)}
                       onKaatDelete={() => handleKaatDeleted(transit.gr_no)}
                     />
+                  </td>
+                  <td className="px-1.5 py-1.5 text-right">
+                    {(() => {
+                      const kaatData = allKaatData[transit.gr_no];
+                      if (!kaatData) return <span className="text-gray-400 text-[10px]">-</span>;
+                      
+                      const total = parseFloat(bilty?.total || station?.amount || 0);
+                      
+                      // Calculate kaat amount using same logic as BiltyKaatCell
+                      const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                      const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                      const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                      const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                      
+                      let kaatAmount = 0;
+                      if (kaatData.rate_type === 'per_kg') {
+                        kaatAmount = weight * rateKg;
+                      } else if (kaatData.rate_type === 'per_pkg') {
+                        kaatAmount = packages * ratePkg;
+                      } else if (kaatData.rate_type === 'hybrid') {
+                        kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                      }
+                      
+                      const profit = total - kaatAmount;
+                      
+                      return (
+                        <span className={`font-bold text-[10px] ${
+                          profit > 0 ? 'text-green-700' : profit < 0 ? 'text-red-700' : 'text-gray-700'
+                        }`}>
+                          ₹{profit.toFixed(2)}
+                        </span>
+                      );
+                    })()}
                   </td>
                 </tr>
               );
@@ -838,7 +872,7 @@ export default function FinanceBiltyTable({
               <td className="px-2 py-1.5 text-right text-gray-900">
                 {financialSummary.totalAmount.toLocaleString()}
               </td>
-              <td colSpan="2" className="px-2 py-1.5"></td>
+              <td colSpan="3" className="px-2 py-1.5"></td>
             </tr>
           </tfoot>
         </table>

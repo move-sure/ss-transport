@@ -482,12 +482,12 @@ export default function BiltyKaatCell({
   // Display mode
   if (kaatData) {
     return (
-      <div className="min-w-[120px]">
-        <div className="bg-green-50 border border-green-200 rounded p-1.5 group hover:bg-green-100 transition-colors">
+      <div className="min-w-[110px]">
+        <div className="bg-green-50 border border-green-200 rounded p-1 group hover:bg-green-100 transition-colors">
           <div className="flex items-start justify-between gap-1">
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] text-gray-600 mb-0.5">
-                <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+              <div className="text-[8px] text-gray-600 mb-0.5">
+                <span className={`px-1 py-0.5 rounded-full font-semibold ${
                   kaatData.rate_type === 'per_kg' 
                     ? 'bg-blue-100 text-blue-800'
                     : kaatData.rate_type === 'per_pkg'
@@ -498,35 +498,35 @@ export default function BiltyKaatCell({
                 </span>
               </div>
               {kaatData.rate_per_kg > 0 && (
-                <div className="text-[10px] text-gray-700">
+                <div className="text-[8px] text-gray-700">
                   <span className="font-semibold">₹{parseFloat(kaatData.rate_per_kg).toFixed(2)}</span>/kg
                 </div>
               )}
               {kaatData.rate_per_pkg > 0 && (
-                <div className="text-[10px] text-gray-700">
+                <div className="text-[8px] text-gray-700">
                   <span className="font-semibold">₹{parseFloat(kaatData.rate_per_pkg).toFixed(2)}</span>/pkg
                 </div>
               )}
-              <div className="text-xs font-bold text-green-700 mt-0.5">
+              <div className="text-[9px] font-bold text-green-700 mt-0.5">
                 ₹{calculateAmount()}
               </div>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               <button
                 onClick={() => setIsEditing(true)}
-                className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="p-0.5 text-blue-600 hover:bg-blue-100 rounded transition-colors opacity-0 group-hover:opacity-100"
                 title="Edit"
                 disabled={saving}
               >
-                <Edit2 className="w-3 h-3" />
+                <Edit2 className="w-2.5 h-2.5" />
               </button>
               <button
                 onClick={handleDelete}
-                className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="p-0.5 text-red-600 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
                 title="Delete"
                 disabled={saving}
               >
-                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                {saving ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Trash2 className="w-2.5 h-2.5" />}
               </button>
             </div>
           </div>
@@ -540,10 +540,10 @@ export default function BiltyKaatCell({
     <div className="min-w-[80px]">
       <button
         onClick={() => setIsEditing(true)}
-        className="w-full bg-gray-100 hover:bg-blue-50 border border-gray-300 hover:border-blue-300 rounded p-1.5 text-gray-500 hover:text-blue-600 transition-all flex items-center justify-center gap-1 text-[10px] font-semibold"
+        className="w-full bg-gray-100 hover:bg-blue-50 border border-gray-300 hover:border-blue-300 rounded p-1 text-gray-500 hover:text-blue-600 transition-all flex items-center justify-center gap-1 text-[9px] font-semibold"
         title="Add Kaat"
       >
-        <Plus className="w-3 h-3" />
+        <Plus className="w-2.5 h-2.5" />
         Add Kaat
       </button>
     </div>

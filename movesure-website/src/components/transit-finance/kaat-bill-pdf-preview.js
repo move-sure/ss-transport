@@ -143,14 +143,8 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
 
     yPos += 5;
 
-    // Check if we need rate columns (any kaat exists)
+    // Check if we need kaat column (any kaat exists)
     const hasKaatRates = enrichedData.some(item => item.kaat);
-    const hasPerKgRate = enrichedData.some(item => 
-      item.kaat && (item.kaat.rate_type === 'per_kg' || item.kaat.rate_type === 'hybrid')
-    );
-    const hasPerPkgRate = enrichedData.some(item => 
-      item.kaat && (item.kaat.rate_type === 'per_pkg' || item.kaat.rate_type === 'hybrid')
-    );
 
     // Helper function to format payment/delivery
     const formatPaymentDelivery = (paymentMode, deliveryType, paymentStatus) => {
@@ -179,6 +173,7 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
       
       const weight = parseFloat(bilty?.wt || station?.weight || 0);
       const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+      const total = parseFloat(bilty?.total || station?.amount || 0);
       const rateKg = parseFloat(kaat?.rate_per_kg) || 0;
       const ratePkg = parseFloat(kaat?.rate_per_pkg) || 0;
 
@@ -193,6 +188,9 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
         }
       }
 
+      // Calculate profit
+      const profit = kaat ? total - kaatAmount : 0;
+
       // Format payment/delivery
       const paymentDelivery = formatPaymentDelivery(
         bilty?.payment_mode,
@@ -200,7 +198,7 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
         station?.payment_status
       );
 
-      // Build row dynamically
+      // Build row
       const row = [
         (index + 1).toString(),
         item.gr_no || 'N/A',
@@ -210,28 +208,19 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
         (bilty?.consignee_name || station?.consignee || 'N/A').substring(0, 18),
         paymentDelivery,
         packages.toString(),
-        weight.toFixed(2)
+        weight.toFixed(2),
+        total.toFixed(2),
+        kaat ? kaatAmount.toFixed(2) : '-',
+        kaat ? profit.toFixed(2) : '-'
       ];
 
-      // Add rate columns only if needed
-      if (hasPerKgRate) {
-        row.push(kaat?.rate_type === 'per_kg' || kaat?.rate_type === 'hybrid' ? rateKg.toFixed(2) : '-');
-      }
-      if (hasPerPkgRate) {
-        row.push(kaat?.rate_type === 'per_pkg' || kaat?.rate_type === 'hybrid' ? ratePkg.toFixed(2) : '-');
-      }
-
-      row.push(kaatAmount.toFixed(2));
       return row;
     });
 
-    // Build table headers dynamically
-    const headers = ['S.No', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Pay/Del', 'Pkg', 'Weight'];
-    if (hasPerKgRate) headers.push('Rate/Kg');
-    if (hasPerPkgRate) headers.push('Rate/Pkg');
-    headers.push('Kaat Amt');
+    // Build table headers
+    const headers = ['S.No', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Pay/Del', 'Pkg', 'Weight', 'Total', 'Kaat', 'PF'];
 
-    // Build column styles dynamically
+    // Build column styles
     const columnStyles = {
       0: { halign: 'center', cellWidth: 10 },
       1: { halign: 'center', cellWidth: 20 },
@@ -240,19 +229,11 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
       4: { cellWidth: 'auto' },
       5: { halign: 'center', cellWidth: 18 },
       6: { halign: 'center', cellWidth: 12 },
-      7: { halign: 'right', cellWidth: 16 }
+      7: { halign: 'right', cellWidth: 16 },
+      8: { halign: 'right', cellWidth: 18 },
+      9: { halign: 'right', cellWidth: 18 },
+      10: { halign: 'right', cellWidth: 18, fontStyle: 'bold' }
     };
-
-    let colIndex = 8;
-    if (hasPerKgRate) {
-      columnStyles[colIndex] = { halign: 'right', cellWidth: 16 };
-      colIndex++;
-    }
-    if (hasPerPkgRate) {
-      columnStyles[colIndex] = { halign: 'right', cellWidth: 16 };
-      colIndex++;
-    }
-    columnStyles[colIndex] = { halign: 'right', cellWidth: 20, fontStyle: 'bold' };
 
     autoTable(doc, {
       startY: yPos,
@@ -274,12 +255,18 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
       margin: { left: margin, right: margin }
     });
 
-    // Total Row - build dynamically
+    // Total Row - calculate totals
     const finalY = doc.lastAutoTable.finalY;
-    const totalRow = ['', '', '', '', 'TOTAL', '', bill.total_bilty_count, ''];
-    if (hasPerKgRate) totalRow.push('');
-    if (hasPerPkgRate) totalRow.push('');
-    totalRow.push(bill.total_kaat_amount);
+    const totalAmount = enrichedData.reduce((sum, item) => {
+      const bilty = item.bilty;
+      const station = item.station;
+      return sum + parseFloat(bilty?.total || station?.amount || 0);
+    }, 0);
+    
+    const totalKaat = parseFloat(bill.total_kaat_amount || 0);
+    const totalProfit = totalAmount - totalKaat;
+    
+    const totalRow = ['', '', '', '', 'TOTAL', '', bill.total_bilty_count, '', totalAmount.toFixed(2), totalKaat.toFixed(2), totalProfit.toFixed(2)];
 
     autoTable(doc, {
       startY: finalY,

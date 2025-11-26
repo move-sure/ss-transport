@@ -313,7 +313,7 @@ export default function Navbar() {
     const navigationItems = [];
     
     // Icon-only modules (left side) - MUST match module names in database
-    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'transit-finance', 'fnance', 'staff', 'danger'];
+    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'transit-finance', 'fnance', 'analytics', 'staff', 'danger'];
     // Text modules (right side)
     const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available'];
 

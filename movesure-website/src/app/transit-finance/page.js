@@ -26,6 +26,13 @@ export default function TransitFinancePage() {
   const [showKaatList, setShowKaatList] = useState(false);
   const [showKaatModal, setShowKaatModal] = useState(false);
   
+  // Pagination states
+  const [challanBatchSize] = useState(200);
+  const [transitBatchSize] = useState(2000);
+  const [hasMoreChallans, setHasMoreChallans] = useState(true);
+  const [hasMoreTransit, setHasMoreTransit] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
   // Edit mode states
   const [editMode, setEditMode] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
@@ -50,14 +57,9 @@ export default function TransitFinancePage() {
 
       console.log('🔄 Loading finance data with optimizations...');
 
-      // Calculate date range - last 60 days
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-      const dateFilter = sixtyDaysAgo.toISOString();
-
-      // Fetch all data in parallel - WITH PAGINATION AND DATE FILTERS
+      // Fetch all data in parallel - NO DATE FILTERS, INCREASED LIMITS
       const [challansRes, transitRes, citiesRes, branchesRes] = await Promise.all([
-        // Get recent challans with limit
+        // Get challans with increased limit
         supabase
           .from('challan_details')
           .select(`
@@ -69,11 +71,10 @@ export default function TransitFinancePage() {
             driver:staff!challan_details_driver_id_fkey(id, name, mobile_number, license_number)
           `)
           .eq('is_active', true)
-          .gte('created_at', dateFilter)
           .order('created_at', { ascending: false })
-          .limit(100),
+          .limit(challanBatchSize),
 
-        // Get recent transit details with limit
+        // Get transit details with increased limit
         supabase
           .from('transit_details')
           .select(`
@@ -81,9 +82,8 @@ export default function TransitFinancePage() {
             is_out_of_delivery_from_branch1, is_delivered_at_branch2,
             is_delivered_at_destination, created_at
           `)
-          .gte('created_at', dateFilter)
           .order('created_at', { ascending: false })
-          .limit(500),
+          .limit(transitBatchSize),
 
         // Get all cities
         supabase
@@ -110,6 +110,10 @@ export default function TransitFinancePage() {
         cities: citiesRes.data?.length || 0,
         branches: branchesRes.data?.length || 0
       });
+
+      // Update pagination flags
+      setHasMoreChallans((challansRes.data?.length || 0) >= challanBatchSize);
+      setHasMoreTransit((transitRes.data?.length || 0) >= transitBatchSize);
 
       setCities(citiesRes.data || []);
       setBranches(branchesRes.data || []);
@@ -259,6 +263,83 @@ export default function TransitFinancePage() {
     }
   };
 
+  const loadMoreChallans = async () => {
+    if (!hasMoreChallans || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+      console.log('🔄 Loading more challans... Current count:', challans.length);
+
+      // Fetch next batch using offset
+      const { data: moreChallans, error } = await supabase
+        .from('challan_details')
+        .select(`
+          id, challan_no, branch_id, truck_id, owner_id, driver_id, date,
+          total_bilty_count, remarks, is_active, is_dispatched, dispatch_date,
+          created_by, created_at, updated_at,
+          truck:trucks(id, truck_number, truck_type),
+          owner:staff!challan_details_owner_id_fkey(id, name, mobile_number),
+          driver:staff!challan_details_driver_id_fkey(id, name, mobile_number, license_number)
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .range(challans.length, challans.length + challanBatchSize - 1);
+
+      if (error) throw error;
+
+      if (moreChallans && moreChallans.length > 0) {
+        setChallans(prev => [...prev, ...moreChallans]);
+        setHasMoreChallans(moreChallans.length >= challanBatchSize);
+        console.log('✅ Loaded', moreChallans.length, 'more challans');
+      } else {
+        setHasMoreChallans(false);
+        console.log('✅ No more challans to load');
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading more challans:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMoreTransitDetails = async () => {
+    if (!hasMoreTransit || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+      console.log('🔄 Loading more transit details... Current count:', transitDetails.length);
+
+      // Fetch next batch using offset
+      const { data: moreTransit, error } = await supabase
+        .from('transit_details')
+        .select(`
+          id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
+          is_out_of_delivery_from_branch1, is_delivered_at_branch2,
+          is_delivered_at_destination, created_at
+        `)
+        .order('created_at', { ascending: false })
+        .range(transitDetails.length, transitDetails.length + transitBatchSize - 1);
+
+      if (error) throw error;
+
+      if (moreTransit && moreTransit.length > 0) {
+        // Load bilty details for new transit records
+        await loadBiltyDetailsForTransit(moreTransit, cities);
+        setHasMoreTransit(moreTransit.length >= transitBatchSize);
+        console.log('✅ Loaded', moreTransit.length, 'more transit details');
+      } else {
+        setHasMoreTransit(false);
+        console.log('✅ No more transit details to load');
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading more transit details:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -353,6 +434,9 @@ export default function TransitFinancePage() {
                 setSelectedChallan={setSelectedChallan}
                 branches={branches}
                 transitDetails={transitDetails}
+                hasMoreChallans={hasMoreChallans}
+                loadingMore={loadingMore}
+                onLoadMore={loadMoreChallans}
               />
             </div>
             {selectedChallan && (

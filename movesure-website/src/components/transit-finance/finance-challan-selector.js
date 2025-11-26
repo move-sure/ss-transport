@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Truck, Calendar, User, Package, MapPin, Search, X } from 'lucide-react';
+import { ChevronDown, Truck, Calendar, User, Package, MapPin, Search, X, Loader2, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function FinanceChallanSelector({ 
@@ -9,7 +9,10 @@ export default function FinanceChallanSelector({
   selectedChallan, 
   setSelectedChallan,
   branches,
-  transitDetails
+  transitDetails,
+  hasMoreChallans = false,
+  loadingMore = false,
+  onLoadMore
 }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -229,8 +232,13 @@ export default function FinanceChallanSelector({
               </select>
             </div>
 
-            <div className="text-[10px] text-gray-600">
-              {sortedChallans.length} challan(s) found • {challans?.filter(c => c.is_dispatched).length || 0} dispatched
+            <div className="text-[10px] text-gray-600 flex items-center justify-between">
+              <span>{sortedChallans.length} challan(s) found • {challans?.filter(c => c.is_dispatched).length || 0} dispatched</span>
+              {hasMoreChallans && (
+                <span className="text-blue-600 font-semibold">
+                  • More available (showing {challans?.length || 0})
+                </span>
+              )}
             </div>
           </div>
 
@@ -242,62 +250,96 @@ export default function FinanceChallanSelector({
                 <p className="text-sm">No dispatched challans found</p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-3">
-                {sortedChallans.map(challan => {
-                  const biltyCount = getChallanBiltyCount(challan.challan_no);
-                  const isSelected = selectedChallan?.id === challan.id;
+              <div className="space-y-3">
+                <div className="grid grid-cols-4 gap-3">
+                  {sortedChallans.map(challan => {
+                    const biltyCount = getChallanBiltyCount(challan.challan_no);
+                    const isSelected = selectedChallan?.id === challan.id;
 
-                  return (
-                    <button
-                      key={challan.id}
-                      onClick={() => handleChallanSelect(challan)}
-                      className={`p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${
-                        isSelected 
-                          ? 'bg-blue-100 border-blue-600' 
-                          : 'bg-white border-gray-200 hover:border-blue-300'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="font-bold text-gray-900 text-sm">
-                          {challan.challan_no}
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          challan.is_dispatched 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {challan.is_dispatched ? 'Disp' : 'Active'}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1.5 text-xs text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
-                          <span className="truncate font-medium">{getBranchName(challan.branch_id)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Truck className="w-3 h-3 text-green-600 flex-shrink-0" />
-                          <span className="truncate">{challan.truck?.truck_number || 'N/A'}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User className="w-3 h-3 text-orange-600 flex-shrink-0" />
-                          <span className="truncate">{challan.driver?.name || 'N/A'}</span>
-                        </div>
-                        <div className="flex items-center justify-between pt-1 border-t border-gray-200">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-purple-600" />
-                            <span className="text-[10px]">
-                              {challan.date ? format(new Date(challan.date), 'dd MMM yy') : 'N/A'}
-                            </span>
+                    return (
+                      <button
+                        key={challan.id}
+                        onClick={() => handleChallanSelect(challan)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${
+                          isSelected 
+                            ? 'bg-blue-100 border-blue-600' 
+                            : 'bg-white border-gray-200 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="font-bold text-gray-900 text-sm">
+                            {challan.challan_no}
                           </div>
-                          <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                            {biltyCount} <Package className="w-2.5 h-2.5 inline" />
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            challan.is_dispatched 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {challan.is_dispatched ? 'Disp' : 'Active'}
                           </span>
                         </div>
-                      </div>
+
+                        <div className="space-y-1.5 text-xs text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
+                            <span className="truncate font-medium">{getBranchName(challan.branch_id)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Truck className="w-3 h-3 text-green-600 flex-shrink-0" />
+                            <span className="truncate">{challan.truck?.truck_number || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <User className="w-3 h-3 text-orange-600 flex-shrink-0" />
+                            <span className="truncate">{challan.driver?.name || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-purple-600" />
+                              <span className="text-[10px]">
+                                {challan.date ? format(new Date(challan.date), 'dd MMM yy') : 'N/A'}
+                              </span>
+                            </div>
+                            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                              {biltyCount} <Package className="w-2.5 h-2.5 inline" />
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Load More Button */}
+                {hasMoreChallans && onLoadMore && (
+                  <div className="flex justify-center pt-2 border-t border-gray-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLoadMore();
+                      }}
+                      disabled={loadingMore}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all flex items-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading More...
+                        </>
+                      ) : (
+                        <>
+                          <ChevronRight className="w-4 h-4" />
+                          Load More Challans
+                        </>
+                      )}
                     </button>
-                  );
-                })}
+                  </div>
+                )}
+
+                {!hasMoreChallans && sortedChallans.length > 0 && (
+                  <div className="text-center text-xs text-gray-500 py-2 border-t border-gray-200">
+                    All challans loaded ({sortedChallans.length} total)
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -24,18 +24,28 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
   const fetchKaatBills = async () => {
     setLoading(true);
     try {
-      // Fetch kaat bills without user joins first for speed
+      // Fetch kaat bills with user details - using the correct foreign key names
       const { data, error } = await supabase
         .from('kaat_bill_master')
-        .select('*')
+        .select(`
+          *,
+          created_user:users!fk_kaat_bill_created_by(id, name, username, post),
+          updated_user:users!fk_kaat_bill_updated_by(id, name, username, post)
+        `)
         .eq('challan_no', selectedChallan.challan_no)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Kaat bills with user details:', data);
       setKaatBills(data || []);
     } catch (err) {
-      console.error('Error fetching kaat bills:', err);
+      console.error('❌ Error fetching kaat bills:', err);
+      alert('Error loading kaat bills: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -167,15 +177,57 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
                             </div>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
-                            <User className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                            <User className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                             <div>
                               <div className="text-xs text-gray-500">Created By</div>
                               <div className="font-semibold text-gray-900 truncate" title={bill.created_user?.name || bill.created_user?.username || 'Unknown'}>
                                 {bill.created_user?.name || bill.created_user?.username || 'Unknown'}
                               </div>
+                              {bill.created_user?.post && (
+                                <div className="text-[10px] text-gray-500 truncate">{bill.created_user.post}</div>
+                              )}
                             </div>
                           </div>
                         </div>
+
+                        {/* Updated By Section - Only show if updated */}
+                        {bill.updated_at && bill.updated_at !== bill.created_at && (
+                          <div className="mb-4 pb-4 border-b border-gray-200">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2 text-sm">
+                                <Calendar className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                                <div>
+                                  <div className="text-xs text-gray-500">Last Updated</div>
+                                  <div className="font-semibold text-gray-900">
+                                    {format(new Date(bill.updated_at), 'dd/MM/yyyy HH:mm')}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <User className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                                <div>
+                                  <div className="text-xs text-gray-500">Updated By</div>
+                                  <div className="font-semibold text-gray-900 truncate" title={bill.updated_user?.name || bill.updated_user?.username || 'Unknown'}>
+                                    {bill.updated_user?.name || bill.updated_user?.username || 'Unknown'}
+                                  </div>
+                                  {bill.updated_user?.post && (
+                                    <div className="text-[10px] text-gray-500 truncate">{bill.updated_user.post}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show "Not updated yet" if never updated */}
+                        {(!bill.updated_at || bill.updated_at === bill.created_at) && (
+                          <div className="mb-4 pb-4 border-b border-gray-200">
+                            <div className="flex items-center gap-2 text-sm">
+                              <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-xs text-gray-500 italic">Not updated yet</span>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="text-xs text-gray-500 bg-gray-50 rounded p-2">
                           <span className="font-medium">GR Numbers:</span> {Array.isArray(bill.gr_numbers) ? bill.gr_numbers.join(', ') : 'None'}

@@ -483,7 +483,7 @@ export default function BiltyKaatCell({
   if (kaatData) {
     return (
       <div className="min-w-[110px]">
-        <div className="bg-green-50 border border-green-200 rounded p-1 group hover:bg-green-100 transition-colors">
+        <div className="bg-orange-50 border border-orange-200 rounded p-1 group hover:bg-orange-100 transition-colors">
           <div className="flex items-start justify-between gap-1">
             <div className="flex-1 min-w-0">
               <div className="text-[8px] text-gray-600 mb-0.5">
@@ -507,7 +507,7 @@ export default function BiltyKaatCell({
                   <span className="font-semibold">₹{parseFloat(kaatData.rate_per_pkg).toFixed(2)}</span>/pkg
                 </div>
               )}
-              <div className="text-[9px] font-bold text-green-700 mt-0.5">
+              <div className="text-[9px] font-bold text-orange-700 mt-0.5">
                 ₹{calculateAmount()}
               </div>
             </div>

@@ -785,19 +785,29 @@ export default function FinanceBiltyTable({
                     {bilty?.contain || station?.contents || 'N/A'}
                   </td>
                   <td className="px-1.5 py-1.5 text-right text-gray-800 text-[10px]">
-                    {bilty?.no_of_pkg || station?.no_of_packets || 0}
+                    <div className="flex items-center justify-end gap-1">
+                      <Package className="w-3 h-3 text-blue-600" />
+                      <span>{bilty?.no_of_pkg || station?.no_of_packets || 0}</span>
+                    </div>
                   </td>
                   <td className="px-1.5 py-1.5 text-right">
-                    <span className="font-semibold text-gray-900 text-[10px]">
-                      {formatWeight(bilty?.wt || station?.weight || 0)}
-                    </span>
+                    <div className="flex items-center justify-end gap-1">
+                      <TrendingUp className="w-3 h-3 text-purple-600" />
+                      <span className="font-semibold text-gray-900 text-[10px]">
+                        {formatWeight(bilty?.wt || station?.weight || 0)}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px]">
-                    {(() => {
-                      const paymentMode = bilty?.payment_mode || station?.payment_status;
-                      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
-                      return isPaidOrDD ? '0.00' : formatCurrency(bilty?.total || station?.amount || 0);
-                    })()}
+                  <td className="px-1.5 py-1.5 text-right font-semibold text-[10px]">
+                    <div className="bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block">
+                      <span className="text-blue-800 font-bold">
+                        {(() => {
+                          const paymentMode = bilty?.payment_mode || station?.payment_status;
+                          const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                          return isPaidOrDD ? '0.00' : formatCurrency(bilty?.total || station?.amount || 0);
+                        })()}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-1.5 py-1.5 text-center">
                     <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
@@ -828,9 +838,25 @@ export default function FinanceBiltyTable({
                   <td className="px-1.5 py-1.5 text-right">
                     {(() => {
                       const kaatData = allKaatData[transit.gr_no];
-                      if (!kaatData) return <span className="text-gray-400 text-[10px]">-</span>;
                       
-                      const total = parseFloat(bilty?.total || station?.amount || 0);
+                      // Get the actual total (considering Paid/DD should be 0)
+                      const paymentMode = bilty?.payment_mode || station?.payment_status;
+                      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+                      
+                      // If no kaat data, show - or just the negative of total if it exists
+                      if (!kaatData) {
+                        if (totalAmount === 0) return <span className="text-gray-400 text-[10px]">-</span>;
+                        return (
+                          <div className="bg-green-50 px-1.5 py-0.5 rounded border border-green-200 inline-block">
+                            <span className={`font-bold text-[10px] ${
+                              totalAmount > 0 ? 'text-green-700' : 'text-gray-700'
+                            }`}>
+                              ₹{totalAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      }
                       
                       // Calculate kaat amount using same logic as BiltyKaatCell
                       const weight = parseFloat(bilty?.wt || station?.weight || 0);
@@ -847,14 +873,19 @@ export default function FinanceBiltyTable({
                         kaatAmount = (weight * rateKg) + (packages * ratePkg);
                       }
                       
-                      const profit = total - kaatAmount;
+                      // Profit = Total Amount - Kaat Amount (can be negative for Paid/DD bilties)
+                      const profit = totalAmount - kaatAmount;
                       
                       return (
-                        <span className={`font-bold text-[10px] ${
-                          profit > 0 ? 'text-green-700' : profit < 0 ? 'text-red-700' : 'text-gray-700'
+                        <div className={`px-1.5 py-0.5 rounded border inline-block ${
+                          profit > 0 ? 'bg-green-50 border-green-200' : profit < 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                         }`}>
-                          ₹{profit.toFixed(2)}
-                        </span>
+                          <span className={`font-bold text-[10px] ${
+                            profit > 0 ? 'text-green-700' : profit < 0 ? 'text-red-700' : 'text-gray-700'
+                          }`}>
+                            ₹{profit.toFixed(2)}
+                          </span>
+                        </div>
                       );
                     })()}
                   </td>
@@ -866,17 +897,157 @@ export default function FinanceBiltyTable({
       </div>
 
       {/* Footer - Sticky at bottom */}
-      <div className="bg-gray-200 border-t-2 border-gray-300 flex-shrink-0">
+      <div className="bg-gradient-to-r from-gray-100 to-gray-200 border-t-4 border-indigo-500 flex-shrink-0 shadow-lg">
         <table className="w-full text-xs">
           <tfoot>
-            <tr className="font-bold">
-              <td colSpan="9" className="px-2 py-1.5 text-right">Total:</td>
-              <td className="px-2 py-1.5 text-right">{financialSummary.totalPackages}</td>
-              <td className="px-2 py-1.5 text-right">{financialSummary.totalWeight.toFixed(2)} KG</td>
-              <td className="px-2 py-1.5 text-right text-gray-900">
-                {financialSummary.totalAmount.toLocaleString()}
+            <tr className="font-bold bg-white/50">
+              <td className="px-1.5 py-2.5 text-center text-gray-900 text-[10px] w-8"></td>
+              <td className="px-1.5 py-2.5 text-center text-gray-900 text-[10px] w-8"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-900 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-900 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-900 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-900 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-900 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-900 text-[10px] w-16"></td>
+              <td className="px-1.5 py-2.5 text-left text-gray-700 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs">
+                <div className="flex items-center justify-end gap-1">
+                  <Package className="w-3 h-3 text-blue-600" />
+                  <span>{financialSummary.totalPackages}</span>
+                </div>
               </td>
-              <td colSpan="3" className="px-2 py-1.5"></td>
+              <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs">
+                <div className="flex items-center justify-end gap-1">
+                  <TrendingUp className="w-3 h-3 text-purple-600" />
+                  <span>{financialSummary.totalWeight.toFixed(2)}</span>
+                </div>
+              </td>
+              <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
+                <div className="flex items-center justify-end gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                  <span className="text-blue-700 font-bold">₹</span>
+                  <span className="text-blue-800">
+                    {(() => {
+                      // Exclude Paid/DD amounts from total
+                      const total = filteredTransits.reduce((sum, transit) => {
+                        const bilty = transit.bilty;
+                        const station = transit.station;
+                        const paymentMode = bilty?.payment_mode || station?.payment_status;
+                        const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                        
+                        if (isPaidOrDD) return sum;
+                        
+                        return sum + parseFloat(bilty?.total || station?.amount || 0);
+                      }, 0);
+                      return total.toFixed(2);
+                    })()}
+                  </span>
+                </div>
+              </td>
+              <td className="px-1.5 py-2.5 text-center text-gray-900 text-[10px]"></td>
+              <td className="px-1.5 py-2.5 text-center text-gray-900 font-bold text-xs w-28">
+                <div className="flex items-center justify-center gap-1 bg-orange-50 px-2 py-1 rounded border border-orange-200">
+                  <FileText className="w-3 h-3 text-orange-700" />
+                  <span className="text-orange-800">
+                    {(() => {
+                      const total = filteredTransits.reduce((sum, transit) => {
+                        const kaatData = allKaatData[transit.gr_no];
+                        if (!kaatData) return sum;
+                        
+                        const bilty = transit.bilty;
+                        const station = transit.station;
+                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                        
+                        let kaatAmount = 0;
+                        if (kaatData.rate_type === 'per_kg') {
+                          kaatAmount = weight * rateKg;
+                        } else if (kaatData.rate_type === 'per_pkg') {
+                          kaatAmount = packages * ratePkg;
+                        } else if (kaatData.rate_type === 'hybrid') {
+                          kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                        }
+                        
+                        return sum + kaatAmount;
+                      }, 0);
+                      return total.toFixed(2);
+                    })()}
+                  </span>
+                </div>
+              </td>
+              <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
+                <div className="flex items-center justify-end gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
+                  <TrendingUp className="w-3 h-3 text-green-700" />
+                  <span className={`${(() => {
+                    const totalProfit = filteredTransits.reduce((sum, transit) => {
+                      const bilty = transit.bilty;
+                      const station = transit.station;
+                      const kaatData = allKaatData[transit.gr_no];
+                      
+                      const paymentMode = bilty?.payment_mode || station?.payment_status;
+                      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+                      
+                      if (!kaatData) {
+                        return sum + totalAmount;
+                      }
+                      
+                      const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                      const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                      const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                      const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                      
+                      let kaatAmount = 0;
+                      if (kaatData.rate_type === 'per_kg') {
+                        kaatAmount = weight * rateKg;
+                      } else if (kaatData.rate_type === 'per_pkg') {
+                        kaatAmount = packages * ratePkg;
+                      } else if (kaatData.rate_type === 'hybrid') {
+                        kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                      }
+                      
+                      const profit = totalAmount - kaatAmount;
+                      return sum + profit;
+                    }, 0);
+                    return totalProfit > 0 ? 'text-green-700 font-bold' : totalProfit < 0 ? 'text-red-700 font-bold' : 'text-gray-700';
+                  })()}`}>
+                    {(() => {
+                      const totalProfit = filteredTransits.reduce((sum, transit) => {
+                        const bilty = transit.bilty;
+                        const station = transit.station;
+                        const kaatData = allKaatData[transit.gr_no];
+                        
+                        const paymentMode = bilty?.payment_mode || station?.payment_status;
+                        const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                        const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+                        
+                        if (!kaatData) {
+                          return sum + totalAmount;
+                        }
+                        
+                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                        
+                        let kaatAmount = 0;
+                        if (kaatData.rate_type === 'per_kg') {
+                          kaatAmount = weight * rateKg;
+                        } else if (kaatData.rate_type === 'per_pkg') {
+                          kaatAmount = packages * ratePkg;
+                        } else if (kaatData.rate_type === 'hybrid') {
+                          kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                        }
+                        
+                        const profit = totalAmount - kaatAmount;
+                        return sum + profit;
+                      }, 0);
+                      return totalProfit.toFixed(2);
+                    })()}
+                  </span>
+                </div>
+              </td>
             </tr>
           </tfoot>
         </table>

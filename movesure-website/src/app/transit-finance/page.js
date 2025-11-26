@@ -50,16 +50,33 @@ export default function TransitFinancePage() {
     }
   }, [mounted, user]);
 
+  // Load transit details when challan is selected
+  useEffect(() => {
+    if (selectedChallan && selectedChallan.challan_no) {
+      loadTransitDetailsForChallan(selectedChallan.challan_no);
+    } else {
+      setTransitDetails([]);
+    }
+  }, [selectedChallan]);
+
   const loadAllFinanceData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Loading finance data with optimizations...');
+      console.log('🔄 Loading initial finance data (50 challans)...');
 
-      // Fetch all data in parallel - NO DATE FILTERS, INCREASED LIMITS
-      const [challansRes, transitRes, citiesRes, branchesRes] = await Promise.all([
-        // Get challans with increased limit
+      // Fetch cities, branches, and first 50 challans in parallel
+      const [citiesRes, branchesRes, challansRes] = await Promise.all([
+        supabase
+          .from('cities')
+          .select('*')
+          .order('city_name'),
+        supabase
+          .from('branches')
+          .select('*')
+          .eq('is_active', true)
+          .order('branch_name'),
         supabase
           .from('challan_details')
           .select(`
@@ -72,65 +89,86 @@ export default function TransitFinancePage() {
           `)
           .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(challanBatchSize),
-
-        // Get transit details with increased limit
-        supabase
-          .from('transit_details')
-          .select(`
-            id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
-            is_out_of_delivery_from_branch1, is_delivered_at_branch2,
-            is_delivered_at_destination, created_at
-          `)
-          .order('created_at', { ascending: false })
-          .limit(transitBatchSize),
-
-        // Get all cities
-        supabase
-          .from('cities')
-          .select('*')
-          .order('city_name'),
-
-        // Get all branches
-        supabase
-          .from('branches')
-          .select('*')
-          .eq('is_active', true)
-          .order('branch_name')
+          .limit(50)
       ]);
 
-      if (challansRes.error) throw challansRes.error;
-      if (transitRes.error) throw transitRes.error;
       if (citiesRes.error) throw citiesRes.error;
       if (branchesRes.error) throw branchesRes.error;
+      if (challansRes.error) throw challansRes.error;
 
-      console.log('✅ Finance data loaded:', {
+      console.log('✅ Initial data loaded:', {
         challans: challansRes.data?.length || 0,
-        transitDetails: transitRes.data?.length || 0,
         cities: citiesRes.data?.length || 0,
         branches: branchesRes.data?.length || 0
       });
 
-      // Update pagination flags
-      setHasMoreChallans((challansRes.data?.length || 0) >= challanBatchSize);
-      setHasMoreTransit((transitRes.data?.length || 0) >= transitBatchSize);
-
       setCities(citiesRes.data || []);
       setBranches(branchesRes.data || []);
       setChallans(challansRes.data || []);
-
-      // Now fetch bilty details for all transit records
-      if (transitRes.data && transitRes.data.length > 0) {
-        await loadBiltyDetailsForTransit(transitRes.data, citiesRes.data || []);
-      } else {
-        setTransitDetails([]);
-      }
+      setHasMoreChallans((challansRes.data?.length || 0) >= 50);
+      
+      // Don't load transit details yet - wait for user to select a challan
+      setTransitDetails([]);
+      setHasMoreTransit(false);
 
     } catch (error) {
       console.error('❌ Error loading finance data:', error);
       setError(error.message || 'Failed to load finance data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTransitDetailsForChallan = async (challanNo) => {
+    try {
+      console.log(`🔄 Loading ALL transit details for challan: ${challanNo}...`);
+      
+      // Fetch ALL transit details for this challan in batches
+      let allTransitDetails = [];
+      let transitOffset = 0;
+      const transitFetchSize = 1000;
+      let hasMoreTransitToFetch = true;
+
+      while (hasMoreTransitToFetch) {
+        const { data: transitBatch, error: transitError } = await supabase
+          .from('transit_details')
+          .select(`
+            id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
+            is_out_of_delivery_from_branch1, is_delivered_at_branch2,
+            is_delivered_at_destination, created_at
+          `)
+          .eq('challan_no', challanNo)
+          .order('created_at', { ascending: false })
+          .range(transitOffset, transitOffset + transitFetchSize - 1);
+
+        if (transitError) throw transitError;
+
+        if (transitBatch && transitBatch.length > 0) {
+          allTransitDetails = [...allTransitDetails, ...transitBatch];
+          console.log(`📊 Loaded ${transitBatch.length} transit records for challan ${challanNo} (Total: ${allTransitDetails.length})`);
+          
+          if (transitBatch.length < transitFetchSize) {
+            hasMoreTransitToFetch = false;
+          } else {
+            transitOffset += transitFetchSize;
+          }
+        } else {
+          hasMoreTransitToFetch = false;
+        }
+      }
+
+      console.log(`✅ Total transit details loaded for challan ${challanNo}: ${allTransitDetails.length}`);
+
+      // Now fetch bilty details for all transit records
+      if (allTransitDetails.length > 0) {
+        await loadBiltyDetailsForTransit(allTransitDetails, cities);
+      } else {
+        setTransitDetails([]);
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading transit details for challan:', error);
+      throw error;
     }
   };
 

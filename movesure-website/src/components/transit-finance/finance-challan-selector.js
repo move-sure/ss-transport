@@ -155,17 +155,6 @@ export default function FinanceChallanSelector({
                   </div>
                 </div>
                 
-                <div className="h-10 w-px bg-gray-300"></div>
-                
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-indigo-600" />
-                  <div>
-                    <div className="text-xs text-gray-600">Bilties</div>
-                    <div className="text-sm font-bold text-indigo-900">
-                      {getChallanBiltyCount(selectedChallan.challan_no)}
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Right: Actions */}
@@ -292,15 +281,10 @@ export default function FinanceChallanSelector({
                             <User className="w-3 h-3 text-orange-600 flex-shrink-0" />
                             <span className="truncate">{challan.driver?.name || 'N/A'}</span>
                           </div>
-                          <div className="flex items-center justify-between pt-1 border-t border-gray-200">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-purple-600" />
-                              <span className="text-[10px]">
-                                {challan.date ? format(new Date(challan.date), 'dd MMM yy') : 'N/A'}
-                              </span>
-                            </div>
-                            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                              {biltyCount} <Package className="w-2.5 h-2.5 inline" />
+                          <div className="flex items-center gap-1 pt-1 border-t border-gray-200">
+                            <Calendar className="w-3 h-3 text-purple-600" />
+                            <span className="text-[10px]">
+                              {challan.date ? format(new Date(challan.date), 'dd MMM yy') : 'N/A'}
                             </span>
                           </div>
                         </div>

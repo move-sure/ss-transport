@@ -28,19 +28,39 @@ export const generateFinanceBiltyPDF = async (filteredTransits, selectedChallan,
     kaatMap[kaat.gr_no] = kaat;
   });
 
-  // Calculate totals
+  // Calculate totals (excluding Paid/DD amounts)
   const totalPackages = filteredTransits.reduce((sum, t) => sum + (t.bilty?.no_of_pkg || t.station?.no_of_packets || 0), 0);
   const totalWeight = filteredTransits.reduce((sum, t) => sum + (t.bilty?.wt || t.station?.weight || 0), 0);
-  const totalFreight = filteredTransits.reduce((sum, t) => sum + (t.bilty?.freight_amount || 0), 0);
-  const totalAmount = filteredTransits.reduce((sum, t) => sum + (t.bilty?.total || t.station?.amount || 0), 0);
-  const totalLabour = filteredTransits.reduce((sum, t) => sum + (t.bilty?.labour_charge || 0), 0);
+  
+  // For freight, labour, other, and total - exclude Paid/DD bilties
+  const totalFreight = filteredTransits.reduce((sum, t) => {
+    const paymentMode = t.bilty?.payment_mode || t.station?.payment_status;
+    const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || t.bilty?.delivery_type?.toLowerCase().includes('door');
+    return sum + (isPaidOrDD ? 0 : (t.bilty?.freight_amount || 0));
+  }, 0);
+  
+  const totalAmount = filteredTransits.reduce((sum, t) => {
+    const paymentMode = t.bilty?.payment_mode || t.station?.payment_status;
+    const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || t.bilty?.delivery_type?.toLowerCase().includes('door');
+    return sum + (isPaidOrDD ? 0 : (t.bilty?.total || t.station?.amount || 0));
+  }, 0);
+  
+  const totalLabour = filteredTransits.reduce((sum, t) => {
+    const paymentMode = t.bilty?.payment_mode || t.station?.payment_status;
+    const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || t.bilty?.delivery_type?.toLowerCase().includes('door');
+    return sum + (isPaidOrDD ? 0 : (t.bilty?.labour_charge || 0));
+  }, 0);
+  
   const totalOther = filteredTransits.reduce((sum, t) => {
     const bilty = t.bilty;
-    return sum + (bilty ? 
+    const paymentMode = bilty?.payment_mode || t.station?.payment_status;
+    const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+    
+    return sum + (isPaidOrDD ? 0 : (bilty ? 
       parseFloat(bilty.other_charge || 0) + 
       parseFloat(bilty.toll_charge || 0) + 
       parseFloat(bilty.dd_charge || 0) + 
-      parseFloat(bilty.bill_charge || 0) : 0);
+      parseFloat(bilty.bill_charge || 0) : 0));
   }, 0);
   
   // Calculate total kaat (will be fetched from bilty_wise_kaat table)
@@ -82,6 +102,10 @@ export const generateFinanceBiltyPDF = async (filteredTransits, selectedChallan,
     const station = transit.station;
     const data = bilty || station;
 
+    // Check if Paid or DD
+    const paymentMode = bilty?.payment_mode || station?.payment_status;
+    const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+
     const otherCharges = bilty 
       ? parseFloat(bilty.other_charge || 0) + 
         parseFloat(bilty.toll_charge || 0) + 
@@ -108,7 +132,17 @@ export const generateFinanceBiltyPDF = async (filteredTransits, selectedChallan,
       }
     }
 
-    totalKaat += kaatAmount;
+    // Only add to totalKaat if not Paid/DD
+    if (!isPaidOrDD) {
+      totalKaat += kaatAmount;
+    }
+
+    // Display 0 for all amounts if Paid/DD
+    const displayFreight = isPaidOrDD ? '-' : (bilty?.freight_amount ? Math.round(bilty.freight_amount).toString() : '-');
+    const displayLabour = isPaidOrDD ? '-' : (bilty?.labour_charge ? Math.round(bilty.labour_charge).toString() : '-');
+    const displayOther = isPaidOrDD ? '-' : (otherCharges > 0 ? Math.round(otherCharges).toString() : '-');
+    const displayKaat = isPaidOrDD ? '-' : (kaatAmount > 0 ? Math.round(kaatAmount).toString() : '-');
+    const displayAmount = isPaidOrDD ? '0' : Math.round(bilty?.total || station?.amount || 0).toString();
 
     return [
       (index + 1).toString(),
@@ -121,11 +155,11 @@ export const generateFinanceBiltyPDF = async (filteredTransits, selectedChallan,
       bilty ? getCityName(bilty.to_city_id).substring(0, 12) : (station?.station || '').substring(0, 12),
       (bilty?.no_of_pkg || station?.no_of_packets || 0).toString(),
       Math.round(bilty?.wt || station?.weight || 0).toString(),
-      bilty?.freight_amount ? Math.round(bilty.freight_amount).toString() : '-',
-      bilty?.labour_charge ? Math.round(bilty.labour_charge).toString() : '-',
-      otherCharges > 0 ? Math.round(otherCharges).toString() : '-',
-      kaatAmount > 0 ? Math.round(kaatAmount).toString() : '-',
-      Math.round(bilty?.total || station?.amount || 0).toString(),
+      displayFreight,
+      displayLabour,
+      displayOther,
+      displayKaat,
+      displayAmount,
       (bilty?.payment_mode || station?.payment_status || 'N/A').toUpperCase()
     ];
   });

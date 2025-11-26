@@ -793,7 +793,11 @@ export default function FinanceBiltyTable({
                     </span>
                   </td>
                   <td className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px]">
-                    {formatCurrency(bilty?.total || station?.amount || 0)}
+                    {(() => {
+                      const paymentMode = bilty?.payment_mode || station?.payment_status;
+                      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                      return isPaidOrDD ? '0.00' : formatCurrency(bilty?.total || station?.amount || 0);
+                    })()}
                   </td>
                   <td className="px-1.5 py-1.5 text-center">
                     <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${

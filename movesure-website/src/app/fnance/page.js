@@ -16,6 +16,10 @@ import DailySummaryList from '@/components/finance/daily-summary-list';
 import useBranchManagement from '@/components/finance/use-branch-management';
 import useTransactionManagement from '@/components/finance/use-transaction-management';
 import useDailySummaryManagement from '@/components/finance/use-daily-summary-management';
+import useSalaryManagement from '@/components/finance/use-salary-management';
+import SalaryManagementModal from '@/components/finance/salary-management-modal';
+import SalaryPaymentModal from '@/components/finance/salary-payment-modal';
+import SalaryAdvanceModal from '@/components/finance/salary-advance-modal';
 
 export default function FinancePage() {
   const router = useRouter();
@@ -86,6 +90,37 @@ export default function FinancePage() {
     handleSummarySubmit,
     handleDeleteSummary
   } = useDailySummaryManagement(user);
+
+  // Salary management hook
+  const {
+    salaryPayments,
+    salaryAdvances,
+    users: staffUsers,
+    showSalaryModal,
+    showAdvanceModal,
+    editingPayment,
+    editingAdvance,
+    paymentFormData,
+    paymentFormErrors,
+    advanceFormData,
+    advanceFormErrors,
+    loading: salaryLoading,
+    handleOpenSalaryModal: handleOpenPaymentModal,
+    handleEditPayment,
+    handleCloseSalaryModal: handleClosePaymentModal,
+    handlePaymentInputChange,
+    handlePaymentSubmit,
+    handleDeletePayment,
+    handleOpenAdvanceModal,
+    handleEditAdvance,
+    handleCloseAdvanceModal,
+    handleAdvanceInputChange,
+    handleAdvanceSubmit,
+    handleDeleteAdvance,
+    getUnadjustedAdvances
+  } = useSalaryManagement(user);
+
+  const [showSalaryManagementModal, setShowSalaryManagementModal] = useState(false);
 
   const handleOpenBulkModal = (type) => {
     setBulkTransactionType(type);
@@ -203,7 +238,7 @@ export default function FinancePage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => alert('Coming Soon! Salary management feature will be available soon.')}
+                onClick={() => setShowSalaryManagementModal(true)}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md"
               >
                 <Wallet size={16} />
@@ -341,6 +376,66 @@ export default function FinancePage() {
         onClose={handleCloseSummaryModal}
         onSubmit={handleSummarySubmit}
         onInputChange={handleSummaryInputChange}
+      />
+
+      {/* Salary Management Modal */}
+      <SalaryManagementModal
+        showModal={showSalaryManagementModal}
+        salaryPayments={salaryPayments}
+        salaryAdvances={salaryAdvances}
+        users={staffUsers}
+        onClose={() => setShowSalaryManagementModal(false)}
+        onOpenPaymentModal={() => {
+          setShowSalaryManagementModal(false);
+          handleOpenPaymentModal();
+        }}
+        onOpenAdvanceModal={() => {
+          setShowSalaryManagementModal(false);
+          handleOpenAdvanceModal();
+        }}
+        onEditPayment={(payment) => {
+          setShowSalaryManagementModal(false);
+          handleEditPayment(payment);
+        }}
+        onDeletePayment={handleDeletePayment}
+        onEditAdvance={(advance) => {
+          setShowSalaryManagementModal(false);
+          handleEditAdvance(advance);
+        }}
+        onDeleteAdvance={handleDeleteAdvance}
+      />
+
+      {/* Salary Payment Modal */}
+      <SalaryPaymentModal
+        showModal={showSalaryModal}
+        editingPayment={editingPayment}
+        formData={paymentFormData}
+        formErrors={paymentFormErrors}
+        submitting={salaryLoading}
+        users={staffUsers}
+        onClose={() => {
+          handleClosePaymentModal();
+          setShowSalaryManagementModal(true);
+        }}
+        onSubmit={handlePaymentSubmit}
+        onInputChange={handlePaymentInputChange}
+        getUnadjustedAdvances={getUnadjustedAdvances}
+      />
+
+      {/* Salary Advance Modal */}
+      <SalaryAdvanceModal
+        showModal={showAdvanceModal}
+        editingAdvance={editingAdvance}
+        formData={advanceFormData}
+        formErrors={advanceFormErrors}
+        submitting={salaryLoading}
+        users={staffUsers}
+        onClose={() => {
+          handleCloseAdvanceModal();
+          setShowSalaryManagementModal(true);
+        }}
+        onSubmit={handleAdvanceSubmit}
+        onInputChange={handleAdvanceInputChange}
       />
     </div>
   );

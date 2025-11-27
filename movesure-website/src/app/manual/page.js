@@ -8,7 +8,9 @@ import ManualBiltyForm from '../../components/manual/manual-bilty-form';
 import ManualBiltyTable from '../../components/manual/manual-bilty-table';
 import ManualBiltyHeader from '../../components/manual/manual-bilty-header';
 import ManualBiltySearch from '../../components/manual/manual-bilty-search';
-import ManualBiltyDeleteModal from '../../components/manual/manual-bilty-delete-modal';
+import BiltyDeleteConfirmModal from '../../components/manual/bilty-delete-confirm-modal';
+import ArchivedBiltyModal from '../../components/manual/archived-bilty-modal';
+import useBiltyDeletion from '../../components/manual/use-bilty-deletion';
 import { 
   useStationBiltySummary, 
   formatCurrency,
@@ -36,19 +38,23 @@ export default function StationBiltySummaryPage() {
     searchSummaries,
     saveSummary,
     loadForEdit,
-    deleteSummary,
     resetForm,
     getSummaryStats,
     exportToCSV,
     advancedSearchSummaries
   } = useStationBiltySummary();
+
+  // Use bilty deletion hook
+  const { deleting, deleteBiltyWithArchive } = useBiltyDeletion();
   // Component state
   const [showForm, setShowForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [recordsPerPage] = useState(20);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [biltyToDelete, setBiltyToDelete] = useState(null);
   const [isAdvancedSearch, setIsAdvancedSearch] = useState(false);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
   
   // Branch management state
   const [branches, setBranches] = useState([]);
@@ -278,16 +284,37 @@ export default function StationBiltySummaryPage() {
     setShowForm(true);
   };
 
-  // Handle delete with confirmation
-  const handleDelete = async (id) => {
+  // Handle delete request - show confirmation modal
+  const handleDeleteRequest = (bilty) => {
+    setBiltyToDelete(bilty);
+    setShowDeleteConfirm(true);
+  };
+
+  // Handle confirmed delete with archiving
+  const handleConfirmDelete = async (biltyId, deleteReason) => {
     try {
-      await deleteSummary(id);
-      setShowDeleteConfirm(null);
-      alert('Record deleted successfully!');
+      const result = await deleteBiltyWithArchive(biltyId, user?.id, deleteReason);
+      
+      if (result.success) {
+        setShowDeleteConfirm(false);
+        setBiltyToDelete(null);
+        alert('Record deleted and archived successfully!');
+        
+        // Reload data
+        await handleLoadData();
+      } else {
+        alert(`Error deleting record: ${result.error}`);
+      }
     } catch (error) {
       console.error('Error deleting:', error);
       alert('Error deleting record. Please try again.');
     }
+  };
+
+  // Handle close delete modal
+  const handleCloseDeleteModal = () => {
+    setShowDeleteConfirm(false);
+    setBiltyToDelete(null);
   };
 
   // Handle export
@@ -373,6 +400,7 @@ export default function StationBiltySummaryPage() {
             handleBranchSelect={handleBranchSelect}
             handleNewRecord={handleNewRecord}
             handleExport={handleExport}
+            handleOpenArchive={() => setShowArchivedModal(true)}
             loading={loading}
           />
 
@@ -391,8 +419,7 @@ export default function StationBiltySummaryPage() {
             searchTerm={searchTerm}
             isAdvancedSearch={isAdvancedSearch}
             handleEdit={handleEdit}
-            setShowDeleteConfirm={setShowDeleteConfirm}
-            setFormData={setFormData}
+            handleDeleteRequest={handleDeleteRequest}
             currentPage={currentPage}
             totalPages={totalPages}
             setCurrentPage={setCurrentPage}
@@ -419,10 +446,18 @@ export default function StationBiltySummaryPage() {
       />
 
       {/* Delete Confirmation Modal */}
-      <ManualBiltyDeleteModal
-        showDeleteConfirm={showDeleteConfirm}
-        setShowDeleteConfirm={setShowDeleteConfirm}
-        handleDelete={handleDelete}
+      <BiltyDeleteConfirmModal
+        showModal={showDeleteConfirm}
+        biltyToDelete={biltyToDelete}
+        onClose={handleCloseDeleteModal}
+        onConfirmDelete={handleConfirmDelete}
+        deleting={deleting}
+      />
+
+      {/* Archived Bilty Modal */}
+      <ArchivedBiltyModal
+        showModal={showArchivedModal}
+        onClose={() => setShowArchivedModal(false)}
       />
     </div>
   );

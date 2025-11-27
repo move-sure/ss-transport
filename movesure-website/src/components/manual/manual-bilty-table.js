@@ -43,9 +43,7 @@ const ManualBiltyTable = ({
   searchResults,
   searchTerm,
   handleEdit,
-  setShowDeleteConfirm,
-  setFormData,
-  setShowEwbValidator,
+  handleDeleteRequest,
   currentPage,
   totalPages,
   setCurrentPage,
@@ -253,7 +251,7 @@ const ManualBiltyTable = ({
                       <Edit2 className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={() => setShowDeleteConfirm(summary.id)}
+                      onClick={() => handleDeleteRequest(summary)}
                       className="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-100 rounded-md transition-colors border border-red-200"
                       title="Delete"
                     >

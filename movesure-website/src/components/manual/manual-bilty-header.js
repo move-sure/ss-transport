@@ -1,7 +1,7 @@
 'use client';
 
 import { 
-  FileText, Plus, Download, Building2, ChevronDown, Check, Users, Calendar
+  FileText, Plus, Download, Building2, ChevronDown, Check, Users, Calendar, Archive
 } from 'lucide-react';
 import SampleLoadingChallan from '../transit/SampleLoadingChallan';
 
@@ -14,6 +14,7 @@ const ManualBiltyHeader = ({
   handleBranchSelect,
   handleNewRecord,
   handleExport,
+  handleOpenArchive,
   loading
 }) => {
   return (
@@ -139,6 +140,15 @@ const ManualBiltyHeader = ({
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={handleOpenArchive}
+                className="bg-white/10 backdrop-blur-sm text-white px-4 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-white/20 transition-all duration-300 border border-white/20 shadow-lg"
+                title="View Archived Bilties"
+              >
+                <Archive className="w-5 h-5" />
+                <span className="hidden lg:inline">Archive</span>
+              </button>
+
               <button
                 onClick={handleNewRecord}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-3 hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"

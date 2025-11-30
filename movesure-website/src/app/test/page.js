@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
-import { Users, Plus, Trash2, Save, Search, CheckCircle, XCircle, Shield, User } from 'lucide-react';
+import { Users, Save, Search, CheckCircle, XCircle, Shield, User, ChevronDown, ChevronUp, X, Check, ToggleLeft, ToggleRight } from 'lucide-react';
 
 const AVAILABLE_MODULES = [
   { name: 'bilty', label: 'Bilty', description: 'Create and manage bilty documents' },
@@ -21,18 +21,18 @@ const AVAILABLE_MODULES = [
   { name: 'setting', label: 'Settings', description: 'Application settings' },
   { name: 'bilty-setting', label: 'Bilty Settings', description: 'Configure bilty settings' },
   { name: 'station-list', label: 'Station List', description: 'Manage station list' },
-  { name: 'danger', label: 'Danger Zone', description: 'Critical bill book configuration (USE WITH CAUTION)' },
+  { name: 'danger', label: 'Danger Zone', description: 'Critical bill book configuration' },
   { name: 'godown', label: 'Godown', description: 'Manage godown operations' },
   { name: 'crm', label: 'CRM', description: 'Customer relationship management' },
   { name: 'complains', label: 'Complaints', description: 'Manage customer complaints' },
   { name: 'available', label: 'Available', description: 'Available items management' },
   { name: 'fnance', label: 'Finance', description: 'Financial dashboard and reports' },
-  { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations and billing' },
-  { name: 'analytics', label: 'Analytics', description: 'Business insights and performance metrics' }
+  { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations' },
+  { name: 'analytics', label: 'Analytics', description: 'Business insights and metrics' }
 ];
 
 export default function UserModulesPage() {
-  const { user, requireAuth } = useAuth();
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [userModules, setUserModules] = useState({});
   const [loading, setLoading] = useState(true);
@@ -40,28 +40,20 @@ export default function UserModulesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [expandedUsers, setExpandedUsers] = useState({});
 
-  // Check auth on mount
   useEffect(() => {
-    // Check if user is authenticated and is staff/admin
-    if (!user) {
-      return;
-    }
-
+    if (!user) return;
     if (!user.is_staff) {
-      // Not an admin, redirect to dashboard
       window.location.href = '/dashboard';
       return;
     }
-    
     fetchUsers();
   }, [user]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
-      // Fetch all users
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('*')
@@ -69,14 +61,12 @@ export default function UserModulesPage() {
 
       if (usersError) throw usersError;
 
-      // Fetch all user modules
       const { data: modulesData, error: modulesError } = await supabase
         .from('user_modules')
         .select('*');
 
       if (modulesError) throw modulesError;
 
-      // Group modules by user_id
       const modulesByUser = {};
       modulesData.forEach(module => {
         if (!modulesByUser[module.user_id]) {
@@ -101,12 +91,15 @@ export default function UserModulesPage() {
       const newModules = userCurrentModules.includes(moduleName)
         ? userCurrentModules.filter(m => m !== moduleName)
         : [...userCurrentModules, moduleName];
-      
-      return {
-        ...prev,
-        [userId]: newModules
-      };
+      return { ...prev, [userId]: newModules };
     });
+  };
+
+  const toggleAllModules = (userId, selectAll) => {
+    setUserModules(prev => ({
+      ...prev,
+      [userId]: selectAll ? AVAILABLE_MODULES.map(m => m.name) : []
+    }));
   };
 
   const saveUserModules = async (userId) => {
@@ -114,7 +107,6 @@ export default function UserModulesPage() {
       setSaving(true);
       const modulesToSave = userModules[userId] || [];
 
-      // Delete existing modules for this user
       const { error: deleteError } = await supabase
         .from('user_modules')
         .delete()
@@ -122,7 +114,6 @@ export default function UserModulesPage() {
 
       if (deleteError) throw deleteError;
 
-      // Insert new modules
       if (modulesToSave.length > 0) {
         const modulesData = modulesToSave.map(moduleName => ({
           user_id: userId,
@@ -136,7 +127,7 @@ export default function UserModulesPage() {
         if (insertError) throw insertError;
       }
 
-      showNotification(`Modules updated successfully for user!`, 'success');
+      showNotification('Modules saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving modules:', error);
       showNotification('Error saving modules', 'error');
@@ -145,227 +136,244 @@ export default function UserModulesPage() {
     }
   };
 
-  const saveAllModules = async () => {
-    try {
-      setSaving(true);
-      
-      // Delete all existing modules
-      const { error: deleteError } = await supabase
-        .from('user_modules')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-
-      if (deleteError) throw deleteError;
-
-      // Prepare all modules data
-      const allModulesData = [];
-      Object.entries(userModules).forEach(([userId, modules]) => {
-        modules.forEach(moduleName => {
-          allModulesData.push({
-            user_id: userId,
-            module_name: moduleName
-          });
-        });
-      });
-
-      // Insert all modules
-      if (allModulesData.length > 0) {
-        const { error: insertError } = await supabase
-          .from('user_modules')
-          .insert(allModulesData);
-
-        if (insertError) throw insertError;
-      }
-
-      showNotification('All modules updated successfully!', 'success');
-    } catch (error) {
-      console.error('Error saving all modules:', error);
-      showNotification('Error saving modules', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const showNotification = (message, type) => {
     setNotification({ show: true, message, type });
-    setTimeout(() => {
-      setNotification({ show: false, message: '', type: '' });
-    }, 3000);
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
-  const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (u.post && u.post.toLowerCase().includes(searchTerm.toLowerCase()))
+  const toggleUserExpand = (userId) => {
+    setExpandedUsers(prev => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const filteredUsers = users.filter(u =>
+    u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.post?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getModuleCount = (userId) => (userModules[userId] || []).length;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading users...</p>
+          <div className="relative w-16 h-16 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+          </div>
+          <p className="mt-4 text-gray-600 font-medium">Loading users...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <Navbar />
+      
+      {/* Toast Notification */}
+      <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
+        notification.show ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+      }`}>
+        <div className={`px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 ${
+          notification.type === 'success' 
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' 
+            : 'bg-gradient-to-r from-red-500 to-rose-600 text-white'
+        }`}>
+          {notification.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
+          <span className="font-medium">{notification.message}</span>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Users className="h-8 w-8 text-blue-600" />
+      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">User Modules Management</h1>
-                <p className="text-gray-600">Assign modules and permissions to users</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Access Manager</h1>
+                <p className="text-sm text-gray-500">{users.length} users • {AVAILABLE_MODULES.length} modules</p>
               </div>
             </div>
-            <button
-              onClick={saveAllModules}
-              disabled={saving}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-            >
-              <Save className="h-4 w-4" />
-              <span>{saving ? 'Saving...' : 'Save All Changes'}</span>
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Notification */}
-      {notification.show && (
-        <div className={`fixed top-20 right-6 z-50 p-4 rounded-lg shadow-lg flex items-center space-x-2 ${
-          notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`}>
-          {notification.type === 'success' ? 
-            <CheckCircle className="h-5 w-5" /> : 
-            <XCircle className="h-5 w-5" />
-          }
-          <span>{notification.message}</span>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Search Bar */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+        {/* Search */}
+        <div className="mb-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search users by username, name, or post..."
+              placeholder="Search by name, username or post..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-400"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+              >
+                <X className="h-4 w-4 text-gray-400" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Users Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredUsers.map((userItem) => (
-            <div key={userItem.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-              {/* User Header */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                    {userItem.image_url ? (
-                      <img
-                        src={userItem.image_url}
-                        alt="Profile"
-                        className="h-12 w-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-6 w-6 text-blue-600" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">
-                      {userItem.name || userItem.username}
-                    </h3>
-                    <p className="text-sm text-gray-500">@{userItem.username}</p>
-                    {userItem.post && (
-                      <p className="text-xs text-gray-500">{userItem.post}</p>
-                    )}
-                    <div className="flex items-center space-x-2 mt-1">
-                      {userItem.is_staff && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          <Shield className="h-3 w-3 mr-1" />
-                          Staff
+        {/* Users List */}
+        <div className="space-y-3">
+          {filteredUsers.map((userItem) => {
+            const isExpanded = expandedUsers[userItem.id];
+            const moduleCount = getModuleCount(userItem.id);
+            const allSelected = moduleCount === AVAILABLE_MODULES.length;
+
+            return (
+              <div
+                key={userItem.id}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-200 hover:shadow-md"
+              >
+                {/* User Row */}
+                <div
+                  className="p-4 flex items-center gap-4 cursor-pointer select-none"
+                  onClick={() => toggleUserExpand(userItem.id)}
+                >
+                  {/* Avatar */}
+                  <div className="relative flex-shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center overflow-hidden">
+                      {userItem.image_url ? (
+                        <img src={userItem.image_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-white font-bold text-lg">
+                          {(userItem.name || userItem.username || '?')[0].toUpperCase()}
                         </span>
                       )}
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        userItem.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {userItem.is_active ? 'Active' : 'Inactive'}
+                    </div>
+                    {userItem.is_active && (
+                      <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
+                  </div>
+
+                  {/* User Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-900 truncate">
+                        {userItem.name || userItem.username}
+                      </h3>
+                      {userItem.is_staff === true && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                          <Shield className="h-3 w-3 mr-1" />
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 truncate">
+                      @{userItem.username} {userItem.post && `• ${userItem.post}`}
+                    </p>
+                  </div>
+
+                  {/* Module Counter */}
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-2">
+                      <div className="h-2 w-24 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300"
+                          style={{ width: `${(moduleCount / AVAILABLE_MODULES.length) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-gray-600 w-12">
+                        {moduleCount}/{AVAILABLE_MODULES.length}
                       </span>
+                    </div>
+                    <div className={`p-2 rounded-xl transition-colors ${isExpanded ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                      {isExpanded ? (
+                        <ChevronUp className={`h-5 w-5 ${isExpanded ? 'text-blue-600' : 'text-gray-400'}`} />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Modules Section */}
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium text-gray-900">Assigned Modules</h4>
-                  <span className="text-sm text-gray-500">
-                    {(userModules[userItem.id] || []).length} of {AVAILABLE_MODULES.length}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {AVAILABLE_MODULES.map((module) => {
-                    const isAssigned = (userModules[userItem.id] || []).includes(module.name);
-                    return (
-                      <div key={module.name} className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isAssigned}
-                              onChange={() => handleModuleToggle(userItem.id, module.name)}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <div className="ml-3">
-                              <span className="text-sm font-medium text-gray-700">
-                                {module.label}
-                              </span>
-                              <p className="text-xs text-gray-500">
-                                {module.description}
-                              </p>
-                            </div>
-                          </label>
-                        </div>
+                {/* Expanded Modules */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50/50">
+                    {/* Quick Actions */}
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-white">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700">Quick Actions:</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleAllModules(userItem.id, true); }}
+                          className="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors flex items-center gap-1"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Select All
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleAllModules(userItem.id, false); }}
+                          className="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-1"
+                        >
+                          <X className="h-3.5 w-3.5" /> Clear All
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); saveUserModules(userItem.id); }}
+                        disabled={saving}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-medium rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all shadow-sm hover:shadow disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <Save className="h-4 w-4" />
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
 
-                {/* Save Button for Individual User */}
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => saveUserModules(userItem.id)}
-                    disabled={saving}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
-                  >
-                    <Save className="h-4 w-4" />
-                    <span>Save Modules</span>
-                  </button>
-                </div>
+                    {/* Modules Grid */}
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {AVAILABLE_MODULES.map((module) => {
+                        const isAssigned = (userModules[userItem.id] || []).includes(module.name);
+                        return (
+                          <button
+                            key={module.name}
+                            onClick={(e) => { e.stopPropagation(); handleModuleToggle(userItem.id, module.name); }}
+                            className={`p-3 rounded-xl border-2 text-left transition-all duration-200 flex items-center gap-3 ${
+                              isAssigned
+                                ? 'bg-blue-50 border-blue-500 shadow-sm'
+                                : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${isAssigned ? 'text-blue-900' : 'text-gray-700'}`}>
+                                {module.label}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">{module.description}</p>
+                            </div>
+                            <div className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center ${
+                              isAssigned ? 'bg-blue-500' : 'bg-gray-200'
+                            }`}>
+                              {isAssigned && <Check className="h-3.5 w-3.5 text-white" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
+        {/* Empty State */}
         {filteredUsers.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+          <div className="text-center py-16">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Users className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">No users found</h3>
             <p className="text-gray-500">
-              {searchTerm ? 'Try adjusting your search criteria.' : 'No users available.'}
+              {searchTerm ? 'Try a different search term' : 'No users available'}
             </p>
           </div>
         )}

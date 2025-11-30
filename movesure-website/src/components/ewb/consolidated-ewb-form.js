@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Truck, FileText, Calendar, MapPin, Send, Loader2, CheckCircle, Download, ExternalLink, Copy, AlertTriangle, ChevronLeft, FileStack } from 'lucide-react';
+import { Shield, Truck, FileText, Calendar, MapPin, Send, Loader2, CheckCircle, Download, ExternalLink, Copy, AlertTriangle, ChevronLeft, FileStack, CheckSquare, Square, Check } from 'lucide-react';
 import { saveConsolidatedEwbValidation } from '../../utils/ewbValidationStorage';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
@@ -22,8 +22,39 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   const [existingCewbs, setExistingCewbs] = useState([]);
   const [loadingExisting, setLoadingExisting] = useState(true);
   
+  // State for EWB selection
+  const [selectedEwbs, setSelectedEwbs] = useState([]);
+  
   // Get current user from auth context
   const { user: currentUser } = useAuth();
+
+  // Initialize selected EWBs when ewbNumbers change
+  useEffect(() => {
+    if (ewbNumbers && ewbNumbers.length > 0) {
+      setSelectedEwbs(ewbNumbers); // Select all by default
+    }
+  }, [ewbNumbers]);
+
+  // EWB Selection handlers
+  const handleSelectEwb = (ewb) => {
+    setSelectedEwbs(prev => {
+      if (prev.includes(ewb)) {
+        return prev.filter(e => e !== ewb);
+      } else {
+        return [...prev, ewb];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedEwbs(ewbNumbers);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedEwbs([]);
+  };
+
+  const isEwbSelected = (ewb) => selectedEwbs.includes(ewb);
 
   // Fetch existing consolidated EWBs for this challan
   useEffect(() => {
@@ -73,6 +104,14 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   };
 
   const handleSubmit = async () => {
+    if (selectedEwbs.length === 0) {
+      setError({
+        message: 'Please select at least one E-Way Bill',
+        details: 'You must select at least one EWB to create a consolidated e-way bill.'
+      });
+      return;
+    }
+
     if (!formData.vehicle_number || !formData.place_of_consignor || !formData.state_of_consignor) {
       setError({
         message: 'Please fill all required fields',
@@ -88,12 +127,13 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
       const payload = {
         ...formData,
         transporter_document_date: formData.transporter_document_date.split('-').reverse().join('/'),
-        list_of_eway_bills: ewbNumbers.map(ewb => ({
+        list_of_eway_bills: selectedEwbs.map(ewb => ({
           eway_bill_number: ewb.replace(/-/g, '')
         }))
       };
 
       console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
+      console.log('📋 Selected EWBs:', selectedEwbs);
 
       const response = await fetch('https://movesure-backend.onrender.com/api/consolidated-ewaybill', {
         method: 'POST',
@@ -141,7 +181,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
           saveConsolidatedEwbValidation({
             challanNo: challanData.challan_no,
             consolidatedEwbNumber: results.message?.cEwbNo,
-            includedEwbNumbers: ewbNumbers,
+            includedEwbNumbers: selectedEwbs,
             validationResult: { success: true, data: results, ...successResult },
             userId: currentUser.id
           }).then(saveResult => {
@@ -207,7 +247,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
         saveConsolidatedEwbValidation({
           challanNo: challanData.challan_no,
           consolidatedEwbNumber: null,
-          includedEwbNumbers: ewbNumbers,
+          includedEwbNumbers: selectedEwbs,
           validationResult: { success: false, error: errorDetails.message, data: errorDetails },
           userId: currentUser.id
         }).then(saveResult => {
@@ -229,6 +269,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
   const reset = () => {
     setResult(null);
     setError(null);
+    setSelectedEwbs(ewbNumbers); // Reset to all selected
     const truckNumber = challanData?.truck?.truck_number?.replace(/-/g, '') || '';
     setFormData({
       userGstin: '09COVPS5556J1ZT',
@@ -251,7 +292,9 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
             <Shield className="w-8 h-8" />
             <div>
               <h2 className="text-2xl font-bold">Create Consolidated E-Way Bill</h2>
-              <p className="text-blue-100 text-sm">{ewbNumbers.length} EWB numbers selected</p>
+              <p className="text-blue-100 text-sm">
+                {selectedEwbs.length} of {ewbNumbers.length} EWB{ewbNumbers.length > 1 ? 's' : ''} selected for consolidation
+              </p>
             </div>
           </div>
           <button
@@ -554,31 +597,82 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
         </div>
       )}
 
-      {/* EWB Numbers List */}
+      {/* EWB Numbers List with Selection */}
       {!result && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Selected E-Way Bills</h3>
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-              {ewbNumbers.length} EWBs
-            </span>
+            <h3 className="text-lg font-semibold text-gray-900">Select E-Way Bills for Consolidation</h3>
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                {selectedEwbs.length} of {ewbNumbers.length} Selected
+              </span>
+            </div>
+          </div>
+          
+          {/* Selection Controls */}
+          <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-gray-200">
+            <button
+              onClick={handleSelectAll}
+              className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"
+            >
+              <CheckSquare className="w-4 h-4" />
+              Select All
+            </button>
+            <button
+              onClick={handleDeselectAll}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+            >
+              <Square className="w-4 h-4" />
+              Deselect All
+            </button>
+            <div className="flex-1"></div>
+            <p className="text-xs text-gray-500">
+              Click on individual EWBs to select/deselect them
+            </p>
           </div>
           
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ewbNumbers.map((ewb, index) => (
-                <div key={index} className="flex items-center gap-2 p-3 bg-white rounded-lg shadow-sm border border-blue-100">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                  <span className="text-sm font-mono font-medium text-gray-900">{ewb}</span>
-                </div>
-              ))}
+              {ewbNumbers.map((ewb, index) => {
+                const isSelected = isEwbSelected(ewb);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleSelectEwb(ewb)}
+                    className={`flex items-center gap-3 p-3 rounded-lg shadow-sm border transition-all duration-200 text-left ${
+                      isSelected
+                        ? 'bg-green-50 border-green-300 ring-2 ring-green-200'
+                        : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-100 border border-gray-300'
+                    }`}>
+                      {isSelected && <Check className="w-4 h-4" />}
+                    </div>
+                    <span className={`text-sm font-mono font-medium ${
+                      isSelected ? 'text-green-900' : 'text-gray-700'
+                    }`}>{ewb}</span>
+                  </button>
+                );
+              })}
             </div>
             
-            <div className="mt-3 p-3 bg-blue-100 rounded-lg">
-              <p className="text-xs text-blue-700">
-                💡 These EWB numbers will be consolidated into a single consolidated e-way bill for the specified vehicle.
-              </p>
-            </div>
+            {selectedEwbs.length === 0 ? (
+              <div className="mt-3 p-3 bg-yellow-100 rounded-lg border border-yellow-200">
+                <p className="text-xs text-yellow-800 font-medium">
+                  ⚠️ Please select at least one E-Way Bill to create a consolidated EWB.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 p-3 bg-green-100 rounded-lg border border-green-200">
+                <p className="text-xs text-green-800">
+                  ✅ {selectedEwbs.length} E-Way Bill{selectedEwbs.length > 1 ? 's' : ''} will be consolidated into a single consolidated e-way bill for the specified vehicle.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -726,7 +820,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || selectedEwbs.length === 0}
               className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium flex items-center gap-2 shadow-lg"
             >
               {isSubmitting ? (
@@ -737,7 +831,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
               ) : (
                 <>
                   <Send className="w-5 h-5" />
-                  Create Consolidated EWB
+                  Create Consolidated EWB ({selectedEwbs.length} EWBs)
                 </>
               )}
             </button>

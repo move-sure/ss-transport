@@ -145,7 +145,7 @@ export default function ValidationSection({ transitDetails, challanDetails, onVa
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
         <Shield className="w-12 h-12 text-orange-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-800 mb-2">No E-Way Bills Found</h3>
-        <p className="text-gray-600">This challan doesn't have any E-Way Bills to validate.</p>
+        <p className="text-gray-600">This challan doesn&apos;t have any E-Way Bills to validate.</p>
       </div>
     );
   }

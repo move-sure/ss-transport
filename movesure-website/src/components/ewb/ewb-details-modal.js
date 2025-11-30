@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Shield, Edit3, Download } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Shield, Edit3, Download, User, Clock } from 'lucide-react';
 import { formatEwbNumber } from '../../utils/ewbValidation';
 import { getTransporterUpdatesByEwbNumbers, getEwbValidationsByNumbers } from '../../utils/ewbValidationStorage';
 
@@ -201,6 +201,27 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                             <p className="font-semibold text-gray-900">{transporterUpdate.transporter_name}</p>
                           </div>
                         </div>
+                        {/* Updated By User Info */}
+                        {(transporterUpdate.users || transporterUpdate.updated_at) && (
+                          <div className="mt-2 pt-2 border-t border-green-100">
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              {transporterUpdate.users && (
+                                <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-md">
+                                  <User className="w-3 h-3 text-blue-600" />
+                                  <span className="text-blue-700 font-medium">
+                                    {transporterUpdate.users.name || transporterUpdate.users.username || 'Unknown'}
+                                  </span>
+                                </div>
+                              )}
+                              {transporterUpdate.updated_at && (
+                                <div className="flex items-center gap-1.5 text-gray-500">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{new Date(transporterUpdate.updated_at).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {/* Download PDF Button */}
                         {isTransporterUpdateSuccessful(transporterUpdate) && getTransporterPdfUrl(transporterUpdate) && (
                           <div className="mt-3">
@@ -314,6 +335,27 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                             <p className="font-semibold text-gray-900">{transporterUpdate.transporter_name}</p>
                           </div>
                         </div>
+                        {/* Updated By User Info */}
+                        {(transporterUpdate.users || transporterUpdate.updated_at) && (
+                          <div className="mt-2 pt-2 border-t border-blue-100">
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              {transporterUpdate.users && (
+                                <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-md">
+                                  <User className="w-3 h-3 text-blue-600" />
+                                  <span className="text-blue-700 font-medium">
+                                    {transporterUpdate.users.name || transporterUpdate.users.username || 'Unknown'}
+                                  </span>
+                                </div>
+                              )}
+                              {transporterUpdate.updated_at && (
+                                <div className="flex items-center gap-1.5 text-gray-500">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{new Date(transporterUpdate.updated_at).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {/* Download PDF Button */}
                         {isTransporterUpdateSuccessful(transporterUpdate) && getTransporterPdfUrl(transporterUpdate) && (
                           <div className="mt-3">

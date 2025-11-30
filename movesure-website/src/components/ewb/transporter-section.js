@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw } from 'lucide-react';
+import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye } from 'lucide-react';
 import TransporterUpdateModal from './transporter-update-modal';
+import EWBDetailsModal from './ewb-details-modal';
 import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation';
 import { getTransporterUpdatesByEwbNumbers } from '../../utils/ewbValidationStorage';
 
 export default function TransporterSection({ transitDetails, challanDetails }) {
   const [transporterUpdatesMap, setTransporterUpdatesMap] = useState({});
   const [showModal, setShowModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTransit, setSelectedTransit] = useState(null);
+  const [selectedDetailsTransit, setSelectedDetailsTransit] = useState(null);
   const [hideKanpur, setHideKanpur] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -92,6 +95,11 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const handleUpdateClick = (transit) => {
     setSelectedTransit(transit);
     setShowModal(true);
+  };
+
+  const handleViewDetails = (transit) => {
+    setSelectedDetailsTransit(transit);
+    setShowDetailsModal(true);
   };
 
   const handleUpdateSuccess = (ewbNumber, updateResult) => {
@@ -278,19 +286,29 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {!isKanpur && (
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleUpdateClick(transit)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            updateStatus === true
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                          }`}
+                          onClick={() => handleViewDetails(transit)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                          title="View Details"
                         >
-                          <Edit3 className="w-4 h-4" />
-                          {updateStatus === true ? 'Update Again' : 'Update Transporter'}
+                          <Eye className="w-4 h-4" />
+                          Details
                         </button>
-                      )}
+                        {!isKanpur && (
+                          <button
+                            onClick={() => handleUpdateClick(transit)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              updateStatus === true
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                            }`}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            {updateStatus === true ? 'Update Again' : 'Update Transporter'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -310,6 +328,16 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
         onUpdateSuccess={handleUpdateSuccess}
         grData={selectedTransit}
         ewbNumbers={selectedTransit ? getTransitEwbs(selectedTransit) : []}
+      />
+
+      {/* EWB Details Modal */}
+      <EWBDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedDetailsTransit(null);
+        }}
+        grData={selectedDetailsTransit}
       />
     </div>
   );

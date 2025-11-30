@@ -512,10 +512,29 @@ export async function getTransporterUpdatesByEwbNumbers(ewbNumbers) {
       throw error;
     }
 
-    // Convert to map keyed by ewb_number
+    // Get unique user IDs from the updates
+    const userIds = [...new Set(data.map(u => u.updated_by).filter(Boolean))];
+    
+    // Fetch user details
+    let usersMap = {};
+    if (userIds.length > 0) {
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, username')
+        .in('id', userIds);
+
+      if (!usersError && usersData) {
+        usersMap = Object.fromEntries(usersData.map(u => [u.id, u]));
+      }
+    }
+
+    // Convert to map keyed by ewb_number with user details
     const updatesMap = {};
     data.forEach(update => {
-      updatesMap[update.ewb_number] = update;
+      updatesMap[update.ewb_number] = {
+        ...update,
+        users: usersMap[update.updated_by] || null
+      };
     });
 
     console.log('✅ Fetched transporter updates for', Object.keys(updatesMap).length, 'EWBs');

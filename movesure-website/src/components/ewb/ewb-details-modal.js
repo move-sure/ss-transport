@@ -1,7 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Shield, Edit3 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Shield, Edit3, Download } from 'lucide-react';
 import { formatEwbNumber } from '../../utils/ewbValidation';
 import { getTransporterUpdatesByEwbNumbers, getEwbValidationsByNumbers } from '../../utils/ewbValidationStorage';
+
+// Helper function to check if transporter update was successful
+// Uses the same logic as transit-details-table for consistency
+const isTransporterUpdateSuccessful = (transporterUpdate) => {
+  if (!transporterUpdate) return false;
+  
+  return transporterUpdate.is_success === true || 
+         transporterUpdate.update_status === 'SUCCESS' ||
+         transporterUpdate.update_result?.success === true ||
+         transporterUpdate.raw_result_metadata?.success === true;
+};
+
+// Helper function to get PDF URL from transporter update
+const getTransporterPdfUrl = (transporterUpdate) => {
+  if (!transporterUpdate) return null;
+  
+  return transporterUpdate.pdf_url || 
+         transporterUpdate.raw_result_metadata?.pdfUrl ||
+         transporterUpdate.raw_result_metadata?.fullData?.pdfUrl ||
+         null;
+};
+
+// Helper function to get error message from transporter update
+const getTransporterErrorMessage = (transporterUpdate) => {
+  if (!transporterUpdate) return null;
+  
+  return transporterUpdate.error_message || 
+         transporterUpdate.update_result?.error ||
+         transporterUpdate.raw_result_metadata?.error ||
+         null;
+};
 
 export default function EWBDetailsModal({ isOpen, onClose, grData }) {
   const [transporterUpdates, setTransporterUpdates] = useState({});
@@ -130,7 +161,7 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                           <span className="text-xs font-semibold text-orange-800 uppercase">Transporter</span>
                         </div>
                         {transporterUpdate ? (
-                          transporterUpdate.update_result?.success ? (
+                          isTransporterUpdateSuccessful(transporterUpdate) ? (
                             <div className="flex items-center gap-2">
                               <CheckCircle className="w-5 h-5 text-green-600" />
                               <span className="text-sm font-bold text-green-700">Updated</span>
@@ -141,9 +172,9 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                                 <AlertTriangle className="w-5 h-5 text-red-600" />
                                 <span className="text-sm font-bold text-red-700">Failed</span>
                               </div>
-                              {transporterUpdate.update_result?.error && (
+                              {getTransporterErrorMessage(transporterUpdate) && (
                                 <p className="text-xs text-red-600 mt-1">
-                                  {transporterUpdate.update_result.error}
+                                  {getTransporterErrorMessage(transporterUpdate)}
                                 </p>
                               )}
                             </div>
@@ -170,6 +201,20 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                             <p className="font-semibold text-gray-900">{transporterUpdate.transporter_name}</p>
                           </div>
                         </div>
+                        {/* Download PDF Button */}
+                        {isTransporterUpdateSuccessful(transporterUpdate) && getTransporterPdfUrl(transporterUpdate) && (
+                          <div className="mt-3">
+                            <a
+                              href={getTransporterPdfUrl(transporterUpdate)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Download Updated EWB PDF
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -229,7 +274,7 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                           <span className="text-xs font-semibold text-orange-800 uppercase">Transporter</span>
                         </div>
                         {transporterUpdate ? (
-                          transporterUpdate.update_result?.success ? (
+                          isTransporterUpdateSuccessful(transporterUpdate) ? (
                             <div className="flex items-center gap-2">
                               <CheckCircle className="w-5 h-5 text-green-600" />
                               <span className="text-sm font-bold text-green-700">Updated</span>
@@ -240,9 +285,9 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                                 <AlertTriangle className="w-5 h-5 text-red-600" />
                                 <span className="text-sm font-bold text-red-700">Failed</span>
                               </div>
-                              {transporterUpdate.update_result?.error && (
+                              {getTransporterErrorMessage(transporterUpdate) && (
                                 <p className="text-xs text-red-600 mt-1">
-                                  {transporterUpdate.update_result.error}
+                                  {getTransporterErrorMessage(transporterUpdate)}
                                 </p>
                               )}
                             </div>
@@ -269,6 +314,20 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
                             <p className="font-semibold text-gray-900">{transporterUpdate.transporter_name}</p>
                           </div>
                         </div>
+                        {/* Download PDF Button */}
+                        {isTransporterUpdateSuccessful(transporterUpdate) && getTransporterPdfUrl(transporterUpdate) && (
+                          <div className="mt-3">
+                            <a
+                              href={getTransporterPdfUrl(transporterUpdate)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Download Updated EWB PDF
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

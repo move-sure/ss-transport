@@ -10,7 +10,7 @@ import { getTransporterUpdatesByEwbNumbers } from '../../utils/ewbValidationStor
 
 export default function TransitDetailsTable({ transitDetails, challanDetails }) {
   const [selectedGRs, setSelectedGRs] = useState([]);
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useState('with_ewb');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedGRData, setSelectedGRData] = useState(null);
   const [showValidation, setShowValidation] = useState(false);
@@ -205,6 +205,15 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     });
   }, [selectedEwbNumbers, validationMap, allEwbNumbers]);
 
+  // Check if ALL EWBs are validated successfully (for main consolidate button)
+  const allEwbsValidated = useMemo(() => {
+    if (!allEwbNumbers || allEwbNumbers.length < 2) return false;
+    return allEwbNumbers.every(ewb => {
+      const entry = validationMap[String(ewb).trim()];
+      return entry?.isValidated && entry?.success;
+    });
+  }, [allEwbNumbers, validationMap]);
+
   // Check if destination is Kanpur
   const isKanpurDestination = (transit) => {
     const cityName = transit.toCity?.city_name?.toLowerCase() || 
@@ -387,6 +396,15 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
               <Shield className="w-4 h-4" />
               {showValidation ? 'Hide Validation' : `Validate EWBs (${allEwbNumbers.length})`}
             </button>
+            {allEwbsValidated && (
+              <button
+                onClick={() => setShowConsolidatedForm(true)}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2 shadow-md animate-pulse"
+              >
+                <FileStack className="w-4 h-4" />
+                Consolidate All ({allEwbNumbers.length})
+              </button>
+            )}
             <button
               onClick={toggleAll}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
@@ -399,7 +417,7 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
               >
                 <FileStack className="w-4 h-4" />
-                Consolidate EWBs ({selectedEwbNumbers.length})
+                Consolidate Selected ({selectedEwbNumbers.length})
               </button>
             )}
           </div>
@@ -719,6 +737,20 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
                   setTransporterUpdatesMap(result.data);
                 }
               });
+            }
+          }}
+          onUpdateSuccess={(ewbNumber, updateResult) => {
+            // Live update the transporter updates map when update succeeds
+            if (ewbNumber && updateResult) {
+              setTransporterUpdatesMap(prev => ({
+                ...prev,
+                [ewbNumber]: {
+                  ...prev[ewbNumber],
+                  is_success: true,
+                  update_result: updateResult,
+                  raw_result_metadata: updateResult
+                }
+              }));
             }
           }}
           grData={selectedTransporterGR}

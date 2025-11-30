@@ -29,7 +29,7 @@ const parseCityReference = (value) => {
   };
 };
 
-const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
+const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbNumbers }) => {
   const [formData, setFormData] = useState(createEmptyFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -40,6 +40,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
     error: null
   });
   const [showDebug, setShowDebug] = useState(false);
+  const [selectedEwbIndex, setSelectedEwbIndex] = useState(0);
   
   // Get current user from auth context
   const { user: currentUser } = useAuth();
@@ -86,6 +87,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
       setResult(null);
       setError(null);
       setAutoFillStatus({ loading: false, match: null, error: null });
+      setSelectedEwbIndex(0);
       return;
     }
 
@@ -93,6 +95,15 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
     setFormData(createEmptyFormState());
     setResult(null);
     setError(null);
+    setSelectedEwbIndex(0);
+
+    // Auto-select first EWB if available
+    if (ewbNumbers && ewbNumbers.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        eway_bill_number: ewbNumbers[0]
+      }));
+    }
 
     // Exit early if no data
     if (!grData) {
@@ -246,7 +257,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
     return () => {
       cancelled = true;
     };
-  }, [isOpen, grData?.gr_no, JSON.stringify(ewbNumbers), cityHints]);
+  }, [isOpen, grData?.gr_no, cityHints]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -353,6 +364,11 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
 
         setResult(successResult);
 
+        // Call the success callback to update parent state immediately (for live green highlight)
+        if (onUpdateSuccess) {
+          onUpdateSuccess(formData.eway_bill_number, successResult);
+        }
+
         // Save to database (in background)
         if (currentUser?.id && formData.eway_bill_number) {
           console.log('💾 Saving to database:', {
@@ -434,7 +450,11 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
   const reset = () => {
     setResult(null);
     setError(null);
-    setFormData(createEmptyFormState());
+    // Keep the current EWB selection but reset other form fields
+    setFormData(prev => ({
+      ...createEmptyFormState(),
+      eway_bill_number: prev.eway_bill_number // Keep the selected EWB
+    }));
     setAutoFillStatus({
       loading: false,
       match: null,
@@ -692,22 +712,56 @@ const TransporterUpdateModal = ({ isOpen, onClose, grData, ewbNumbers }) => {
                 )}
               </h3>
               <div className="space-y-2">
-                {ewbNumbers.map((ewb, index) => (
-                  <label key={index} className={`flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${
-                    formData.eway_bill_number === ewb ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="ewb_selection"
-                      value={ewb}
-                      checked={formData.eway_bill_number === ewb}
-                      onChange={(e) => handleInputChange('eway_bill_number', e.target.value)}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-3 font-mono text-sm font-medium text-gray-900">{ewb}</span>
-                  </label>
-                ))}
+                {ewbNumbers.map((ewb, index) => {
+                  const isSelected = formData.eway_bill_number === ewb;
+                  return (
+                    <label 
+                      key={index} 
+                      className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'border-blue-500 bg-blue-50 shadow-md' 
+                          : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="ewb_selection"
+                        value={ewb}
+                        checked={isSelected}
+                        onChange={(e) => {
+                          const selectedEwb = e.target.value;
+                          setSelectedEwbIndex(index);
+                          handleInputChange('eway_bill_number', selectedEwb);
+                          // Clear any previous result/error when switching EWBs
+                          setResult(null);
+                          setError(null);
+                        }}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="ml-3 flex-1">
+                        <span className={`font-mono text-sm font-medium ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                          {ewb}
+                        </span>
+                        {ewbNumbers.length > 1 && (
+                          <span className={`ml-2 text-xs ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>
+                            (EWB #{index + 1})
+                          </span>
+                        )}
+                      </div>
+                      {isSelected && (
+                        <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs font-semibold rounded">
+                          Selected
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
+              {ewbNumbers.length > 1 && (
+                <p className="mt-3 text-xs text-gray-500">
+                  This GR has {ewbNumbers.length} E-Way Bills. Select the one you want to update.
+                </p>
+              )}
             </div>
           )}
 

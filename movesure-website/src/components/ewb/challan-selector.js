@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import supabase from '../../app/utils/supabase';
 
-export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
+export default function ChallanSelector() {
+  const router = useRouter();
   const [challans, setChallans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -115,11 +118,6 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
     });
   }, [challans, searchTerm]);
 
-  const selectedChallanMeta = useMemo(
-    () => challans.find(c => c.challan_no === selectedChallan) || null,
-    [challans, selectedChallan]
-  );
-
   const formatDate = (value) => {
     if (!value) return 'Not available';
     try {
@@ -134,11 +132,9 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
   };
 
   const handleSelect = (challan) => {
-    if (!challan) {
-      onChallanSelect(null);
-      return;
-    }
-    onChallanSelect(challan.challan_no);
+    if (!challan) return;
+    // Navigate to the challan-specific page
+    router.push(`/ewb/${challan.challan_no}`);
   };
 
   if (loading) {
@@ -176,15 +172,6 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {selectedChallan && (
-            <button
-              type="button"
-              onClick={() => handleSelect(null)}
-              className="px-3 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:border-slate-300 hover:bg-slate-50 transition-colors"
-            >
-              Clear Selection
-            </button>
-          )}
           <button
             type="button"
             onClick={fetchChallans}
@@ -242,14 +229,6 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
         </p>
       </div>
 
-      {selectedChallanMeta && (
-        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm">
-          <p className="font-semibold text-blue-900">
-            Viewing: Challan #{selectedChallanMeta.challan_no} • {selectedChallanMeta.branch?.branch_name || selectedChallanMeta.branch?.name || selectedChallanMeta.branch?.code || 'N/A'} • {selectedChallanMeta.total_bilty_count || 0} bilties
-          </p>
-        </div>
-      )}
-
       <div className="mt-4 max-h-96 overflow-y-auto pr-1">
         {filteredChallans.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
@@ -258,20 +237,14 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {filteredChallans.map((challan) => {
-              const isSelected = challan.challan_no === selectedChallan;
               const branchName = challan.branch?.branch_name || challan.branch?.name || challan.branch?.code || 'N/A';
               const truckNumber = challan.truck?.truck_number || 'Not assigned';
 
               return (
-                <button
-                  type="button"
+                <Link
+                  href={`/ewb/${challan.challan_no}`}
                   key={challan.id}
-                  onClick={() => handleSelect(challan)}
-                  className={`w-full text-left transition-all duration-150 rounded-lg border bg-white px-4 py-3 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                    isSelected
-                      ? 'border-blue-500 ring-2 ring-blue-200 shadow-md'
-                      : 'border-slate-200 hover:border-blue-500 hover:bg-blue-50/50'
-                  }`}
+                  className="w-full text-left transition-all duration-150 rounded-lg border bg-white px-4 py-3 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 border-slate-200 hover:border-blue-500 hover:bg-blue-50/50"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -298,7 +271,7 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
                       </div>
                     </div>
 
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 flex items-center gap-3">
                       <span
                         className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${
                           challan.is_dispatched
@@ -308,9 +281,12 @@ export default function ChallanSelector({ onChallanSelect, selectedChallan }) {
                       >
                         {challan.is_dispatched ? 'Dispatched' : 'Pending'}
                       </span>
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
                   </div>
-                </button>
+                </Link>
               );
             })}
           </div>

@@ -9,7 +9,6 @@ import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation'
 import { getTransporterUpdatesByEwbNumbers } from '../../utils/ewbValidationStorage';
 
 export default function TransitDetailsTable({ transitDetails, challanDetails }) {
-  const [selectedGRs, setSelectedGRs] = useState([]);
   const [filterType, setFilterType] = useState('with_ewb');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedGRData, setSelectedGRData] = useState(null);
@@ -27,20 +26,15 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     
     const ewbNumbers = [];
     transitDetails.forEach(transit => {
-      // Add bilty EWB numbers
       if (transit.bilty?.e_way_bill) {
         const biltyEWBs = transit.bilty.e_way_bill.split(',').filter(e => e.trim());
         ewbNumbers.push(...biltyEWBs.map(e => e.trim()));
       }
-      
-      // Add station EWB numbers
       if (transit.station?.e_way_bill) {
         const stationEWBs = transit.station.e_way_bill.split(',').filter(e => e.trim());
         ewbNumbers.push(...stationEWBs.map(e => e.trim()));
       }
     });
-    
-    // Remove duplicates
     return [...new Set(ewbNumbers)];
   }, [transitDetails]);
 
@@ -50,7 +44,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     
     const mapping = {};
     transitDetails.forEach(transit => {
-      // Map bilty EWB numbers
       if (transit.bilty?.e_way_bill) {
         const biltyEWBs = transit.bilty.e_way_bill.split(',').filter(e => e.trim());
         biltyEWBs.forEach(ewb => {
@@ -61,8 +54,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
           mapping[trimmedEwb].push({ gr_no: transit.gr_no, source: 'bilty' });
         });
       }
-      
-      // Map station EWB numbers
       if (transit.station?.e_way_bill) {
         const stationEWBs = transit.station.e_way_bill.split(',').filter(e => e.trim());
         stationEWBs.forEach(ewb => {
@@ -74,64 +65,20 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
         });
       }
     });
-    
     return mapping;
   }, [transitDetails]);
 
-  // Get EWB numbers from selected GRs only
-  const selectedEwbNumbers = useMemo(() => {
-    if (!transitDetails || selectedGRs.length === 0) return [];
-    
-    const ewbNumbers = [];
-    transitDetails
-      .filter(transit => selectedGRs.includes(transit.gr_no))
-      .forEach(transit => {
-        // Add bilty EWB numbers
-        if (transit.bilty?.e_way_bill) {
-          const biltyEWBs = transit.bilty.e_way_bill.split(',').filter(e => e.trim());
-          ewbNumbers.push(...biltyEWBs.map(e => e.trim()));
-        }
-        
-        // Add station EWB numbers
-        if (transit.station?.e_way_bill) {
-          const stationEWBs = transit.station.e_way_bill.split(',').filter(e => e.trim());
-          ewbNumbers.push(...stationEWBs.map(e => e.trim()));
-        }
-      });
-    
-    // Remove duplicates
-    return [...new Set(ewbNumbers)];
-  }, [transitDetails, selectedGRs]);
-
-  // Check validation status for an EWB number
   const getEwbValidationStatus = (ewbNumber) => {
     const cached = getCachedValidation(ewbNumber);
     if (cached) {
-      // Check if the cached data indicates an invalid EWB
       if (cached.data?.results?.code === 204 || 
           (cached.data?.results?.message && typeof cached.data.results.message === 'string' && cached.data.results.message.includes('Could not retrieve data')) ||
           cached.data?.results?.nic_code === '325') {
-        return {
-          isValidated: true,
-          isValid: false,
-          source: 'cache',
-          data: cached,
-          error: 'Invalid EWB Number'
-        };
+        return { isValidated: true, isValid: false, source: 'cache', data: cached, error: 'Invalid EWB Number' };
       }
-      return {
-        isValidated: true,
-        isValid: cached.verified === true,
-        source: 'cache',
-        data: cached
-      };
+      return { isValidated: true, isValid: cached.verified === true, source: 'cache', data: cached };
     }
-    return {
-      isValidated: false,
-      isValid: false,
-      source: null,
-      data: null
-    };
+    return { isValidated: false, isValid: false, source: null, data: null };
   };
 
   useEffect(() => {
@@ -139,33 +86,25 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
       setValidationMap({});
       return;
     }
-
     setValidationMap(prev => {
       const next = {};
-
       allEwbNumbers.forEach(ewbNumber => {
         const status = getEwbValidationStatus(ewbNumber);
         if (status.isValidated) {
-          next[ewbNumber] = {
-            isValidated: true,
-            success: status.isValid
-          };
+          next[ewbNumber] = { isValidated: true, success: status.isValid };
         } else if (prev[ewbNumber]) {
           next[ewbNumber] = prev[ewbNumber];
         }
       });
-
       return next;
     });
   }, [allEwbNumbers]);
 
-  // Fetch transporter updates for all EWB numbers
   useEffect(() => {
     if (!allEwbNumbers || allEwbNumbers.length === 0) {
       setTransporterUpdatesMap({});
       return;
     }
-
     getTransporterUpdatesByEwbNumbers(allEwbNumbers).then(result => {
       if (result.success) {
         setTransporterUpdatesMap(result.data);
@@ -175,37 +114,16 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
 
   const handleValidationResults = useCallback((results = []) => {
     if (!Array.isArray(results) || results.length === 0) return;
-
     setValidationMap(prev => {
       const next = { ...prev };
       results.forEach(({ ewbNumber, success }) => {
         if (!ewbNumber) return;
-        next[String(ewbNumber).trim()] = {
-          isValidated: true,
-          success: success === true
-        };
+        next[String(ewbNumber).trim()] = { isValidated: true, success: success === true };
       });
       return next;
     });
   }, []);
 
-  const canConsolidateSelected = useMemo(() => {
-    if (!selectedEwbNumbers || selectedEwbNumbers.length < 2) return false;
-    // Check if ALL EWBs in the challan are validated (not just selected ones)
-    const allEwbs = allEwbNumbers || [];
-    const allValidated = allEwbs.every(ewb => {
-      const entry = validationMap[String(ewb).trim()];
-      return entry?.isValidated && entry?.success;
-    });
-    if (!allValidated) return false;
-    // Also check if selected EWBs are validated
-    return selectedEwbNumbers.every(ewb => {
-      const entry = validationMap[String(ewb).trim()];
-      return entry?.isValidated && entry?.success;
-    });
-  }, [selectedEwbNumbers, validationMap, allEwbNumbers]);
-
-  // Check if ALL EWBs are validated successfully (for main consolidate button)
   const allEwbsValidated = useMemo(() => {
     if (!allEwbNumbers || allEwbNumbers.length < 2) return false;
     return allEwbNumbers.every(ewb => {
@@ -214,7 +132,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     });
   }, [allEwbNumbers, validationMap]);
 
-  // Check if destination is Kanpur
   const isKanpurDestination = (transit) => {
     const cityName = transit.toCity?.city_name?.toLowerCase() || 
                     transit.station?.station?.toLowerCase() || 
@@ -222,18 +139,12 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     return cityName.includes('kanpur');
   };
 
-  // Filter transit details based on E-Way Bill availability and Kanpur filter
   const filteredTransitDetails = useMemo(() => {
     if (!transitDetails) return [];
-    
     let filtered = transitDetails;
-
-    // Apply Kanpur filter first
     if (hideKanpurDestination) {
       filtered = filtered.filter(t => !isKanpurDestination(t));
     }
-    
-    // Then apply EWB filter
     if (filterType === 'with_ewb') {
       return filtered.filter(t => {
         const biltyEWBs = t.bilty?.e_way_bill ? t.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
@@ -250,7 +161,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     return filtered;
   }, [transitDetails, filterType, hideKanpurDestination]);
 
-  // Count statistics - total number of E-Way Bills (not GR numbers)
   const hasEWBCount = useMemo(() => 
     transitDetails?.reduce((total, t) => {
       const biltyEWBs = t.bilty?.e_way_bill ? t.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
@@ -285,22 +195,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     );
   }
 
-  const toggleSelection = (grNo) => {
-    setSelectedGRs(prev => 
-      prev.includes(grNo) 
-        ? prev.filter(g => g !== grNo)
-        : [...prev, grNo]
-    );
-  };
-
-  const toggleAll = () => {
-    if (selectedGRs.length === filteredTransitDetails.length && filteredTransitDetails.length > 0) {
-      setSelectedGRs([]);
-    } else {
-      setSelectedGRs(filteredTransitDetails.map(t => t.gr_no));
-    }
-  };
-
   const hasEWB = (transit) => {
     const biltyEWBs = transit.bilty?.e_way_bill ? transit.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
     const stationEWBs = transit.station?.e_way_bill ? transit.station.e_way_bill.split(',').filter(e => e.trim()) : [];
@@ -313,43 +207,22 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
     return biltyEWBs.length + stationEWBs.length;
   };
 
-  // Check if this GR has any successfully updated transporter
   const hasSuccessfulTransporterUpdate = (transit) => {
     if (!hasEWB(transit) || isKanpurDestination(transit)) return false;
-    
     const biltyEWBs = transit.bilty?.e_way_bill ? transit.bilty.e_way_bill.split(',').filter(e => e.trim()) : [];
     const stationEWBs = transit.station?.e_way_bill ? transit.station.e_way_bill.split(',').filter(e => e.trim()) : [];
     const allEWBs = [...biltyEWBs, ...stationEWBs].map(e => e.trim());
-    
     return allEWBs.some(ewb => {
       const transporterUpdate = transporterUpdatesMap[ewb];
       if (!transporterUpdate) return false;
-      
       return transporterUpdate.is_success === true || 
              transporterUpdate.update_result?.success === true ||
              transporterUpdate.raw_result_metadata?.success === true;
     });
   };
 
-  const getStatusBadge = (transit) => {
-    if (transit.is_delivered_at_destination) {
-      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Delivered</span>;
-    }
-    if (transit.out_for_door_delivery) {
-      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Out for Delivery</span>;
-    }
-    if (transit.is_delivered_at_branch2) {
-      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">At Destination Branch</span>;
-    }
-    if (transit.is_out_of_delivery_from_branch1) {
-      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">In Transit</span>;
-    }
-    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>;
-  };
-
   return (
     <>
-      {/* Filter Component */}
       <EWBFilter 
         filterType={filterType}
         setFilterType={setFilterType}
@@ -357,7 +230,6 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
         noEWBCount={noEWBCount}
       />
 
-      {/* Modal */}
       <EWBDetailsModal 
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -367,405 +239,325 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
       {!showConsolidatedForm && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-gray-800">
-              Transit Details ({filteredTransitDetails.length} GR Numbers)
-            </h2>
-            <button
-              onClick={() => setHideKanpurDestination(!hideKanpurDestination)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
-                hideKanpurDestination
-                  ? 'bg-purple-600 text-white hover:bg-purple-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              title="Kanpur destinations don't require transporter updates"
-            >
-              <Filter className="w-3 h-3" />
-              {hideKanpurDestination ? 'Show Kanpur' : 'Hide Kanpur'}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowValidation(!showValidation)}
-              className={`px-4 py-2 rounded-lg transition-colors text-sm flex items-center gap-2 ${
-                showValidation 
-                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Shield className="w-4 h-4" />
-              {showValidation ? 'Hide Validation' : `Validate EWBs (${allEwbNumbers.length})`}
-            </button>
-            {allEwbsValidated && (
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-gray-800">
+                Transit Details ({filteredTransitDetails.length})
+              </h2>
               <button
-                onClick={() => setShowConsolidatedForm(true)}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2 shadow-md animate-pulse"
+                onClick={() => setHideKanpurDestination(!hideKanpurDestination)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                  hideKanpurDestination
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                title="Kanpur destinations don't require transporter updates"
               >
-                <FileStack className="w-4 h-4" />
-                Consolidate All ({allEwbNumbers.length})
+                <Filter className="w-3 h-3" />
+                {hideKanpurDestination ? 'Show Kanpur' : 'Hide Kanpur'}
               </button>
-            )}
-            <button
-              onClick={toggleAll}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-            >
-              {selectedGRs.length === filteredTransitDetails.length && filteredTransitDetails.length > 0 ? 'Deselect All' : 'Select All'}
-            </button>
-            {selectedGRs.length > 0 && canConsolidateSelected && (
+            </div>
+            <div className="flex gap-2">
               <button
-                onClick={() => setShowConsolidatedForm(true)}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2"
+                onClick={() => setShowValidation(!showValidation)}
+                className={`px-4 py-2 rounded-lg transition-colors text-sm flex items-center gap-2 ${
+                  showValidation 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <FileStack className="w-4 h-4" />
-                Consolidate Selected ({selectedEwbNumbers.length})
+                <Shield className="w-4 h-4" />
+                {showValidation ? 'Hide Validation' : `Validate EWBs (${allEwbNumbers.length})`}
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* EWB Validation Component */}
-        {showValidation && allEwbNumbers.length > 0 && (
-          <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-            <EwbValidationComponent 
-              ewbNumbers={allEwbNumbers}
-              ewbToGrMapping={ewbToGrMapping}
-              challanNo={challanDetails?.challan_no}
-              showCacheControls={true}
-              onConsolidateClick={() => setShowConsolidatedForm(true)}
-              onValidationComplete={handleValidationResults}
-            />
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectedGRs.length === filteredTransitDetails.length && filteredTransitDetails.length > 0}
-                    onChange={toggleAll}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">GR Number</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">E-Way Bill</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Transporter Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Consignor</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">To (Destination)</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Invoice Value</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredTransitDetails.map((transit) => {
-                const hasUpdate = hasSuccessfulTransporterUpdate(transit);
-                return (
-                <tr 
-                  key={transit.id} 
-                  className={`transition-colors ${
-                    hasUpdate 
-                      ? 'bg-gradient-to-r from-green-100 via-green-50 to-green-100 border-l-4 border-green-500 hover:from-green-200 hover:via-green-100 hover:to-green-200' 
-                      : selectedGRs.includes(transit.gr_no) 
-                        ? 'bg-blue-50 hover:bg-blue-100' 
-                        : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedGRs.includes(transit.gr_no)}
-                      onChange={() => toggleSelection(transit.gr_no)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{transit.gr_no}</span>
-                      {hasSuccessfulTransporterUpdate(transit) && (
-                        <span className="flex items-center gap-1 bg-green-600 text-white px-2 py-0.5 rounded-full text-xs font-bold animate-pulse">
-                          <CheckCircle className="w-3 h-3" />
-                          UPDATED
-                        </span>
-                      )}
-                      {hasEWB(transit) && (
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-green-500" title="Has E-Way Bill"></span>
-                          <span className="text-xs text-green-600 font-semibold">({getEWBCount(transit)})</span>
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {hasEWB(transit) ? (
-                      <div className="space-y-1">
-                        {transit.bilty?.e_way_bill && transit.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
-                          const validationStatus = getEwbValidationStatus(ewb.trim());
-                          return (
-                            <div key={`bilty-${idx}`} className="flex items-center gap-2">
-                              <span className="text-xs bg-green-100 text-green-900 px-2 py-1 rounded font-mono font-medium">
-                                {formatEwbNumber(ewb.trim())}
-                              </span>
-                              <span className="text-xs text-gray-600">(Bilty-{idx + 1})</span>
-                              {validationStatus.isValidated && (
-                                <div className="flex items-center gap-1">
-                                  {validationStatus.isValid ? (
-                                    <CheckCircle className="w-3 h-3 text-green-600" />
-                                  ) : (
-                                    <AlertTriangle className="w-3 h-3 text-red-600" />
-                                  )}
-                                  {validationStatus.source === 'cache' && (
-                                    <Database className="w-3 h-3 text-blue-500" title="From Cache" />
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {transit.station?.e_way_bill && transit.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
-                          const validationStatus = getEwbValidationStatus(ewb.trim());
-                          return (
-                            <div key={`station-${idx}`} className="flex items-center gap-2">
-                              <span className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded font-mono font-medium">
-                                {formatEwbNumber(ewb.trim())}
-                              </span>
-                              <span className="text-xs text-gray-600">(Station-{idx + 1})</span>
-                              {validationStatus.isValidated && (
-                                <div className="flex items-center gap-1">
-                                  {validationStatus.isValid ? (
-                                    <CheckCircle className="w-3 h-3 text-green-600" />
-                                  ) : (
-                                    <AlertTriangle className="w-3 h-3 text-red-600" />
-                                  )}
-                                  {validationStatus.source === 'cache' && (
-                                    <Database className="w-3 h-3 text-blue-500" title="From Cache" />
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-orange-600 font-medium">Not Generated</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {hasEWB(transit) ? (
-                      isKanpurDestination(transit) ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded font-medium">Not Required</span>
-                          <span className="text-xs text-purple-600">(Kanpur)</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {transit.bilty?.e_way_bill && transit.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
-                            const trimmedEwb = ewb.trim();
-                            const transporterUpdate = transporterUpdatesMap[trimmedEwb];
-                            
-                            if (!transporterUpdate) {
-                              return (
-                                <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
-                                  <XCircle className="w-3 h-3 text-gray-400" />
-                                  <span className="text-xs text-gray-500">Not Updated</span>
-                                </div>
-                              );
-                            }
-                            
-                            // Check both is_success (database field) and nested update_result.success
-                            const isSuccess = transporterUpdate.is_success === true || 
-                                            transporterUpdate.update_result?.success === true ||
-                                            transporterUpdate.raw_result_metadata?.success === true;
-                            return (
-                              <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
-                                {isSuccess ? (
-                                  <>
-                                    <CheckCircle className="w-3 h-3 text-green-600" />
-                                    <span className="text-xs text-green-700 font-medium">Updated</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <AlertTriangle className="w-3 h-3 text-red-600" />
-                                    <span className="text-xs text-red-700 font-medium">Failed</span>
-                                  </>
-                                )}
-                              </div>
-                            );
-                          })}
-                          {transit.station?.e_way_bill && transit.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
-                            const trimmedEwb = ewb.trim();
-                            const transporterUpdate = transporterUpdatesMap[trimmedEwb];
-                            
-                            if (!transporterUpdate) {
-                              return (
-                                <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
-                                  <XCircle className="w-3 h-3 text-gray-400" />
-                                  <span className="text-xs text-gray-500">Not Updated</span>
-                                </div>
-                              );
-                            }
-                            
-                            // Check both is_success (database field) and nested update_result.success
-                            const isSuccess = transporterUpdate.is_success === true || 
-                                            transporterUpdate.update_result?.success === true ||
-                                            transporterUpdate.raw_result_metadata?.success === true;
-                            return (
-                              <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
-                                {isSuccess ? (
-                                  <>
-                                    <CheckCircle className="w-3 h-3 text-green-600" />
-                                    <span className="text-xs text-green-700 font-medium">Updated</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <AlertTriangle className="w-3 h-3 text-red-600" />
-                                    <span className="text-xs text-red-700 font-medium">Failed</span>
-                                  </>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )
-                    ) : (
-                      <span className="text-xs text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {transit.bilty?.consignor_name || transit.station?.consignor || 'N/A'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    <div>
-                      {transit.toCity?.city_name ? (
-                        <>
-                          <span className="font-medium text-gray-900">{transit.toCity.city_name}</span>
-                          {transit.toCity?.city_code && (
-                            <span className="text-xs text-gray-500 ml-1">({transit.toCity.city_code})</span>
-                          )}
-                        </>
-                      ) : transit.station?.station ? (
-                        <span className="font-medium text-gray-900">{transit.station.station}</span>
-                      ) : transit.bilty?.to_location ? (
-                        <span className="text-gray-700">{transit.bilty.to_location}</span>
-                      ) : (
-                        <span className="text-gray-500">N/A</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {transit.bilty?.invoice_value ? (
-                      <span className="font-medium text-gray-900">
-                        ₹{parseFloat(transit.bilty.invoice_value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">N/A</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                        onClick={() => handleViewDetails(transit)}
-                      >
-                        View Details
-                      </button>
-                      {hasEWB(transit) && (
-                        <button
-                          className="text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center gap-1"
-                          onClick={() => handleUpdateTransporter(transit)}
-                          title="Update Transporter ID"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          Update Transporter
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )})}
-            </tbody>
-          </table>
-        </div>
-
-        {selectedGRs.length > 0 && (
-          <div className="p-4 bg-blue-50 border-t border-blue-200">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-blue-800">
-                <span className="font-semibold">{selectedGRs.length}</span> GR numbers selected for EWB generation
-                {selectedEwbNumbers.length > 0 && (
-                  <span className="ml-2">
-                    • <span className="font-semibold">{selectedEwbNumbers.length}</span> unique EWB numbers available for consolidation
-                  </span>
-                )}
-              </p>
-              {canConsolidateSelected ? (
+              {allEwbsValidated && (
                 <button
                   onClick={() => setShowConsolidatedForm(true)}
-                  className="px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700 transition-colors flex items-center gap-1"
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2 shadow-md animate-pulse"
                 >
-                  <FileStack className="w-3 h-3" />
-                  Quick Consolidate
+                  <FileStack className="w-4 h-4" />
+                  Consolidate All ({allEwbNumbers.length})
                 </button>
-              ) : (
-                selectedEwbNumbers.length > 1 && (
-                  <span className="text-xs font-medium text-blue-700">Validate these EWB numbers to enable consolidation.</span>
-                )
               )}
             </div>
           </div>
-        )}
 
-        {/* Consolidated EWB Form */}
-        {showConsolidatedForm && (
-          <ConsolidatedEwbForm
-            ewbNumbers={selectedGRs.length > 0 ? selectedEwbNumbers : allEwbNumbers}
-            challanData={challanDetails}
-            onBack={() => setShowConsolidatedForm(false)}
+          {showValidation && allEwbNumbers.length > 0 && (
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+              <EwbValidationComponent 
+                ewbNumbers={allEwbNumbers}
+                ewbToGrMapping={ewbToGrMapping}
+                challanNo={challanDetails?.challan_no}
+                showCacheControls={true}
+                onConsolidateClick={() => setShowConsolidatedForm(true)}
+                onValidationComplete={handleValidationResults}
+              />
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">GR Number</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">E-Way Bill</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Transporter Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Consignor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">To (Destination)</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Invoice Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredTransitDetails.map((transit) => {
+                  const hasUpdate = hasSuccessfulTransporterUpdate(transit);
+                  return (
+                    <tr 
+                      key={transit.id} 
+                      className={`transition-colors ${
+                        hasUpdate 
+                          ? 'bg-gradient-to-r from-green-100 via-green-50 to-green-100 border-l-4 border-green-500 hover:from-green-200 hover:via-green-100 hover:to-green-200' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{transit.gr_no}</span>
+                          {hasSuccessfulTransporterUpdate(transit) && (
+                            <span className="flex items-center gap-1 bg-green-600 text-white px-2 py-0.5 rounded-full text-xs font-bold animate-pulse">
+                              <CheckCircle className="w-3 h-3" />
+                              UPDATED
+                            </span>
+                          )}
+                          {hasEWB(transit) && (
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-green-500" title="Has E-Way Bill"></span>
+                              <span className="text-xs text-green-600 font-semibold">({getEWBCount(transit)})</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {hasEWB(transit) ? (
+                          <div className="space-y-1">
+                            {transit.bilty?.e_way_bill && transit.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                              const validationStatus = getEwbValidationStatus(ewb.trim());
+                              return (
+                                <div key={`bilty-${idx}`} className="flex items-center gap-2">
+                                  <span className="text-xs bg-green-100 text-green-900 px-2 py-1 rounded font-mono font-medium">
+                                    {formatEwbNumber(ewb.trim())}
+                                  </span>
+                                  <span className="text-xs text-gray-600">(Bilty-{idx + 1})</span>
+                                  {validationStatus.isValidated && (
+                                    <div className="flex items-center gap-1">
+                                      {validationStatus.isValid ? (
+                                        <CheckCircle className="w-3 h-3 text-green-600" />
+                                      ) : (
+                                        <AlertTriangle className="w-3 h-3 text-red-600" />
+                                      )}
+                                      {validationStatus.source === 'cache' && (
+                                        <Database className="w-3 h-3 text-blue-500" title="From Cache" />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {transit.station?.e_way_bill && transit.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                              const validationStatus = getEwbValidationStatus(ewb.trim());
+                              return (
+                                <div key={`station-${idx}`} className="flex items-center gap-2">
+                                  <span className="text-xs bg-blue-100 text-blue-900 px-2 py-1 rounded font-mono font-medium">
+                                    {formatEwbNumber(ewb.trim())}
+                                  </span>
+                                  <span className="text-xs text-gray-600">(Station-{idx + 1})</span>
+                                  {validationStatus.isValidated && (
+                                    <div className="flex items-center gap-1">
+                                      {validationStatus.isValid ? (
+                                        <CheckCircle className="w-3 h-3 text-green-600" />
+                                      ) : (
+                                        <AlertTriangle className="w-3 h-3 text-red-600" />
+                                      )}
+                                      {validationStatus.source === 'cache' && (
+                                        <Database className="w-3 h-3 text-blue-500" title="From Cache" />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-orange-600 font-medium">Not Generated</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {hasEWB(transit) ? (
+                          isKanpurDestination(transit) ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded font-medium">Not Required</span>
+                              <span className="text-xs text-purple-600">(Kanpur)</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {transit.bilty?.e_way_bill && transit.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                                const trimmedEwb = ewb.trim();
+                                const transporterUpdate = transporterUpdatesMap[trimmedEwb];
+                                if (!transporterUpdate) {
+                                  return (
+                                    <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
+                                      <XCircle className="w-3 h-3 text-gray-400" />
+                                      <span className="text-xs text-gray-500">Not Updated</span>
+                                    </div>
+                                  );
+                                }
+                                const isSuccess = transporterUpdate.is_success === true || 
+                                                transporterUpdate.update_result?.success === true ||
+                                                transporterUpdate.raw_result_metadata?.success === true;
+                                return (
+                                  <div key={`bilty-tr-${idx}`} className="flex items-center gap-1.5">
+                                    {isSuccess ? (
+                                      <>
+                                        <CheckCircle className="w-3 h-3 text-green-600" />
+                                        <span className="text-xs text-green-700 font-medium">Updated</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertTriangle className="w-3 h-3 text-red-600" />
+                                        <span className="text-xs text-red-700 font-medium">Failed</span>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {transit.station?.e_way_bill && transit.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
+                                const trimmedEwb = ewb.trim();
+                                const transporterUpdate = transporterUpdatesMap[trimmedEwb];
+                                if (!transporterUpdate) {
+                                  return (
+                                    <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
+                                      <XCircle className="w-3 h-3 text-gray-400" />
+                                      <span className="text-xs text-gray-500">Not Updated</span>
+                                    </div>
+                                  );
+                                }
+                                const isSuccess = transporterUpdate.is_success === true || 
+                                                transporterUpdate.update_result?.success === true ||
+                                                transporterUpdate.raw_result_metadata?.success === true;
+                                return (
+                                  <div key={`station-tr-${idx}`} className="flex items-center gap-1.5">
+                                    {isSuccess ? (
+                                      <>
+                                        <CheckCircle className="w-3 h-3 text-green-600" />
+                                        <span className="text-xs text-green-700 font-medium">Updated</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertTriangle className="w-3 h-3 text-red-600" />
+                                        <span className="text-xs text-red-700 font-medium">Failed</span>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {transit.bilty?.consignor_name || transit.station?.consignor || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        <div>
+                          {transit.toCity?.city_name ? (
+                            <>
+                              <span className="font-medium text-gray-900">{transit.toCity.city_name}</span>
+                              {transit.toCity?.city_code && (
+                                <span className="text-xs text-gray-500 ml-1">({transit.toCity.city_code})</span>
+                              )}
+                            </>
+                          ) : transit.station?.station ? (
+                            <span className="font-medium text-gray-900">{transit.station.station}</span>
+                          ) : transit.bilty?.to_location ? (
+                            <span className="text-gray-700">{transit.bilty.to_location}</span>
+                          ) : (
+                            <span className="text-gray-500">N/A</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {transit.bilty?.invoice_value ? (
+                          <span className="font-medium text-gray-900">
+                            ₹{parseFloat(transit.bilty.invoice_value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            onClick={() => handleViewDetails(transit)}
+                          >
+                            View Details
+                          </button>
+                          {hasEWB(transit) && (
+                            <button
+                              className="text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center gap-1"
+                              onClick={() => handleUpdateTransporter(transit)}
+                              title="Update Transporter ID"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Update Transporter
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <TransporterUpdateModal
+            isOpen={showTransporterModal}
+            onClose={() => {
+              setShowTransporterModal(false);
+              if (allEwbNumbers && allEwbNumbers.length > 0) {
+                getTransporterUpdatesByEwbNumbers(allEwbNumbers).then(result => {
+                  if (result.success) {
+                    setTransporterUpdatesMap(result.data);
+                  }
+                });
+              }
+            }}
+            onUpdateSuccess={(ewbNumber, updateResult) => {
+              if (ewbNumber && updateResult) {
+                setTransporterUpdatesMap(prev => ({
+                  ...prev,
+                  [ewbNumber]: {
+                    ...prev[ewbNumber],
+                    is_success: true,
+                    update_result: updateResult,
+                    raw_result_metadata: updateResult
+                  }
+                }));
+              }
+            }}
+            grData={selectedTransporterGR}
+            ewbNumbers={selectedTransporterGR ? [
+              ...(selectedTransporterGR.bilty?.e_way_bill ? selectedTransporterGR.bilty.e_way_bill.split(',').filter(e => e.trim()).map(e => e.trim()) : []),
+              ...(selectedTransporterGR.station?.e_way_bill ? selectedTransporterGR.station.e_way_bill.split(',').filter(e => e.trim()).map(e => e.trim()) : [])
+            ] : []}
           />
-        )}
-
-        {/* Transporter Update Modal */}
-        <TransporterUpdateModal
-          isOpen={showTransporterModal}
-          onClose={() => {
-            setShowTransporterModal(false);
-            // Refetch transporter updates after modal closes
-            if (allEwbNumbers && allEwbNumbers.length > 0) {
-              getTransporterUpdatesByEwbNumbers(allEwbNumbers).then(result => {
-                if (result.success) {
-                  setTransporterUpdatesMap(result.data);
-                }
-              });
-            }
-          }}
-          onUpdateSuccess={(ewbNumber, updateResult) => {
-            // Live update the transporter updates map when update succeeds
-            if (ewbNumber && updateResult) {
-              setTransporterUpdatesMap(prev => ({
-                ...prev,
-                [ewbNumber]: {
-                  ...prev[ewbNumber],
-                  is_success: true,
-                  update_result: updateResult,
-                  raw_result_metadata: updateResult
-                }
-              }));
-            }
-          }}
-          grData={selectedTransporterGR}
-          ewbNumbers={selectedTransporterGR ? [
-            ...(selectedTransporterGR.bilty?.e_way_bill ? selectedTransporterGR.bilty.e_way_bill.split(',').filter(e => e.trim()).map(e => e.trim()) : []),
-            ...(selectedTransporterGR.station?.e_way_bill ? selectedTransporterGR.station.e_way_bill.split(',').filter(e => e.trim()).map(e => e.trim()) : [])
-          ] : []}
-        />
         </div>
       )}
 
-      {/* Consolidated EWB Form */}
       {showConsolidatedForm && (
         <ConsolidatedEwbForm
-          ewbNumbers={selectedGRs.length > 0 ? selectedEwbNumbers : allEwbNumbers}
+          ewbNumbers={allEwbNumbers}
           challanData={challanDetails}
           onBack={() => setShowConsolidatedForm(false)}
         />

@@ -1,24 +1,86 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../utils/auth';
 import Navbar from '../../../components/dashboard/navbar';
 import ChallanDetailsView from '../../../components/ewb/challan-details-view';
-import TransitDetailsTable from '../../../components/ewb/transit-details-table';
+import EwbSidenav from '../../../components/ewb/ewb-sidenav';
+import ValidationSection from '../../../components/ewb/validation-section';
+import ConsolidationSection from '../../../components/ewb/consolidation-section';
+import TransporterSection from '../../../components/ewb/transporter-section';
 import useChallanData from '../../../components/ewb/challan-data-fetcher';
+import supabase from '../../utils/supabase';
 
 export default function ChallanEWBPage() {
   const params = useParams();
   const router = useRouter();
   const challanNo = params.challan_no;
+  const [activeSection, setActiveSection] = useState('validation');
+  const [stats, setStats] = useState({});
   
   const { requireAuth, loading: authLoading } = useAuth();
   
   // Use custom hook to fetch challan data
   const { challanDetails, transitDetails, loading, error, refetch } = useChallanData(challanNo);
+
+  // Get all EWB numbers from transit details
+  const allEwbNumbers = useMemo(() => {
+    if (!transitDetails) return [];
+    const ewbNumbers = [];
+    transitDetails.forEach(transit => {
+      if (transit.bilty?.e_way_bill) {
+        const biltyEWBs = transit.bilty.e_way_bill.split(',').filter(e => e.trim());
+        ewbNumbers.push(...biltyEWBs.map(e => e.trim()));
+      }
+      if (transit.station?.e_way_bill) {
+        const stationEWBs = transit.station.e_way_bill.split(',').filter(e => e.trim());
+        ewbNumbers.push(...stationEWBs.map(e => e.trim()));
+      }
+    });
+    return [...new Set(ewbNumbers)];
+  }, [transitDetails]);
+
+  // Fetch validation stats from database
+  const fetchStats = useCallback(async () => {
+    if (!allEwbNumbers || allEwbNumbers.length === 0) {
+      setStats({ totalEwbs: 0, validated: 0, pending: 0 });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('ewb_validations')
+        .select('ewb_number, is_valid')
+        .in('ewb_number', allEwbNumbers)
+        .eq('is_valid', true)
+        .order('validated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching stats:', error);
+        setStats({ totalEwbs: allEwbNumbers.length, validated: 0, pending: allEwbNumbers.length });
+        return;
+      }
+
+      // Count unique validated EWBs
+      const validatedEwbs = new Set(data?.map(r => r.ewb_number) || []);
+      const validated = validatedEwbs.size;
+
+      setStats({
+        totalEwbs: allEwbNumbers.length,
+        validated,
+        pending: allEwbNumbers.length - validated
+      });
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  }, [allEwbNumbers]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   // Move requireAuth to useEffect to avoid setState during render
   useEffect(() => {
@@ -42,6 +104,19 @@ export default function ChallanEWBPage() {
       </div>
     );
   }
+
+  const renderActiveSection = () => {
+    switch (activeSection) {
+      case 'validation':
+        return <ValidationSection transitDetails={transitDetails} challanDetails={challanDetails} />;
+      case 'consolidation':
+        return <ConsolidationSection transitDetails={transitDetails} challanDetails={challanDetails} />;
+      case 'transporter':
+        return <TransporterSection transitDetails={transitDetails} challanDetails={challanDetails} />;
+      default:
+        return <ValidationSection transitDetails={transitDetails} challanDetails={challanDetails} />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -161,11 +236,20 @@ export default function ChallanEWBPage() {
           </div>
         )}
 
-        {/* Challan Details and Transit Table */}
+        {/* Challan Details and Main Content with Sidenav */}
         {!loading && challanDetails && (
-          <div className="space-y-6">
+          <div className="px-4 sm:px-6 lg:px-8 space-y-6">
             <ChallanDetailsView challanDetails={challanDetails} />
-            <TransitDetailsTable transitDetails={transitDetails} challanDetails={challanDetails} />
+            <div className="flex flex-col lg:flex-row gap-6">
+              <EwbSidenav 
+                activeSection={activeSection} 
+                onSectionChange={setActiveSection}
+                stats={stats}
+              />
+              <div className="flex-1 min-w-0">
+                {renderActiveSection()}
+              </div>
+            </div>
           </div>
         )}
 

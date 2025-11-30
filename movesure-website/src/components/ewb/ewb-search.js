@@ -180,7 +180,7 @@ export default function EwbSearch() {
           ) : searchResults.length === 0 ? (
             <div className="text-center py-8 px-4">
               <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-600 text-sm">No E-Way Bill found matching "{searchQuery}"</p>
+              <p className="text-gray-600 text-sm">No E-Way Bill found matching &quot;{searchQuery}&quot;</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">

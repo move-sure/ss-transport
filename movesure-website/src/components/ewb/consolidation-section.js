@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { FileStack, CheckCircle, AlertTriangle, ArrowRight, Info, RefreshCw, Download, ExternalLink, Loader2, Clock } from 'lucide-react';
+import { FileStack, CheckCircle, AlertTriangle, ArrowRight, Info, RefreshCw, Download, ExternalLink, Loader2, Clock, User } from 'lucide-react';
 import ConsolidatedEwbForm from './consolidated-ewb-form';
 import { formatEwbNumber } from '../../utils/ewbValidation';
 import supabase from '../../app/utils/supabase';
@@ -90,14 +90,44 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
 
     try {
       setLoadingExisting(true);
-      const { data, error } = await supabase
+      
+      // First fetch consolidated EWBs
+      const { data: cewbData, error: cewbError } = await supabase
         .from('consolidated_ewb_validations')
         .select('*')
         .eq('challan_no', challanDetails.challan_no)
         .order('validated_at', { ascending: false });
 
-      if (error) throw error;
-      setExistingCewbs(data || []);
+      if (cewbError) throw cewbError;
+
+      if (!cewbData || cewbData.length === 0) {
+        setExistingCewbs([]);
+        return;
+      }
+
+      // Get unique user IDs
+      const userIds = [...new Set(cewbData.map(c => c.validated_by).filter(Boolean))];
+      
+      // Fetch user details
+      let usersMap = {};
+      if (userIds.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name, username')
+          .in('id', userIds);
+
+        if (!usersError && usersData) {
+          usersMap = Object.fromEntries(usersData.map(u => [u.id, u]));
+        }
+      }
+
+      // Combine data
+      const enrichedData = cewbData.map(cewb => ({
+        ...cewb,
+        users: usersMap[cewb.validated_by] || null
+      }));
+
+      setExistingCewbs(enrichedData);
     } catch (err) {
       console.error('Error fetching existing consolidated EWBs:', err);
     } finally {
@@ -248,6 +278,14 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
                         <span className="ml-1 font-semibold text-gray-900">{cewb.validation_status || 'Success'}</span>
                       </div>
                     </div>
+                    {/* Created By User */}
+                    {cewb.users && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
+                        <User className="w-3 h-3" />
+                        <span>Created by:</span>
+                        <span className="font-medium text-gray-700">{cewb.users.name || cewb.users.username}</span>
+                      </div>
+                    )}
                     {cewb.included_ewb_numbers && cewb.included_ewb_numbers.length > 0 && (
                       <details className="mt-2 text-xs">
                         <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium">

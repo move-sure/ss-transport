@@ -384,22 +384,19 @@ export default function FinancePage() {
         salaryPayments={salaryPayments}
         salaryAdvances={salaryAdvances}
         users={staffUsers}
+        currentUserId={user?.id}
         onClose={() => setShowSalaryManagementModal(false)}
         onOpenPaymentModal={() => {
-          setShowSalaryManagementModal(false);
           handleOpenPaymentModal();
         }}
         onOpenAdvanceModal={() => {
-          setShowSalaryManagementModal(false);
           handleOpenAdvanceModal();
         }}
         onEditPayment={(payment) => {
-          setShowSalaryManagementModal(false);
           handleEditPayment(payment);
         }}
         onDeletePayment={handleDeletePayment}
         onEditAdvance={(advance) => {
-          setShowSalaryManagementModal(false);
           handleEditAdvance(advance);
         }}
         onDeleteAdvance={handleDeleteAdvance}
@@ -415,7 +412,6 @@ export default function FinancePage() {
         users={staffUsers}
         onClose={() => {
           handleClosePaymentModal();
-          setShowSalaryManagementModal(true);
         }}
         onSubmit={handlePaymentSubmit}
         onInputChange={handlePaymentInputChange}
@@ -432,7 +428,6 @@ export default function FinancePage() {
         users={staffUsers}
         onClose={() => {
           handleCloseAdvanceModal();
-          setShowSalaryManagementModal(true);
         }}
         onSubmit={handleAdvanceSubmit}
         onInputChange={handleAdvanceInputChange}

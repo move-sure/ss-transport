@@ -301,22 +301,14 @@ const SelectedBiltiesPanel = memo(({
     }
   };
 
-  // Handle download CSV with filters
+  // Handle download CSV with filters - BLOCKED
   const handleDownloadCSVFiltered = () => {
-    if (filteredBilties.length === 0) {
-      alert('No bilties match the selected filters');
-      return;
-    }
-    onDownloadCSV(filteredBilties);
+    setShowBlockedModal(true);
   };
 
-  // Handle copy with filters
+  // Handle copy with filters - BLOCKED
   const handleCopyFiltered = () => {
-    if (filteredBilties.length === 0) {
-      alert('No bilties match the selected filters');
-      return;
-    }
-    onCopyToClipboard(filteredBilties);
+    setShowBlockedModal(true);
   };
 
   if (!isOpen) {

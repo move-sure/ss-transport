@@ -314,8 +314,8 @@ const BiltySearchHeader = ({
                   <AlertCircle className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Service Blocked</h2>
-                  <p className="text-orange-100 text-sm">सेवा बंद कर दी गई है</p>
+                  <h2 className="text-2xl font-bold text-white">Talk with Eklavya</h2>
+                  <p className="text-orange-100 text-sm">एक्लव्य से बात करें</p>
                 </div>
               </div>
             </div>
@@ -330,7 +330,7 @@ const BiltySearchHeader = ({
                 </h3>
                 <p className="text-orange-800 leading-relaxed text-[15px]">
                   Please contact <span className="font-bold text-red-600">EKLAVYA SINGH</span> for more information. 
-                  This export service has been stopped so that users can use the <span className="font-semibold">Bill Search</span> feature instead.
+                  This export/copy service has been blocked.
                 </p>
               </div>
 
@@ -341,8 +341,8 @@ const BiltySearchHeader = ({
                   हिंदी
                 </h3>
                 <p className="text-blue-800 leading-relaxed text-[15px]">
-                  कृपया अधिक जानकारी के लिए <span className="font-bold text-red-600">EKLAVYA SINGH</span> से संपर्क करें। 
-                  यह एक्सपोर्ट सेवा बंद कर दी गई है ताकि उपयोगकर्ता <span className="font-semibold">बिल सर्च</span> सुविधा का उपयोग कर सकें।
+                  कृपया अधिक जानकारी के लिए <span className="font-bold text-red-600">एक्लव्य सिंह</span> से संपर्क करें। 
+                  यह एक्सपोर्ट/कॉपी सेवा बंद कर दी गई है।
                 </p>
               </div>
 

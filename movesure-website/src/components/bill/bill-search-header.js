@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Search, SlidersHorizontal, Download, Copy, Printer } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, SlidersHorizontal, Download, Copy, Printer, X, AlertCircle } from 'lucide-react';
 
 export default function BillSearchHeader({ 
   onToggleFilters, 
@@ -14,6 +14,12 @@ export default function BillSearchHeader({
   onPrintBilties,
   selectedBiltiesCount = 0
 }) {
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+
+  const handleBlockedAction = () => {
+    setShowBlockedModal(true);
+  };
+
   return (
     <div className="bg-white shadow rounded-lg p-6 mb-6">
       <div className="flex items-center justify-between">
@@ -59,7 +65,7 @@ export default function BillSearchHeader({
               </button>
               
               <button
-                onClick={onDownloadCSV}
+                onClick={handleBlockedAction}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                 title={selectedBiltiesCount > 0 ? `Download ${selectedBiltiesCount} selected bilties as CSV` : "Download all results as CSV"}
               >
@@ -70,7 +76,7 @@ export default function BillSearchHeader({
               </button>
               
               <button
-                onClick={onCopyToClipboard}
+                onClick={handleBlockedAction}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 title={selectedBiltiesCount > 0 ? `Copy ${selectedBiltiesCount} selected bilties to clipboard` : "Copy all results to clipboard"}
               >
@@ -102,6 +108,71 @@ export default function BillSearchHeader({
         <div className="mt-4 flex items-center justify-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
           <span className="ml-2 text-gray-600">Searching...</span>
+        </div>
+      )}
+
+      {/* Blocked Export Modal */}
+      {showBlockedModal && (
+        <div className="fixed inset-0 backdrop-blur-md backdrop-saturate-150 bg-slate-900/20 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-lg w-full bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_20px_45px_rgba(15,23,42,0.25)] border border-white/40 transform transition-all animate-in fade-in zoom-in duration-200">
+            <div className="absolute inset-x-6 -top-2 h-1 rounded-full bg-gradient-to-r from-orange-400 via-rose-500 to-purple-500" aria-hidden="true"></div>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-orange-500 to-rose-500 rounded-t-3xl p-6 pb-8 relative overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+              <button
+                onClick={() => setShowBlockedModal(false)}
+                className="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-4">
+                <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                  <AlertCircle className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Talk with Eklavya</h2>
+                  <p className="text-orange-100 text-sm">एक्लव्य से बात करें</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* English Message */}
+              <div className="bg-gradient-to-br from-orange-50 via-rose-50 to-white border border-orange-100 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-orange-900 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🇬🇧</span>
+                  English
+                </h3>
+                <p className="text-orange-800 leading-relaxed text-[15px]">
+                  Please contact <span className="font-bold text-red-600">EKLAVYA SINGH</span> for more information. 
+                  This export/copy service has been blocked.
+                </p>
+              </div>
+
+              {/* Hindi Message */}
+              <div className="bg-gradient-to-br from-sky-50 via-indigo-50 to-white border border-sky-100 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🇮🇳</span>
+                  हिंदी
+                </h3>
+                <p className="text-blue-800 leading-relaxed text-[15px]">
+                  कृपया अधिक जानकारी के लिए <span className="font-bold text-red-600">एक्लव्य सिंह</span> से संपर्क करें। 
+                  यह एक्सपोर्ट/कॉपी सेवा बंद कर दी गई है।
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowBlockedModal(false)}
+                  className="flex-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:shadow-[0_15px_35px_rgba(79,70,229,0.35)] text-white font-semibold py-3.5 px-6 rounded-2xl transition-all"
+                >
+                  समझ गया / Understood
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

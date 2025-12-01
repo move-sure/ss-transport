@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { 
-  FileText, Plus, Download, Building2, ChevronDown, Check, Users, Calendar, Archive
+  FileText, Plus, Download, Building2, ChevronDown, Check, Users, Calendar, Archive, X, AlertCircle
 } from 'lucide-react';
 import SampleLoadingChallan from '../transit/SampleLoadingChallan';
 
@@ -17,6 +18,12 @@ const ManualBiltyHeader = ({
   handleOpenArchive,
   loading
 }) => {
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+
+  const handleBlockedExport = () => {
+    setShowBlockedModal(true);
+  };
+
   return (
     <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 rounded-3xl shadow-2xl mb-8">
       {/* Background Pattern */}
@@ -159,7 +166,7 @@ const ManualBiltyHeader = ({
               </button>
 
               <button
-                onClick={handleExport}
+                onClick={handleBlockedExport}
                 disabled={loading}
                 className="bg-white/10 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-3 hover:bg-white/20 transition-all duration-300 border border-white/20 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -175,6 +182,71 @@ const ManualBiltyHeader = ({
           </div>
         </div>
       </div>
+
+      {/* Blocked Export Modal */}
+      {showBlockedModal && (
+        <div className="fixed inset-0 backdrop-blur-md backdrop-saturate-150 bg-slate-900/20 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-lg w-full bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_20px_45px_rgba(15,23,42,0.25)] border border-white/40 transform transition-all animate-in fade-in zoom-in duration-200">
+            <div className="absolute inset-x-6 -top-2 h-1 rounded-full bg-gradient-to-r from-orange-400 via-rose-500 to-purple-500" aria-hidden="true"></div>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-orange-500 to-rose-500 rounded-t-3xl p-6 pb-8 relative overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+              <button
+                onClick={() => setShowBlockedModal(false)}
+                className="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-4">
+                <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                  <AlertCircle className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Talk with Eklavya</h2>
+                  <p className="text-orange-100 text-sm">एक्लव्य से बात करें</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* English Message */}
+              <div className="bg-gradient-to-br from-orange-50 via-rose-50 to-white border border-orange-100 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-orange-900 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🇬🇧</span>
+                  English
+                </h3>
+                <p className="text-orange-800 leading-relaxed text-[15px]">
+                  Please contact <span className="font-bold text-red-600">EKLAVYA SINGH</span> for more information. 
+                  This export service has been blocked.
+                </p>
+              </div>
+
+              {/* Hindi Message */}
+              <div className="bg-gradient-to-br from-sky-50 via-indigo-50 to-white border border-sky-100 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🇮🇳</span>
+                  हिंदी
+                </h3>
+                <p className="text-blue-800 leading-relaxed text-[15px]">
+                  कृपया अधिक जानकारी के लिए <span className="font-bold text-red-600">एक्लव्य सिंह</span> से संपर्क करें। 
+                  यह एक्सपोर्ट सेवा बंद कर दी गई है।
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowBlockedModal(false)}
+                  className="flex-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:shadow-[0_15px_35px_rgba(79,70,229,0.35)] text-white font-semibold py-3.5 px-6 rounded-2xl transition-all"
+                >
+                  समझ गया / Understood
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

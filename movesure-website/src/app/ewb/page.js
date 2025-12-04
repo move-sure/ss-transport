@@ -5,10 +5,11 @@ import { useAuth } from '../utils/auth';
 import Navbar from '../../components/dashboard/navbar';
 import ChallanSelector from '../../components/ewb/challan-selector';
 import EwbSearch from '../../components/ewb/ewb-search';
+import StandaloneTransporterUpdate from '../../components/ewb/standalone-transporter-update';
 
 export default function EWBPage() {
   const { requireAuth, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('challan'); // 'challan' or 'search'
+  const [activeTab, setActiveTab] = useState('challan'); // 'challan', 'search', or 'transporter'
 
   // Move requireAuth to useEffect to avoid setState during render
   useEffect(() => {
@@ -67,6 +68,16 @@ export default function EWBPage() {
               >
                 🔍 EWB Search
               </button>
+              <button
+                onClick={() => setActiveTab('transporter')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'transporter'
+                    ? 'bg-white text-slate-900 shadow-md'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                🚚 Transport Update
+              </button>
             </div>
           </div>
         </section>
@@ -101,9 +112,13 @@ export default function EWBPage() {
               </div>
             </div>
           </>
-        ) : (
+        ) : activeTab === 'search' ? (
           <section className="w-full px-4 sm:px-6 lg:px-8">
             <EwbSearch />
+          </section>
+        ) : (
+          <section className="w-full px-4 sm:px-6 lg:px-8">
+            <StandaloneTransporterUpdate />
           </section>
         )}
       </main>

@@ -76,6 +76,12 @@ export const MODULE_CONFIG = {
     icon: 'MapPin',
     description: 'Track bilty and transit status',
     shortcut: 'Alt+T'
+  },
+  'company-profile': {
+    name: 'Company Profile',
+    path: '/company-profile',
+    icon: 'Building2',
+    description: 'Manage company profile and settings'
   }
 };
 

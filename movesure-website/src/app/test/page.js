@@ -28,7 +28,8 @@ const AVAILABLE_MODULES = [
   { name: 'available', label: 'Available', description: 'Available items management' },
   { name: 'fnance', label: 'Finance', description: 'Financial dashboard and reports' },
   { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations' },
-  { name: 'analytics', label: 'Analytics', description: 'Business insights and metrics' }
+  { name: 'analytics', label: 'Analytics', description: 'Business insights and metrics' },
+  { name: 'company-profile', label: 'Company Profile', description: 'Manage company profile and settings' }
 ];
 
 export default function UserModulesPage() {

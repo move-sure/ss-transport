@@ -48,6 +48,7 @@ const AUTH_ONLY_ROUTES = [
   '/profile',
   '/dashboard',
   '/help',
+  '/company-profile',
 ];
 
 // Admin-only routes (requires staff role)
@@ -291,7 +292,8 @@ function AccessDeniedPage({ requiredModule }) {
       'complains': 'Complaints',
       'available': 'Available Items',
       'fnance': 'Finance Management',
-      'analytics': 'Analytics Dashboard'
+      'analytics': 'Analytics Dashboard',
+      'company-profile': 'Company Profile'
     };
     return moduleNames[module] || module.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };

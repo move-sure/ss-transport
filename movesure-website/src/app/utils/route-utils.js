@@ -20,6 +20,7 @@ export const ROUTE_MODULE_MAP = {
   '/fnance': 'fnance',
   '/transit-finance': 'transit-finance',
   '/analytics': 'analytics',
+  '/company-profile': 'company-profile',
   
   // Nested routes - Bilty
   '/bilty/create': 'bilty',

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3 } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3, Building2 } from 'lucide-react';
 
 // Module configuration - MUST match routeprotection.js ROUTE_MODULE_MAP
 const MODULE_CONFIG = {
@@ -132,6 +132,11 @@ const MODULE_CONFIG = {
     path: '/analytics',
     icon: 'BarChart3',
     shortcut: 'Alt+Y'
+  },
+  'company-profile': {
+    name: 'Company Profile',
+    path: '/company-profile',
+    icon: 'Building2',
   }
 };
 
@@ -161,7 +166,7 @@ const ROUTE_MODULE_MAP = {
 };
 
 // Public routes that don't require module access
-const PUBLIC_ROUTES = ['/', '/dashboard', '/profile', '/help'];
+const PUBLIC_ROUTES = ['/', '/dashboard', '/profile', '/help', '/company-profile'];
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -315,7 +320,7 @@ export default function Navbar() {
     // Icon-only modules (left side) - MUST match module names in database
     const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'transit-finance', 'fnance', 'analytics', 'staff', 'danger'];
     // Text modules (right side)
-    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available'];
+    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available', 'company-profile'];
 
     // Add icon-only modules first
     iconOnlyOrder.forEach(moduleName => {
@@ -372,7 +377,8 @@ export default function Navbar() {
       'available': <Package className="h-4 w-4" />,
       'fnance': <DollarSign className="h-4 w-4" />,
       'transit-finance': <DollarSign className="h-4 w-4" />,
-      'analytics': <BarChart3 className="h-4 w-4" />
+      'analytics': <BarChart3 className="h-4 w-4" />,
+      'company-profile': <Building2 className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

@@ -233,6 +233,7 @@ const RateListPDFGenerator = ({
       'Transport',
       'Rate',
       'Min Wt',
+      'Min Fr',
       'Labour',
       'DD/kg',
       'DD/nag',
@@ -244,13 +245,14 @@ const RateListPDFGenerator = ({
 
     // Column widths (total should be ~277 for landscape A4 with margins)
     // Increased Transport column width for longer names
-    const columnWidths = [12, 35, 60, 22, 18, 22, 20, 20, 18, 18, 16, 16];
+    const columnWidths = [10, 30, 50, 20, 16, 18, 20, 18, 18, 16, 16, 14, 14];
 
     // Prepare rows
     const rows = profiles.map((profile, index) => {
       const cityName = getCityName(profile.destination_station_id);
       const rate = formatRate(profile.rate, profile.rate_unit);
       const minWt = profile.minimum_weight_kg > 0 ? `${profile.minimum_weight_kg}kg` : '-';
+      const minFr = profile.freight_minimum_amount > 0 ? `Rs.${profile.freight_minimum_amount}` : '-';
       const labour = profile.labour_rate > 0 ? `Rs.${profile.labour_rate}${formatUnit(profile.labour_unit)}` : '-';
       const ddKg = profile.dd_charge_per_kg > 0 ? `Rs.${profile.dd_charge_per_kg}` : '-';
       const ddNag = profile.dd_charge_per_nag > 0 ? `Rs.${profile.dd_charge_per_nag}` : '-';
@@ -265,6 +267,7 @@ const RateListPDFGenerator = ({
         profile.transport_name || '-',
         rate,
         minWt,
+        minFr,
         labour,
         ddKg,
         ddNag,
@@ -417,9 +420,8 @@ const RateListPDFGenerator = ({
       return currentY;
     };
 
-    // Get transport name from first profile
-    const transportName = profiles.length > 0 ? profiles[0].transport_name : '';
-    const titleText = `${consignor?.company_add || consignor?.company_name || 'Unknown'} - ${transportName}`;
+    // Fixed transport name - SS TRANSPORT CORPORATION
+    const titleText = `${consignor?.company_add || consignor?.company_name || 'Unknown'} - SS TRANSPORT CORPORATION`;
 
     // Header
     doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
@@ -477,6 +479,7 @@ const RateListPDFGenerator = ({
       'Transport',
       'Rate',
       'Min Wt',
+      'Min Fr',
       'Labour',
       'DD/kg',
       'DD/nag',
@@ -486,12 +489,13 @@ const RateListPDFGenerator = ({
       'Status'
     ];
 
-    const columnWidths = [12, 35, 60, 22, 18, 22, 20, 20, 18, 18, 16, 16];
+    const columnWidths = [10, 30, 50, 20, 16, 18, 20, 18, 18, 16, 16, 14, 14];
 
     const rows = profiles.map((profile, index) => {
       const cityName = getCityName(profile.destination_station_id);
       const rate = formatRate(profile.rate, profile.rate_unit);
       const minWt = profile.minimum_weight_kg > 0 ? `${profile.minimum_weight_kg}kg` : '-';
+      const minFr = profile.freight_minimum_amount > 0 ? `Rs.${profile.freight_minimum_amount}` : '-';
       const labour = profile.labour_rate > 0 ? `Rs.${profile.labour_rate}${formatUnit(profile.labour_unit)}` : '-';
       const ddKg = profile.dd_charge_per_kg > 0 ? `Rs.${profile.dd_charge_per_kg}` : '-';
       const ddNag = profile.dd_charge_per_nag > 0 ? `Rs.${profile.dd_charge_per_nag}` : '-';
@@ -506,6 +510,7 @@ const RateListPDFGenerator = ({
         profile.transport_name || '-',
         rate,
         minWt,
+        minFr,
         labour,
         ddKg,
         ddNag,

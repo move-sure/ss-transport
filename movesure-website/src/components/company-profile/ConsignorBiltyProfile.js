@@ -332,25 +332,36 @@ const ConsignorBiltyProfile = ({ user }) => {
     setShowModal(true);
   };
 
-  // Handle create profile from history tab - DON'T switch tabs
+  // Handle create or edit profile from history tab
   const handleCreateFromHistory = (historyData) => {
-    // Don't switch tabs - keep user on history tab
-    setEditingProfile(null);
-    
-    // Find city details
-    const city = cities.find(c => c.id === historyData.destination_station_id);
-    
-    setFormData({
-      ...getInitialFormData(),
-      consignor_id: historyData.consignor_id || '',
-      destination_station_id: historyData.destination_station_id || '',
-      city_code: city?.city_code || historyData.city_code || '',
-      city_name: city?.city_name || historyData.city_name || '',
-      transport_name: historyData.transport_name || '',
-      rate: parseFloat(historyData.rate) || 0,
-      labour_rate: parseFloat(historyData.labour_rate) || 0
-    });
-    setShowModal(true);
+    // Check if profile already exists for this consignor + city combination
+    const existingProfile = profiles.find(
+      p => p.consignor_id === historyData.consignor_id && 
+           p.destination_station_id === historyData.destination_station_id
+    );
+
+    if (existingProfile) {
+      // Profile exists - open it for editing
+      handleEdit(existingProfile);
+    } else {
+      // No profile exists - create new one with pre-filled data
+      setEditingProfile(null);
+      
+      // Find city details
+      const city = cities.find(c => c.id === historyData.destination_station_id);
+      
+      setFormData({
+        ...getInitialFormData(),
+        consignor_id: historyData.consignor_id || '',
+        destination_station_id: historyData.destination_station_id || '',
+        city_code: city?.city_code || historyData.city_code || '',
+        city_name: city?.city_name || historyData.city_name || '',
+        transport_name: historyData.transport_name || '',
+        rate: parseFloat(historyData.rate) || 0,
+        labour_rate: parseFloat(historyData.labour_rate) || 0
+      });
+      setShowModal(true);
+    }
   };
 
   if (loading) {

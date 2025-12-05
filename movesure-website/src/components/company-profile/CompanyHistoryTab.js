@@ -59,7 +59,7 @@ const CompanyHistoryTab = ({
       // Fetch bilty records for this consignor
       const { data: biltyData, error: biltyError } = await supabase
         .from('bilty')
-        .select('id, gr_no, bilty_date, to_city_id, transport_name, rate, labour_rate, wt, no_of_pkg, total, freight_amount, labour_charge')
+        .select('id, gr_no, bilty_date, to_city_id, transport_name, rate, labour_rate, wt, no_of_pkg, total, freight_amount, labour_charge, toll_charge, bill_charge')
         .ilike('consignor_name', `%${consignor.company_name}%`)
         .eq('is_active', true)
         .order('bilty_date', { ascending: false })
@@ -102,9 +102,13 @@ const CompanyHistoryTab = ({
           total_weight: 0,
           total_amount: 0,
           total_packages: 0,
+          total_toll_charge: 0,
+          total_bill_charge: 0,
           transports: new Set(),
           rates_used: [],
           labour_rates_used: [],
+          toll_charges_used: [],
+          bill_charges_used: [],
           last_bilty_date: null,
           first_bilty_date: null
         };
@@ -126,6 +130,16 @@ const CompanyHistoryTab = ({
       
       if (bilty.labour_rate) {
         stat.labour_rates_used.push(parseFloat(bilty.labour_rate));
+      }
+
+      if (bilty.toll_charge) {
+        stat.toll_charges_used.push(parseFloat(bilty.toll_charge));
+        stat.total_toll_charge += parseFloat(bilty.toll_charge) || 0;
+      }
+
+      if (bilty.bill_charge) {
+        stat.bill_charges_used.push(parseFloat(bilty.bill_charge));
+        stat.total_bill_charge += parseFloat(bilty.bill_charge) || 0;
       }
 
       const biltyDate = new Date(bilty.bilty_date);
@@ -153,6 +167,12 @@ const CompanyHistoryTab = ({
         : null,
       avg_labour_rate: stat.labour_rates_used.length > 0
         ? (stat.labour_rates_used.reduce((a, b) => a + b, 0) / stat.labour_rates_used.length).toFixed(2)
+        : null,
+      avg_toll_charge: stat.toll_charges_used.length > 0
+        ? (stat.toll_charges_used.reduce((a, b) => a + b, 0) / stat.toll_charges_used.length).toFixed(2)
+        : null,
+      avg_bill_charge: stat.bill_charges_used.length > 0
+        ? (stat.bill_charges_used.reduce((a, b) => a + b, 0) / stat.bill_charges_used.length).toFixed(2)
         : null,
       most_common_rate: stat.rates_used.length > 0 
         ? getMostCommon(stat.rates_used)
@@ -356,73 +376,81 @@ const CompanyHistoryTab = ({
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Station</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Bilties</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Weight</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Avg Rate</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Common Rate</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Avg Labour</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Transports Used</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Last Work</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Action</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-600 uppercase">Station</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Bilties</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Weight</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Avg Rate</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Common Rate</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Avg Labour</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Avg Toll</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Avg Bilty</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-600 uppercase">Transports</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Last Work</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {stationStats.map((stat, index) => (
                   <tr key={stat.city_id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{getCityName(stat.city_id)}</div>
-                      <div className="text-xs text-gray-500">{getCityCode(stat.city_id)}</div>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-900 text-xs">{getCityName(stat.city_id)}</div>
+                      <div className="text-[10px] text-gray-500">{getCityCode(stat.city_id)}</div>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <td className="px-3 py-2 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         {stat.total_bilties}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-sm text-gray-900">
+                    <td className="px-3 py-2 text-center text-xs text-gray-900">
                       {stat.total_weight.toFixed(0)} kg
                     </td>
-                    <td className="px-4 py-3 text-center text-sm text-gray-900">
+                    <td className="px-3 py-2 text-center text-xs text-gray-900">
                       {stat.avg_rate ? `₹${stat.avg_rate}` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2 text-center">
                       {stat.most_common_rate ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 text-sm font-medium">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium">
                           ₹{stat.most_common_rate}
                         </span>
                       ) : '-'}
                     </td>
-                    <td className="px-4 py-3 text-center text-sm text-gray-900">
+                    <td className="px-3 py-2 text-center text-xs text-gray-900">
                       {stat.avg_labour_rate ? `₹${stat.avg_labour_rate}` : '-'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 text-center text-xs text-orange-600 font-medium">
+                      {stat.avg_toll_charge ? `₹${stat.avg_toll_charge}` : '-'}
+                    </td>
+                    <td className="px-3 py-2 text-center text-xs text-purple-600 font-medium">
+                      {stat.avg_bill_charge ? `₹${stat.avg_bill_charge}` : '-'}
+                    </td>
+                    <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
                         {stat.transports.slice(0, 2).map((t, i) => (
-                          <span key={i} className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-xs">
-                            {t.length > 15 ? t.substring(0, 15) + '...' : t}
+                          <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px]">
+                            {t.length > 12 ? t.substring(0, 12) + '...' : t}
                           </span>
                         ))}
                         {stat.transports.length > 2 && (
-                          <span className="text-xs text-gray-500">+{stat.transports.length - 2} more</span>
+                          <span className="text-[10px] text-gray-500">+{stat.transports.length - 2}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center text-sm text-gray-500">
+                    <td className="px-3 py-2 text-center text-xs text-gray-500">
                       {stat.last_bilty_date ? new Date(stat.last_bilty_date).toLocaleDateString('en-IN') : '-'}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2 text-center">
                       {stat.hasExistingProfile ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Profile Exists
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800">
+                          Exists
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
                           No Profile
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2 text-center">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -430,7 +458,7 @@ const CompanyHistoryTab = ({
                           e.stopPropagation();
                           handleCreateFromHistory(stat);
                         }}
-                        className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
                           stat.hasExistingProfile
                             ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -438,12 +466,12 @@ const CompanyHistoryTab = ({
                       >
                         {stat.hasExistingProfile ? (
                           <>
-                            <Edit2 className="w-3.5 h-3.5 mr-1" />
+                            <Edit2 className="w-3 h-3 mr-1" />
                             Edit
                           </>
                         ) : (
                           <>
-                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            <Plus className="w-3 h-3 mr-1" />
                             Create
                           </>
                         )}

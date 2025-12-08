@@ -168,6 +168,11 @@ const ProfileFormModal = ({
 
   if (!showModal) return null;
 
+  // Auto-select all text on focus for number inputs
+  const handleFocus = (e) => {
+    e.target.select();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
@@ -324,9 +329,22 @@ const ProfileFormModal = ({
               <IndianRupee className="w-4 h-4" />
               Rate Configuration
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {/* Min Weight - Always shown, default 50 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rate</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Min Weight (kg)</label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.minimum_weight_kg || 50}
+                  onChange={(e) => setFormData(prev => ({ ...prev, minimum_weight_kg: e.target.value }))}
+                  onFocus={handleFocus}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              {/* Rate */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Rate</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                   <input
@@ -334,12 +352,14 @@ const ProfileFormModal = ({
                     step="0.01"
                     value={formData.rate}
                     onChange={(e) => setFormData(prev => ({ ...prev, rate: e.target.value }))}
+                    onFocus={handleFocus}
                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
+              {/* Rate Unit */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rate Unit</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Rate Unit</label>
                 <select
                   value={formData.rate_unit}
                   onChange={(e) => setFormData(prev => ({ ...prev, rate_unit: e.target.value }))}
@@ -349,21 +369,9 @@ const ProfileFormModal = ({
                   <option value="PER_NAG">Per Nag</option>
                 </select>
               </div>
-              {formData.rate_unit === 'PER_KG' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Min Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.minimum_weight_kg}
-                    onChange={(e) => setFormData(prev => ({ ...prev, minimum_weight_kg: e.target.value }))}
-                    placeholder="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              )}
+              {/* Min Freight */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Min Freight (₹)</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Min Freight</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                   <input
@@ -371,11 +379,28 @@ const ProfileFormModal = ({
                     step="0.01"
                     value={formData.freight_minimum_amount}
                     onChange={(e) => setFormData(prev => ({ ...prev, freight_minimum_amount: e.target.value }))}
+                    onFocus={handleFocus}
                     placeholder="0"
                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
+              {/* Labour per Nag */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Labour /Nag</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.labour_rate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, labour_rate: e.target.value, labour_unit: 'PER_NAG' }))}
+                    onFocus={handleFocus}
+                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              {/* No Charge Checkbox */}
               <div className="flex items-end">
                 <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 border border-gray-300 rounded-lg">
                   <input
@@ -390,135 +415,11 @@ const ProfileFormModal = ({
             </div>
           </div>
 
-          {/* Labour & Fixed Charges Section */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Labour Rate</label>
-              <div className="relative">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.labour_rate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, labour_rate: e.target.value }))}
-                  className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Labour Unit</label>
-              <select
-                value={formData.labour_unit}
-                onChange={(e) => setFormData(prev => ({ ...prev, labour_unit: e.target.value }))}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="PER_KG">Per KG</option>
-                <option value="PER_NAG">Per Nag</option>
-                <option value="PER_BILTY">Per Bilty</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Effective From</label>
-              <input
-                type="date"
-                value={formData.effective_from}
-                onChange={(e) => setFormData(prev => ({ ...prev, effective_from: e.target.value }))}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Effective To</label>
-              <input
-                type="date"
-                value={formData.effective_to}
-                onChange={(e) => setFormData(prev => ({ ...prev, effective_to: e.target.value }))}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              />
-            </div>
-            <div className="flex items-end col-span-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Profile is Active</span>
-              </label>
-            </div>
-          </div>
-
-          {/* DD Charges Section - Real/Calculation */}
+          {/* Charges Section - Bilty, Toll, DD Print, RS, DD Real */}
           <div className="bg-blue-50 rounded-lg p-3">
-            <h4 className="font-medium text-gray-900 mb-2 text-sm">Door Delivery & Fixed Charges</h4>
+            <h4 className="font-medium text-gray-900 mb-2 text-sm">Charges Configuration</h4>
             <div className="grid grid-cols-2 md:grid-cols-8 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">DD Charge/kg</label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.dd_charge_per_kg}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dd_charge_per_kg: e.target.value }))}
-                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">DD Charge/nag</label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.dd_charge_per_nag}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dd_charge_per_nag: e.target.value }))}
-                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">DD Print/kg</label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.dd_print_charge_per_kg}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dd_print_charge_per_kg: e.target.value }))}
-                    placeholder="-"
-                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">DD Print/nag</label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.dd_print_charge_per_nag}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dd_print_charge_per_nag: e.target.value }))}
-                    placeholder="-"
-                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Receiving Slip</label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.receiving_slip_charge}
-                    onChange={(e) => setFormData(prev => ({ ...prev, receiving_slip_charge: e.target.value }))}
-                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
+              {/* Bilty Charge */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Bilty Charge</label>
                 <div className="relative">
@@ -528,10 +429,12 @@ const ProfileFormModal = ({
                     step="0.01"
                     value={formData.bilty_charge}
                     onChange={(e) => setFormData(prev => ({ ...prev, bilty_charge: e.target.value }))}
+                    onFocus={handleFocus}
                     className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   />
                 </div>
               </div>
+              {/* Toll Tax Checkbox */}
               <div className="flex items-end">
                 <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 border border-gray-300 rounded-lg">
                   <input
@@ -543,6 +446,7 @@ const ProfileFormModal = ({
                   <span className="text-xs text-gray-700">Toll Tax</span>
                 </label>
               </div>
+              {/* Toll Amount */}
               {formData.is_toll_tax_applicable && (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Toll Amount</label>
@@ -553,11 +457,89 @@ const ProfileFormModal = ({
                       step="0.01"
                       value={formData.toll_tax_amount}
                       onChange={(e) => setFormData(prev => ({ ...prev, toll_tax_amount: e.target.value }))}
+                      onFocus={handleFocus}
                       className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                     />
                   </div>
                 </div>
               )}
+              {/* DD Print/nag */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">DD Print /Nag</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.dd_print_charge_per_nag}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dd_print_charge_per_nag: e.target.value }))}
+                    onFocus={handleFocus}
+                    placeholder="-"
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+              {/* DD Print/kg */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">DD Print /KG</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.dd_print_charge_per_kg}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dd_print_charge_per_kg: e.target.value }))}
+                    onFocus={handleFocus}
+                    placeholder="-"
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+              {/* Receiving Slip /Bilty */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">RS Charge /Bilty</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.receiving_slip_charge}
+                    onChange={(e) => setFormData(prev => ({ ...prev, receiving_slip_charge: e.target.value }))}
+                    onFocus={handleFocus}
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+              {/* DD Real/nag */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">DD Real /Nag</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.dd_charge_per_nag}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dd_charge_per_nag: e.target.value }))}
+                    onFocus={handleFocus}
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+              {/* DD Real/kg */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">DD Real /KG</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.dd_charge_per_kg}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dd_charge_per_kg: e.target.value }))}
+                    onFocus={handleFocus}
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

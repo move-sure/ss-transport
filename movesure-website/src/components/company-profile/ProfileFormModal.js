@@ -2,8 +2,11 @@
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  X, Save, Loader2, Building2, MapPin, Truck, IndianRupee
+  X, Save, Loader2, IndianRupee
 } from 'lucide-react';
+import ConsignorAutocomplete from '../bilty/consignor-autocomplete';
+import CityAutocomplete from './city-autocomplete';
+import TransportAutocomplete from './transport-autocomplete';
 
 const ProfileFormModal = ({
   showModal,
@@ -20,124 +23,64 @@ const ProfileFormModal = ({
   getCityName
 }) => {
   // Dropdown states for autocomplete
-  const [consignorSearch, setConsignorSearch] = useState('');
-  const [citySearch, setCitySearch] = useState('');
-  const [transportSearch, setTransportSearch] = useState('');
-  const [showConsignorDropdown, setShowConsignorDropdown] = useState(false);
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const [showTransportDropdown, setShowTransportDropdown] = useState(false);
+  const [consignorName, setConsignorName] = useState('');
+  const [cityName, setCityName] = useState('');
+  const [transportName, setTransportName] = useState('');
 
   // Refs
-  const consignorRef = useRef(null);
-  const cityRef = useRef(null);
-  const transportRef = useRef(null);
   const lastFormDataRef = useRef(null);
+  const submitButtonRef = useRef(null);
 
-  // Initialize search fields when modal opens OR when formData changes with new consignor/city
+  // Initialize search fields when modal opens OR when formData changes
   useEffect(() => {
     if (showModal) {
-      // Check if formData has changed (new selection from history)
       const formDataKey = `${formData.consignor_id}-${formData.destination_station_id}`;
       
       if (lastFormDataRef.current !== formDataKey) {
         lastFormDataRef.current = formDataKey;
         
-        // Set consignor search
+        // Set consignor name
         if (formData.consignor_id) {
-          const consignorName = getConsignorName(formData.consignor_id);
-          setConsignorSearch(consignorName || '');
+          setConsignorName(getConsignorName(formData.consignor_id) || '');
         } else if (editingProfile) {
-          setConsignorSearch(getConsignorName(editingProfile.consignor_id) || '');
+          setConsignorName(getConsignorName(editingProfile.consignor_id) || '');
         } else {
-          setConsignorSearch('');
+          setConsignorName('');
         }
         
-        // Set city search
+        // Set city name
         if (formData.destination_station_id) {
-          const cityName = getCityName(formData.destination_station_id);
-          setCitySearch(cityName || '');
+          setCityName(getCityName(formData.destination_station_id) || '');
         } else if (editingProfile) {
-          setCitySearch(getCityName(editingProfile.destination_station_id) || '');
+          setCityName(getCityName(editingProfile.destination_station_id) || '');
         } else {
-          setCitySearch('');
+          setCityName('');
         }
         
-        // Set transport search
+        // Set transport name
         if (formData.transport_name) {
-          setTransportSearch(formData.transport_name);
+          setTransportName(formData.transport_name);
         } else if (editingProfile) {
-          setTransportSearch(editingProfile.transport_name || '');
+          setTransportName(editingProfile.transport_name || '');
         } else {
-          setTransportSearch('');
+          setTransportName('');
         }
       }
     }
     
-    // Reset when modal closes
     if (!showModal) {
       lastFormDataRef.current = null;
     }
   }, [showModal, formData.consignor_id, formData.destination_station_id, formData.transport_name, editingProfile, getConsignorName, getCityName]);
 
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (consignorRef.current && !consignorRef.current.contains(e.target)) {
-        setShowConsignorDropdown(false);
-      }
-      if (cityRef.current && !cityRef.current.contains(e.target)) {
-        setShowCityDropdown(false);
-      }
-      if (transportRef.current && !transportRef.current.contains(e.target)) {
-        setShowTransportDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
-  // Memoized filtered dropdown items for better performance
-  const filteredConsignors = useMemo(() => {
-    if (!consignorSearch) return consignors.slice(0, 50); // Limit initial results
-    const search = consignorSearch.toLowerCase();
-    return consignors.filter(c =>
-      c.company_name.toLowerCase().includes(search)
-    ).slice(0, 50);
-  }, [consignors, consignorSearch]);
 
-  const filteredCities = useMemo(() => {
-    if (!citySearch) return cities.slice(0, 50);
-    const search = citySearch.toLowerCase();
-    return cities.filter(c =>
-      c.city_name.toLowerCase().includes(search) ||
-      c.city_code.toLowerCase().includes(search)
-    ).slice(0, 50);
-  }, [cities, citySearch]);
 
-  const filteredTransports = useMemo(() => {
-    const selectedCityObj = cities.find(c => c.id === formData.destination_station_id);
-    let filtered = transports;
-    
-    if (selectedCityObj) {
-      filtered = filtered.filter(t => t.city_name === selectedCityObj.city_name);
-    }
-    
-    if (transportSearch) {
-      const search = transportSearch.toLowerCase();
-      filtered = filtered.filter(t => t.transport_name.toLowerCase().includes(search));
-    }
-    
-    return filtered.slice(0, 50);
-  }, [transports, cities, formData.destination_station_id, transportSearch]);
 
   // Handle consignor selection
   const handleConsignorSelect = useCallback((consignor) => {
-    setFormData(prev => ({
-      ...prev,
-      consignor_id: consignor.id
-    }));
-    setConsignorSearch(consignor.company_name);
-    setShowConsignorDropdown(false);
+    setFormData(prev => ({ ...prev, consignor_id: consignor.id }));
+    setConsignorName(consignor.company_name);
   }, [setFormData]);
 
   // Handle city selection
@@ -150,9 +93,8 @@ const ProfileFormModal = ({
       transport_name: '',
       transport_gst: ''
     }));
-    setCitySearch(city.city_name);
-    setShowCityDropdown(false);
-    setTransportSearch('');
+    setCityName(city.city_name);
+    setTransportName('');
   }, [setFormData]);
 
   // Handle transport selection
@@ -162,8 +104,7 @@ const ProfileFormModal = ({
       transport_name: transport.transport_name,
       transport_gst: transport.gst_number || ''
     }));
-    setTransportSearch(transport.transport_name);
-    setShowTransportDropdown(false);
+    setTransportName(transport.transport_name);
   }, [setFormData]);
 
   if (!showModal) return null;
@@ -171,6 +112,14 @@ const ProfileFormModal = ({
   // Auto-select all text on focus for number inputs
   const handleFocus = (e) => {
     e.target.select();
+  };
+
+  // Handle Tab key on submit button to trigger submit
+  const handleSubmitButtonKeyDown = (e) => {
+    if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault();
+      submitButtonRef.current?.click();
+    }
   };
 
   return (
@@ -192,121 +141,33 @@ const ProfileFormModal = ({
           {/* Consignor, City, Transport Row */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {/* Consignor Autocomplete */}
-            <div ref={consignorRef} className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Consignor <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={consignorSearch}
-                  onChange={(e) => {
-                    setConsignorSearch(e.target.value);
-                    setShowConsignorDropdown(true);
-                  }}
-                  onFocus={() => setShowConsignorDropdown(true)}
-                  placeholder="Search consignor..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              {showConsignorDropdown && filteredConsignors.length > 0 && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredConsignors.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handleConsignorSelect(c)}
-                      className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors ${
-                        formData.consignor_id === c.id ? 'bg-blue-50 text-blue-700' : ''
-                      }`}
-                    >
-                      <p className="font-medium text-gray-900">{c.company_name}</p>
-                      {c.gst_num && <p className="text-xs text-gray-500">GST: {c.gst_num}</p>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ConsignorAutocomplete
+              value={consignorName}
+              onChange={setConsignorName}
+              onSelect={handleConsignorSelect}
+              autoFocus={true}
+              placeholder="Search consignor..."
+            />
 
             {/* City Autocomplete */}
-            <div ref={cityRef} className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Destination City <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={citySearch}
-                  onChange={(e) => {
-                    setCitySearch(e.target.value);
-                    setShowCityDropdown(true);
-                  }}
-                  onFocus={() => setShowCityDropdown(true)}
-                  placeholder="Search city..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              {showCityDropdown && filteredCities.length > 0 && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredCities.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handleCitySelect(c)}
-                      className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors ${
-                        formData.destination_station_id === c.id ? 'bg-blue-50 text-blue-700' : ''
-                      }`}
-                    >
-                      <p className="font-medium text-gray-900">{c.city_name}</p>
-                      <p className="text-xs text-gray-500">Code: {c.city_code}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CityAutocomplete
+              value={cityName}
+              onChange={setCityName}
+              onSelect={handleCitySelect}
+              autoFocus={false}
+              placeholder="Search city..."
+            />
 
             {/* Transport Autocomplete */}
-            <div ref={transportRef} className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Transport
-              </label>
-              <div className="relative">
-                <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={transportSearch}
-                  onChange={(e) => {
-                    setTransportSearch(e.target.value);
-                    setFormData(prev => ({
-                      ...prev,
-                      transport_name: e.target.value,
-                      transport_gst: ''
-                    }));
-                    setShowTransportDropdown(true);
-                  }}
-                  onFocus={() => setShowTransportDropdown(true)}
-                  placeholder="Search transport..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              {showTransportDropdown && filteredTransports.length > 0 && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {filteredTransports.map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => handleTransportSelect(t)}
-                      className="w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors"
-                    >
-                      <p className="font-medium text-gray-900">{t.transport_name}</p>
-                      <p className="text-xs text-gray-500">{t.city_name} {t.gst_number && `• ${t.gst_number}`}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <TransportAutocomplete
+              value={transportName}
+              onChange={setTransportName}
+              onSelect={handleTransportSelect}
+              destinationCityId={formData.destination_station_id}
+              autoFocus={false}
+              placeholder="Search transport..."
+              disabled={!formData.destination_station_id}
+            />
 
             {/* Transport GST */}
             <div>
@@ -434,35 +295,29 @@ const ProfileFormModal = ({
                   />
                 </div>
               </div>
-              {/* Toll Tax Checkbox */}
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 border border-gray-300 rounded-lg">
+              {/* Toll Tax */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Toll Tax</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
                   <input
-                    type="checkbox"
-                    checked={formData.is_toll_tax_applicable}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_toll_tax_applicable: e.target.checked }))}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    type="number"
+                    step="0.01"
+                    value={formData.toll_tax_amount || 0}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        toll_tax_amount: value,
+                        is_toll_tax_applicable: parseFloat(value) > 0
+                      }));
+                    }}
+                    onFocus={handleFocus}
+                    placeholder="0"
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   />
-                  <span className="text-xs text-gray-700">Toll Tax</span>
-                </label>
-              </div>
-              {/* Toll Amount */}
-              {formData.is_toll_tax_applicable && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Toll Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.toll_tax_amount}
-                      onChange={(e) => setFormData(prev => ({ ...prev, toll_tax_amount: e.target.value }))}
-                      onFocus={handleFocus}
-                      className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    />
-                  </div>
                 </div>
-              )}
+              </div>
               {/* DD Print/nag */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">DD Print /Nag</label>
@@ -553,8 +408,10 @@ const ProfileFormModal = ({
               Cancel
             </button>
             <button
+              ref={submitButtonRef}
               type="submit"
               disabled={saving}
+              onKeyDown={handleSubmitButtonKeyDown}
               className="inline-flex items-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (

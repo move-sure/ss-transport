@@ -121,8 +121,15 @@ export default function ChallanExpenseFormModal({
                         onClick={() => handleChallanSelect(challan)}
                         className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-gray-100 last:border-b-0"
                       >
-                        <div className="font-semibold text-gray-800">{challan.challan_no}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="flex items-center justify-between">
+                          <div className="font-semibold text-gray-800">{challan.challan_no}</div>
+                          {challan.trucks?.truck_number && (
+                            <div className="text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                              {challan.trucks.truck_number}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
                           Dispatch Date: {new Date(challan.dispatch_date || challan.date).toLocaleDateString('en-IN')}
                         </div>
                       </button>

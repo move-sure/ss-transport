@@ -54,7 +54,17 @@ export default function useChallanExpenseManagement(user) {
     try {
       const { data, error } = await supabase
         .from('challan_details')
-        .select('id, challan_no, date, is_active, is_dispatched, dispatch_date')
+        .select(`
+          id, 
+          challan_no, 
+          date, 
+          is_active, 
+          is_dispatched, 
+          dispatch_date,
+          trucks:truck_id (
+            truck_number
+          )
+        `)
         .eq('is_active', true)
         .eq('is_dispatched', true)
         .order('dispatch_date', { ascending: false });

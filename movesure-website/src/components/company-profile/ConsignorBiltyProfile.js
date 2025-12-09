@@ -365,15 +365,59 @@ const ConsignorBiltyProfile = ({ user }) => {
       // Find city details
       const city = cities.find(c => c.id === historyData.destination_station_id);
       
+      // Find any existing profile for the same consignor (different city) to copy settings from
+      const sameConsignorProfile = profiles.find(
+        p => p.consignor_id === historyData.consignor_id
+      );
+      
+      // Pre-fill with existing profile data if available, otherwise use defaults
+      const baseData = sameConsignorProfile ? {
+        rate_unit: sameConsignorProfile.rate_unit || 'PER_KG',
+        minimum_weight_kg: sameConsignorProfile.minimum_weight_kg || 50,
+        freight_minimum_amount: sameConsignorProfile.freight_minimum_amount || 0,
+        labour_unit: sameConsignorProfile.labour_unit || 'PER_NAG',
+        dd_charge_per_kg: sameConsignorProfile.dd_charge_per_kg || 0,
+        dd_charge_per_nag: sameConsignorProfile.dd_charge_per_nag || 0,
+        dd_print_charge_per_kg: sameConsignorProfile.dd_print_charge_per_kg ?? '',
+        dd_print_charge_per_nag: sameConsignorProfile.dd_print_charge_per_nag ?? '',
+        receiving_slip_charge: sameConsignorProfile.receiving_slip_charge || 0,
+        bilty_charge: sameConsignorProfile.bilty_charge || 0,
+        is_toll_tax_applicable: sameConsignorProfile.is_toll_tax_applicable || false,
+        toll_tax_amount: sameConsignorProfile.toll_tax_amount || 0,
+        is_no_charge: sameConsignorProfile.is_no_charge || false,
+        grease: sameConsignorProfile.grease || 200,
+        uncle_g: sameConsignorProfile.uncle_g || 300
+      } : {
+        rate_unit: 'PER_KG',
+        minimum_weight_kg: 50,
+        freight_minimum_amount: 0,
+        labour_unit: 'PER_NAG',
+        dd_charge_per_kg: 0,
+        dd_charge_per_nag: 0,
+        dd_print_charge_per_kg: '',
+        dd_print_charge_per_nag: '',
+        receiving_slip_charge: 0,
+        bilty_charge: 0,
+        is_toll_tax_applicable: false,
+        toll_tax_amount: 0,
+        is_no_charge: false,
+        grease: 200,
+        uncle_g: 300
+      };
+      
       setFormData({
-        ...getInitialFormData(),
         consignor_id: historyData.consignor_id || '',
         destination_station_id: historyData.destination_station_id || '',
         city_code: city?.city_code || historyData.city_code || '',
         city_name: city?.city_name || historyData.city_name || '',
         transport_name: historyData.transport_name || '',
+        transport_gst: '',
         rate: parseFloat(historyData.rate) || 0,
-        labour_rate: parseFloat(historyData.labour_rate) || 0
+        labour_rate: parseFloat(historyData.labour_rate) || 0,
+        effective_from: new Date().toISOString().split('T')[0],
+        effective_to: '',
+        is_active: true,
+        ...baseData
       });
       setShowModal(true);
     }

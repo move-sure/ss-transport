@@ -40,6 +40,7 @@ export default function ChallanExpenseFormModal({
   };
 
   const filteredChallans = challans.filter(challan =>
+    challan.is_dispatched === true &&
     challan.challan_no.toLowerCase().includes(challanSearch.toLowerCase())
   );
 
@@ -65,10 +66,10 @@ export default function ChallanExpenseFormModal({
   if (!showModal) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
+        <div className="sticky top-0 bg-slate-700 text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <DollarSign size={28} />
             {editingExpense ? 'Edit Challan Expense' : 'Add Challan Expense'}
@@ -211,7 +212,7 @@ export default function ChallanExpenseFormModal({
                   step="0.01"
                   value={formData.grease}
                   onChange={(e) => onInputChange('grease', e.target.value)}
-                  className="w-full pl-8 pr-4 py-3 border-2 border-green-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
                   disabled={loading}
                 />
               </div>
@@ -229,7 +230,7 @@ export default function ChallanExpenseFormModal({
                   step="0.01"
                   value={formData.uncle_g}
                   onChange={(e) => onInputChange('uncle_g', e.target.value)}
-                  className="w-full pl-8 pr-4 py-3 border-2 border-green-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
                   disabled={loading}
                 />
               </div>
@@ -291,10 +292,10 @@ export default function ChallanExpenseFormModal({
           </div>
 
           {/* Total Expenses Display */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-indigo-200">
+          <div className="mb-6 p-4 bg-slate-50 rounded-xl border-2 border-slate-200">
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold text-gray-800">Total Expenses:</span>
-              <span className="text-2xl font-bold text-indigo-600">
+              <span className="text-2xl font-bold text-slate-700">
                 ₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
@@ -305,7 +306,7 @@ export default function ChallanExpenseFormModal({
             {/* Total Kaat */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                <TrendingDown size={16} className="text-red-500" />
+                <TrendingDown size={16} className="text-gray-500" />
                 Total Kaat
               </label>
               <div className="relative">
@@ -315,7 +316,7 @@ export default function ChallanExpenseFormModal({
                   step="0.01"
                   value={formData.total_kaat}
                   onChange={(e) => onInputChange('total_kaat', e.target.value)}
-                  className="w-full pl-8 pr-4 py-3 border-2 border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
                   disabled={loading}
                 />
               </div>
@@ -324,7 +325,7 @@ export default function ChallanExpenseFormModal({
             {/* Total PF */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                <TrendingDown size={16} className="text-orange-500" />
+                <TrendingDown size={16} className="text-gray-500" />
                 Total PF
               </label>
               <div className="relative">
@@ -334,7 +335,7 @@ export default function ChallanExpenseFormModal({
                   step="0.01"
                   value={formData.total_pf}
                   onChange={(e) => onInputChange('total_pf', e.target.value)}
-                  className="w-full pl-8 pr-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
                   disabled={loading}
                 />
               </div>
@@ -343,7 +344,7 @@ export default function ChallanExpenseFormModal({
             {/* Total Profit */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                <TrendingUp size={16} className="text-green-500" />
+                <TrendingUp size={16} className="text-gray-500" />
                 Total Profit
               </label>
               <div className="relative">
@@ -353,7 +354,7 @@ export default function ChallanExpenseFormModal({
                   step="0.01"
                   value={formData.total_profit}
                   onChange={(e) => onInputChange('total_profit', e.target.value)}
-                  className="w-full pl-8 pr-4 py-3 border-2 border-green-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full pl-8 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500"
                   disabled={loading}
                 />
               </div>
@@ -389,7 +390,7 @@ export default function ChallanExpenseFormModal({
               ref={submitButtonRef}
               type="submit"
               onKeyDown={handleSubmitButtonKeyDown}
-              className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold flex items-center gap-2 shadow-lg disabled:opacity-50"
+              className="px-6 py-3 bg-slate-700 text-white rounded-xl hover:bg-slate-800 transition-all font-semibold flex items-center gap-2 shadow-lg disabled:opacity-50"
               disabled={loading}
             >
               {loading ? (

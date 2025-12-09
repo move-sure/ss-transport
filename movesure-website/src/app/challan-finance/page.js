@@ -93,7 +93,7 @@ export default function ChallanFinancePage() {
             </div>
             <button
               onClick={handleOpenModal}
-              className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all text-sm font-semibold shadow-lg"
+              className="flex items-center gap-2 px-4 sm:px-6 py-3 bg-slate-700 text-white rounded-xl hover:bg-slate-800 transition-all text-sm font-semibold shadow-lg"
             >
               <Plus size={20} />
               <span>Add Challan Expense</span>
@@ -103,50 +103,50 @@ export default function ChallanFinancePage() {
 
         {/* Summary Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border-2 border-slate-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 font-semibold mb-1">Total Records</p>
-                <p className="text-3xl font-bold text-gray-900">{challanExpenses.length}</p>
+                <p className="text-sm text-slate-600 font-semibold mb-1">Total Records</p>
+                <p className="text-3xl font-bold text-slate-900">{challanExpenses.length}</p>
               </div>
-              <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-3 rounded-xl">
-                <DollarSign size={32} className="text-blue-600" />
+              <div className="bg-slate-100 p-3 rounded-xl">
+                <DollarSign size={32} className="text-slate-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border-2 border-red-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border-2 border-slate-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-red-600 font-semibold mb-1">Total Expenses</p>
-                <p className="text-2xl font-bold text-red-700">{formatCurrency(totalExpensesAmount)}</p>
+                <p className="text-sm text-slate-600 font-semibold mb-1">Total Expenses</p>
+                <p className="text-2xl font-bold text-slate-700">{formatCurrency(totalExpensesAmount)}</p>
               </div>
-              <div className="bg-gradient-to-br from-red-100 to-red-200 p-3 rounded-xl">
-                <TrendingDown size={32} className="text-red-600" />
+              <div className="bg-slate-100 p-3 rounded-xl">
+                <TrendingDown size={32} className="text-slate-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border-2 border-orange-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border-2 border-slate-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-600 font-semibold mb-1">Total Kaat</p>
-                <p className="text-2xl font-bold text-orange-700">{formatCurrency(totalKaatAmount)}</p>
+                <p className="text-sm text-slate-600 font-semibold mb-1">Total Kaat</p>
+                <p className="text-2xl font-bold text-slate-700">{formatCurrency(totalKaatAmount)}</p>
               </div>
-              <div className="bg-gradient-to-br from-orange-100 to-orange-200 p-3 rounded-xl">
-                <TrendingDown size={32} className="text-orange-600" />
+              <div className="bg-slate-100 p-3 rounded-xl">
+                <TrendingDown size={32} className="text-slate-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border-2 border-green-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border-2 border-slate-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-semibold mb-1">Total Profit</p>
-                <p className="text-2xl font-bold text-green-700">{formatCurrency(totalProfitAmount)}</p>
+                <p className="text-sm text-slate-600 font-semibold mb-1">Total Profit</p>
+                <p className="text-2xl font-bold text-slate-700">{formatCurrency(totalProfitAmount)}</p>
               </div>
-              <div className="bg-gradient-to-br from-green-100 to-green-200 p-3 rounded-xl">
-                <TrendingUp size={32} className="text-green-600" />
+              <div className="bg-slate-100 p-3 rounded-xl">
+                <TrendingUp size={32} className="text-slate-600" />
               </div>
             </div>
           </div>

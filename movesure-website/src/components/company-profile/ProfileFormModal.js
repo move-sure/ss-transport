@@ -334,22 +334,6 @@ const ProfileFormModal = ({
                   />
                 </div>
               </div>
-              {/* DD Print/kg */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">DD Print /KG</label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.dd_print_charge_per_kg}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dd_print_charge_per_kg: e.target.value }))}
-                    onFocus={handleFocus}
-                    placeholder="-"
-                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-              </div>
               {/* Receiving Slip /Bilty */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">RS Charge /Bilty</label>
@@ -376,6 +360,22 @@ const ProfileFormModal = ({
                     value={formData.dd_charge_per_nag}
                     onChange={(e) => setFormData(prev => ({ ...prev, dd_charge_per_nag: e.target.value }))}
                     onFocus={handleFocus}
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+              {/* DD Print/kg */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">DD Print /KG</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.dd_print_charge_per_kg}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dd_print_charge_per_kg: e.target.value }))}
+                    onFocus={handleFocus}
+                    placeholder="-"
                     className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   />
                 </div>

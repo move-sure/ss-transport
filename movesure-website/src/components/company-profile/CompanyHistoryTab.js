@@ -87,6 +87,21 @@ const CompanyHistoryTab = ({
     }
   };
 
+  // Recalculate stats when existingProfiles changes
+  useEffect(() => {
+    if (selectedConsignor && stationStats.length > 0) {
+      // Update hasExistingProfile flag for all stats
+      setStationStats(prevStats => 
+        prevStats.map(stat => ({
+          ...stat,
+          hasExistingProfile: existingProfiles.some(
+            p => p.consignor_id === selectedConsignor.id && p.destination_station_id === stat.city_id
+          )
+        }))
+      );
+    }
+  }, [existingProfiles, selectedConsignor]);
+
   // Calculate station statistics
   const calculateStationStats = (biltyData, rates, consignorId) => {
     const statsMap = {};

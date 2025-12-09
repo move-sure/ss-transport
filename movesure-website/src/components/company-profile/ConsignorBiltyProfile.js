@@ -247,28 +247,41 @@ const ConsignorBiltyProfile = ({ user }) => {
 
       if (editingProfile) {
         // Update existing profile
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('consignor_bilty_profile')
           .update(profileData)
-          .eq('id', editingProfile.id);
+          .eq('id', editingProfile.id)
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Update local state without refetching
+        setProfiles(prevProfiles => 
+          prevProfiles.map(p => p.id === editingProfile.id ? data : p)
+        );
+        
         setSuccess('Profile updated successfully!');
       } else {
         // Create new profile
         profileData.created_by = user?.id || null;
         profileData.created_at = new Date().toISOString();
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('consignor_bilty_profile')
-          .insert([profileData]);
+          .insert([profileData])
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Add to local state without refetching
+        setProfiles(prevProfiles => [data, ...prevProfiles]);
+        
         setSuccess('Profile created successfully!');
       }
 
       setShowModal(false);
-      loadInitialData();
       
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -289,9 +302,11 @@ const ConsignorBiltyProfile = ({ user }) => {
 
       if (error) throw error;
 
+      // Remove from local state without refetching
+      setProfiles(prevProfiles => prevProfiles.filter(p => p.id !== profileId));
+      
       setSuccess('Profile deleted successfully!');
       setShowDeleteConfirm(null);
-      loadInitialData();
       
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {

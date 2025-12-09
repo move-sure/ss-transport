@@ -83,7 +83,12 @@ const ProfileTableRow = ({
       <td className="px-3 py-2">
         <div className="flex items-center gap-1.5">
           <Building2 className="w-3.5 h-3.5 text-gray-400" />
-          <span className="font-medium text-gray-900 text-xs">{getConsignorName(profile.consignor_id)}</span>
+          <a
+            href={`/company-profile/${profile.consignor_id}`}
+            className="font-medium text-blue-600 hover:text-blue-800 text-xs hover:underline"
+          >
+            {getConsignorName(profile.consignor_id)}
+          </a>
         </div>
       </td>
       <td className="px-3 py-2">

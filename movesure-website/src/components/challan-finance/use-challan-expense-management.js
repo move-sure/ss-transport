@@ -47,16 +47,17 @@ export default function useChallanExpenseManagement(user) {
     }
   }, [user]);
 
-  // Fetch all challans for dropdown
+  // Fetch all dispatched challans for dropdown
   const fetchChallans = useCallback(async () => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
         .from('challan_details')
-        .select('id, challan_no, date, is_active')
+        .select('id, challan_no, date, is_active, is_dispatched, dispatch_date')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .eq('is_dispatched', true)
+        .order('dispatch_date', { ascending: false });
 
       if (error) throw error;
       setChallans(data || []);

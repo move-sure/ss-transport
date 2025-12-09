@@ -33,6 +33,10 @@ export default function ChallanExpenseFormModal({
     setShowChallanDropdown(true);
   };
 
+  const handleChallanInputClick = () => {
+    setShowChallanDropdown(true);
+  };
+
   const handleChallanSelect = (challan) => {
     setChallanSearch(challan.challan_no);
     onInputChange('challan_no', challan.challan_no);
@@ -95,10 +99,11 @@ export default function ChallanExpenseFormModal({
                 value={challanSearch}
                 onChange={(e) => handleChallanInputChange(e.target.value)}
                 onFocus={() => setShowChallanDropdown(true)}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                onClick={handleChallanInputClick}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 ${
                   formErrors.challan_no ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="Search or enter challan number"
+                placeholder="Search dispatched challan number"
                 disabled={loading}
               />
               {formErrors.challan_no && (
@@ -106,21 +111,28 @@ export default function ChallanExpenseFormModal({
               )}
               
               {/* Challan Dropdown */}
-              {showChallanDropdown && filteredChallans.length > 0 && (
-                <div className="absolute z-20 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                  {filteredChallans.map((challan) => (
-                    <button
-                      key={challan.id}
-                      type="button"
-                      onClick={() => handleChallanSelect(challan)}
-                      className="w-full px-4 py-3 text-left hover:bg-indigo-50 transition-colors border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="font-semibold text-gray-800">{challan.challan_no}</div>
-                      <div className="text-xs text-gray-500">
-                        Date: {new Date(challan.date).toLocaleDateString('en-IN')}
-                      </div>
-                    </button>
-                  ))}
+              {showChallanDropdown && (
+                <div className="absolute z-20 w-full mt-1 bg-white border-2 border-slate-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                  {filteredChallans.length > 0 ? (
+                    filteredChallans.map((challan) => (
+                      <button
+                        key={challan.id}
+                        type="button"
+                        onClick={() => handleChallanSelect(challan)}
+                        className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-semibold text-gray-800">{challan.challan_no}</div>
+                        <div className="text-xs text-gray-500">
+                          Dispatch Date: {new Date(challan.dispatch_date || challan.date).toLocaleDateString('en-IN')}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-center text-gray-500">
+                      <p className="text-sm">No dispatched challans found</p>
+                      <p className="text-xs mt-1">Only dispatched challans are shown</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

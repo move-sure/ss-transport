@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../utils/auth';
 import Navbar from '@/components/dashboard/navbar';
-import { Plus, Building2, Calendar, Wallet } from 'lucide-react';
+import { Plus, Building2, Calendar, Wallet, TrendingDown } from 'lucide-react';
 import BranchFormModal from '@/components/finance/branch-form-modal';
 import BranchListModal from '@/components/finance/branch-list-modal';
 import TransactionsList from '@/components/finance/transactions-list';
@@ -236,7 +236,14 @@ export default function FinancePage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Finance Management</h1>
               <p className="text-sm text-gray-600 mt-1">Manage branches and financial operations</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => router.push('/challan-finance')}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:from-orange-700 hover:to-red-700 transition-all text-sm font-semibold shadow-md"
+              >
+                <TrendingDown size={16} />
+                <span className="hidden sm:inline">Challan Expense</span>
+              </button>
               <button
                 onClick={() => setShowSalaryManagementModal(true)}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md"

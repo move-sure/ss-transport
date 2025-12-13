@@ -82,6 +82,13 @@ export const MODULE_CONFIG = {
     path: '/company-profile',
     icon: 'Building2',
     description: 'Manage company profile and settings'
+  },
+  'company-ledger': {
+    name: 'Company Ledger',
+    path: '/company-ledger',
+    icon: 'BookOpen',
+    description: 'View and manage company financial records',
+    shortcut: 'Alt+L'
   }
 };
 
@@ -96,7 +103,7 @@ export const getNavigationItems = (userModules) => {
   }
 
   const navigationItems = [];  // Define the order in which modules should appear in the navbar
-  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'bill', 'tracking', 'master', 'setting', 'staff', 'godown'];
+  const moduleOrder = ['bilty', 'e-way-bill', 'challan', 'challan-setting', 'truck-management', 'search', 'bill', 'tracking', 'master', 'setting', 'staff', 'godown', 'company-ledger'];
 
   moduleOrder.forEach(moduleName => {
     if (userModules.includes(moduleName) && MODULE_CONFIG[moduleName]) {
@@ -132,7 +139,8 @@ export const getModuleIcon = (moduleName) => {
     'master': <Database className="h-4 w-4" />,
     'setting': <Settings className="h-4 w-4" />,
     'staff': <Wrench className="h-4 w-4" />,
-    'godown': <Database className="h-4 w-4" />
+    'godown': <Database className="h-4 w-4" />,
+    'company-ledger': <FileText className="h-4 w-4" />
   };
 
   return iconMap[moduleName] || <FileText className="h-4 w-4" />;

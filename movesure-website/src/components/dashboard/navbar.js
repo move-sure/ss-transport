@@ -137,6 +137,12 @@ const MODULE_CONFIG = {
     name: 'Company Profile',
     path: '/company-profile',
     icon: 'Building2',
+  },
+  'company-ledger': {
+    name: 'Company Ledger',
+    path: '/company-ledger',
+    icon: 'BookOpen',
+    shortcut: 'Alt+L'
   }
 };
 
@@ -163,6 +169,7 @@ const ROUTE_MODULE_MAP = {
   '/fnance': 'fnance',
   '/transit-finance': 'transit-finance',
   '/analytics': 'analytics',
+  '/company-ledger': 'company-ledger',
 };
 
 // Public routes that don't require module access
@@ -320,7 +327,7 @@ export default function Navbar() {
     // Icon-only modules (left side) - MUST match module names in database
     const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'transit-finance', 'fnance', 'analytics', 'staff', 'danger'];
     // Text modules (right side)
-    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available', 'company-profile'];
+    const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available', 'company-profile', 'company-ledger'];
 
     // Add icon-only modules first
     iconOnlyOrder.forEach(moduleName => {
@@ -378,7 +385,8 @@ export default function Navbar() {
       'fnance': <DollarSign className="h-4 w-4" />,
       'transit-finance': <DollarSign className="h-4 w-4" />,
       'analytics': <BarChart3 className="h-4 w-4" />,
-      'company-profile': <Building2 className="h-4 w-4" />
+      'company-profile': <Building2 className="h-4 w-4" />,
+      'company-ledger': <BookOpen className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

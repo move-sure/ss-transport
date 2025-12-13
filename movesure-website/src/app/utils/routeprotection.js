@@ -32,6 +32,7 @@ const ROUTE_MODULE_MAP = {
   '/available': 'available',
   '/fnance': 'fnance',
   '/analytics': 'analytics',
+  '/company-ledger': 'company-ledger',
 };
 
 // Routes that don't require any module (public or auth-only routes)

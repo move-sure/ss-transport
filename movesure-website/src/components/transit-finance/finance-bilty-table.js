@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, Download, DollarSign, Package, TrendingUp, Loader2, Save, XCircle } from 'lucide-react';
+import { FileText, Download, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
 import TransportFilter from './transport-filter';
@@ -28,7 +28,8 @@ import {
   calculateTotalKaatAmount,
   getTransportDetailsFromBilties,
   saveKaatBillToDatabase,
-  getCurrentUser
+  getCurrentUser,
+  autoApplyKaatToAllBilties
 } from './kaat-bill-service';
 
 export default function FinanceBiltyTable({ 
@@ -56,6 +57,7 @@ export default function FinanceBiltyTable({
   const [showBiltySelector, setShowBiltySelector] = useState(false);
   const [kaatDetails, setKaatDetails] = useState([]);
   const [alreadySavedGrNos, setAlreadySavedGrNos] = useState([]);
+  const [autoApplyingKaat, setAutoApplyingKaat] = useState(false);
   
   // NEW: Batch loaded data to avoid per-cell requests
   const [allKaatData, setAllKaatData] = useState({});
@@ -277,10 +279,47 @@ export default function FinanceBiltyTable({
     
     if (success) {
       alert(`Successfully applied hub rate to ${count} bilties!`);
+      // Reload kaat data
+      loadAllKaatData();
     } else {
       alert('Failed to apply hub rates: ' + error.message);
     }
     setApplyingRates(false);
+  };
+
+  // Auto apply kaat to all bilties based on their destination city
+  const handleAutoApplyKaat = async () => {
+    if (challanTransits.length === 0) {
+      alert('No bilties to apply kaat to!');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `🚀 Auto Apply Kaat\n\nThis will automatically apply kaat rates to ${challanTransits.length} bilties based on their destination city.\n\nBilties with existing kaat will be updated.\n\nContinue?`
+    );
+    if (!confirmed) return;
+
+    setAutoApplyingKaat(true);
+    try {
+      const { success, applied, skipped, error } = await autoApplyKaatToAllBilties(
+        challanTransits,
+        selectedChallan,
+        cities
+      );
+
+      if (success) {
+        alert(`✅ Auto Apply Kaat Completed!\n\n✓ Applied: ${applied} bilties\n✗ Skipped: ${skipped} bilties (no matching rate found)`);
+        // Reload kaat data to refresh the table
+        loadAllKaatData();
+      } else {
+        alert('❌ Failed to auto-apply kaat:\n\n' + (error?.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error in auto-apply kaat:', err);
+      alert('❌ Error: ' + err.message);
+    } finally {
+      setAutoApplyingKaat(false);
+    }
   };
 
   // Get unique city list from filtered transits
@@ -452,6 +491,21 @@ export default function FinanceBiltyTable({
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {!editMode && (
+              <button
+                onClick={handleAutoApplyKaat}
+                disabled={autoApplyingKaat || challanTransits.length === 0}
+                className="bg-yellow-500 hover:bg-yellow-600 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                title="Automatically apply kaat rates to all bilties based on destination city"
+              >
+                {autoApplyingKaat ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                {autoApplyingKaat ? 'Applying...' : 'Auto Apply Kaat'}
+              </button>
+            )}
             {onViewKaatBills && !editMode && (
               <button
                 onClick={onViewKaatBills}

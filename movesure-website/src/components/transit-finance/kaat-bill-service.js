@@ -275,3 +275,164 @@ export const getCurrentUser = () => {
   
   return { id: null, username: 'Unknown' };
 };
+
+/**
+ * Auto apply kaat rates to all bilties based on their destination city
+ * This function finds the matching kaat rate for each bilty and applies it automatically
+ */
+export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan, cities) => {
+  try {
+    console.log('🚀 Starting auto-apply kaat for', transitDetails.length, 'bilties...');
+    
+    // Get all unique destination city IDs from bilties
+    const cityIdsFromBilties = new Set();
+    const cityCodesFromStations = new Set();
+    
+    transitDetails.forEach(transit => {
+      if (transit.bilty?.to_city_id) {
+        cityIdsFromBilties.add(transit.bilty.to_city_id);
+      }
+      if (transit.station?.station) {
+        cityCodesFromStations.add(transit.station.station);
+      }
+    });
+    
+    // Convert station codes to city IDs
+    cityCodesFromStations.forEach(code => {
+      const city = cities?.find(c => c.city_code === code);
+      if (city?.id) {
+        cityIdsFromBilties.add(city.id);
+      }
+    });
+    
+    const allCityIds = Array.from(cityIdsFromBilties);
+    console.log('📍 Found', allCityIds.length, 'unique destination cities');
+    
+    if (allCityIds.length === 0) {
+      return { success: false, applied: 0, skipped: 0, error: new Error('No destination cities found in bilties') };
+    }
+    
+    // Fetch all kaat rates for these cities
+    const { data: allRates, error: ratesError } = await supabase
+      .from('transport_hub_rates')
+      .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
+      .in('destination_city_id', allCityIds)
+      .eq('is_active', true);
+    
+    if (ratesError) throw ratesError;
+    
+    console.log('📊 Fetched', allRates?.length || 0, 'kaat rates for cities');
+    
+    if (!allRates || allRates.length === 0) {
+      return { success: false, applied: 0, skipped: 0, error: new Error('No kaat rates found for the destination cities. Please add kaat rates first.') };
+    }
+    
+    // Group rates by destination city
+    const ratesByCity = {};
+    allRates.forEach(rate => {
+      if (!ratesByCity[rate.destination_city_id]) {
+        ratesByCity[rate.destination_city_id] = [];
+      }
+      ratesByCity[rate.destination_city_id].push(rate);
+    });
+    
+    // Get user session
+    let userId = null;
+    if (typeof window !== 'undefined') {
+      const userSession = localStorage.getItem('userSession');
+      if (userSession) {
+        const session = JSON.parse(userSession);
+        userId = session.user?.id || null;
+      }
+    }
+    
+    // Prepare upsert data for each bilty
+    const upsertData = [];
+    let skipped = 0;
+    
+    transitDetails.forEach(transit => {
+      let destinationCityId = null;
+      
+      // Get destination city from bilty or station
+      if (transit.bilty?.to_city_id) {
+        destinationCityId = transit.bilty.to_city_id;
+      } else if (transit.station?.station) {
+        const city = cities?.find(c => c.city_code === transit.station.station);
+        destinationCityId = city?.id;
+      }
+      
+      if (!destinationCityId) {
+        skipped++;
+        return;
+      }
+      
+      // Find rates for this city
+      const cityRates = ratesByCity[destinationCityId];
+      if (!cityRates || cityRates.length === 0) {
+        skipped++;
+        return;
+      }
+      
+      // Try to find matching rate by transport name if available
+      let selectedRate = null;
+      const biltyTransportName = transit.bilty?.transport_name?.toLowerCase().trim();
+      
+      if (biltyTransportName) {
+        // Try to match transport name
+        selectedRate = cityRates.find(rate => {
+          const rateTxnName = (rate.transport_name || '').toLowerCase().trim();
+          return rateTxnName.includes(biltyTransportName) || biltyTransportName.includes(rateTxnName);
+        });
+      }
+      
+      // If no match by transport name, use the first available rate for this city
+      if (!selectedRate) {
+        selectedRate = cityRates[0];
+      }
+      
+      upsertData.push({
+        gr_no: transit.gr_no,
+        challan_no: selectedChallan.challan_no,
+        destination_city_id: destinationCityId,
+        transport_hub_rate_id: selectedRate.id,
+        rate_type: selectedRate.pricing_mode,
+        rate_per_kg: selectedRate.rate_per_kg || 0,
+        rate_per_pkg: selectedRate.rate_per_pkg || 0,
+        created_by: userId,
+        updated_by: userId,
+        updated_at: new Date().toISOString()
+      });
+    });
+    
+    console.log('📝 Prepared', upsertData.length, 'bilties for kaat, skipped', skipped);
+    
+    if (upsertData.length === 0) {
+      return { success: false, applied: 0, skipped, error: new Error('No bilties could be matched with kaat rates') };
+    }
+    
+    // Bulk upsert in batches of 100
+    const batchSize = 100;
+    for (let i = 0; i < upsertData.length; i += batchSize) {
+      const batch = upsertData.slice(i, i + batchSize);
+      const { error } = await supabase
+        .from('bilty_wise_kaat')
+        .upsert(batch, { 
+          onConflict: 'gr_no',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) throw error;
+    }
+    
+    // Trigger custom event to refresh kaat data
+    window.dispatchEvent(new CustomEvent('kaatDataUpdated'));
+    
+    console.log('✅ Auto-apply kaat completed:', upsertData.length, 'applied,', skipped, 'skipped');
+    
+    return { success: true, applied: upsertData.length, skipped, error: null };
+  } catch (err) {
+    console.error('❌ Error auto-applying kaat:', err);
+    return { success: false, applied: 0, skipped: 0, error: err };
+  }
+};
+

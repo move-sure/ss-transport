@@ -4,10 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
-import FinanceChallanSelector from '../../components/transit-finance/finance-challan-selector';
-import FinanceBiltyTable from '../../components/transit-finance/finance-bilty-table';
-import KaatBillListModal from '../../components/transit-finance/kaat-bill-list-modal';
-import { DollarSign, TrendingUp, FileText, Package, Clock, Sparkles, Loader2, AlertCircle, List, Plus, Receipt } from 'lucide-react';
+import ChallanCard from '../../components/transit-finance/challan-card';
+import { DollarSign, Loader2, AlertCircle, List, Plus, Search, RefreshCw, ChevronDown, MapPin, Package } from 'lucide-react';
 import KaatListModal from '../../components/transit-finance/kaat-list-modal';
 import AddKaatModal from '../../components/transit-finance/add-kaat-modal';
 
@@ -19,26 +17,20 @@ export default function TransitFinancePage() {
   
   // Data states
   const [challans, setChallans] = useState([]);
-  const [transitDetails, setTransitDetails] = useState([]);
-  const [cities, setCities] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [selectedChallan, setSelectedChallan] = useState(null);
+  const [cities, setCities] = useState([]);
   const [showKaatList, setShowKaatList] = useState(false);
   const [showKaatModal, setShowKaatModal] = useState(false);
   
-  // Pagination states
-  const [challanBatchSize] = useState(200);
-  const [transitBatchSize] = useState(2000);
-  const [hasMoreChallans, setHasMoreChallans] = useState(true);
-  const [hasMoreTransit, setHasMoreTransit] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterBranch, setFilterBranch] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('dispatched'); // 'all', 'dispatched', 'active'
   
-  // Edit mode states
-  const [editMode, setEditMode] = useState(false);
-  const [editingBillId, setEditingBillId] = useState(null);
-  const [editingBillGrNumbers, setEditingBillGrNumbers] = useState([]);
-  const [kaatBillRefreshTrigger, setKaatBillRefreshTrigger] = useState(0);
-  const [showKaatBillList, setShowKaatBillList] = useState(false);
+  // Pagination states
+  const [challanBatchSize] = useState(20);
+  const [hasMoreChallans, setHasMoreChallans] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -50,23 +42,14 @@ export default function TransitFinancePage() {
     }
   }, [mounted, user]);
 
-  // Load transit details when challan is selected
-  useEffect(() => {
-    if (selectedChallan && selectedChallan.challan_no) {
-      loadTransitDetailsForChallan(selectedChallan.challan_no);
-    } else {
-      setTransitDetails([]);
-    }
-  }, [selectedChallan]);
-
   const loadAllFinanceData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Loading initial finance data (50 challans)...');
+      console.log('🔄 Loading initial finance data (20 challans)...');
 
-      // Fetch cities, branches, and first 50 challans in parallel
+      // Fetch cities, branches, and first batch of challans in parallel
       const [citiesRes, branchesRes, challansRes] = await Promise.all([
         supabase
           .from('cities')
@@ -89,7 +72,7 @@ export default function TransitFinancePage() {
           `)
           .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(50)
+          .limit(20)
       ]);
 
       if (citiesRes.error) throw citiesRes.error;
@@ -105,199 +88,13 @@ export default function TransitFinancePage() {
       setCities(citiesRes.data || []);
       setBranches(branchesRes.data || []);
       setChallans(challansRes.data || []);
-      setHasMoreChallans((challansRes.data?.length || 0) >= 50);
-      
-      // Don't load transit details yet - wait for user to select a challan
-      setTransitDetails([]);
-      setHasMoreTransit(false);
+      setHasMoreChallans((challansRes.data?.length || 0) >= 20);
 
     } catch (error) {
       console.error('❌ Error loading finance data:', error);
       setError(error.message || 'Failed to load finance data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadTransitDetailsForChallan = async (challanNo) => {
-    try {
-      console.log(`🔄 Loading ALL transit details for challan: ${challanNo}...`);
-      
-      // Fetch ALL transit details for this challan in batches
-      let allTransitDetails = [];
-      let transitOffset = 0;
-      const transitFetchSize = 1000;
-      let hasMoreTransitToFetch = true;
-
-      while (hasMoreTransitToFetch) {
-        const { data: transitBatch, error: transitError } = await supabase
-          .from('transit_details')
-          .select(`
-            id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
-            is_out_of_delivery_from_branch1, is_delivered_at_branch2,
-            is_delivered_at_destination, created_at
-          `)
-          .eq('challan_no', challanNo)
-          .order('created_at', { ascending: false })
-          .range(transitOffset, transitOffset + transitFetchSize - 1);
-
-        if (transitError) throw transitError;
-
-        if (transitBatch && transitBatch.length > 0) {
-          allTransitDetails = [...allTransitDetails, ...transitBatch];
-          console.log(`📊 Loaded ${transitBatch.length} transit records for challan ${challanNo} (Total: ${allTransitDetails.length})`);
-          
-          if (transitBatch.length < transitFetchSize) {
-            hasMoreTransitToFetch = false;
-          } else {
-            transitOffset += transitFetchSize;
-          }
-        } else {
-          hasMoreTransitToFetch = false;
-        }
-      }
-
-      console.log(`✅ Total transit details loaded for challan ${challanNo}: ${allTransitDetails.length}`);
-
-      // Now fetch bilty details for all transit records
-      if (allTransitDetails.length > 0) {
-        await loadBiltyDetailsForTransit(allTransitDetails, cities);
-      } else {
-        setTransitDetails([]);
-      }
-
-    } catch (error) {
-      console.error('❌ Error loading transit details for challan:', error);
-      throw error;
-    }
-  };
-
-  const loadBiltyDetailsForTransit = async (transitData, citiesData) => {
-    try {
-      // Get unique GR numbers - keep original format for querying
-      const grNumbers = [...new Set(
-        transitData
-          .map(t => t.gr_no)
-          .filter(Boolean)
-      )];
-      
-      console.log('🔍 Loading bilty details for', grNumbers.length, 'GR numbers...');
-      console.log('📋 Sample GR numbers (original):', grNumbers.slice(0, 10));
-
-      // Batch GR numbers to avoid query size limits (max 100 per batch)
-      const batchSize = 100;
-      const batches = [];
-      for (let i = 0; i < grNumbers.length; i += batchSize) {
-        batches.push(grNumbers.slice(i, i + batchSize));
-      }
-
-      let regularBiltiesData = [];
-      let stationBiltiesData = [];
-
-      // Fetch bilties in batches using .in() filter
-      for (const batch of batches) {
-        const [regularRes, stationRes] = await Promise.all([
-          supabase
-            .from('bilty')
-            .select(`
-              id, gr_no, bilty_date, consignor_name, consignee_name,
-              payment_mode, no_of_pkg, total, to_city_id, wt, rate,
-              freight_amount, created_at, contain, e_way_bill, pvt_marks,
-              consignor_gst, consignor_number, consignee_gst, consignee_number,
-              transport_name, transport_gst, transport_number, delivery_type,
-              invoice_no, invoice_value, invoice_date, document_number,
-              labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark,
-              branch_id, saving_option, is_active
-            `)
-            .in('gr_no', batch)
-            .eq('is_active', true),
-
-          supabase
-            .from('station_bilty_summary')
-            .select(`
-              id, station, gr_no, consignor, consignee, contents,
-              no_of_packets, weight, payment_status, amount, pvt_marks,
-              e_way_bill, created_at, updated_at
-            `)
-            .in('gr_no', batch)
-        ]);
-
-        regularBiltiesData = [...regularBiltiesData, ...(regularRes.data || [])];
-        stationBiltiesData = [...stationBiltiesData, ...(stationRes.data || [])];
-      }
-
-      const regularBiltiesRes = { data: regularBiltiesData, error: null };
-      const stationBiltiesRes = { data: stationBiltiesData, error: null };
-
-      console.log('📊 Bilty fetch results (ALL active records):', {
-        totalRegularBilties: regularBiltiesRes.data?.length || 0,
-        totalStationBilties: stationBiltiesRes.data?.length || 0,
-        regularError: regularBiltiesRes.error,
-        stationError: stationBiltiesRes.error
-      });
-
-      // Create normalized GR number set for matching
-      const normalizedGrNumbers = new Set(
-        grNumbers.map(gr => gr?.toString().trim().toUpperCase())
-      );
-
-      // Filter and create maps - only include bilties with matching GR numbers
-      const biltyMap = {};
-      const stationBiltyMap = {};
-
-      (regularBiltiesRes.data || []).forEach(bilty => {
-        const normalizedGrNo = bilty.gr_no?.toString().trim().toUpperCase();
-        if (normalizedGrNo && normalizedGrNumbers.has(normalizedGrNo)) {
-          biltyMap[normalizedGrNo] = bilty;
-        }
-      });
-
-      (stationBiltiesRes.data || []).forEach(station => {
-        const normalizedGrNo = station.gr_no?.toString().trim().toUpperCase();
-        if (normalizedGrNo && normalizedGrNumbers.has(normalizedGrNo)) {
-          stationBiltyMap[normalizedGrNo] = station;
-        }
-      });
-
-      console.log('🗺️ Sample GR numbers we\'re looking for:', grNumbers.slice(0, 5));
-      console.log('🔍 Regular bilties matched:', Object.keys(biltyMap).length, '- Sample:', Object.keys(biltyMap).slice(0, 5));
-      console.log('🔍 Station bilties matched:', Object.keys(stationBiltyMap).length, '- Sample:', Object.keys(stationBiltyMap).slice(0, 5));
-
-      // Combine transit data with bilty details - normalize GR numbers for matching
-      const enrichedTransitDetails = transitData.map(transit => {
-        const normalizedGrNo = transit.gr_no?.toString().trim().toUpperCase();
-        const bilty = biltyMap[normalizedGrNo];
-        const station = stationBiltyMap[normalizedGrNo];
-        
-        return {
-          ...transit,
-          bilty: bilty || null,
-          station: station || null
-        };
-      });
-
-      console.log('✅ Enriched transit details:', enrichedTransitDetails.length);
-      console.log('📊 Sample enriched transit:', enrichedTransitDetails[0]);
-      console.log('📋 Total bilties found:', Object.keys(biltyMap).length);
-      console.log('🏪 Total station bilties found:', Object.keys(stationBiltyMap).length);
-      
-      // Count how many transits have bilty data
-      const transitsWithBilty = enrichedTransitDetails.filter(t => t.bilty !== null).length;
-      const transitsWithStation = enrichedTransitDetails.filter(t => t.station !== null).length;
-      const transitsWithNoData = enrichedTransitDetails.filter(t => t.bilty === null && t.station === null).length;
-      
-      console.log('📈 Data enrichment stats:', {
-        withBilty: transitsWithBilty,
-        withStation: transitsWithStation,
-        withNoData: transitsWithNoData,
-        total: enrichedTransitDetails.length
-      });
-      
-      setTransitDetails(enrichedTransitDetails);
-
-    } catch (error) {
-      console.error('❌ Error loading bilty details:', error);
-      throw error;
     }
   };
 
@@ -308,7 +105,6 @@ export default function TransitFinancePage() {
       setLoadingMore(true);
       console.log('🔄 Loading more challans... Current count:', challans.length);
 
-      // Fetch next batch using offset
       const { data: moreChallans, error } = await supabase
         .from('challan_details')
         .select(`
@@ -341,42 +137,39 @@ export default function TransitFinancePage() {
     }
   };
 
-  const loadMoreTransitDetails = async () => {
-    if (!hasMoreTransit || loadingMore) return;
+  // Filter challans based on search, branch, and status
+  const filteredChallans = challans.filter(challan => {
+    // Status filter
+    if (filterStatus === 'dispatched' && !challan.is_dispatched) return false;
+    if (filterStatus === 'active' && challan.is_dispatched) return false;
 
-    try {
-      setLoadingMore(true);
-      console.log('🔄 Loading more transit details... Current count:', transitDetails.length);
+    // Branch filter
+    if (filterBranch !== 'all' && challan.branch_id !== filterBranch) return false;
 
-      // Fetch next batch using offset
-      const { data: moreTransit, error } = await supabase
-        .from('transit_details')
-        .select(`
-          id, challan_no, gr_no, bilty_id, from_branch_id, to_branch_id,
-          is_out_of_delivery_from_branch1, is_delivered_at_branch2,
-          is_delivered_at_destination, created_at
-        `)
-        .order('created_at', { ascending: false })
-        .range(transitDetails.length, transitDetails.length + transitBatchSize - 1);
-
-      if (error) throw error;
-
-      if (moreTransit && moreTransit.length > 0) {
-        // Load bilty details for new transit records
-        await loadBiltyDetailsForTransit(moreTransit, cities);
-        setHasMoreTransit(moreTransit.length >= transitBatchSize);
-        console.log('✅ Loaded', moreTransit.length, 'more transit details');
-      } else {
-        setHasMoreTransit(false);
-        console.log('✅ No more transit details to load');
-      }
-
-    } catch (error) {
-      console.error('❌ Error loading more transit details:', error);
-    } finally {
-      setLoadingMore(false);
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const branchName = branches.find(b => b.id === challan.branch_id)?.branch_name || '';
+      return (
+        challan.challan_no?.toLowerCase().includes(query) ||
+        challan.truck?.truck_number?.toLowerCase().includes(query) ||
+        challan.driver?.name?.toLowerCase().includes(query) ||
+        branchName.toLowerCase().includes(query)
+      );
     }
-  };
+
+    return true;
+  });
+
+  // Sort by date (most recent first)
+  const sortedChallans = [...filteredChallans].sort((a, b) => 
+    new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  // Stats
+  const totalChallans = challans.length;
+  const dispatchedChallans = challans.filter(c => c.is_dispatched).length;
+  const activeChallans = challans.filter(c => !c.is_dispatched).length;
 
   if (!mounted) {
     return (
@@ -441,7 +234,7 @@ export default function TransitFinancePage() {
               Transit Finance Dashboard
             </h1>
             <p className="text-gray-600 mt-2">
-              View all challans and bilty details across all branches for financial analysis
+              Select a challan to view bilty details and manage kaat
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -457,64 +250,154 @@ export default function TransitFinancePage() {
               className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
             >
               <List className="w-5 h-5" />
-             Kaat Rate List
+              Kaat Rate List
             </button>
           </div>
         </div>
 
-        {/* Challan Selector - Full Width at Top */}
-        <div className="mb-4">
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <FinanceChallanSelector
-                challans={challans}
-                selectedChallan={selectedChallan}
-                setSelectedChallan={setSelectedChallan}
-                branches={branches}
-                transitDetails={transitDetails}
-                hasMoreChallans={hasMoreChallans}
-                loadingMore={loadingMore}
-                onLoadMore={loadMoreChallans}
-              />
-            </div>
-            {selectedChallan && (
-              <div className="flex-shrink-0">
-                <button
-                  onClick={() => setShowKaatBillList(true)}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2 h-full"
-                  title="View saved kaat bills for this challan"
-                >
-                  <Receipt className="w-5 h-5" />
-                  View Kaat Bills
-                </button>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div 
+            className={`bg-white rounded-xl shadow-md p-4 border-2 cursor-pointer transition-all ${
+              filterStatus === 'all' ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-blue-300'
+            }`}
+            onClick={() => setFilterStatus('all')}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Challans</p>
+                <p className="text-2xl font-bold text-gray-900">{totalChallans}</p>
               </div>
-            )}
+              <Package className="w-10 h-10 text-blue-500" />
+            </div>
+          </div>
+          <div 
+            className={`bg-white rounded-xl shadow-md p-4 border-2 cursor-pointer transition-all ${
+              filterStatus === 'dispatched' ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-green-300'
+            }`}
+            onClick={() => setFilterStatus('dispatched')}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Dispatched</p>
+                <p className="text-2xl font-bold text-green-600">{dispatchedChallans}</p>
+              </div>
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 font-bold">✓</span>
+              </div>
+            </div>
+          </div>
+          <div 
+            className={`bg-white rounded-xl shadow-md p-4 border-2 cursor-pointer transition-all ${
+              filterStatus === 'active' ? 'border-orange-500 bg-orange-50' : 'border-transparent hover:border-orange-300'
+            }`}
+            onClick={() => setFilterStatus('active')}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Active</p>
+                <p className="text-2xl font-bold text-orange-600">{activeChallans}</p>
+              </div>
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 font-bold">⏳</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Bilty Table - Full Width */}
-        <div>
-          <FinanceBiltyTable
-            transitDetails={transitDetails}
-            selectedChallan={selectedChallan}
-            cities={cities}
-            editMode={editMode}
-            editingBillId={editingBillId}
-            editingBillGrNumbers={editingBillGrNumbers}
-            onKaatBillSaved={() => {
-              setEditMode(false);
-              setEditingBillId(null);
-              setEditingBillGrNumbers([]);
-              setKaatBillRefreshTrigger(prev => prev + 1);
-            }}
-            onCancelEdit={() => {
-              setEditMode(false);
-              setEditingBillId(null);
-              setEditingBillGrNumbers([]);
-            }}
-            onViewKaatBills={() => setShowKaatBillList(true)}
-          />
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+          <div className="flex items-center gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by challan number, truck, driver..."
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Branch Filter */}
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <select
+                value={filterBranch}
+                onChange={(e) => setFilterBranch(e.target.value)}
+                className="pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white min-w-[180px]"
+              >
+                <option value="all">All Branches</option>
+                {branches?.map(branch => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.branch_name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Refresh Button */}
+            <button
+              onClick={loadAllFinanceData}
+              className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
+          {/* Results Count */}
+          <div className="mt-3 text-sm text-gray-600">
+            Showing {sortedChallans.length} of {totalChallans} challans
+            {hasMoreChallans && <span className="text-blue-600 ml-2">• More available</span>}
+          </div>
         </div>
+
+        {/* Challan Grid */}
+        {sortedChallans.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Challans Found</h3>
+            <p className="text-gray-500">Try adjusting your filters or search query</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {sortedChallans.map(challan => (
+                <ChallanCard 
+                  key={challan.id} 
+                  challan={challan} 
+                  branches={branches}
+                />
+              ))}
+            </div>
+
+            {/* Load More Button */}
+            {hasMoreChallans && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={loadMoreChallans}
+                  disabled={loadingMore}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Loading More...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-5 h-5" />
+                      Load More Challans
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Add Kaat Modal */}
@@ -534,23 +417,6 @@ export default function TransitFinancePage() {
         onClose={() => setShowKaatList(false)}
         cities={cities}
       />
-
-      {/* Kaat Bill List Modal */}
-      {selectedChallan && (
-        <KaatBillListModal
-          isOpen={showKaatBillList}
-          onClose={() => setShowKaatBillList(false)}
-          selectedChallan={selectedChallan}
-          onEditKaatBill={(bill) => {
-            setEditMode(true);
-            setEditingBillId(bill.id);
-            setEditingBillGrNumbers(bill.gr_numbers || []);
-            setShowKaatBillList(false);
-            // Scroll to top to show bilty table
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
-      )}
     </div>
   );
 }

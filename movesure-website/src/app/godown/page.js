@@ -20,6 +20,7 @@ export default function GodownPage() {
   const [transports, setTransports] = useState([]);
   const [consignors, setConsignors] = useState([]);
   const [consignees, setConsignees] = useState([]);
+  const [transitDetails, setTransitDetails] = useState([]);
   const [userBranchId, setUserBranchId] = useState(null);
   const [userBranchName, setUserBranchName] = useState(null);
   const [error, setError] = useState(null);
@@ -83,7 +84,7 @@ export default function GodownPage() {
       }
       setUserBranchName(branchName);
 
-      const [biltiesData, stationBiltiesData, citiesData, transportsData, consignorsData, consigneesData] = await Promise.all([
+      const [biltiesData, stationBiltiesData, citiesData, transportsData, consignorsData, consigneesData, transitDetailsData] = await Promise.all([
         supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type').order('created_at', { ascending: false }),
         // Filter station bilties by user's branch_id
         userBranchId 
@@ -92,7 +93,8 @@ export default function GodownPage() {
         supabase.from('cities').select('id, city_name, city_code'),
         supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number'),
         supabase.from('consignors').select('id, company_name, number'),
-        supabase.from('consignees').select('id, company_name, number')
+        supabase.from('consignees').select('id, company_name, number'),
+        supabase.from('transit_details').select('gr_no, challan_no')
       ]);
 
       if (biltiesData.error) throw biltiesData.error;
@@ -101,6 +103,7 @@ export default function GodownPage() {
       if (transportsData.error) throw transportsData.error;
       if (consignorsData.error) throw consignorsData.error;
       if (consigneesData.error) throw consigneesData.error;
+      if (transitDetailsData.error) throw transitDetailsData.error;
 
       setBilties(biltiesData.data || []);
       setStationBilties(stationBiltiesData.data || []);
@@ -108,6 +111,7 @@ export default function GodownPage() {
       setTransports(transportsData.data || []);
       setConsignors(consignorsData.data || []);
       setConsignees(consigneesData.data || []);
+      setTransitDetails(transitDetailsData.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load godown data. Please try again.');
@@ -146,6 +150,13 @@ export default function GodownPage() {
     return consignees.find(c => c.company_name === consigneeName);
   };
 
+  // Helper function to get challan_no by gr_no
+  const getChallanNo = (grNo) => {
+    if (!grNo) return null;
+    const transit = transitDetails.find(t => t.gr_no === grNo);
+    return transit?.challan_no || null;
+  };
+
   // Combined and filtered bilties
   const allFilteredBilties = useMemo(() => {
     // Combine bilties from both tables
@@ -175,7 +186,8 @@ export default function GodownPage() {
           consignor_number: consignorInfo?.number || null,
           consignee_number: consigneeInfo?.number || null,
           payment_status: bilty.payment_mode, // Map to payment_status for consistency
-          delivery_type: normalizedDeliveryType // Normalized from "door-delivery" to "door"
+          delivery_type: normalizedDeliveryType, // Normalized from "door-delivery" to "door"
+          challan_no: getChallanNo(bilty.gr_no) // Get challan_no from transit_details
         };
       }),
       ...stationBilties.map(bilty => {
@@ -199,7 +211,8 @@ export default function GodownPage() {
           consignor_number: consignorInfo?.number || null,
           consignee_number: consigneeInfo?.number || null,
           payment_status: bilty.payment_status, // Already correct field name
-          delivery_type: bilty.delivery_type // Already in correct format
+          delivery_type: bilty.delivery_type, // Already in correct format
+          challan_no: getChallanNo(bilty.gr_no) // Get challan_no from transit_details
         };
       })
     ];
@@ -227,7 +240,7 @@ export default function GodownPage() {
 
     // Sort by created_at (newest first)
     return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [bilties, stationBilties, cities, transports, searchQuery, selectedStation]);
+  }, [bilties, stationBilties, cities, transports, transitDetails, consignors, consignees, searchQuery, selectedStation]);
 
   // Paginated bilties
   const paginatedBilties = useMemo(() => {

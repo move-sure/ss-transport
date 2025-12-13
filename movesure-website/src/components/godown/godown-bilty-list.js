@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Package, 
   MapPin, 
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import GodownPagination from './godown-pagination';
 import TransportInfo from './transport-info';
+import ChallanDetailsModal from './challan-details-modal';
 
 export default function GodownBiltyList({ 
   bilties, 
@@ -33,6 +34,21 @@ export default function GodownBiltyList({
   onPreviousPage,
   onNextPage
 }) {
+  // Modal state
+  const [selectedChallanNo, setSelectedChallanNo] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Handle challan click
+  const handleChallanClick = (challanNo) => {
+    setSelectedChallanNo(challanNo);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedChallanNo(null);
+  };
+
   // Format weight helper
   const formatWeight = (weight) => {
     if (!weight) return '-';
@@ -214,6 +230,9 @@ export default function GodownBiltyList({
                 GR Number
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Challan No
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Consignor
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -258,6 +277,22 @@ export default function GodownBiltyList({
                       {bilty.gr_no || 'N/A'}
                     </span>
                   </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {bilty.challan_no ? (
+                    <button
+                      onClick={() => handleChallanClick(bilty.challan_no)}
+                      className="flex items-center gap-2 text-sm font-medium text-green-600 hover:text-green-800 hover:underline transition-colors cursor-pointer"
+                    >
+                      <Truck className="w-4 h-4" />
+                      <span>{bilty.challan_no}</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-400">-</span>
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-col gap-1">
@@ -371,6 +406,29 @@ export default function GodownBiltyList({
                 </div>
                 {getSourceBadge(bilty.source)}
               </div>
+
+              {/* Challan Number */}
+              {bilty.challan_no && (
+                <button
+                  onClick={() => handleChallanClick(bilty.challan_no)}
+                  className="flex items-center justify-between w-full mb-3 bg-green-50 p-3 rounded-lg border border-green-200 hover:bg-green-100 hover:border-green-300 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-green-600" />
+                    <span className="text-xs font-medium text-slate-500 uppercase">
+                      Challan No
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-green-700 font-bold">
+                      {bilty.challan_no}
+                    </span>
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              )}
 
               {/* Content Grid */}
               <div className="grid grid-cols-1 gap-3">
@@ -518,6 +576,13 @@ export default function GodownBiltyList({
         onPageChange={onPageChange}
         onPreviousPage={onPreviousPage}
         onNextPage={onNextPage}
+      />
+
+      {/* Challan Details Modal */}
+      <ChallanDetailsModal
+        challanNo={selectedChallanNo}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
       />
 
     </div>

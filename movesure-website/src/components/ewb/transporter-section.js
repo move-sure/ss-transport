@@ -5,10 +5,11 @@ import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, E
 import TransporterUpdateModal from './transporter-update-modal';
 import EWBDetailsModal from './ewb-details-modal';
 import { getCachedValidation, formatEwbNumber } from '../../utils/ewbValidation';
-import { getTransporterUpdatesByEwbNumbers } from '../../utils/ewbValidationStorage';
+import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers } from '../../utils/ewbValidationStorage';
 
 export default function TransporterSection({ transitDetails, challanDetails }) {
   const [transporterUpdatesMap, setTransporterUpdatesMap] = useState({});
+  const [consolidatedEwbMap, setConsolidatedEwbMap] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTransit, setSelectedTransit] = useState(null);
@@ -61,9 +62,17 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
     if (allEwbNumbers.length === 0) return;
     setLoading(true);
     try {
-      const result = await getTransporterUpdatesByEwbNumbers(allEwbNumbers);
-      if (result.success) {
-        setTransporterUpdatesMap(result.data);
+      // Fetch both transporter updates and consolidated EWB data in parallel
+      const [transporterResult, consolidatedResult] = await Promise.all([
+        getTransporterUpdatesByEwbNumbers(allEwbNumbers),
+        getConsolidatedEwbByIncludedNumbers(allEwbNumbers)
+      ]);
+      
+      if (transporterResult.success) {
+        setTransporterUpdatesMap(transporterResult.data);
+      }
+      if (consolidatedResult.success) {
+        setConsolidatedEwbMap(consolidatedResult.data);
       }
     } catch (error) {
       console.error('Error fetching transporter updates:', error);
@@ -81,8 +90,17 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
     return [...biltyEWBs, ...stationEWBs];
   };
 
+  // Check if any EWB in a Kanpur transit has a consolidated EWB
+  const hasConsolidatedEwb = (transit) => {
+    const ewbs = getTransitEwbs(transit);
+    return ewbs.some(ewb => {
+      const consolidated = consolidatedEwbMap[ewb];
+      return consolidated?.is_valid === true;
+    });
+  };
+
   const hasSuccessfulUpdate = (transit) => {
-    if (isKanpurDestination(transit)) return null; // Not required
+    if (isKanpurDestination(transit)) return null; // Not required for transporter update
     const ewbs = getTransitEwbs(transit);
     return ewbs.some(ewb => {
       const update = transporterUpdatesMap[ewb];
@@ -127,6 +145,10 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const notRequiredCount = useMemo(() => {
     return transitWithEwb.filter(t => isKanpurDestination(t)).length;
   }, [transitWithEwb]);
+
+  const consolidatedCount = useMemo(() => {
+    return transitWithEwb.filter(t => isKanpurDestination(t) && hasConsolidatedEwb(t)).length;
+  }, [transitWithEwb, consolidatedEwbMap]);
 
   if (!transitDetails || transitDetails.length === 0) {
     return (
@@ -228,12 +250,13 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 const ewbs = getTransitEwbs(transit);
                 const updateStatus = hasSuccessfulUpdate(transit);
                 const isKanpur = isKanpurDestination(transit);
+                const hasConsolidated = isKanpur && hasConsolidatedEwb(transit);
                 
                 return (
                   <tr 
                     key={transit.id}
                     className={`transition-colors ${
-                      updateStatus === true
+                      updateStatus === true || hasConsolidated
                         ? 'bg-gradient-to-r from-green-50 to-green-100/50 border-l-4 border-green-500'
                         : 'hover:bg-gray-50'
                     }`}
@@ -245,6 +268,12 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                           <span className="flex items-center gap-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
                             <CheckCircle className="w-3 h-3" />
                             UPDATED
+                          </span>
+                        )}
+                        {hasConsolidated && (
+                          <span className="flex items-center gap-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                            <CheckCircle className="w-3 h-3" />
+                            CONSOLIDATED
                           </span>
                         )}
                       </div>
@@ -269,10 +298,17 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                     </td>
                     <td className="px-4 py-3">
                       {isKanpur ? (
-                        <span className="flex items-center gap-1.5 text-purple-600 text-sm">
-                          <CheckCircle className="w-4 h-4" />
-                          Not Required
-                        </span>
+                        hasConsolidated ? (
+                          <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
+                            <CheckCircle className="w-4 h-4" />
+                            Consolidated
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-purple-600 text-sm">
+                            <CheckCircle className="w-4 h-4" />
+                            Not Required
+                          </span>
+                        )
                       ) : updateStatus === true ? (
                         <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                           <CheckCircle className="w-4 h-4" />

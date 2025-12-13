@@ -544,3 +544,54 @@ export async function getTransporterUpdatesByEwbNumbers(ewbNumbers) {
     return { success: false, error: error.message, data: {} };
   }
 }
+
+/**
+ * Check which EWB numbers have successful consolidated EWB validations
+ * Returns a map of EWB number -> consolidated EWB validation record
+ */
+export async function getConsolidatedEwbByIncludedNumbers(ewbNumbers) {
+  try {
+    if (!ewbNumbers || ewbNumbers.length === 0) {
+      return { success: true, data: {} };
+    }
+
+    console.log('🔍 Checking consolidated EWB validations for', ewbNumbers.length, 'EWBs');
+
+    // Fetch all successful consolidated EWB validations that might contain these EWB numbers
+    const { data, error } = await supabase
+      .from('consolidated_ewb_validations')
+      .select('*')
+      .eq('is_valid', true)
+      .order('validated_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching consolidated EWB validations:', error);
+      throw error;
+    }
+
+    // Build a map of EWB number -> consolidated validation
+    const consolidatedMap = {};
+    ewbNumbers.forEach(ewbNumber => {
+      // Find a consolidated EWB that includes this EWB number
+      const matchingConsolidated = data.find(consolidated => {
+        const includedEwbs = consolidated.included_ewb_numbers || [];
+        return includedEwbs.some(included => {
+          // Normalize both numbers for comparison (remove spaces, handle formatting)
+          const normalizedIncluded = included?.toString().replace(/\s/g, '').trim();
+          const normalizedEwb = ewbNumber?.toString().replace(/\s/g, '').trim();
+          return normalizedIncluded === normalizedEwb;
+        });
+      });
+      
+      if (matchingConsolidated) {
+        consolidatedMap[ewbNumber] = matchingConsolidated;
+      }
+    });
+
+    console.log('✅ Found consolidated EWBs for', Object.keys(consolidatedMap).length, 'EWBs');
+    return { success: true, data: consolidatedMap };
+  } catch (error) {
+    console.error('❌ Failed to fetch consolidated EWB validations:', error);
+    return { success: false, error: error.message, data: {} };
+  }
+}

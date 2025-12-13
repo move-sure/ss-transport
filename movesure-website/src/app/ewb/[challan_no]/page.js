@@ -11,6 +11,7 @@ import EwbSidenav from '../../../components/ewb/ewb-sidenav';
 import ValidationSection from '../../../components/ewb/validation-section';
 import ConsolidationSection from '../../../components/ewb/consolidation-section';
 import TransporterSection from '../../../components/ewb/transporter-section';
+import StandaloneTransporterUpdate from '../../../components/ewb/standalone-transporter-update';
 import useChallanData from '../../../components/ewb/challan-data-fetcher';
 import supabase from '../../utils/supabase';
 
@@ -113,6 +114,8 @@ export default function ChallanEWBPage() {
         return <ConsolidationSection transitDetails={transitDetails} challanDetails={challanDetails} />;
       case 'transporter':
         return <TransporterSection transitDetails={transitDetails} challanDetails={challanDetails} />;
+      case 'standalone':
+        return <StandaloneTransporterUpdate />;
       default:
         return <ValidationSection transitDetails={transitDetails} challanDetails={challanDetails} />;
     }

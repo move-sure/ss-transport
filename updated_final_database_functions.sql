@@ -9,10 +9,13 @@ DROP FUNCTION IF EXISTS search_bilties_with_filters(UUID, DATE, DATE, TEXT, TEXT
 DROP FUNCTION IF EXISTS search_bilties_with_filters(UUID, DATE, DATE, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, INTEGER);
 DROP FUNCTION IF EXISTS get_complete_search_results_with_challan(UUID, DATE, DATE, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, INTEGER);
 DROP FUNCTION IF EXISTS get_complete_search_results_with_challan(UUID, DATE, DATE, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, INTEGER);
+DROP FUNCTION IF EXISTS get_gr_search_results_with_challan_dates(TEXT, DATE, INTEGER);
+DROP FUNCTION IF EXISTS search_bilties_by_gr_number(TEXT, DATE, INTEGER);
+DROP FUNCTION IF EXISTS search_bilties_with_filters(DATE, DATE, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT, INTEGER);
+DROP FUNCTION IF EXISTS get_complete_search_results_with_challan(DATE, DATE, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT, INTEGER);
 
 -- 2. Create the main comprehensive search function
 CREATE OR REPLACE FUNCTION search_bilties_with_filters(
-  p_branch_id UUID,
   p_date_from DATE DEFAULT NULL,
   p_date_to DATE DEFAULT NULL,
   p_gr_number TEXT DEFAULT NULL,
@@ -26,6 +29,7 @@ CREATE OR REPLACE FUNCTION search_bilties_with_filters(
   p_max_amount NUMERIC DEFAULT NULL,
   p_pvt_marks TEXT DEFAULT NULL,
   p_city_code TEXT DEFAULT NULL,
+  p_delivery_type TEXT DEFAULT NULL,
   p_limit INTEGER DEFAULT 1000
 )
 RETURNS TABLE (
@@ -39,6 +43,7 @@ RETURNS TABLE (
   content_field TEXT,
   to_city_id UUID,
   payment_mode CHARACTER VARYING,
+  delivery_type CHARACTER VARYING,
   total NUMERIC,
   amount NUMERIC,
   created_at TIMESTAMPTZ,
@@ -82,6 +87,7 @@ BEGIN
     COALESCE(b.contain, '') as content_field,
     b.to_city_id,
     b.payment_mode,
+    b.delivery_type,
     b.total,
     NULL::NUMERIC as amount,
     b.created_at,
@@ -105,31 +111,33 @@ BEGIN
   WHERE 
     -- Active records only
     b.is_active = true
-    AND (b.deleted_at IS NULL)
+    AND b.deleted_at IS NULL
     -- Date range filter
     AND (p_date_from IS NULL OR b.bilty_date >= p_date_from)
     AND (p_date_to IS NULL OR b.bilty_date <= p_date_to)
-    -- GR Number filter
-    AND (p_gr_number IS NULL OR p_gr_number = '' OR LOWER(b.gr_no) LIKE '%' || LOWER(p_gr_number) || '%')
-    -- Consignor filter
-    AND (p_consignor_name IS NULL OR p_consignor_name = '' OR LOWER(b.consignor_name) LIKE '%' || LOWER(p_consignor_name) || '%')
-    -- Consignee filter
-    AND (p_consignee_name IS NULL OR p_consignee_name = '' OR LOWER(b.consignee_name) LIKE '%' || LOWER(p_consignee_name) || '%')
-    -- City filter (only by ID)
+    -- GR Number filter (case-insensitive partial match)
+    AND (p_gr_number IS NULL OR p_gr_number = '' OR LOWER(b.gr_no) LIKE '%' || LOWER(TRIM(p_gr_number)) || '%')
+    -- Consignor filter (case-insensitive partial match)
+    AND (p_consignor_name IS NULL OR p_consignor_name = '' OR LOWER(b.consignor_name) LIKE '%' || LOWER(TRIM(p_consignor_name)) || '%')
+    -- Consignee filter (case-insensitive partial match)
+    AND (p_consignee_name IS NULL OR p_consignee_name = '' OR LOWER(b.consignee_name) LIKE '%' || LOWER(TRIM(p_consignee_name)) || '%')
+    -- City filter (by city ID)
     AND (p_to_city_id IS NULL OR b.to_city_id = p_to_city_id)
-    -- Payment mode filter
+    -- Payment mode filter (exact match)
     AND (p_payment_mode IS NULL OR p_payment_mode = '' OR b.payment_mode = p_payment_mode)
-    -- E-way bill filter
+    -- E-way bill filter (has/doesn't have)
     AND (p_has_eway_bill IS NULL OR p_has_eway_bill = '' OR 
-         (p_has_eway_bill = 'yes' AND b.e_way_bill IS NOT NULL AND b.e_way_bill != '') OR
-         (p_has_eway_bill = 'no' AND (b.e_way_bill IS NULL OR b.e_way_bill = '')))
-    -- Saving option filter
+         (p_has_eway_bill = 'yes' AND b.e_way_bill IS NOT NULL AND TRIM(b.e_way_bill) != '') OR
+         (p_has_eway_bill = 'no' AND (b.e_way_bill IS NULL OR TRIM(b.e_way_bill) = '')))
+    -- Saving option filter (exact match)
     AND (p_saving_option IS NULL OR p_saving_option = '' OR b.saving_option = p_saving_option)
-    -- Amount range filter
+    -- Amount range filters
     AND (p_min_amount IS NULL OR b.total >= p_min_amount)
     AND (p_max_amount IS NULL OR b.total <= p_max_amount)
-    -- Private marks filter
-    AND (p_pvt_marks IS NULL OR p_pvt_marks = '' OR LOWER(COALESCE(b.pvt_marks, '')) LIKE '%' || LOWER(p_pvt_marks) || '%')
+    -- Private marks filter (case-insensitive partial match)
+    AND (p_pvt_marks IS NULL OR p_pvt_marks = '' OR LOWER(COALESCE(b.pvt_marks, '')) LIKE '%' || LOWER(TRIM(p_pvt_marks)) || '%')
+    -- Delivery type filter (exact match)
+    AND (p_delivery_type IS NULL OR p_delivery_type = '' OR b.delivery_type = p_delivery_type)
   
   UNION ALL
   
@@ -145,6 +153,7 @@ BEGIN
     COALESCE(s.contents, '') as content_field,
     NULL::UUID as to_city_id,
     NULL::CHARACTER VARYING as payment_mode,
+    s.delivery_type,
     NULL::NUMERIC as total,
     s.amount,
     s.created_at,
@@ -169,25 +178,27 @@ BEGIN
     -- Date range filter (using created_at for station bilties)
     (p_date_from IS NULL OR s.created_at::DATE >= p_date_from)
     AND (p_date_to IS NULL OR s.created_at::DATE <= p_date_to)
-    -- GR Number filter
-    AND (p_gr_number IS NULL OR p_gr_number = '' OR LOWER(COALESCE(s.gr_no, '')) LIKE '%' || LOWER(p_gr_number) || '%')
-    -- Consignor filter
-    AND (p_consignor_name IS NULL OR p_consignor_name = '' OR LOWER(s.consignor) LIKE '%' || LOWER(p_consignor_name) || '%')
-    -- Consignee filter
-    AND (p_consignee_name IS NULL OR p_consignee_name = '' OR LOWER(s.consignee) LIKE '%' || LOWER(p_consignee_name) || '%')
-    -- City filter: search by city_code directly in station field
-    AND (p_city_code IS NULL OR p_city_code = '' OR LOWER(s.station) LIKE '%' || LOWER(p_city_code) || '%')
-    -- Payment status filter (mapped to payment_mode for station bilties)
+    -- GR Number filter (case-insensitive partial match)
+    AND (p_gr_number IS NULL OR p_gr_number = '' OR LOWER(COALESCE(s.gr_no, '')) LIKE '%' || LOWER(TRIM(p_gr_number)) || '%')
+    -- Consignor filter (case-insensitive partial match)
+    AND (p_consignor_name IS NULL OR p_consignor_name = '' OR LOWER(s.consignor) LIKE '%' || LOWER(TRIM(p_consignor_name)) || '%')
+    -- Consignee filter (case-insensitive partial match)
+    AND (p_consignee_name IS NULL OR p_consignee_name = '' OR LOWER(s.consignee) LIKE '%' || LOWER(TRIM(p_consignee_name)) || '%')
+    -- City filter: search by city_code in station field (case-insensitive partial match)
+    AND (p_city_code IS NULL OR p_city_code = '' OR LOWER(s.station) LIKE '%' || LOWER(TRIM(p_city_code)) || '%')
+    -- Payment status filter (mapped to payment_mode for consistency, exact match)
     AND (p_payment_mode IS NULL OR p_payment_mode = '' OR s.payment_status = p_payment_mode)
-    -- E-way bill filter
+    -- E-way bill filter (has/doesn't have)
     AND (p_has_eway_bill IS NULL OR p_has_eway_bill = '' OR 
-         (p_has_eway_bill = 'yes' AND s.e_way_bill IS NOT NULL AND s.e_way_bill != '') OR
-         (p_has_eway_bill = 'no' AND (s.e_way_bill IS NULL OR s.e_way_bill = '')))
-    -- Amount range filter
+         (p_has_eway_bill = 'yes' AND s.e_way_bill IS NOT NULL AND TRIM(s.e_way_bill) != '') OR
+         (p_has_eway_bill = 'no' AND (s.e_way_bill IS NULL OR TRIM(s.e_way_bill) = '')))
+    -- Amount range filters
     AND (p_min_amount IS NULL OR s.amount >= p_min_amount)
     AND (p_max_amount IS NULL OR s.amount <= p_max_amount)
-    -- Private marks filter
-    AND (p_pvt_marks IS NULL OR p_pvt_marks = '' OR LOWER(COALESCE(s.pvt_marks, '')) LIKE '%' || LOWER(p_pvt_marks) || '%')
+    -- Private marks filter (case-insensitive partial match)
+    AND (p_pvt_marks IS NULL OR p_pvt_marks = '' OR LOWER(COALESCE(s.pvt_marks, '')) LIKE '%' || LOWER(TRIM(p_pvt_marks)) || '%')
+    -- Delivery type filter (exact match)
+    AND (p_delivery_type IS NULL OR p_delivery_type = '' OR s.delivery_type = p_delivery_type)
   
   ORDER BY created_at DESC
   LIMIT p_limit;
@@ -196,7 +207,6 @@ $$ LANGUAGE plpgsql;
 
 -- 3. Create the comprehensive function that includes challan dispatch dates for ALL searches
 CREATE OR REPLACE FUNCTION get_complete_search_results_with_challan(
-  p_branch_id UUID,
   p_date_from DATE DEFAULT NULL,
   p_date_to DATE DEFAULT NULL,
   p_gr_number TEXT DEFAULT NULL,
@@ -210,6 +220,7 @@ CREATE OR REPLACE FUNCTION get_complete_search_results_with_challan(
   p_max_amount NUMERIC DEFAULT NULL,
   p_pvt_marks TEXT DEFAULT NULL,
   p_city_code TEXT DEFAULT NULL,
+  p_delivery_type TEXT DEFAULT NULL,
   p_limit INTEGER DEFAULT 1000
 )
 RETURNS TABLE (
@@ -223,6 +234,7 @@ RETURNS TABLE (
   content_field TEXT,
   to_city_id UUID,
   payment_mode CHARACTER VARYING,
+  delivery_type CHARACTER VARYING,
   total NUMERIC,
   amount NUMERIC,
   created_at TIMESTAMPTZ,
@@ -259,6 +271,7 @@ BEGIN
     b.content_field,
     b.to_city_id,
     b.payment_mode,
+    b.delivery_type,
     b.total,
     b.amount,
     b.created_at,
@@ -282,9 +295,9 @@ BEGIN
     COALESCE(cd.is_dispatched, false) as is_dispatched,
     b.branch_id
   FROM search_bilties_with_filters(
-    p_branch_id, p_date_from, p_date_to, p_gr_number, p_consignor_name, 
+    p_date_from, p_date_to, p_gr_number, p_consignor_name, 
     p_consignee_name, p_to_city_id, p_payment_mode, p_has_eway_bill, 
-    p_saving_option, p_min_amount, p_max_amount, p_pvt_marks, p_city_code, p_limit
+    p_saving_option, p_min_amount, p_max_amount, p_pvt_marks, p_city_code, p_delivery_type, p_limit
   ) b
   LEFT JOIN transit_details td ON td.gr_no = b.gr_no
   LEFT JOIN challan_details cd ON cd.challan_no = td.challan_no AND cd.is_active = true
@@ -295,7 +308,6 @@ $$ LANGUAGE plpgsql;
 -- 4. Keep the original GR-specific functions for backward compatibility
 CREATE OR REPLACE FUNCTION search_bilties_by_gr_number(
   p_gr_number TEXT,
-  p_branch_id UUID,
   p_date_from DATE DEFAULT NULL,
   p_limit INTEGER DEFAULT 500
 )
@@ -333,15 +345,14 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   SELECT * FROM search_bilties_with_filters(
-    p_branch_id, p_date_from, NULL, p_gr_number, NULL, NULL, NULL, 
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_limit
+    p_date_from, NULL, p_gr_number, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_limit
   );
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION get_gr_search_results_with_challan_dates(
   p_gr_number TEXT,
-  p_branch_id UUID,
   p_date_from DATE DEFAULT NULL,
   p_limit INTEGER DEFAULT 500
 )
@@ -388,8 +399,8 @@ BEGIN
     c.consignee, c.payment_status, c.no_of_packets, c.weight, c.is_active,
     c.challan_no, c.dispatch_date, c.is_dispatched
   FROM get_complete_search_results_with_challan(
-    p_branch_id, p_date_from, NULL, p_gr_number, NULL, NULL, NULL, 
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_limit
+    p_date_from, NULL, p_gr_number, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_limit
   ) c;
 END;
 $$ LANGUAGE plpgsql;

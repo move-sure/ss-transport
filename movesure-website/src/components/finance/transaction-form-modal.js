@@ -1,5 +1,125 @@
-import React from 'react';
-import { X, Calendar, IndianRupee, User, FileText, RefreshCw, Check, Building2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, IndianRupee, User, FileText, RefreshCw, Check, Building2, ChevronDown } from 'lucide-react';
+
+// Branch to Sender mapping
+const BRANCH_SENDER_MAP = {
+  'DUBE PARAO OLD': 'NEHA JI',
+  'DUBE PARAO NEW': 'KOMAL JI',
+  'KANPUR BRANCH': 'DUBEY JI'
+};
+
+const SENDER_OPTIONS = ['KOMAL JI', 'NEHA JI', 'DUBEY JI', 'Other'];
+
+// Helper function to get sender based on branch name
+const getSenderByBranch = (branchName) => {
+  if (!branchName) return '';
+  const upperBranchName = branchName.toUpperCase();
+  for (const [key, value] of Object.entries(BRANCH_SENDER_MAP)) {
+    if (upperBranchName.includes(key) || key.includes(upperBranchName)) {
+      return value;
+    }
+  }
+  return '';
+};
+
+// Reusable Sender/Receiver Field Component with Dropdown
+function SenderReceiverField({ label, fieldName, value, error, branches, selectedBranchId, onChange, placeholder }) {
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [selectedOption, setSelectedOption] = useState('');
+
+  // Get selected branch name
+  const selectedBranch = branches.find(b => String(b.id) === String(selectedBranchId));
+  const branchName = selectedBranch?.branch_name || '';
+
+  // Auto-select sender based on branch
+  useEffect(() => {
+    if (branchName) {
+      const autoSender = getSenderByBranch(branchName);
+      if (autoSender && !value) {
+        setSelectedOption(autoSender);
+        setShowOtherInput(false);
+        // Trigger the onChange with auto-selected value
+        onChange({ target: { name: fieldName, value: autoSender } });
+      }
+    }
+  }, [branchName, fieldName]);
+
+  // Sync selectedOption with value
+  useEffect(() => {
+    if (value) {
+      if (SENDER_OPTIONS.slice(0, 3).includes(value)) {
+        setSelectedOption(value);
+        setShowOtherInput(false);
+      } else if (value && !SENDER_OPTIONS.slice(0, 3).includes(value)) {
+        setSelectedOption('Other');
+        setShowOtherInput(true);
+      }
+    } else {
+      setSelectedOption('');
+      setShowOtherInput(false);
+    }
+  }, [value]);
+
+  const handleDropdownChange = (e) => {
+    const selected = e.target.value;
+    setSelectedOption(selected);
+    
+    if (selected === 'Other') {
+      setShowOtherInput(true);
+      onChange({ target: { name: fieldName, value: '' } });
+    } else {
+      setShowOtherInput(false);
+      onChange({ target: { name: fieldName, value: selected } });
+    }
+  };
+
+  const handleOtherInputChange = (e) => {
+    onChange({ target: { name: fieldName, value: e.target.value } });
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-semibold text-gray-700 mb-2">
+        {label} <span className="text-red-500">*</span>
+      </label>
+      <div className="relative">
+        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+        <select
+          value={selectedOption}
+          onChange={handleDropdownChange}
+          className={`w-full pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium appearance-none bg-white ${
+            error ? 'border-red-500' : 'border-gray-300'
+          }`}
+        >
+          <option value="">Select {label.toLowerCase()}</option>
+          {SENDER_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+      </div>
+      
+      {showOtherInput && (
+        <div className="relative mt-2">
+          <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            value={value}
+            onChange={handleOtherInputChange}
+            className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium ${
+              error ? 'border-red-500' : 'border-gray-300'
+            }`}
+            placeholder={placeholder}
+          />
+        </div>
+      )}
+      
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
 
 export default function TransactionFormModal({
   showModal,
@@ -156,45 +276,27 @@ export default function TransactionFormModal({
 
           {/* Receiver (Income) or Sender (Expense) */}
           {transactionType === 'income' ? (
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Receiver <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  name="receiver"
-                  value={formData.receiver}
-                  onChange={onInputChange}
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium ${
-                    formErrors.receiver ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Who received the payment?"
-                />
-              </div>
-              {formErrors.receiver && <p className="text-red-500 text-xs mt-1">{formErrors.receiver}</p>}
-            </div>
+            <SenderReceiverField
+              label="Receiver"
+              fieldName="receiver"
+              value={formData.receiver}
+              error={formErrors.receiver}
+              branches={branches}
+              selectedBranchId={formData.branch_id}
+              onChange={onInputChange}
+              placeholder="Who received the payment?"
+            />
           ) : (
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Sender <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  name="sender"
-                  value={formData.sender}
-                  onChange={onInputChange}
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium ${
-                    formErrors.sender ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Who made the payment?"
-                />
-              </div>
-              {formErrors.sender && <p className="text-red-500 text-xs mt-1">{formErrors.sender}</p>}
-            </div>
+            <SenderReceiverField
+              label="Sender"
+              fieldName="sender"
+              value={formData.sender}
+              error={formErrors.sender}
+              branches={branches}
+              selectedBranchId={formData.branch_id}
+              onChange={onInputChange}
+              placeholder="Who made the payment?"
+            />
           )}
 
           {/* Description */}

@@ -1,5 +1,26 @@
-import React, { useState } from 'react';
-import { X, Calendar, DollarSign, User, FileText, RefreshCw, Check, Building2, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, DollarSign, User, FileText, RefreshCw, Check, Building2, Plus, Trash2, ChevronDown } from 'lucide-react';
+
+// Branch to Sender mapping
+const BRANCH_SENDER_MAP = {
+  'DUBE PARAO OLD': 'NEHA JI',
+  'DUBE PARAO NEW': 'KOMAL JI',
+  'KANPUR BRANCH': 'DUBEY JI'
+};
+
+const SENDER_OPTIONS = ['KOMAL JI', 'NEHA JI', 'DUBEY JI', 'Other'];
+
+// Helper function to get sender based on branch name
+const getSenderByBranch = (branchName) => {
+  if (!branchName) return '';
+  const upperBranchName = branchName.toUpperCase();
+  for (const [key, value] of Object.entries(BRANCH_SENDER_MAP)) {
+    if (upperBranchName.includes(key) || key.includes(upperBranchName)) {
+      return value;
+    }
+  }
+  return '';
+};
 
 export default function BulkTransactionFormModal({
   showModal,
@@ -25,6 +46,34 @@ export default function BulkTransactionFormModal({
 
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [showOtherInput, setShowOtherInput] = useState({});
+  const [selectedOptions, setSelectedOptions] = useState({});
+
+  // Get selected branch name
+  const selectedBranch = branches.find(b => String(b.id) === String(commonData.branch_id));
+  const branchName = selectedBranch?.branch_name || '';
+
+  // Auto-select sender/receiver based on branch when branch changes
+  useEffect(() => {
+    if (branchName) {
+      const autoSender = getSenderByBranch(branchName);
+      if (autoSender) {
+        // Update all transactions with auto-selected sender/receiver
+        setTransactions(prev => prev.map(t => ({
+          ...t,
+          sender: transactionType === 'expense' ? autoSender : t.sender,
+          receiver: transactionType === 'income' ? autoSender : t.receiver
+        })));
+        // Update selected options for all transactions
+        const newSelectedOptions = {};
+        transactions.forEach(t => {
+          newSelectedOptions[t.id] = autoSender;
+        });
+        setSelectedOptions(newSelectedOptions);
+        setShowOtherInput({});
+      }
+    }
+  }, [branchName, transactionType]);
 
   if (!showModal) return null;
 
@@ -330,22 +379,65 @@ export default function BulkTransactionFormModal({
                     </label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input
-                        type="text"
-                        value={transactionType === 'income' ? transaction.receiver : transaction.sender}
-                        onChange={(e) => handleTransactionChange(
-                          transaction.id, 
-                          transactionType === 'income' ? 'receiver' : 'sender', 
-                          e.target.value
-                        )}
-                        className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium ${
+                      <select
+                        value={selectedOptions[transaction.id] || ''}
+                        onChange={(e) => {
+                          const selected = e.target.value;
+                          setSelectedOptions(prev => ({ ...prev, [transaction.id]: selected }));
+                          
+                          if (selected === 'Other') {
+                            setShowOtherInput(prev => ({ ...prev, [transaction.id]: true }));
+                            handleTransactionChange(
+                              transaction.id,
+                              transactionType === 'income' ? 'receiver' : 'sender',
+                              ''
+                            );
+                          } else {
+                            setShowOtherInput(prev => ({ ...prev, [transaction.id]: false }));
+                            handleTransactionChange(
+                              transaction.id,
+                              transactionType === 'income' ? 'receiver' : 'sender',
+                              selected
+                            );
+                          }
+                        }}
+                        className={`w-full pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium appearance-none bg-white ${
                           formErrors[`transaction_${transaction.id}_${transactionType === 'income' ? 'receiver' : 'sender'}`] 
                             ? 'border-red-500' 
                             : 'border-gray-300'
                         }`}
-                        placeholder={transactionType === 'income' ? 'Who received the payment?' : 'Who made the payment?'}
-                      />
+                      >
+                        <option value="">Select {transactionType === 'income' ? 'receiver' : 'sender'}</option>
+                        {SENDER_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
                     </div>
+                    
+                    {showOtherInput[transaction.id] && (
+                      <div className="relative mt-2">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="text"
+                          value={transactionType === 'income' ? transaction.receiver : transaction.sender}
+                          onChange={(e) => handleTransactionChange(
+                            transaction.id, 
+                            transactionType === 'income' ? 'receiver' : 'sender', 
+                            e.target.value
+                          )}
+                          className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 font-medium ${
+                            formErrors[`transaction_${transaction.id}_${transactionType === 'income' ? 'receiver' : 'sender'}`] 
+                              ? 'border-red-500' 
+                              : 'border-gray-300'
+                          }`}
+                          placeholder={transactionType === 'income' ? 'Enter receiver name' : 'Enter sender name'}
+                        />
+                      </div>
+                    )}
+                    
                     {formErrors[`transaction_${transaction.id}_${transactionType === 'income' ? 'receiver' : 'sender'}`] && (
                       <p className="text-red-500 text-xs mt-1">
                         {formErrors[`transaction_${transaction.id}_${transactionType === 'income' ? 'receiver' : 'sender'}`]}

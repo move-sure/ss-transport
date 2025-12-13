@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { FileStack, CheckCircle, AlertTriangle, ArrowRight, Info, RefreshCw, Download, ExternalLink, Loader2, Clock, User } from 'lucide-react';
+import { FileStack, CheckCircle, AlertTriangle, ArrowRight, RefreshCw, Download, ExternalLink, Loader2, Clock, User } from 'lucide-react';
 import ConsolidatedEwbForm from './consolidated-ewb-form';
 import { formatEwbNumber } from '../../utils/ewbValidation';
 import supabase from '../../app/utils/supabase';
@@ -328,58 +328,21 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
         </div>
       )}
 
-      {/* Requirements Check */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="font-semibold text-gray-800">Pre-Consolidation Checklist</h3>
-        </div>
-        <div className="p-6 space-y-4">
-          {/* Requirement 1: Minimum EWBs */}
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-green-50 border border-green-200">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-green-800">Minimum E-Way Bills Met</p>
-              <p className="text-sm text-green-600 mt-0.5">
-                {allEwbNumbers.length} E-Way Bills found (minimum 2 required)
-              </p>
-            </div>
-          </div>
-
-          {/* Requirement 2: All Validated */}
-          <div className={`flex items-start gap-3 p-4 rounded-xl border ${
-            allValidated 
-              ? 'bg-green-50 border-green-200' 
-              : 'bg-orange-50 border-orange-200'
-          }`}>
+      {/* Quick Status */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
             {allValidated ? (
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">Ready to consolidate</span>
+              </div>
             ) : (
-              <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-2 text-orange-600">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-medium">{validatedCount}/{allEwbNumbers.length} validated</span>
+              </div>
             )}
-            <div>
-              <p className={`font-medium ${allValidated ? 'text-green-800' : 'text-orange-800'}`}>
-                {allValidated ? 'All E-Way Bills Validated' : 'Validation Required'}
-              </p>
-              <p className={`text-sm mt-0.5 ${allValidated ? 'text-green-600' : 'text-orange-600'}`}>
-                {allValidated 
-                  ? `All ${allEwbNumbers.length} E-Way Bills have been validated successfully`
-                  : `${validatedCount} of ${allEwbNumbers.length} validated. Please validate all EWBs first.`
-                }
-              </p>
-            </div>
-          </div>
-
-          {/* Info Box */}
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200">
-            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-blue-800">Important Information</p>
-              <ul className="text-sm text-blue-600 mt-1 space-y-1 list-disc list-inside">
-                <li>Consolidated EWB combines multiple EWBs into a single document</li>
-                <li>All EWBs must be validated before consolidation</li>
-                <li>Vehicle and transporter details will be applied to all EWBs</li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>
@@ -414,25 +377,13 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
       <div className="flex justify-center">
         <button
           onClick={() => setShowForm(true)}
-          className="px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-3 transition-all bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-200 hover:shadow-xl hover:shadow-orange-300"
+          className="px-6 py-3 rounded-xl font-semibold text-base flex items-center gap-2 transition-all bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-200"
         >
-          <FileStack className="w-6 h-6" />
-          {existingCewbs.length > 0 ? 'Create New Consolidated EWB' : 'Generate Consolidated EWB'}
-          <ArrowRight className="w-5 h-5" />
+          <FileStack className="w-5 h-5" />
+          {existingCewbs.length > 0 ? 'Create New CEWB' : 'Generate CEWB'}
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
-
-      {!allValidated && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-50 border border-yellow-200 max-w-2xl mx-auto">
-          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-yellow-800">Note: Not all EWBs validated</p>
-            <p className="text-sm text-yellow-600 mt-0.5">
-              {validatedCount} of {allEwbNumbers.length} E-Way Bills validated. You can still proceed, but ensure all EWBs are valid for successful consolidation.
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

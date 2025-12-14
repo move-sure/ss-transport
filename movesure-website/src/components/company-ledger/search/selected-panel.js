@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   X, 
   Trash2, 
@@ -8,7 +9,8 @@ import {
   Package,
   Download,
   Copy,
-  Printer
+  Printer,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -21,6 +23,7 @@ export default function SelectedBiltiesPanel({
   onCopyToClipboard,
   onPrint
 }) {
+  const router = useRouter();
   
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -83,28 +86,40 @@ export default function SelectedBiltiesPanel({
       </div>
 
       {/* Action Buttons */}
-      <div className="p-3 bg-gray-50 border-b border-gray-200 flex gap-2 flex-shrink-0">
+      <div className="p-3 bg-gray-50 border-b border-gray-200 flex-shrink-0 space-y-2">
+        {/* View Details Button */}
         <button
-          onClick={onDownloadCSV}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+          onClick={() => router.push('/company-ledger/search/selected-search')}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg text-sm font-semibold transition-all shadow-md hover:shadow-lg"
         >
-          <Download className="h-4 w-4" />
-          CSV
+          <ExternalLink className="h-4 w-4" />
+          View Full Details Page
         </button>
-        <button
-          onClick={onCopyToClipboard}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <Copy className="h-4 w-4" />
-          Copy
-        </button>
-        <button
-          onClick={onPrint}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <Printer className="h-4 w-4" />
-          Print
-        </button>
+        
+        {/* Export Buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={onDownloadCSV}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </button>
+          <button
+            onClick={onCopyToClipboard}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Copy className="h-4 w-4" />
+            Copy
+          </button>
+          <button
+            onClick={onPrint}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </button>
+        </div>
       </div>
 
       {/* Bilties List */}

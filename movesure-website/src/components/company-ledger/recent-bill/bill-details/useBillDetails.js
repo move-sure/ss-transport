@@ -87,34 +87,41 @@ export default function useBillDetails(billId) {
 
         if (biltyType === 'regular') {
           // Fetch from bilty table - includes no_of_pkg, wt, pvt_marks
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('bilty')
             .select('*')
             .eq('gr_no', item.gr_no)
             .limit(1)
-            .single();
-          biltyData = data;
-        } else if (biltyType === 'station') {
-          // Fetch from station_bilty_summary table
-          const { data } = await supabase
+            .maybeSingle();
+          
+          if (!error && data) {
+            biltyData = data;
+          }
+        } else if (biltyType === 'station' || biltyType === 'stn' || biltyType === 'manual') {
+          // Fetch from station_bilty_summary table for station/manual bilties
+          // Fields: station, gr_no, consignor, consignee, contents, no_of_packets, weight, 
+          // payment_status, amount, pvt_marks, delivery_type, e_way_bill
+          const { data, error } = await supabase
             .from('station_bilty_summary')
             .select('*')
             .eq('gr_no', item.gr_no)
             .limit(1)
-            .single();
+            .maybeSingle();
           
-          if (data) {
-            // Map station fields to common structure
+          if (!error && data) {
+            // Map station_bilty_summary fields to common structure used by bilty table
             biltyData = {
               ...data,
+              // Map station field names to bilty field names
               consignor_name: data.consignor,
               consignee_name: data.consignee,
               contain: data.contents,
-              no_of_pkg: data.no_of_packets,
-              wt: data.weight,
+              no_of_pkg: data.no_of_packets,   // station uses no_of_packets, bilty uses no_of_pkg
+              wt: data.weight,                  // station uses weight, bilty uses wt
               payment_mode: data.payment_status,
               total: data.amount,
-              bilty_date: data.created_at
+              bilty_date: data.created_at,
+              to_city_name: data.station,       // station name as destination
             };
           }
         }

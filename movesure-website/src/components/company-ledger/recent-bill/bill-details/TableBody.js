@@ -48,23 +48,27 @@ const renderCellValue = (item, columnId, index, onEditItem, onRemoveItem) => {
       return <span className="text-xs text-gray-700">{formatDate(bilty.bilty_date || bilty.created_at)}</span>;
     
     case 'consignor':
-      return <span className="text-xs text-gray-900 truncate block max-w-32">{bilty.consignor_name || '-'}</span>;
+      return <span className="text-xs text-gray-900 truncate block max-w-32">{bilty.consignor_name || bilty.consignor || '-'}</span>;
     
     case 'consignee':
-      return <span className="text-xs text-gray-900 truncate block max-w-32">{bilty.consignee_name || '-'}</span>;
+      return <span className="text-xs text-gray-900 truncate block max-w-32">{bilty.consignee_name || bilty.consignee || '-'}</span>;
     
-    // Packages fetched from bilty table (no_of_pkg) or station_bilty_summary (no_of_packets)
+    // Packages: bilty table uses no_of_pkg, station_bilty_summary uses no_of_packets
+    // After mapping in useBillDetails, station's no_of_packets is mapped to no_of_pkg
     case 'pkgs':
-      return <span className="text-xs text-gray-700 text-center block">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</span>;
+      const pkgValue = bilty.no_of_pkg ?? bilty.no_of_packets ?? null;
+      return <span className="text-xs text-gray-700 text-center block">{pkgValue !== null ? pkgValue : '-'}</span>;
     
-    // Weight fetched from bilty table (wt) or station_bilty_summary (weight)
+    // Weight: bilty table uses wt, station_bilty_summary uses weight
+    // After mapping in useBillDetails, station's weight is mapped to wt
     case 'weight':
-      return <span className="text-xs text-gray-700 text-center block">{bilty.wt || bilty.weight || '-'}</span>;
+      const weightValue = bilty.wt ?? bilty.weight ?? null;
+      return <span className="text-xs text-gray-700 text-center block">{weightValue !== null ? weightValue : '-'}</span>;
     
     case 'contain':
       return <span className="text-xs text-gray-600 truncate block max-w-24">{bilty.contain || bilty.contents || '-'}</span>;
     
-    // Pvt marks fetched from bilty table (pvt_marks) or station_bilty_summary (pvt_marks)
+    // Pvt marks: same field name in both tables
     case 'pvt_marks':
       return <span className="text-xs text-gray-600 truncate block max-w-20">{bilty.pvt_marks || '-'}</span>;
     

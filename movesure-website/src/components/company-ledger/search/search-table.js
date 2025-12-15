@@ -54,11 +54,13 @@ const LedgerSearchTable = memo(({
     return selectedBilties.includes(`${bilty.type}-${bilty.id}`);
   };
 
-  const allCurrentPageSelected = paginatedData.length > 0 && 
-    paginatedData.every(bilty => isSelected(bilty));
+  // Check if ALL bilties are selected (not just current page)
+  const allBiltiesSelected = allBilties.length > 0 && 
+    allBilties.every(bilty => isSelected(bilty));
 
+  // Select ALL bilties when clicking select all
   const handleSelectAllClick = () => {
-    onSelectAll(paginatedData, allCurrentPageSelected);
+    onSelectAll(allBilties, allBiltiesSelected);
   };
 
   if (loading) {
@@ -111,8 +113,9 @@ const LedgerSearchTable = memo(({
                 <button 
                   onClick={handleSelectAllClick}
                   className="flex items-center gap-1 hover:text-blue-300 transition-colors"
+                  title={allBiltiesSelected ? 'Deselect All' : `Select All ${allBilties.length} Bilties`}
                 >
-                  {allCurrentPageSelected ? (
+                  {allBiltiesSelected ? (
                     <CheckSquare className="h-4 w-4 text-blue-300" />
                   ) : (
                     <Square className="h-4 w-4" />

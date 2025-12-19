@@ -5,6 +5,7 @@ import { useAuth } from '../utils/auth';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/dashboard/navbar';
 import ConsignorBiltyProfile from '../../components/company-profile/ConsignorBiltyProfile';
+import ConsignorListTab from '../../components/company-profile/ConsignorListTab';
 import { Building2, FileText, Users, Settings } from 'lucide-react';
 
 export default function CompanyProfilePage() {
@@ -39,8 +40,8 @@ export default function CompanyProfilePage() {
 
   const tabs = [
     { id: 'rate-profiles', label: 'Rate Profiles', icon: FileText },
+    { id: 'consignor-list', label: 'Consignor List', icon: Users },
     // Future tabs can be added here
-    // { id: 'consignors', label: 'Consignors', icon: Users },
     // { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -93,6 +94,19 @@ export default function CompanyProfilePage() {
         <div>
           {activeTab === 'rate-profiles' && (
             <ConsignorBiltyProfile user={user} />
+          )}
+          {activeTab === 'consignor-list' && (
+            <ConsignorListTab 
+              onViewProfiles={(consignor) => {
+                // Switch to rate profiles tab and set selected consignor
+                setActiveTab('rate-profiles');
+                // You can pass the consignor data to ConsignorBiltyProfile if needed
+              }}
+              onEditConsignor={(consignor) => {
+                // Switch to rate profiles tab for editing
+                setActiveTab('rate-profiles');
+              }}
+            />
           )}
         </div>
       </div>

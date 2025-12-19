@@ -1,34 +1,134 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
+
+// Inline Editable Rate Cell Component
+const InlineRateCell = memo(({ city, rate, branchId, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(rate?.rate?.toString() || '');
+  const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Sync value when rate changes externally
+  useEffect(() => {
+    setValue(rate?.rate?.toString() || '');
+  }, [rate?.rate]);
+
+  const handleSave = async () => {
+    if (!branchId) {
+      alert('Please select a branch first');
+      return;
+    }
+
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue) || numericValue < 0) {
+      alert('Please enter a valid rate');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onUpdate(city.id, numericValue, rate?.id);
+      setIsEditing(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1500);
+    } catch (error) {
+      alert('Error saving rate: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setValue(rate?.rate?.toString() || '');
+      setIsEditing(false);
+    }
+  };
+
+  const handleBlur = () => {
+    // Only save if value changed
+    if (value !== (rate?.rate?.toString() || '')) {
+      if (value.trim() === '') {
+        setValue(rate?.rate?.toString() || '');
+        setIsEditing(false);
+      } else {
+        handleSave();
+      }
+    } else {
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500">₹</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          autoFocus
+          className="w-20 px-2 py-1 border border-blue-500 rounded text-black text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={saving}
+        />
+        {saving && <span className="text-xs text-gray-500">...</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 min-w-[80px] ${
+        showSuccess 
+          ? 'bg-green-100 text-green-700' 
+          : rate?.rate 
+            ? 'hover:bg-blue-50 text-green-700 font-bold' 
+            : 'hover:bg-gray-100 text-gray-400'
+      }`}
+      onClick={() => setIsEditing(true)}
+      title="Click to edit rate"
+    >
+      {showSuccess ? (
+        <span className="flex items-center gap-1">
+          <span>✓</span>
+          <span>₹{value}</span>
+        </span>
+      ) : rate?.rate ? (
+        <span>₹{rate.rate}</span>
+      ) : (
+        <span className="text-xs">Click to add</span>
+      )}
+    </div>
+  );
+});
+
+InlineRateCell.displayName = 'InlineRateCell';
 
 const RatesComponent = () => {
   const { user } = useAuth();
   
   // State
-  const [rates, setRates] = useState([]);
+  const [citiesWithRates, setCitiesWithRates] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [cities, setCities] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [submitLoading, setSubmitLoading] = useState(false);
   
   // Search
   const [searchTerm, setSearchTerm] = useState('');
   
   // Sorting
   const [sortConfig, setSortConfig] = useState({ key: 'city_name', direction: 'asc' });
-  
-  // Form
-  const [formData, setFormData] = useState({
-    branch_id: '',
-    city_id: '',
-    rate: ''
-  });
-  const [editingId, setEditingId] = useState(null);
 
-  // Fetch data
+  // Fetch all cities and rates
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -37,23 +137,33 @@ const RatesComponent = () => {
         supabase.from('branches').select('*').eq('is_active', true).order('branch_name'),
         supabase.from('cities').select('*').order('city_name'),
         supabase.from('rates')
-          .select(`
-            *,
-            branches (branch_name, branch_code),
-            cities (city_name, city_code)
-          `)
-          .is('consignor_id', null)  // ONLY DEFAULT RATES
+          .select('*')
+          .is('consignor_id', null)
           .eq('is_default', true)
-          .order('id', { ascending: false })
       ]);
 
       setBranches(branchesRes.data || []);
-      setCities(citiesRes.data || []);
-      setRates(ratesRes.data || []);
       
-      // Set default branch
-      if (user?.branch_id && !formData.branch_id) {
-        setFormData(prev => ({ ...prev, branch_id: user.branch_id }));
+      // Create a map of rates by city_id and branch_id
+      const ratesMap = {};
+      (ratesRes.data || []).forEach(rate => {
+        const key = `${rate.city_id}-${rate.branch_id}`;
+        ratesMap[key] = rate;
+      });
+
+      // Merge cities with their rates
+      const citiesData = (citiesRes.data || []).map(city => ({
+        ...city,
+        ratesMap // Store the entire rates map for this city
+      }));
+
+      setCitiesWithRates(citiesData);
+      
+      // Set default branch from user or first branch
+      if (user?.branch_id) {
+        setSelectedBranch(user.branch_id);
+      } else if (branchesRes.data?.length > 0) {
+        setSelectedBranch(branchesRes.data[0].id);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -65,6 +175,75 @@ const RatesComponent = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Get rate for a city based on selected branch
+  const getRateForCity = useCallback((city) => {
+    if (!selectedBranch) return null;
+    const key = `${city.id}-${selectedBranch}`;
+    return city.ratesMap?.[key] || null;
+  }, [selectedBranch]);
+
+  // Handle rate update (optimistic update)
+  const handleRateUpdate = useCallback(async (cityId, newRate, existingRateId) => {
+    const rateData = {
+      branch_id: selectedBranch,
+      city_id: cityId,
+      consignor_id: null,
+      rate: newRate,
+      is_default: true
+    };
+
+    if (existingRateId) {
+      // Update existing rate
+      const { data, error } = await supabase
+        .from('rates')
+        .update({ rate: newRate })
+        .eq('id', existingRateId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Optimistic update
+      setCitiesWithRates(prev => prev.map(city => {
+        if (city.id === cityId) {
+          const key = `${cityId}-${selectedBranch}`;
+          return {
+            ...city,
+            ratesMap: {
+              ...city.ratesMap,
+              [key]: data
+            }
+          };
+        }
+        return city;
+      }));
+    } else {
+      // Insert new rate
+      const { data, error } = await supabase
+        .from('rates')
+        .insert([rateData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Optimistic update
+      setCitiesWithRates(prev => prev.map(city => {
+        if (city.id === cityId) {
+          const key = `${cityId}-${selectedBranch}`;
+          return {
+            ...city,
+            ratesMap: {
+              ...city.ratesMap,
+              [key]: data
+            }
+          };
+        }
+        return city;
+      }));
+    }
+  }, [selectedBranch]);
 
   // Sorting function
   const handleSort = (key) => {
@@ -84,19 +263,16 @@ const RatesComponent = () => {
       : <span className="ml-1 text-blue-600">↓</span>;
   };
 
-  // Filtered and sorted rates
-  const filteredAndSortedRates = useMemo(() => {
-    let result = [...rates];
+  // Filtered and sorted cities
+  const filteredAndSortedCities = useMemo(() => {
+    let result = [...citiesWithRates];
     
     // Filter by search term
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
-      result = result.filter(rate => 
-        rate.cities?.city_name?.toLowerCase().includes(search) ||
-        rate.cities?.city_code?.toLowerCase().includes(search) ||
-        rate.branches?.branch_name?.toLowerCase().includes(search) ||
-        rate.branches?.branch_code?.toLowerCase().includes(search) ||
-        rate.rate?.toString().includes(search)
+      result = result.filter(city => 
+        city.city_name?.toLowerCase().includes(search) ||
+        city.city_code?.toLowerCase().includes(search)
       );
     }
     
@@ -106,20 +282,18 @@ const RatesComponent = () => {
       
       switch (sortConfig.key) {
         case 'city_name':
-          aValue = a.cities?.city_name || '';
-          bValue = b.cities?.city_name || '';
+          aValue = a.city_name || '';
+          bValue = b.city_name || '';
           break;
         case 'city_code':
-          aValue = a.cities?.city_code || '';
-          bValue = b.cities?.city_code || '';
-          break;
-        case 'branch_name':
-          aValue = a.branches?.branch_name || '';
-          bValue = b.branches?.branch_name || '';
+          aValue = a.city_code || '';
+          bValue = b.city_code || '';
           break;
         case 'rate':
-          aValue = parseFloat(a.rate) || 0;
-          bValue = parseFloat(b.rate) || 0;
+          const aRate = getRateForCity(a);
+          const bRate = getRateForCity(b);
+          aValue = parseFloat(aRate?.rate) || 0;
+          bValue = parseFloat(bRate?.rate) || 0;
           break;
         default:
           aValue = a[sortConfig.key] || '';
@@ -137,123 +311,32 @@ const RatesComponent = () => {
     });
     
     return result;
-  }, [rates, searchTerm, sortConfig]);
+  }, [citiesWithRates, searchTerm, sortConfig, getRateForCity]);
 
-  // Handle submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.branch_id || !formData.city_id || !formData.rate) {
-      alert('Please fill all required fields');
-      return;
-    }
-
-    try {
-      setSubmitLoading(true);
-      
-      const rateData = {
-        branch_id: formData.branch_id,
-        city_id: formData.city_id,
-        consignor_id: null,  // Always null for default rates
-        rate: parseFloat(formData.rate),
-        is_default: true     // Always true
-      };
-
-      if (editingId) {
-        // Update
-        const { error } = await supabase
-          .from('rates')
-          .update(rateData)
-          .eq('id', editingId);
-        
-        if (error) throw error;
-      } else {
-        // Check if rate exists for this branch + city
-        const { data: existing } = await supabase
-          .from('rates')
-          .select('id')
-          .eq('branch_id', formData.branch_id)
-          .eq('city_id', formData.city_id)
-          .is('consignor_id', null)
-          .single();
-        
-        if (existing) {
-          // Update existing
-          const { error } = await supabase
-            .from('rates')
-            .update({ rate: parseFloat(formData.rate) })
-            .eq('id', existing.id);
-          
-          if (error) throw error;
-        } else {
-          // Insert new
-          const { error } = await supabase
-            .from('rates')
-            .insert([rateData]);
-          
-          if (error) throw error;
-        }
-      }
-      
-      // Reset form and refresh
-      setFormData({ branch_id: user?.branch_id || '', city_id: '', rate: '' });
-      setEditingId(null);
-      fetchData();
-      
-    } catch (error) {
-      console.error('Error saving rate:', error);
-      alert('Error saving rate: ' + error.message);
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-
-  // Handle edit
-  const handleEdit = (rate) => {
-    setFormData({
-      branch_id: rate.branch_id,
-      city_id: rate.city_id,
-      rate: rate.rate.toString()
-    });
-    setEditingId(rate.id);
-  };
-
-  // Handle delete
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this rate?')) return;
-    
-    try {
-      const { error } = await supabase.from('rates').delete().eq('id', id);
-      if (error) throw error;
-      fetchData();
-    } catch (error) {
-      console.error('Error deleting:', error);
-      alert('Error deleting rate');
-    }
-  };
-
-  // Cancel edit
-  const cancelEdit = () => {
-    setFormData({ branch_id: user?.branch_id || '', city_id: '', rate: '' });
-    setEditingId(null);
-  };
+  // Count cities with rates
+  const citiesWithRatesCount = useMemo(() => {
+    return filteredAndSortedCities.filter(city => getRateForCity(city)?.rate).length;
+  }, [filteredAndSortedCities, getRateForCity]);
 
   // Download CSV
   const downloadCSV = () => {
-    const headers = ['Branch', 'City', 'City Code', 'Rate'];
-    const rows = filteredAndSortedRates.map(rate => [
-      rate.branches?.branch_name || '',
-      rate.cities?.city_name || '',
-      rate.cities?.city_code || '',
-      rate.rate
-    ]);
+    const selectedBranchData = branches.find(b => b.id === selectedBranch);
+    const headers = ['City', 'City Code', 'Rate (₹/kg)'];
+    const rows = filteredAndSortedCities.map(city => {
+      const rate = getRateForCity(city);
+      return [
+        city.city_name || '',
+        city.city_code || '',
+        rate?.rate || ''
+      ];
+    });
     
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `default-rates-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `rates-${selectedBranchData?.branch_code || 'all'}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
 
@@ -279,6 +362,25 @@ const RatesComponent = () => {
         </button>
       </div>
 
+      {/* Branch Selection */}
+      <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Branch to Manage Rates
+        </label>
+        <select
+          value={selectedBranch}
+          onChange={(e) => setSelectedBranch(e.target.value)}
+          className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+        >
+          <option value="">Select Branch</option>
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.branch_name} ({branch.branch_code})
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Search */}
       <div className="mb-6">
         <div className="relative max-w-md">
@@ -286,7 +388,7 @@ const RatesComponent = () => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by city, branch, or rate..."
+            placeholder="Search by city name or code..."
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black pr-10"
           />
           {searchTerm && (
@@ -300,92 +402,23 @@ const RatesComponent = () => {
         </div>
         {searchTerm && (
           <div className="mt-2 text-sm text-gray-600">
-            Found {filteredAndSortedRates.length} rates matching "{searchTerm}"
+            Found {filteredAndSortedCities.length} cities matching "{searchTerm}"
           </div>
         )}
       </div>
-      
-      {/* Add/Edit Form */}
-      <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 p-4 rounded-lg">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Branch *
-            </label>
-            <select
-              value={formData.branch_id}
-              onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              required
-            >
-              <option value="">Select Branch</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.branch_name} ({branch.branch_code})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              City *
-            </label>
-            <select
-              value={formData.city_id}
-              onChange={(e) => setFormData({ ...formData, city_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              required
-            >
-              <option value="">Select City</option>
-              {cities.map((city) => (
-                <option key={city.id} value={city.id}>
-                  {city.city_name} ({city.city_code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Rate (₹/kg) *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.rate}
-              onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter rate"
-              required
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={submitLoading}
-              className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50 whitespace-nowrap"
-            >
-              {submitLoading ? 'Saving...' : (editingId ? 'Update' : 'Add Rate')}
-            </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </div>
-      </form>
 
       {/* Stats */}
-      <div className="mb-4 text-sm text-gray-600">
-        Total: {filteredAndSortedRates.length} default rates
+      <div className="mb-4 flex gap-4 text-sm text-gray-600">
+        <span>Total Cities: {filteredAndSortedCities.length}</span>
+        <span>|</span>
+        <span className="text-green-600">With Rates: {citiesWithRatesCount}</span>
+        <span>|</span>
+        <span className="text-orange-600">Without Rates: {filteredAndSortedCities.length - citiesWithRatesCount}</span>
+      </div>
+
+      {/* Info */}
+      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+        💡 <strong>Tip:</strong> Click on any rate cell to edit it directly. Press Enter to save or Escape to cancel.
       </div>
 
       {/* Table */}
@@ -393,12 +426,7 @@ const RatesComponent = () => {
         <table className="min-w-full table-auto border-collapse">
           <thead>
             <tr className="bg-gray-100">
-              <th 
-                className="border px-4 py-3 text-left font-bold text-black cursor-pointer hover:bg-gray-200 select-none"
-                onClick={() => handleSort('branch_name')}
-              >
-                Branch <SortIcon columnKey="branch_name" />
-              </th>
+              <th className="border px-4 py-3 text-left font-bold text-black w-16">#</th>
               <th 
                 className="border px-4 py-3 text-left font-bold text-black cursor-pointer hover:bg-gray-200 select-none"
                 onClick={() => handleSort('city_name')}
@@ -417,48 +445,38 @@ const RatesComponent = () => {
               >
                 Rate (₹/kg) <SortIcon columnKey="rate" />
               </th>
-              <th className="border px-4 py-3 text-left font-bold text-black">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredAndSortedRates.length > 0 ? (
-              filteredAndSortedRates.map((rate) => (
-                <tr key={rate.id} className="hover:bg-gray-50">
-                  <td className="border px-4 py-2 text-black">
-                    {rate.branches?.branch_name || 'N/A'} 
-                    <span className="text-gray-500 text-sm ml-1">({rate.branches?.branch_code || ''})</span>
-                  </td>
-                  <td className="border px-4 py-2 text-black font-medium">
-                    {rate.cities?.city_name || 'N/A'}
-                  </td>
-                  <td className="border px-4 py-2 text-black">
-                    {rate.cities?.city_code || 'N/A'}
-                  </td>
-                  <td className="border px-4 py-2 font-bold text-green-700">
-                    ₹{rate.rate}
-                  </td>
-                  <td className="border px-4 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(rate)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(rate.id)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+            {filteredAndSortedCities.length > 0 ? (
+              filteredAndSortedCities.map((city, index) => {
+                const rate = getRateForCity(city);
+                return (
+                  <tr key={city.id} className="hover:bg-gray-50">
+                    <td className="border px-4 py-2 text-gray-500 text-sm">
+                      {index + 1}
+                    </td>
+                    <td className="border px-4 py-2 text-black font-medium">
+                      {city.city_name}
+                    </td>
+                    <td className="border px-4 py-2 text-black">
+                      {city.city_code}
+                    </td>
+                    <td className="border px-4 py-2">
+                      <InlineRateCell
+                        city={city}
+                        rate={rate}
+                        branchId={selectedBranch}
+                        onUpdate={handleRateUpdate}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan="5" className="border px-4 py-8 text-center text-gray-500">
-                  {searchTerm ? `No rates found matching "${searchTerm}"` : 'No default rates found. Add your first rate above.'}
+                <td colSpan="4" className="border px-4 py-8 text-center text-gray-500">
+                  {searchTerm ? `No cities found matching "${searchTerm}"` : 'No cities found.'}
                 </td>
               </tr>
             )}

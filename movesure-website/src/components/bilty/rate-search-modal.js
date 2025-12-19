@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, TrendingUp, Users, MapPin, Search } from 'lucide-react';
+import { X, TrendingUp, Users, MapPin, Search, Edit2, Save, Check } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
+import { useAuth } from '../../app/utils/auth';
 import ConsignorAutocomplete from './consignor-autocomplete';
 import ConsignorRateStats from './consignor-rate-stats';
 import ConsignorRateTable from './consignor-rate-table';
@@ -15,6 +16,7 @@ const RateSearchModal = ({
   initialCityId = '',
   cities = []
 }) => {
+  const { user } = useAuth();
   const [consignor, setConsignor] = useState(initialConsignor);
   const [consignee, setConsignee] = useState(initialConsignee);
   const [consigneeSearch, setConsigneeSearch] = useState(initialConsignee);
@@ -29,10 +31,18 @@ const RateSearchModal = ({
   const [consigneeSelectedIndex, setConsigneeSelectedIndex] = useState(-1);
   const [citySelectedIndex, setCitySelectedIndex] = useState(-1);
   
+  // Default Rate Editor State
+  const [defaultRate, setDefaultRate] = useState(null);
+  const [editingDefaultRate, setEditingDefaultRate] = useState(false);
+  const [newDefaultRate, setNewDefaultRate] = useState('');
+  const [savingDefaultRate, setSavingDefaultRate] = useState(false);
+  const [defaultRateSaved, setDefaultRateSaved] = useState(false);
+  
   const consigneeRef = useRef(null);
   const cityRef = useRef(null);
   const consigneeInputRef = useRef(null);
   const cityInputRef = useRef(null);
+  const defaultRateInputRef = useRef(null);
 
   // Handle Alt+E keyboard shortcut to toggle modal
   useEffect(() => {
@@ -49,6 +59,89 @@ const RateSearchModal = ({
     }
   }, [isOpen, onClose]);
 
+  // Fetch default rate for selected city
+  const fetchDefaultRate = async (selectedCityId) => {
+    if (!selectedCityId || !user?.branch_id) {
+      setDefaultRate(null);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('rates')
+        .select('id, rate')
+        .eq('branch_id', user.branch_id)
+        .eq('city_id', selectedCityId)
+        .is('consignor_id', null)
+        .eq('is_default', true)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching default rate:', error);
+      }
+      
+      setDefaultRate(data || null);
+      setNewDefaultRate(data?.rate?.toString() || '');
+      setEditingDefaultRate(false);
+      setDefaultRateSaved(false);
+    } catch (error) {
+      console.error('Error fetching default rate:', error);
+      setDefaultRate(null);
+    }
+  };
+
+  // Save default rate
+  const saveDefaultRate = async () => {
+    if (!cityId || !user?.branch_id || !newDefaultRate) return;
+    
+    setSavingDefaultRate(true);
+    try {
+      const rateValue = parseFloat(newDefaultRate);
+      if (isNaN(rateValue) || rateValue <= 0) {
+        alert('Please enter a valid rate');
+        return;
+      }
+      
+      if (defaultRate?.id) {
+        // Update existing
+        const { error } = await supabase
+          .from('rates')
+          .update({ rate: rateValue })
+          .eq('id', defaultRate.id);
+        
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase
+          .from('rates')
+          .insert([{
+            branch_id: user.branch_id,
+            city_id: cityId,
+            consignor_id: null,
+            rate: rateValue,
+            is_default: true
+          }]);
+        
+        if (error) throw error;
+      }
+      
+      // Refresh the default rate
+      await fetchDefaultRate(cityId);
+      setEditingDefaultRate(false);
+      setDefaultRateSaved(true);
+      
+      // Hide success indicator after 2 seconds
+      setTimeout(() => setDefaultRateSaved(false), 2000);
+      
+      console.log('✅ Default rate saved:', rateValue);
+    } catch (error) {
+      console.error('Error saving default rate:', error);
+      alert('Error saving default rate: ' + error.message);
+    } finally {
+      setSavingDefaultRate(false);
+    }
+  };
+
   // Update consignor when props change and auto-search if provided
   useEffect(() => {
     if (isOpen) {
@@ -63,8 +156,11 @@ const RateSearchModal = ({
         if (city) {
           setCitySearch(city.city_name);
         }
+        // Fetch default rate for initial city
+        fetchDefaultRate(initialCityId);
       } else {
         setCitySearch('');
+        setDefaultRate(null);
       }
       
       // Auto-search if consignor is provided
@@ -211,6 +307,9 @@ const RateSearchModal = ({
     setCityId(city.id);
     setShowCityDropdown(false);
     setCitySelectedIndex(-1);
+    
+    // Fetch default rate for selected city
+    fetchDefaultRate(city.id);
     
     // Focus search button or trigger search
     setTimeout(() => {
@@ -580,6 +679,104 @@ const RateSearchModal = ({
                 </button>
               </div>
             </div>
+
+            {/* Default Rate Editor - Shows when city is selected */}
+            {cityId && (
+              <div className="mt-3 p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-amber-500 p-1.5 rounded-lg">
+                      <Edit2 className="w-3 h-3 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-amber-800">
+                        Default Rate for {citySearch || 'Selected City'}
+                      </div>
+                      <div className="text-[10px] text-amber-600">
+                        This rate is used when no consignor profile exists
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {editingDefaultRate ? (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-amber-700">₹</span>
+                          <input
+                            ref={defaultRateInputRef}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={newDefaultRate}
+                            onChange={(e) => setNewDefaultRate(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                saveDefaultRate();
+                              } else if (e.key === 'Escape') {
+                                setEditingDefaultRate(false);
+                                setNewDefaultRate(defaultRate?.rate?.toString() || '');
+                              }
+                            }}
+                            className="w-20 px-2 py-1 text-sm font-bold text-amber-800 border border-amber-300 rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                            placeholder="0.00"
+                            autoFocus
+                          />
+                          <span className="text-xs text-amber-600">/kg</span>
+                        </div>
+                        <button
+                          onClick={saveDefaultRate}
+                          disabled={savingDefaultRate}
+                          className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded hover:bg-green-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {savingDefaultRate ? (
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Save className="w-3 h-3" />
+                          )}
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingDefaultRate(false);
+                            setNewDefaultRate(defaultRate?.rate?.toString() || '');
+                          }}
+                          className="px-2 py-1 bg-gray-400 text-white text-xs font-bold rounded hover:bg-gray-500 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <span className="text-lg font-bold text-amber-800">
+                            {defaultRate ? `₹${defaultRate.rate}` : 'Not Set'}
+                          </span>
+                          <span className="text-xs text-amber-600">/kg</span>
+                          {defaultRateSaved && (
+                            <span className="flex items-center gap-1 text-green-600 text-xs font-bold ml-2">
+                              <Check className="w-3 h-3" /> Saved!
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingDefaultRate(true);
+                            setNewDefaultRate(defaultRate?.rate?.toString() || '');
+                            setTimeout(() => defaultRateInputRef.current?.focus(), 100);
+                          }}
+                          className="px-2 py-1 bg-amber-500 text-white text-xs font-bold rounded hover:bg-amber-600 transition-colors flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          {defaultRate ? 'Edit' : 'Set Rate'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Compact Statistics */}
             {stats && (

@@ -708,7 +708,8 @@ const PDFGenerator = ({
     );
     
       // RIGHT SECTION - Charges with enhanced styling and proper alignment - BIGGER & ALL BOLD
-    const amount = Math.round(parseFloat(biltyData.wt) * parseFloat(biltyData.rate));
+    // Use freight_amount directly from biltyData (already calculated with minimum weight logic)
+    const amount = biltyData.freight_amount || Math.round(parseFloat(biltyData.wt) * parseFloat(biltyData.rate));
     
     // Define column positions for proper alignment
     const labelX = COORDINATES.TABLE_SECTION.AMOUNT.x;     // Label column at x=155

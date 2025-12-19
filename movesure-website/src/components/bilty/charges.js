@@ -4,8 +4,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useInputNavigation } from './input-navigation';
 import { Save, FileText, RotateCcw } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
-import { LabourRateInfo, useConsignorLabourRate } from './labour-rate-helper';
-import { HistoricalRateInfo, useHistoricalRate } from './rate-helper';
+import { 
+  useConsignorBiltyProfileByName, 
+  calculateFreightWithMinimum,
+  calculateLabourCharge,
+  calculateDDCharge,
+  getDefaultLabourRate,
+  getEffectiveWeight,
+  ConsignorProfileInfo,
+  DEFAULT_MINIMUM_WEIGHT
+} from './consignor-profile-helper';
 
 const PackageChargesSection = ({ 
   formData, 
@@ -16,7 +24,8 @@ const PackageChargesSection = ({
   onReset,
   saving = false, 
   isEditMode = false, 
-  showShortcuts = false
+  showShortcuts = false,
+  cities = [] // Add cities prop for city name lookup
 }) => {  const { register, unregister, handleEnter } = useInputNavigation();
   const inputRefs = useRef({});
   const labourChargeTimeoutRef = useRef(null);
@@ -27,19 +36,35 @@ const PackageChargesSection = ({
   const saveDebounceRef = useRef(null); // Add debounce ref for save operations
   const lastSaveTimeRef = useRef(0); // Track last save time
   
-  // Fetch old labour rate for consignor
-  const { labourRate: oldLabourRate, loading: loadingLabourRate } = useConsignorLabourRate(
+  // Get city info for default labour rate
+  const currentCity = cities.find(c => c.id === formData.to_city_id);
+  const cityName = currentCity?.city_name || '';
+  const cityCode = currentCity?.city_code || '';
+  
+  // Fetch consignor bilty profile from new table
+  const { profile: consignorProfile, loading: loadingProfile } = useConsignorBiltyProfileByName(
     formData.consignor_name, 
-    formData.branch_id
+    formData.to_city_id
   );
 
-  // Fetch historical rate from bilty table
-  const { historicalRate, loading: loadingHistoricalRate } = useHistoricalRate(
-    formData.consignor_name,
-    formData.consignee_name,
-    formData.to_city_id,
-    formData.branch_id
-  );  // Validation function to check required fields and duplicate GR numbers
+  // Track if profile was already applied to prevent re-applying
+  const [profileApplied, setProfileApplied] = useState(false);
+  const lastAppliedProfileRef = useRef(null);
+  const lastConsignorRef = useRef(formData.consignor_name);
+
+  // Reset rate unit override when consignor changes
+  useEffect(() => {
+    if (formData.consignor_name !== lastConsignorRef.current) {
+      console.log('👤 Consignor changed - resetting rate unit override');
+      lastConsignorRef.current = formData.consignor_name;
+      // Reset the override flag so profile can set the rate unit again
+      if (formData._rate_unit_override) {
+        setFormData(prev => ({ ...prev, _rate_unit_override: false }));
+      }
+    }
+  }, [formData.consignor_name]);
+
+  // Validation function to check required fields and duplicate GR numbers
   const validateBeforeSaveOrPrint = async (isDraft = false) => {
     console.log('🔍 Starting validation with:', { 
       isDraft, 
@@ -242,29 +267,27 @@ const PackageChargesSection = ({
 
     return () => clearTimeout(timer);  }, [register]); // Run when register function is available
 
+  // Calculate labour charge when packages, weight, or labour rate changes
+  // Supports different labour units: PER_KG, PER_NAG, PER_BILTY
+  // INSTANT calculation - no delay for fast response
   useEffect(() => {
-    // Calculate labour charge when packages or labour rate changes
     const labourRate = parseFloat(formData.labour_rate) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
-    const calculatedLabourCharge = packages * labourRate;
+    const weight = parseFloat(formData.wt) || 0;
+    const labourUnit = formData._labour_unit || 'PER_NAG';
     
-    // Clear any existing timeout
-    if (labourChargeTimeoutRef.current) {
-      clearTimeout(labourChargeTimeoutRef.current);
-    }
+    // Calculate based on labour unit - INSTANT, no timeout
+    const calculatedLabourCharge = calculateLabourCharge(packages, weight, labourRate, labourUnit);
     
-    // Set a small delay to allow manual input to take precedence
-    labourChargeTimeoutRef.current = setTimeout(() => {
-      setFormData(prev => ({ ...prev, labour_charge: calculatedLabourCharge }));
-    }, 100);
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (labourChargeTimeoutRef.current) {
-        clearTimeout(labourChargeTimeoutRef.current);
+    // Update immediately for fast response
+    setFormData(prev => {
+      // Only update if value changed to prevent infinite loops
+      if (prev.labour_charge !== calculatedLabourCharge) {
+        return { ...prev, labour_charge: calculatedLabourCharge };
       }
-    };
-  }, [formData.no_of_pkg, formData.labour_rate, setFormData]);
+      return prev;
+    });
+  }, [formData.no_of_pkg, formData.wt, formData.labour_rate, formData._labour_unit]);
 
   // Listen for copied rate from rate search modal
   useEffect(() => {
@@ -287,11 +310,41 @@ const PackageChargesSection = ({
     return () => window.removeEventListener('rateCopied', handleRateCopied);
   }, [setFormData]);
 
+  // Calculate freight amount with minimum freight logic and minimum weight
   useEffect(() => {
-    // Calculate freight amount
-    const freightAmount = (formData.wt || 0) * (formData.rate || 0);
-    setFormData(prev => ({ ...prev, freight_amount: freightAmount }));
-  }, [formData.wt, formData.rate, setFormData]);
+    const actualWeight = parseFloat(formData.wt) || 0;
+    const packages = parseInt(formData.no_of_pkg) || 0;
+    const rate = parseFloat(formData.rate) || 0;
+    const rateUnit = formData._rate_unit || 'PER_KG';
+    const minimumFreight = parseFloat(formData._minimum_freight) || 0;
+    
+    // Get minimum weight - from profile or default 50 kg
+    const minimumWeight = parseFloat(formData._minimum_weight) || DEFAULT_MINIMUM_WEIGHT;
+    
+    // Apply minimum weight logic when rate is per kg and no consignor profile exists
+    // If profile exists, it has its own freight_minimum_amount which takes precedence
+    let effectiveWeight = actualWeight;
+    let isMinWeightApplied = false;
+    
+    if (rateUnit === 'PER_KG' && actualWeight < minimumWeight) {
+      effectiveWeight = minimumWeight;
+      isMinWeightApplied = true;
+      console.log('⚖️ Minimum weight applied:', actualWeight, 'kg →', effectiveWeight, 'kg (min:', minimumWeight, 'kg)');
+    }
+    
+    // Calculate freight based on rate unit and minimum freight
+    const result = calculateFreightWithMinimum(effectiveWeight, packages, rate, rateUnit, minimumFreight);
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      freight_amount: result.freightAmount,
+      _effective_rate: result.effectiveRate,
+      _is_minimum_applied: result.isMinimumApplied,
+      _is_min_weight_applied: isMinWeightApplied,
+      _effective_weight: effectiveWeight
+    }));
+  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData]);
+
   useEffect(() => {
     // Calculate total - handle string values during decimal input
     const parseValue = (val) => {
@@ -321,7 +374,7 @@ const PackageChargesSection = ({
     setRateInfo(null);
   }, [formData.rate, formData.consignor_name, formData.to_city_id, formData.branch_id]);
 
-  // Handle rate change with auto-save functionality
+  // Handle rate change with auto-save functionality (ONLY DEFAULT RATES - no consignor specific)
   const handleRateChange = async (e) => {
     const newRate = parseFloat(e.target.value) || 0;
     setFormData(prev => ({ ...prev, rate: newRate }));
@@ -341,7 +394,7 @@ const PackageChargesSection = ({
     }, 1000); // Save after 1 second of no typing
   };
 
-  // Auto-save rate function
+  // Auto-save rate function - ONLY DEFAULT RATES (no consignor-specific)
   const saveRateAutomatically = async (rate) => {
     if (!formData.to_city_id || !formData.branch_id || !rate || rate <= 0) {
       return;
@@ -349,41 +402,22 @@ const PackageChargesSection = ({
 
     try {
       setIsSavingRate(true);
-      console.log('🔄 Auto-saving rate:', rate);
+      console.log('🔄 Auto-saving DEFAULT rate:', rate);
 
-      let consignorId = null;
+      // REMOVED: Consignor-specific rate saving
+      // Now only save default rates (consignor_id = null)
 
-      // If consignor is selected, get consignor ID
-      if (formData.consignor_name && formData.consignor_name.trim()) {
-        const { data: consignor } = await supabase
-          .from('consignors')
-          .select('id, company_name')
-          .ilike('company_name', formData.consignor_name.trim())
-          .single();
-
-        if (consignor) {
-          consignorId = consignor.id;
-          console.log('📋 Found consignor for rate:', consignor.company_name, 'ID:', consignorId);
-        }
-      }
-
-      // Check for existing rate
-      let duplicateQuery = supabase
+      // Check for existing DEFAULT rate (consignor_id is null)
+      const { data: existingRate } = await supabase
         .from('rates')
         .select('id, rate')
         .eq('branch_id', formData.branch_id)
-        .eq('city_id', formData.to_city_id);
-
-      if (consignorId) {
-        duplicateQuery = duplicateQuery.eq('consignor_id', consignorId);
-      } else {
-        duplicateQuery = duplicateQuery.is('consignor_id', null);
-      }
-
-      const { data: existingRate } = await duplicateQuery.single();
+        .eq('city_id', formData.to_city_id)
+        .is('consignor_id', null) // Only default rates
+        .single();
 
       if (existingRate) {
-        // Update existing rate if different
+        // Update existing default rate if different
         if (parseFloat(existingRate.rate) !== parseFloat(rate)) {
           const { error: updateError } = await supabase
             .from('rates')
@@ -394,20 +428,20 @@ const PackageChargesSection = ({
           
           console.log('✅ Rate updated successfully!');
           setRateInfo({
-            type: consignorId ? 'consignor' : 'default',
-            message: `✅ Rate updated ${consignorId ? `for ${formData.consignor_name}` : '(default)'}`
+            type: 'default',
+            message: `✅ Rate updated (default)`
           });
         } else {
           console.log('📌 Rate unchanged - no update needed');
         }
       } else {
-        // Insert new rate
+        // Insert new rate - ONLY DEFAULT RATES (no consignor-specific)
         const rateData = {
           branch_id: formData.branch_id,
           city_id: formData.to_city_id,
-          consignor_id: consignorId || null,
+          consignor_id: null, // Always null - no consignor-specific rates
           rate: parseFloat(rate),
-          is_default: !consignorId
+          is_default: true // Always default
         };
 
         const { error: insertError } = await supabase
@@ -416,10 +450,10 @@ const PackageChargesSection = ({
 
         if (insertError) throw insertError;
         
-        console.log('✅ New rate saved successfully!');
+        console.log('✅ New default rate saved successfully!');
         setRateInfo({
-          type: consignorId ? 'consignor' : 'default',
-          message: `✅ New rate saved ${consignorId ? `for ${formData.consignor_name}` : '(default)'}`
+          type: 'default',
+          message: `✅ New default rate saved`
         });
       }    } catch (error) {
       console.error('❌ Error auto-saving rate:', error);
@@ -431,59 +465,182 @@ const PackageChargesSection = ({
     }
   };
 
-  // Auto-populate labour rate from consignor's previous bilty when consignor changes
+  // ====== NEW CONSIGNOR PROFILE SYSTEM ======
+  // Apply consignor profile when it loads (rate, labour rate, charges)
   useEffect(() => {
-    // Only auto-populate in new bilty mode, not in edit mode
-    if (!isEditMode && formData.consignor_name && !loadingLabourRate) {
-      // If old labour rate exists and current labour_rate is default or not set
-      if (oldLabourRate && oldLabourRate.rate) {
-        // Only update if current labour_rate is unset, null, or still at default 20
-        const currentRate = formData.labour_rate;
-        if (currentRate === undefined || currentRate === null || currentRate === 0 || currentRate === 20) {
-          setFormData(prev => ({ ...prev, labour_rate: oldLabourRate.rate }));
-        }
-      }
-    }
-  }, [formData.consignor_name, oldLabourRate, loadingLabourRate, isEditMode]);
-
-  // Auto-apply historical rate when available (in new bilty mode only)
-  useEffect(() => {
-    if (!isEditMode && historicalRate && !loadingHistoricalRate) {
-      // Always auto-apply the predicted rate (whether default, general, or specific)
-      const currentRate = formData.rate;
-      const historicalRateValue = parseFloat(historicalRate.rate);
-      const currentRateValue = parseFloat(currentRate);
+    // Skip in edit mode or if already loading
+    if (isEditMode || loadingProfile) return;
+    
+    // Create a unique key for this profile application
+    const profileKey = `${formData.consignor_name}-${formData.to_city_id}-${consignorProfile?.id || 'none'}`;
+    
+    // Skip if we already applied this exact profile
+    if (lastAppliedProfileRef.current === profileKey) return;
+    
+    // Only apply if we have consignor and city selected
+    if (!formData.consignor_name || !formData.to_city_id) return;
+    
+    console.log('🔧 Applying consignor profile system...', { 
+      hasProfile: !!consignorProfile,
+      cityName, 
+      cityCode,
+      profileKey,
+      rateUnitOverride: formData._rate_unit_override
+    });
+    
+    const updates = {};
+    const isDoorDelivery = formData.delivery_type === 'door-delivery';
+    
+    if (consignorProfile) {
+      // ===== PROFILE EXISTS - Use profile values =====
+      console.log('✅ Using consignor bilty profile:', consignorProfile);
       
-      // Apply if: (1) rate is 0/not set, OR (2) rate is different from predicted rate
-      if (currentRate === undefined || currentRate === null || currentRate === 0 || 
-          Math.abs(currentRateValue - historicalRateValue) > 0.01) {
-        console.log('🎯 Auto-applying historical rate:', historicalRate.rate, 'Type:', historicalRate.type);
-        setFormData(prev => ({ ...prev, rate: historicalRate.rate }));
+      // Rate from profile
+      if (consignorProfile.rate && consignorProfile.rate > 0) {
+        updates.rate = parseFloat(consignorProfile.rate);
+        // Only set rate_unit from profile if user hasn't manually overridden it
+        if (!formData._rate_unit_override) {
+          updates._rate_unit = consignorProfile.rate_unit || 'PER_KG';
+        }
+        updates._minimum_freight = parseFloat(consignorProfile.freight_minimum_amount) || 0;
+        console.log('💰 Rate from profile:', updates.rate, formData._rate_unit_override ? '(unit kept: user override)' : consignorProfile.rate_unit);
+      }
+      
+      // Labour rate from profile
+      if (consignorProfile.labour_rate !== undefined && consignorProfile.labour_rate !== null) {
+        updates.labour_rate = parseFloat(consignorProfile.labour_rate);
+        updates._labour_unit = consignorProfile.labour_unit || 'PER_NAG';
+        console.log('👷 Labour rate from profile:', updates.labour_rate, consignorProfile.labour_unit);
+      }
+      
+      // Bill charge (bilty_charge from profile)
+      if (consignorProfile.bilty_charge !== undefined && consignorProfile.bilty_charge !== null) {
+        updates.bill_charge = parseFloat(consignorProfile.bilty_charge);
+        console.log('📄 Bill charge from profile:', updates.bill_charge);
+      }
+      
+      // Toll charge from profile
+      if (consignorProfile.is_toll_tax_applicable && consignorProfile.toll_tax_amount) {
+        updates.toll_charge = parseFloat(consignorProfile.toll_tax_amount);
+        console.log('🛣️ Toll charge from profile:', updates.toll_charge);
+      } else if (consignorProfile.is_toll_tax_applicable === false) {
+        updates.toll_charge = 0;
+      }
+      
+      // Transport info from profile
+      if (consignorProfile.transport_name) {
+        updates.transport_name = consignorProfile.transport_name;
+      }
+      if (consignorProfile.transport_gst) {
+        updates.transport_gst = consignorProfile.transport_gst;
+      }
+      
+      // Check is_no_charge flag
+      if (consignorProfile.is_no_charge) {
+        updates.bill_charge = 0;
+        updates.toll_charge = 0;
+        updates.other_charge = 0;
+        console.log('🆓 No charge profile - zeroing charges');
+      }
+      
+    } else {
+      // ===== NO PROFILE - Use default values based on city =====
+      const defaultLabour = getDefaultLabourRate(cityName, cityCode);
+      updates.labour_rate = defaultLabour;
+      console.log('📋 No profile - using default labour rate:', defaultLabour, 'for city:', cityName);
+      
+      // Try to get default city rate from rates table
+      const defaultCityRate = rates.find(r => r.city_id === formData.to_city_id && r.is_default);
+      if (defaultCityRate) {
+        updates.rate = parseFloat(defaultCityRate.rate);
+        console.log('💰 Using default city rate:', updates.rate);
+      }
+      
+      // Set default minimum weight (50 kg) when no profile
+      updates._minimum_weight = DEFAULT_MINIMUM_WEIGHT;
+      console.log('⚖️ Using default minimum weight:', DEFAULT_MINIMUM_WEIGHT, 'kg');
+      
+      // Default rate unit if not already set by user
+      if (!formData._rate_unit_override && !formData._rate_unit) {
+        updates._rate_unit = 'PER_KG';
       }
     }
-  }, [historicalRate, loadingHistoricalRate, isEditMode]);
+    
+    // Apply updates if we have any
+    if (Object.keys(updates).length > 0) {
+      console.log('📝 Applying profile updates:', updates);
+      setFormData(prev => ({ ...prev, ...updates }));
+      lastAppliedProfileRef.current = profileKey;
+    }
+    
+  }, [consignorProfile, loadingProfile, formData.consignor_name, formData.to_city_id, 
+      formData.delivery_type, cityName, cityCode, isEditMode, rates]);
 
-  // Handler to manually apply historical rate
-  const handleApplyHistoricalRate = (rate) => {
-    console.log('✅ Manually applying historical rate:', rate);
-    setFormData(prev => ({ ...prev, rate: rate }));
-  };
+  // ====== DD CHARGE CALCULATION (Door Delivery) ======
+  // Apply DD charge + Receiving Slip charge when delivery type is door-delivery
+  // DD Print Charge: per_nag or per_kg based on profile
+  // Receiving Slip Charge: one time per bilty (not per nag)
+  useEffect(() => {
+    if (isEditMode || loadingProfile) return;
+    
+    const isDoorDelivery = formData.delivery_type === 'door-delivery';
+    
+    if (isDoorDelivery && consignorProfile) {
+      // Calculate DD print charge (per nag or per kg)
+      const ddPrintCharge = calculateDDCharge(
+        formData.no_of_pkg,
+        formData.wt,
+        consignorProfile
+      );
+      
+      // Add receiving slip charge (one time per bilty, not per nag)
+      const receivingSlipCharge = parseFloat(consignorProfile.receiving_slip_charge) || 0;
+      
+      // Total other charge = DD print charge + RS charge (one time)
+      const totalOtherCharge = ddPrintCharge + receivingSlipCharge;
+      
+      console.log('🚚 DD Charges breakdown:');
+      console.log('   DD Print Charge:', ddPrintCharge);
+      console.log('   Receiving Slip Charge (per bilty):', receivingSlipCharge);
+      console.log('   Total Other Charge:', totalOtherCharge);
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        other_charge: totalOtherCharge,
+        _dd_charge_applied: ddPrintCharge,
+        _rs_charge_applied: receivingSlipCharge
+      }));
+    } else if (!isDoorDelivery && (formData._dd_charge_applied || formData._rs_charge_applied)) {
+      // Remove DD and RS charges if switching away from door delivery
+      console.log('🚚 Removing DD and RS charges from other_charge');
+      setFormData(prev => ({ 
+        ...prev, 
+        other_charge: 0,
+        _dd_charge_applied: 0,
+        _rs_charge_applied: 0
+      }));
+    }
+  }, [formData.delivery_type, formData.no_of_pkg, formData.wt, consignorProfile, loadingProfile, isEditMode]);
 
-  // Initialize labour rate and toll charge if not set (only for new bilty, not editing)
+  // Initialize default labour rate based on city when no consignor profile
   useEffect(() => {
     const updates = {};
     // Only set default values for new bilty (not edit mode) and only if value is undefined/null
-    // This runs first before consignor is selected
-    if (!isEditMode && (formData.labour_rate === undefined || formData.labour_rate === null)) {
-      updates.labour_rate = 20;
-    }
-    if (!isEditMode && (formData.toll_charge === undefined || formData.toll_charge === null)) {
-      updates.toll_charge = 20;
+    if (!isEditMode) {
+      // Set default labour rate based on city if not from profile
+      if ((formData.labour_rate === undefined || formData.labour_rate === null) && formData.to_city_id) {
+        const defaultLabour = getDefaultLabourRate(cityName, cityCode);
+        updates.labour_rate = defaultLabour;
+      }
+      // Default toll charge
+      if (formData.toll_charge === undefined || formData.toll_charge === null) {
+        updates.toll_charge = 20;
+      }
     }
     if (Object.keys(updates).length > 0) {
       setFormData(prev => ({ ...prev, ...updates }));
     }
-  }, [isEditMode]); // Remove formData dependencies to prevent overriding edit data
+  }, [isEditMode, formData.to_city_id, cityName, cityCode]);
 
 return (
     <>
@@ -584,57 +741,81 @@ return (
                   </div>
                 </div>
 
-                {/* Rate */}
+                {/* Rate with Unit Toggle */}
                 <div className="flex items-center justify-between gap-2">
                   <span className="bg-indigo-500 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[90px] text-center">
                     RATE
                   </span>
-                  <div className="relative w-32">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={formData.rate !== undefined && formData.rate !== null ? formData.rate : ''}
-                      onChange={(e) => {
-                        let value = e.target.value;
-                        // Allow only numbers and one decimal point
-                        value = value.replace(/[^0-9.]/g, '');
-                        // Prevent multiple decimal points
-                        const parts = value.split('.');
-                        if (parts.length > 2) {
-                          value = parts[0] + '.' + parts.slice(1).join('');
-                        }
-                        
-                        // Update formData with string value to allow decimal typing
-                        setFormData(prev => ({ ...prev, rate: value }));
-                        
-                        // Debounce the save operation
-                        if (window.rateSaveTimeout) {
-                          clearTimeout(window.rateSaveTimeout);
-                        }
-                        const numericValue = parseFloat(value);
-                        if (formData.to_city_id && formData.branch_id && numericValue > 0) {
-                          window.rateSaveTimeout = setTimeout(async () => {
-                            await saveRateAutomatically(numericValue);
-                          }, 1000);
-                        }
+                  <div className="flex items-center gap-1">
+                    {/* Rate Unit Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentUnit = formData._rate_unit || 'PER_KG';
+                        const newUnit = currentUnit === 'PER_KG' ? 'PER_NAG' : 'PER_KG';
+                        console.log('🔄 Rate unit toggled:', currentUnit, '→', newUnit);
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          _rate_unit: newUnit,
+                          _rate_unit_override: true // Mark as manually overridden
+                        }));
                       }}
-                      onBlur={(e) => {
-                        // Convert to number on blur for calculations
-                        const value = e.target.value;
-                        const numericValue = value ? parseFloat(value) : 0;
-                        setFormData(prev => ({ ...prev, rate: numericValue }));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      ref={(el) => setInputRef(22, el)}
-                      className="w-full px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-7"
-                      placeholder="0"
-                      tabIndex={22}
-                    />
-                    {isSavingRate && (
-                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                        <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                    )}
+                      className={`px-1.5 py-1 text-[10px] font-bold rounded border transition-all whitespace-nowrap ${
+                        (formData._rate_unit || 'PER_KG') === 'PER_KG'
+                          ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
+                          : 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                      }`}
+                      title={`Click to switch to ${(formData._rate_unit || 'PER_KG') === 'PER_KG' ? 'Per Nag' : 'Per KG'}`}
+                    >
+                      {(formData._rate_unit || 'PER_KG') === 'PER_KG' ? '/kg' : '/nag'}
+                    </button>
+                    <div className="relative w-20">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.rate !== undefined && formData.rate !== null ? formData.rate : ''}
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          // Allow only numbers and one decimal point
+                          value = value.replace(/[^0-9.]/g, '');
+                          // Prevent multiple decimal points
+                          const parts = value.split('.');
+                          if (parts.length > 2) {
+                            value = parts[0] + '.' + parts.slice(1).join('');
+                          }
+                          
+                          // Update formData with string value to allow decimal typing
+                          setFormData(prev => ({ ...prev, rate: value }));
+                          
+                          // Debounce the save operation - ONLY SAVES DEFAULT RATES
+                          if (window.rateSaveTimeout) {
+                            clearTimeout(window.rateSaveTimeout);
+                          }
+                          const numericValue = parseFloat(value);
+                          if (formData.to_city_id && formData.branch_id && numericValue > 0) {
+                            window.rateSaveTimeout = setTimeout(async () => {
+                              await saveRateAutomatically(numericValue);
+                            }, 1000);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Convert to number on blur for calculations
+                          const value = e.target.value;
+                          const numericValue = value ? parseFloat(value) : 0;
+                          setFormData(prev => ({ ...prev, rate: numericValue }));
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        ref={(el) => setInputRef(22, el)}
+                        className="w-full px-2 py-1 text-black text-sm font-bold border border-slate-300 rounded text-center bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 transition-all number-input-focus pr-5"
+                        placeholder="0"
+                        tabIndex={22}
+                      />
+                      {isSavingRate && (
+                        <div className="absolute right-1 top-1/2 transform -translate-y-1/2">
+                          <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -643,48 +824,66 @@ return (
                   Total: ₹{((formData.no_of_pkg || 0) * (formData.labour_rate || 0)).toFixed(2)}
                 </div>
                 
-                {/* Historical Rate Info - Below all inputs */}
+                {/* Freight Calculation Display */}
+                <div className="flex items-center justify-between gap-1 px-2 py-1 bg-gray-50 text-gray-600 rounded border border-gray-200 text-[10px] font-medium">
+                  <span>📊 Freight:</span>
+                  <span className="font-bold">
+                    {(formData._rate_unit || 'PER_KG') === 'PER_KG' 
+                      ? formData._is_min_weight_applied 
+                        ? `${formData._effective_weight || DEFAULT_MINIMUM_WEIGHT} kg (min) × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
+                        : `${formData.wt || 0} kg × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
+                      : `${formData.no_of_pkg || 0} pkg × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
+                    }
+                  </span>
+                  {formData._rate_unit_override && (
+                    <span className="text-orange-600 font-bold">(overridden)</span>
+                  )}
+                </div>
+                
+                {/* Minimum Weight Applied Indicator */}
+                {formData._is_min_weight_applied && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded border border-blue-200 text-[10px] font-semibold">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <span>⚖️ Min Weight Applied: {formData.wt || 0} kg → {formData._effective_weight || DEFAULT_MINIMUM_WEIGHT} kg</span>
+                  </div>
+                )}
+                
+                {/* Minimum Freight Indicator */}
+                {formData._is_minimum_applied && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200 text-[10px] font-semibold">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>⚠️ Min Freight: ₹{formData._minimum_freight} • Effective Rate: ₹{formData._effective_rate?.toFixed(2)}/kg</span>
+                  </div>
+                )}
+                
+                {/* Consignor Profile Info - Shows profile status and applied rates */}
                 {formData.consignor_name && formData.to_city_id && (
                   <div className="pt-1">
-                    <HistoricalRateInfo
+                    <ConsignorProfileInfo
                       consignorName={formData.consignor_name}
-                      consigneeName={formData.consignee_name}
-                      toCityId={formData.to_city_id}
-                      branchId={formData.branch_id}
+                      destinationCityId={formData.to_city_id}
+                      cityName={cityName}
+                      cityCode={cityCode}
                       currentRate={formData.rate}
-                      onApplyRate={handleApplyHistoricalRate}
+                      currentLabourRate={formData.labour_rate}
                     />
                   </div>
                 )}
                 
-                {/* Old Labour Rate Info - Below all inputs */}
-                {!isEditMode && formData.consignor_name && (
-                  <div>
-                    {loadingLabourRate ? (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded border border-indigo-200 text-[10px] font-medium animate-pulse">
-                        <svg className="w-2 h-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>🤖 Fetching...</span>
-                      </div>
-                    ) : oldLabourRate && oldLabourRate.rate ? (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded border border-slate-300 text-[10px] font-semibold">
-                        <svg className="w-2 h-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>🤖 Auto: ₹{oldLabourRate.rate} ({new Date(oldLabourRate.date).toLocaleDateString('en-IN')})</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded border border-gray-300 text-[10px] font-medium">
-                        <svg className="w-2 h-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>💼 Default: ₹20</span>
-                      </div>
-                    )}
+                {/* Default Labour Rate Info (when no consignor profile) */}
+                {!isEditMode && formData.to_city_id && !consignorProfile && !loadingProfile && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded border border-gray-300 text-[10px] font-medium">
+                    <svg className="w-2 h-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>💼 Default Labour: ₹{getDefaultLabourRate(cityName, cityCode)}/pkg ({cityName?.toUpperCase().includes('KANPUR') ? 'Kanpur' : 'Standard'})</span>
                   </div>
                 )}
+                
               </div>
             </div>
           </div>
@@ -913,6 +1112,24 @@ return (
             </div>
           </div>
         </div>
+
+        {/* DD Charge + RS Charge Applied Indicator - Below grid, above buttons */}
+        {formData.delivery_type === 'door-delivery' && (formData._dd_charge_applied > 0 || formData._rs_charge_applied > 0) && (
+          <div className="mt-2 mb-10 mx-1 flex items-center gap-2 px-2 py-1.5 bg-blue-50 text-blue-700 rounded border border-blue-200 text-[10px] font-semibold">
+            <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+              <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7h4a1 1 0 011 1v6h-2.05a2.5 2.5 0 00-4.9 0H12V8a1 1 0 00-1-1h-1v5h4V7z" />
+            </svg>
+            <span>🚚 Door Delivery Charges (in Other):</span>
+            {formData._dd_charge_applied > 0 && (
+              <span className="bg-blue-100 px-1.5 py-0.5 rounded">DD: ₹{formData._dd_charge_applied}</span>
+            )}
+            {formData._rs_charge_applied > 0 && (
+              <span className="bg-blue-100 px-1.5 py-0.5 rounded">RS: ₹{formData._rs_charge_applied}</span>
+            )}
+            <span className="bg-blue-200 px-1.5 py-0.5 rounded font-bold">Total: ₹{(formData._dd_charge_applied || 0) + (formData._rs_charge_applied || 0)}</span>
+          </div>
+        )}
 
         {/* Draft and Reset Buttons - Bottom Left */}
         <div className="absolute bottom-3 left-3 flex gap-2">

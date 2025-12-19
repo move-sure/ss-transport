@@ -61,8 +61,12 @@ export default function useBillDetails(billId) {
       setBill({ ...billData, company, created_by_user: createdByUser });
       setBillItems(itemsData || []);
 
-      // Enrich items with bilty/station data
-      await enrichBillItems(itemsData || []);
+      // Items now have all data directly from monthly_bill_items table
+      // Fields: destination, city_id, no_of_packages, weight, pvt_marks, bilty_date
+      setEnrichedItems((itemsData || []).map(item => ({
+        ...item,
+        type: item.bilty_type
+      })));
     } catch (err) {
       console.error('Error fetching bill details:', err);
       setError(err.message);
@@ -71,75 +75,8 @@ export default function useBillDetails(billId) {
     }
   }, [billId]);
 
-  // Enrich bill items with data from bilty and station_bilty_summary tables
-  const enrichBillItems = async (items) => {
-    if (!items || items.length === 0) {
-      setEnrichedItems([]);
-      return;
-    }
-
-    try {
-      const enriched = [];
-
-      for (const item of items) {
-        let biltyData = null;
-        const biltyType = (item.bilty_type || '').toLowerCase();
-
-        if (biltyType === 'regular') {
-          // Fetch from bilty table - includes no_of_pkg, wt, pvt_marks
-          const { data, error } = await supabase
-            .from('bilty')
-            .select('*')
-            .eq('gr_no', item.gr_no)
-            .limit(1)
-            .maybeSingle();
-          
-          if (!error && data) {
-            biltyData = data;
-          }
-        } else if (biltyType === 'station' || biltyType === 'stn' || biltyType === 'manual') {
-          // Fetch from station_bilty_summary table for station/manual bilties
-          // Fields: station, gr_no, consignor, consignee, contents, no_of_packets, weight, 
-          // payment_status, amount, pvt_marks, delivery_type, e_way_bill
-          const { data, error } = await supabase
-            .from('station_bilty_summary')
-            .select('*')
-            .eq('gr_no', item.gr_no)
-            .limit(1)
-            .maybeSingle();
-          
-          if (!error && data) {
-            // Map station_bilty_summary fields to common structure used by bilty table
-            biltyData = {
-              ...data,
-              // Map station field names to bilty field names
-              consignor_name: data.consignor,
-              consignee_name: data.consignee,
-              contain: data.contents,
-              no_of_pkg: data.no_of_packets,   // station uses no_of_packets, bilty uses no_of_pkg
-              wt: data.weight,                  // station uses weight, bilty uses wt
-              payment_mode: data.payment_status,
-              total: data.amount,
-              bilty_date: data.created_at,
-              to_city_name: data.station,       // station name as destination
-            };
-          }
-        }
-
-        enriched.push({
-          ...item,
-          biltyData,
-          type: item.bilty_type
-        });
-      }
-
-      setEnrichedItems(enriched);
-    } catch (err) {
-      console.error('Error enriching bill items:', err);
-      // Still set items without enrichment
-      setEnrichedItems(items.map(item => ({ ...item, biltyData: null, type: item.bilty_type })));
-    }
-  };
+  // No need to enrich - all data is now in monthly_bill_items table
+  // Fields available: destination, city_id, no_of_packages, weight, pvt_marks, bilty_date
 
   // Update bill
   const updateBill = useCallback(async (updateData, userId = null) => {

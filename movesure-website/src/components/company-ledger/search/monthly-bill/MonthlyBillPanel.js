@@ -150,6 +150,52 @@ export default function MonthlyBillPanel({
     setSuccess(false);
 
     try {
+      // Fetch city data for mapping city_code to city_id and city_name
+      // For regular bilties: to_city_id is UUID, need city_name
+      // For station bilties: station is city_code, need city_id and city_name
+      const regularCityIds = selectedBilties
+        .filter(b => b.type === 'regular' && b.to_city_id)
+        .map(b => b.to_city_id);
+      
+      const stationCityCodes = selectedBilties
+        .filter(b => b.type === 'station' && b.station)
+        .map(b => b.station);
+
+      let cityMapById = {};  // { city_id: { city_name, city_code } }
+      let cityMapByCode = {}; // { city_code: { city_id, city_name } }
+
+      // Fetch cities by ID for regular bilties
+      if (regularCityIds.length > 0) {
+        const uniqueCityIds = [...new Set(regularCityIds)];
+        const { data: citiesById } = await supabase
+          .from('cities')
+          .select('id, city_name, city_code')
+          .in('id', uniqueCityIds);
+        
+        if (citiesById) {
+          cityMapById = citiesById.reduce((m, c) => ({
+            ...m,
+            [c.id]: { city_name: c.city_name, city_code: c.city_code }
+          }), {});
+        }
+      }
+
+      // Fetch cities by code for station bilties
+      if (stationCityCodes.length > 0) {
+        const uniqueCityCodes = [...new Set(stationCityCodes)];
+        const { data: citiesByCode } = await supabase
+          .from('cities')
+          .select('id, city_name, city_code')
+          .in('city_code', uniqueCityCodes);
+        
+        if (citiesByCode) {
+          cityMapByCode = citiesByCode.reduce((m, c) => ({
+            ...m,
+            [c.city_code]: { city_id: c.id, city_name: c.city_name }
+          }), {});
+        }
+      }
+
       // 1. Create master bill
       const { data: masterBill, error: masterError } = await supabase
         .from('monthly_bill_master')
@@ -177,22 +223,70 @@ export default function MonthlyBillPanel({
       if (masterError) throw masterError;
 
       // 2. Create bill items for each selected bilty
-      const billItems = selectedBilties.map(bilty => ({
-        monthly_bill_id: masterBill.id,
-        bilty_type: bilty.type === 'regular' ? 'REGULAR' : 'MANUAL',
-        gr_no: bilty.gr_no,
-        freight_amount: parseFloat(bilty.freight_amount || 0),
-        rate: parseFloat(bilty.rate || 0),
-        labour_rate: parseFloat(bilty.labour_rate || 0),
-        labour_charge: parseFloat(bilty.labour_charge || 0),
-        bill_charge: parseFloat(bilty.bill_charge || 0),
-        toll_charge: parseFloat(bilty.toll_charge || 0),
-        dd_charge: parseFloat(bilty.dd_charge || 0),
-        other_charge: parseFloat(bilty.other_charge || 0),
-        total_amount: parseFloat(bilty.total || bilty.grand_total || bilty.amount || 0),
-        created_by: user?.id || null,
-        updated_by: user?.id || null
-      }));
+      const billItems = selectedBilties.map(bilty => {
+        const isRegular = bilty.type === 'regular';
+        
+        // Get city info based on bilty type
+        let cityId = null;
+        let destination = null;
+        
+        if (isRegular) {
+          // Regular bilty: to_city_id is UUID
+          cityId = bilty.to_city_id || null;
+          destination = cityMapById[bilty.to_city_id]?.city_name || bilty.to_city_name || null;
+        } else {
+          // Station bilty: station is city_code
+          const cityInfo = cityMapByCode[bilty.station];
+          cityId = cityInfo?.city_id || null;
+          destination = cityInfo?.city_name || bilty.station_city_name || bilty.station || null;
+        }
+
+        // Get payment mode - bilty uses payment_mode, station uses payment_status
+        const paymentMode = bilty.payment_mode || bilty.payment_status || null;
+
+        // Get delivery type and normalize to 'door' or 'godown'
+        // bilty table: door-delivery, godown-delivery
+        // station_bilty_summary: door, godown
+        let deliveryType = bilty.delivery_type || null;
+        if (deliveryType) {
+          deliveryType = deliveryType.toLowerCase();
+          if (deliveryType.includes('door')) {
+            deliveryType = 'door';
+          } else if (deliveryType.includes('godown')) {
+            deliveryType = 'godown';
+          } else {
+            deliveryType = null; // Invalid value, set to null
+          }
+        }
+
+        return {
+          monthly_bill_id: masterBill.id,
+          bilty_type: isRegular ? 'REGULAR' : 'MANUAL',
+          gr_no: bilty.gr_no,
+          bilty_date: bilty.bilty_date || bilty.created_at || null,
+          // Logistics fields - destination, city_id, packages, weight, pvt_marks
+          destination: destination,
+          city_id: cityId,
+          no_of_packages: parseInt(bilty.no_of_pkg || bilty.packages || bilty.no_of_packets || 0),
+          weight: parseFloat(bilty.wt || bilty.weight || 0),
+          pvt_marks: bilty.pvt_marks || null,
+          // Payment mode and delivery type
+          payment_mode: paymentMode,
+          delivery_type: deliveryType,
+          // Payment fields
+          freight_amount: parseFloat(bilty.freight_amount || 0),
+          rate: parseFloat(bilty.rate || 0),
+          labour_rate: parseFloat(bilty.labour_rate || 0),
+          labour_charge: parseFloat(bilty.labour_charge || 0),
+          bill_charge: parseFloat(bilty.bill_charge || 0),
+          toll_charge: parseFloat(bilty.toll_charge || 0),
+          dd_charge: parseFloat(bilty.dd_charge || 0),
+          other_charge: parseFloat(bilty.other_charge || 0),
+          total_amount: parseFloat(bilty.total || bilty.grand_total || bilty.amount || 0),
+          created_by: user?.id || null,
+          updated_by: user?.id || null
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('monthly_bill_items')

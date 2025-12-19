@@ -934,7 +934,15 @@ export default function BiltyForm() {
       pf_charge: 0,
       total: 70,
       remark: '',
-      saving_option: 'SAVE'
+      saving_option: 'SAVE',
+      // Reset internal state flags
+      _rate_unit: 'PER_KG',
+      _rate_unit_override: false,
+      _labour_unit: 'PER_NAG',
+      _minimum_freight: 0,
+      _is_minimum_applied: false,
+      _dd_charge_applied: 0,
+      _rs_charge_applied: 0
     });
     
     // Always set to new mode after reset
@@ -1151,6 +1159,7 @@ export default function BiltyForm() {
             formData={formData}
             setFormData={setFormData}
             rates={rates}
+            cities={cities}
             onSave={handleSave}
             onSaveDraft={() => handleSave(true)}
             onReset={resetForm}

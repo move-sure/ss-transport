@@ -19,14 +19,11 @@ const formatCurrency = (amount) => {
   return `₹${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
 };
 
-// Render cell value - using monthly_bill_items fields and bilty data
-// biltyData contains: no_of_pkg, wt, pvt_marks (from bilty table)
-// or: no_of_packets, weight, pvt_marks (from station_bilty_summary table)
+// Render cell value - all data is now directly in monthly_bill_items table
+// Fields: destination, city_id, no_of_packages, weight, pvt_marks, bilty_date
 const renderCellValue = (item, columnId, index, onEditItem, onRemoveItem) => {
-  const bilty = item.biltyData || {};
   const biltyType = (item.bilty_type || '').toLowerCase();
   const isRegular = biltyType === 'regular';
-  const paymentMode = (bilty.payment_mode || bilty.payment_status || '').toLowerCase();
 
   switch (columnId) {
     case 'sno':
@@ -45,52 +42,33 @@ const renderCellValue = (item, columnId, index, onEditItem, onRemoveItem) => {
       );
     
     case 'date':
-      return <span className="text-xs text-gray-700">{formatDate(bilty.bilty_date || bilty.created_at)}</span>;
+      // bilty_date is now stored in monthly_bill_items
+      return <span className="text-xs text-gray-700">{formatDate(item.bilty_date || item.created_at)}</span>;
     
-    case 'consignor':
-      return <span className="text-xs text-gray-900 truncate block max-w-32">{bilty.consignor_name || bilty.consignor || '-'}</span>;
-    
-    case 'consignee':
-      return <span className="text-xs text-gray-900 truncate block max-w-32">{bilty.consignee_name || bilty.consignee || '-'}</span>;
-    
-    // Packages: bilty table uses no_of_pkg, station_bilty_summary uses no_of_packets
-    // After mapping in useBillDetails, station's no_of_packets is mapped to no_of_pkg
+    // Packages: now stored as no_of_packages in monthly_bill_items
     case 'pkgs':
-      const pkgValue = bilty.no_of_pkg ?? bilty.no_of_packets ?? null;
-      return <span className="text-xs text-gray-700 text-center block">{pkgValue !== null ? pkgValue : '-'}</span>;
+      return <span className="text-xs text-gray-700 text-center block">{item.no_of_packages ?? '-'}</span>;
     
-    // Weight: bilty table uses wt, station_bilty_summary uses weight
-    // After mapping in useBillDetails, station's weight is mapped to wt
+    // Weight: now stored as weight in monthly_bill_items
     case 'weight':
-      const weightValue = bilty.wt ?? bilty.weight ?? null;
-      return <span className="text-xs text-gray-700 text-center block">{weightValue !== null ? weightValue : '-'}</span>;
+      return <span className="text-xs text-gray-700 text-center block">{item.weight ?? '-'}</span>;
     
-    case 'contain':
-      return <span className="text-xs text-gray-600 truncate block max-w-24">{bilty.contain || bilty.contents || '-'}</span>;
-    
-    // Pvt marks: same field name in both tables
+    // Pvt marks: now stored in monthly_bill_items
     case 'pvt_marks':
-      return <span className="text-xs text-gray-600 truncate block max-w-20">{bilty.pvt_marks || '-'}</span>;
+      return <span className="text-xs text-gray-600 truncate block max-w-20">{item.pvt_marks || '-'}</span>;
     
+    // Destination: now stored in monthly_bill_items (city full name)
     case 'to_city':
-      return <span className="text-xs text-gray-700">{bilty.to_city_name || bilty.station || '-'}</span>;
+      return <span className="text-xs text-gray-700">{item.destination || '-'}</span>;
     
+    // Delivery type: now stored in monthly_bill_items (door/godown)
     case 'delivery_type':
-      const dt = bilty.delivery_type?.toLowerCase();
+      const dt = item.delivery_type?.toLowerCase();
       return dt ? (
         <span className={`px-1.5 py-0.5 rounded text-[10px] ${dt === 'door' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
           {dt === 'door' ? 'Door' : 'Godown'}
         </span>
       ) : <span className="text-xs text-gray-400">-</span>;
-    
-    case 'invoice_no':
-      return <span className="text-xs text-gray-700">{bilty.invoice_no || '-'}</span>;
-    
-    case 'invoice_value':
-      return <span className="text-xs text-gray-700 text-right block">{bilty.invoice_value ? formatCurrency(bilty.invoice_value) : '-'}</span>;
-    
-    case 'e_way_bill':
-      return <span className="text-xs text-gray-700 truncate block max-w-24">{bilty.e_way_bill || '-'}</span>;
     
     case 'rate':
       return <span className="text-xs text-gray-700 text-right block">{formatCurrency(item.rate)}</span>;
@@ -122,17 +100,19 @@ const renderCellValue = (item, columnId, index, onEditItem, onRemoveItem) => {
       // Use other_charge from monthly_bill_items
       return <span className="text-xs text-gray-700 text-right block">{formatCurrency(item.other_charge)}</span>;
     
+    // Payment mode: now stored in monthly_bill_items (paid/to-pay/foc)
     case 'payment':
-      return (
+      const paymentMode = (item.payment_mode || '').toLowerCase();
+      return paymentMode ? (
         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
           paymentMode === 'paid' ? 'bg-green-100 text-green-700' :
-          paymentMode === 'to-pay' || paymentMode === 'to pay' ? 'bg-orange-100 text-orange-700' :
+          paymentMode === 'to-pay' ? 'bg-orange-100 text-orange-700' :
           paymentMode === 'foc' ? 'bg-gray-100 text-gray-700' :
           'bg-blue-100 text-blue-700'
         }`}>
-          {paymentMode ? paymentMode.toUpperCase() : '-'}
+          {paymentMode.toUpperCase()}
         </span>
-      );
+      ) : <span className="text-xs text-gray-400">-</span>;
     
     case 'amount':
       // Use total_amount from monthly_bill_items

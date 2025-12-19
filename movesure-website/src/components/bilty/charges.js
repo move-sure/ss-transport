@@ -334,8 +334,13 @@ const PackageChargesSection = ({
     const actualWeight = parseFloat(formData.wt) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
     const rate = parseFloat(formData.rate) || 0;
-    const rateUnit = formData._rate_unit || 'PER_KG';
-    const minimumFreight = parseFloat(formData._minimum_freight) || 0;
+    const rateUnit = formData._rate_unit || (consignorProfile?.rate_unit) || 'PER_KG';
+    
+    // Get minimum freight directly from consignorProfile (more reliable than formData._minimum_freight)
+    // This ensures minimum freight is applied even before profile application useEffect runs
+    const minimumFreight = consignorProfile?.freight_minimum_amount 
+      ? parseFloat(consignorProfile.freight_minimum_amount) 
+      : (parseFloat(formData._minimum_freight) || 0);
     
     // Get minimum weight - from profile or default 50 kg
     const minimumWeight = parseFloat(formData._minimum_weight) || DEFAULT_MINIMUM_WEIGHT;
@@ -354,15 +359,26 @@ const PackageChargesSection = ({
     // Calculate freight based on rate unit and minimum freight
     const result = calculateFreightWithMinimum(effectiveWeight, packages, rate, rateUnit, minimumFreight);
     
+    console.log('💰 Freight calculation:', {
+      weight: effectiveWeight,
+      rate,
+      rateUnit,
+      minimumFreight,
+      calculatedFreight: result.calculatedFreight,
+      finalFreight: result.freightAmount,
+      isMinimumApplied: result.isMinimumApplied
+    });
+    
     setFormData(prev => ({ 
       ...prev, 
       freight_amount: result.freightAmount,
       _effective_rate: result.effectiveRate,
       _is_minimum_applied: result.isMinimumApplied,
       _is_min_weight_applied: isMinWeightApplied,
-      _effective_weight: effectiveWeight
+      _effective_weight: effectiveWeight,
+      _minimum_freight: minimumFreight // Keep this in sync
     }));
-  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData, isEditMode, userChangedValues]);
+  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData, isEditMode, userChangedValues, consignorProfile]);
 
   useEffect(() => {
     // Calculate total - handle string values during decimal input
@@ -849,14 +865,20 @@ return (
                 </div>
                 
                 {/* Freight Calculation Display */}
-                <div className="flex items-center justify-between gap-1 px-2 py-1 bg-gray-50 text-gray-600 rounded border border-gray-200 text-[10px] font-medium">
+                <div className={`flex items-center justify-between gap-1 px-2 py-1 rounded border text-[10px] font-medium ${
+                  formData._is_minimum_applied 
+                    ? 'bg-amber-50 text-amber-700 border-amber-300' 
+                    : 'bg-gray-50 text-gray-600 border-gray-200'
+                }`}>
                   <span>📊 Freight:</span>
                   <span className="font-bold">
-                    {(formData._rate_unit || 'PER_KG') === 'PER_KG' 
-                      ? formData._is_min_weight_applied 
-                        ? `${formData._effective_weight || DEFAULT_MINIMUM_WEIGHT} kg (min) × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
-                        : `${formData.wt || 0} kg × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
-                      : `${formData.no_of_pkg || 0} pkg × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
+                    {formData._is_minimum_applied 
+                      ? `${formData.wt || 0} kg × ₹${formData.rate || 0} = ₹${Math.round((formData.wt || 0) * (formData.rate || 0))} → Min ₹${formData._minimum_freight || formData.freight_amount}`
+                      : (formData._rate_unit || 'PER_KG') === 'PER_KG' 
+                        ? formData._is_min_weight_applied 
+                          ? `${formData._effective_weight || DEFAULT_MINIMUM_WEIGHT} kg (min wt) × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
+                          : `${formData.wt || 0} kg × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
+                        : `${formData.no_of_pkg || 0} pkg × ₹${formData.rate || 0} = ₹${formData.freight_amount || 0}`
                     }
                   </span>
                   {formData._rate_unit_override && (

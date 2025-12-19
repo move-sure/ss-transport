@@ -325,6 +325,24 @@ const BiltyList = ({
 
   const isChallanLocked = Boolean(selectedChallan?.is_dispatched);
 
+  // Calculate totals for filtered bilties
+  const calculateTotals = (biltiesArray) => {
+    return biltiesArray.reduce((acc, bilty) => {
+      const weight = parseFloat(bilty.wt || bilty.weight || 0);
+      const packages = parseInt(bilty.no_of_pkg || bilty.no_of_packets || 0);
+      const amount = parseFloat(bilty.total || bilty.amount || 0);
+      
+      return {
+        totalWeight: acc.totalWeight + weight,
+        totalPackages: acc.totalPackages + packages,
+        totalAmount: acc.totalAmount + amount
+      };
+    }, { totalWeight: 0, totalPackages: 0, totalAmount: 0 });
+  };
+
+  const availableTotals = calculateTotals(fullyFilteredBilties);
+  const transitTotals = calculateTotals(filteredTransitBilties);
+
   // Builds consistent row styling so selection visibly highlights the full row.
   const getRowClassNames = (isSelected, isLocked) => {
     const baseClasses = 'transition-colors border-b border-slate-200 last:border-b-0';
@@ -633,6 +651,22 @@ const BiltyList = ({
                     );
                   })}
                 </tbody>
+                {filteredTransitBilties.length > 0 && (
+                  <tfoot className="bg-gradient-to-r from-indigo-50 to-blue-50 border-t-2 border-indigo-200">
+                    <tr className="font-bold text-slate-900">
+                      <td className="px-2.5 py-3" colSpan="11">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-indigo-600" />
+                          <span className="text-sm">Totals:</span>
+                        </div>
+                      </td>
+                      <td className="px-2.5 py-3 text-sm font-bold text-indigo-700">{transitTotals.totalPackages}</td>
+                      <td className="px-2.5 py-3 text-sm font-bold text-indigo-700">{transitTotals.totalWeight.toFixed(2)}</td>
+                      <td className="px-2.5 py-3 text-sm font-bold text-indigo-700">₹{transitTotals.totalAmount.toFixed(2)}</td>
+                      {!isChallanLocked && <td className="px-2.5 py-3"></td>}
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           ) : (
@@ -884,6 +918,21 @@ const BiltyList = ({
                   );
                 })}
               </tbody>
+              {fullyFilteredBilties.length > 0 && (
+                <tfoot className="bg-gradient-to-r from-emerald-50 to-green-50 border-t-2 border-emerald-200">
+                  <tr className="font-bold text-slate-900">
+                    <td className="px-2.5 py-3" colSpan="11">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-emerald-600" />
+                        <span className="text-sm">Totals:</span>
+                      </div>
+                    </td>
+                    <td className="px-2.5 py-3 text-sm font-bold text-emerald-700">{availableTotals.totalPackages}</td>
+                    <td className="px-2.5 py-3 text-sm font-bold text-emerald-700">{availableTotals.totalWeight.toFixed(2)}</td>
+                    <td className="px-2.5 py-3 text-sm font-bold text-emerald-700">₹{availableTotals.totalAmount.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           ) : (
             <div className="px-6 py-8 text-center text-slate-500">

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
-import { ChevronDown, Truck, Package, MapPin, Plus, AlertTriangle, CheckCircle, X, User, Phone, CreditCard } from 'lucide-react';
+import { ChevronDown, Truck, Package, MapPin, Plus, AlertTriangle, CheckCircle, X, User, Phone, CreditCard, Search } from 'lucide-react';
 
 const ChallanSelector = ({ 
   challans, 
@@ -21,17 +21,23 @@ const ChallanSelector = ({
 }) => {
   const [showChallanDropdown, setShowChallanDropdown] = useState(false);
   const [showChallanBookDropdown, setShowChallanBookDropdown] = useState(false);
+  const [challanSearchQuery, setChallanSearchQuery] = useState('');
+  const [challanBookSearchQuery, setChallanBookSearchQuery] = useState('');
   
   const challanRef = useRef(null);
   const challanBookRef = useRef(null);
+  const challanDropdownRef = useRef(null);
+  const selectedChallanRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (challanRef.current && !challanRef.current.contains(event.target)) {
         setShowChallanDropdown(false);
+        setChallanSearchQuery('');
       }
       if (challanBookRef.current && !challanBookRef.current.contains(event.target)) {
         setShowChallanBookDropdown(false);
+        setChallanBookSearchQuery('');
       }
     };
 
@@ -39,9 +45,41 @@ const ChallanSelector = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Separate dispatched and non-dispatched challans
-  const activeChallans = challans.filter(c => !c.is_dispatched);
-  const dispatchedChallans = challans.filter(c => c.is_dispatched);
+  // Auto-scroll to selected challan when dropdown opens
+  useEffect(() => {
+    if (showChallanDropdown && selectedChallanRef.current && challanDropdownRef.current) {
+      setTimeout(() => {
+        selectedChallanRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 100);
+    }
+  }, [showChallanDropdown]);
+
+  // Separate dispatched and non-dispatched challans with search filter
+  const filterChallans = (challanList) => {
+    if (!challanSearchQuery.trim()) return challanList;
+    const query = challanSearchQuery.toLowerCase();
+    return challanList.filter(c => 
+      c.challan_no?.toLowerCase().includes(query) ||
+      c.truck?.truck_number?.toLowerCase().includes(query) ||
+      c.driver?.name?.toLowerCase().includes(query) ||
+      c.owner?.name?.toLowerCase().includes(query)
+    );
+  };
+
+  const activeChallans = filterChallans(challans.filter(c => !c.is_dispatched));
+  const dispatchedChallans = filterChallans(challans.filter(c => c.is_dispatched));
+
+  // Filter challan books
+  const filteredChallanBooks = challanBooks.filter(book => {
+    if (!challanBookSearchQuery.trim()) return true;
+    const query = challanBookSearchQuery.toLowerCase();
+    const challanNumber = generateChallanNumber(book);
+    const destinationBranch = getDestinationBranchName(book.id);
+    return challanNumber.toLowerCase().includes(query) || destinationBranch.toLowerCase().includes(query);
+  });
 
   // Calculate bilty counts from transit data
   const getTransitBiltyCounts = () => {
@@ -85,11 +123,13 @@ const ChallanSelector = ({
   const handleChallanSelect = (challan) => {
     setSelectedChallan(challan);
     setShowChallanDropdown(false);
+    setChallanSearchQuery('');
   };
 
   const handleChallanBookSelect = (book) => {
     setSelectedChallanBook(book);
     setShowChallanBookDropdown(false);
+    setChallanBookSearchQuery('');
   };
 
   return (
@@ -128,12 +168,33 @@ const ChallanSelector = ({
 
             {showChallanDropdown && (
               <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
-                <div className="max-h-80 overflow-y-auto">
+                {/* Search Box */}
+                <div className="sticky top-0 z-20 border-b border-slate-200 bg-white p-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by challan, truck, driver..."
+                      value={challanSearchQuery}
+                      onChange={(e) => setChallanSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto" ref={challanDropdownRef}>
                   {challans.length === 0 ? (
                     <div className="px-3 py-8 text-center text-slate-500">
                       <Truck className="mx-auto mb-3 h-10 w-10 text-slate-300" />
                       <p className="text-sm font-semibold">No challans available</p>
                       <p className="text-xs text-slate-400">Create a challan to begin assigning bilties.</p>
+                    </div>
+                  ) : activeChallans.length === 0 && dispatchedChallans.length === 0 ? (
+                    <div className="px-3 py-8 text-center text-slate-500">
+                      <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-semibold">No results found</p>
+                      <p className="text-xs text-slate-400">Try a different search term.</p>
                     </div>
                   ) : (
                     <>
@@ -148,9 +209,10 @@ const ChallanSelector = ({
                             return (
                               <button
                                 key={challan.id}
+                                ref={isCurrent ? selectedChallanRef : null}
                                 onClick={() => handleChallanSelect(challan)}
                                 className={`flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-indigo-50 ${
-                                  isCurrent ? 'bg-indigo-50' : 'bg-white'
+                                  isCurrent ? 'bg-indigo-100 border-l-4 border-indigo-500' : 'bg-white'
                                 }`}
                               >
                                 <div className="min-w-0 flex-1">
@@ -175,28 +237,35 @@ const ChallanSelector = ({
                           <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-orange-100 bg-orange-50 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-orange-600">
                             <AlertTriangle className="h-3 w-3" /> Dispatched ({dispatchedChallans.length})
                           </div>
-                          {dispatchedChallans.map((challan) => (
-                            <button
-                              key={challan.id}
-                              onClick={() => handleChallanSelect(challan)}
-                              className="flex w-full items-start justify-between gap-3 bg-slate-50 px-3 py-2.5 text-left transition hover:bg-orange-50"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-slate-700">{challan.challan_no}</p>
-                                <p className="text-xs text-slate-500">
-                                  {formatDate(challan.date)}
-                                  {challan.dispatch_date && ` • Dispatched ${formatDate(challan.dispatch_date)}`}
-                                </p>
-                                <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                                  <Package className="h-3 w-3" />
-                                  {challan.total_bilty_count || 0} bilties • read-only
-                                </p>
-                              </div>
-                              <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-600">
-                                Dispatched
-                              </span>
-                            </button>
-                          ))}
+                          {dispatchedChallans.map((challan) => {
+                            const isCurrent = challan.id === selectedChallan?.id;
+
+                            return (
+                              <button
+                                key={challan.id}
+                                ref={isCurrent ? selectedChallanRef : null}
+                                onClick={() => handleChallanSelect(challan)}
+                                className={`flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-orange-50 ${
+                                  isCurrent ? 'bg-orange-100 border-l-4 border-orange-500' : 'bg-slate-50'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-slate-700">{challan.challan_no}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {formatDate(challan.date)}
+                                    {challan.dispatch_date && ` • Dispatched ${formatDate(challan.dispatch_date)}`}
+                                  </p>
+                                  <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                                    <Package className="h-3 w-3" />
+                                    {challan.total_bilty_count || 0} bilties • read-only
+                                  </p>
+                                </div>
+                                <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-600">
+                                  Dispatched
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </>
@@ -226,29 +295,56 @@ const ChallanSelector = ({
 
             {showChallanBookDropdown && (
               <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+                {/* Search Box */}
+                <div className="sticky top-0 z-20 border-b border-slate-200 bg-white p-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search challan book..."
+                      value={challanBookSearchQuery}
+                      onChange={(e) => setChallanBookSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
                 <div className="max-h-64 overflow-y-auto">
-                  {challanBooks.length > 0 ? (
-                    challanBooks.map((book) => (
-                      <button
-                        key={book.id}
-                        onClick={() => handleChallanBookSelect(book)}
-                        className="flex w-full flex-col gap-1 px-3 py-2.5 text-left transition hover:bg-indigo-50"
-                      >
-                        <p className="truncate text-xs font-semibold text-slate-900">
-                          {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} -
-                          {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
-                        </p>
-                        <p className="text-xs text-slate-500">Next: {generateChallanNumber(book)}</p>
-                        <p className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500">
-                          <MapPin className="h-3 w-3" /> To {getDestinationBranchName(book.id)}
-                        </p>
-                      </button>
-                    ))
-                  ) : (
+                  {filteredChallanBooks.length > 0 ? (
+                    filteredChallanBooks.map((book) => {
+                      const isCurrent = book.id === selectedChallanBook?.id;
+
+                      return (
+                        <button
+                          key={book.id}
+                          onClick={() => handleChallanBookSelect(book)}
+                          className={`flex w-full flex-col gap-1 px-3 py-2.5 text-left transition hover:bg-indigo-50 ${
+                            isCurrent ? 'bg-indigo-100 border-l-4 border-indigo-500' : ''
+                          }`}
+                        >
+                          <p className="truncate text-xs font-semibold text-slate-900">
+                            {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} -
+                            {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                          </p>
+                          <p className="text-xs text-slate-500">Next: {generateChallanNumber(book)}</p>
+                          <p className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500">
+                            <MapPin className="h-3 w-3" /> To {getDestinationBranchName(book.id)}
+                          </p>
+                        </button>
+                      );
+                    })
+                  ) : challanBooks.length === 0 ? (
                     <div className="px-3 py-5 text-center text-slate-500">
                       <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
                       <p className="text-sm font-semibold">No challan books found</p>
                       <p className="text-xs text-slate-400">Create a challan book to continue.</p>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-5 text-center text-slate-500">
+                      <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                      <p className="text-sm font-semibold">No results found</p>
+                      <p className="text-xs text-slate-400">Try a different search term.</p>
                     </div>
                   )}
                 </div>

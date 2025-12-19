@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Loader2, Printer, ClipboardList, History } from 'lucide-react';
+import { Plus, Loader2, Printer, ClipboardList, History, ChevronDown } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 // Import sub-components
@@ -42,11 +42,16 @@ const getInitialFormData = () => ({
 });
 
 const ConsignorBiltyProfile = ({ user }) => {
+  // Pagination constants
+  const PAGE_SIZE = 50;
+  
   // Data states
   const [profiles, setProfiles] = useState([]);
   const [consignors, setConsignors] = useState([]);
   const [cities, setCities] = useState([]);
   const [transports, setTransports] = useState([]);
+  const [totalProfileCount, setTotalProfileCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   
   // UI states
   const [loading, setLoading] = useState(true);
@@ -82,11 +87,17 @@ const ConsignorBiltyProfile = ({ user }) => {
     setError(null);
 
     try {
+      // Get total count first
+      const { count: profileCount } = await supabase
+        .from('consignor_bilty_profile')
+        .select('*', { count: 'exact', head: true });
+
       const [profilesRes, consignorsRes, citiesRes, transportsRes] = await Promise.all([
         supabase
           .from('consignor_bilty_profile')
           .select('*')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .range(0, PAGE_SIZE - 1), // Load only first 50
         supabase
           .from('consignors')
           .select('id, company_name, company_add, number, gst_num')
@@ -107,6 +118,7 @@ const ConsignorBiltyProfile = ({ user }) => {
       if (transportsRes.error) throw transportsRes.error;
 
       setProfiles(profilesRes.data || []);
+      setTotalProfileCount(profileCount || 0);
       setConsignors(consignorsRes.data || []);
       setCities(citiesRes.data || []);
       setTransports(transportsRes.data || []);
@@ -117,6 +129,30 @@ const ConsignorBiltyProfile = ({ user }) => {
       setLoading(false);
     }
   };
+
+  // Load more profiles
+  const loadMoreProfiles = async () => {
+    setLoadingMore(true);
+    try {
+      const { data, error } = await supabase
+        .from('consignor_bilty_profile')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(profiles.length, profiles.length + PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      setProfiles(prev => [...prev, ...(data || [])]);
+    } catch (err) {
+      console.error('Error loading more profiles:', err);
+      setError('Failed to load more profiles.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Check if there are more profiles to load
+  const hasMoreProfiles = profiles.length < totalProfileCount;
 
   // Get consignor name by ID
   const getConsignorName = (consignorId) => {
@@ -524,7 +560,34 @@ const ConsignorBiltyProfile = ({ user }) => {
             onEdit={handleEdit}
             onDuplicate={handleDuplicate}
             onDelete={(id) => setShowDeleteConfirm(id)}
+            totalCount={totalProfileCount}
           />
+
+          {/* Load More Button */}
+          {hasMoreProfiles && !searchQuery && !selectedConsignor && !selectedCity && (
+            <div className="flex flex-col items-center gap-2 mt-4">
+              <p className="text-sm text-gray-500">
+                Showing {profiles.length} of {totalProfileCount} profiles
+              </p>
+              <button
+                onClick={loadMoreProfiles}
+                disabled={loadingMore}
+                className="inline-flex items-center px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                    Load More ({Math.min(PAGE_SIZE, totalProfileCount - profiles.length)} more)
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <CompanyHistoryTab

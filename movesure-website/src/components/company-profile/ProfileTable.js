@@ -10,7 +10,8 @@ const ProfileTable = ({
   getCityName,
   onEdit,
   onDuplicate,
-  onDelete
+  onDelete,
+  totalCount
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -61,7 +62,10 @@ const ProfileTable = ({
       {/* Results count */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
         <p className="text-sm text-gray-600">
-          Showing <span className="font-medium">{profiles.length}</span> profiles
+          Showing <span className="font-medium">{profiles.length}</span>
+          {totalCount && totalCount > profiles.length ? (
+            <> of <span className="font-medium">{totalCount}</span></>
+          ) : null} profiles
         </p>
       </div>
     </div>

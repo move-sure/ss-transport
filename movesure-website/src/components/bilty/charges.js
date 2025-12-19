@@ -310,8 +310,27 @@ const PackageChargesSection = ({
     return () => window.removeEventListener('rateCopied', handleRateCopied);
   }, [setFormData]);
 
-  // Calculate freight amount with minimum freight logic and minimum weight
+  // Track if user manually changed weight/rate/packages in edit mode
+  const [userChangedValues, setUserChangedValues] = useState(false);
+  const initialFreightRef = useRef(null);
+
+  // Store initial freight amount in edit mode
   useEffect(() => {
+    if (isEditMode && formData.freight_amount && initialFreightRef.current === null) {
+      initialFreightRef.current = formData.freight_amount;
+      console.log('📦 Edit mode - storing initial freight:', formData.freight_amount);
+    }
+  }, [isEditMode, formData.freight_amount]);
+
+  // Calculate freight amount with minimum freight logic and minimum weight
+  // In edit mode, only recalculate if user explicitly changes weight/rate/packages
+  useEffect(() => {
+    // In edit mode, skip auto-calculation unless user changed values
+    if (isEditMode && !userChangedValues && initialFreightRef.current !== null) {
+      console.log('📦 Edit mode - using saved freight:', initialFreightRef.current);
+      return; // Keep the saved freight_amount from database
+    }
+
     const actualWeight = parseFloat(formData.wt) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
     const rate = parseFloat(formData.rate) || 0;
@@ -343,7 +362,7 @@ const PackageChargesSection = ({
       _is_min_weight_applied: isMinWeightApplied,
       _effective_weight: effectiveWeight
     }));
-  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData]);
+  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData, isEditMode, userChangedValues]);
 
   useEffect(() => {
     // Calculate total - handle string values during decimal input
@@ -686,6 +705,7 @@ return (
                     value={formData.no_of_pkg || ''}
                     onChange={(e) => {
                       const value = e.target.value.replace(/[^0-9]/g, '');
+                      if (isEditMode) setUserChangedValues(true);
                       setFormData(prev => ({ ...prev, no_of_pkg: value ? parseInt(value) : 0 }));
                     }}
                     onFocus={(e) => e.target.select()}
@@ -707,6 +727,7 @@ return (
                     value={formData.wt || ''}
                     onChange={(e) => {
                       const value = e.target.value.replace(/[^0-9.]/g, '');
+                      if (isEditMode) setUserChangedValues(true);
                       setFormData(prev => ({ ...prev, wt: value ? parseFloat(value) : 0 }));
                     }}
                     onFocus={(e) => e.target.select()}
@@ -783,6 +804,9 @@ return (
                           if (parts.length > 2) {
                             value = parts[0] + '.' + parts.slice(1).join('');
                           }
+                          
+                          // Mark as user changed in edit mode
+                          if (isEditMode) setUserChangedValues(true);
                           
                           // Update formData with string value to allow decimal typing
                           setFormData(prev => ({ ...prev, rate: value }));
@@ -875,7 +899,7 @@ return (
                 )}
                 
                 {/* Default Labour Rate Info (when no consignor profile) */}
-                {!isEditMode && formData.to_city_id && !consignorProfile && !loadingProfile && (
+                {formData.to_city_id && !consignorProfile && !loadingProfile && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded border border-gray-300 text-[10px] font-medium">
                     <svg className="w-2 h-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

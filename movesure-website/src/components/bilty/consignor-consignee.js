@@ -14,7 +14,8 @@ import {
   checkDuplicateConsignor,
   checkDuplicateConsignee,
   getSimilarConsignors,
-  getSimilarConsignees
+  getSimilarConsignees,
+  getConsigneeLastCity
 } from './consignor-consignee-helper';
 
 const ConsignorConsigneeSection = ({ 
@@ -51,6 +52,9 @@ const ConsignorConsigneeSection = ({
   const [consigneeSuggestions, setConsigneeSuggestions] = useState([]);
   const [consignorExists, setConsignorExists] = useState(false);
   const [consigneeExists, setConsigneeExists] = useState(false);
+  
+  // Last city for consignee (from most recent bilty)
+  const [consigneeLastCity, setConsigneeLastCity] = useState(null);
     const consignorRef = useRef(null);
   const consigneeRef = useRef(null);
   const consignorInputRef = useRef(null);
@@ -112,6 +116,11 @@ const ConsignorConsigneeSection = ({
     }
     if (formData.consignee_name && consigneeSearch !== formData.consignee_name) {
       setConsigneeSearch(formData.consignee_name);
+    }
+    // Clear last city when consignee name is cleared (e.g., form reset)
+    if (!formData.consignee_name) {
+      setConsigneeLastCity(null);
+      setConsigneeSearch('');
     }
   }, [formData.consignor_name, formData.consignee_name]);
   // Simple tab navigation using standard tabIndex
@@ -212,6 +221,9 @@ const ConsignorConsigneeSection = ({
     const upperValue = value.toUpperCase();
     console.log('🎯 Consignee search changed:', upperValue);
     
+    // Clear last city when user is typing (not when selecting)
+    setConsigneeLastCity(null);
+    
     // Update search state immediately
     setConsigneeSearch(upperValue);
     
@@ -232,6 +244,7 @@ const ConsignorConsigneeSection = ({
       setShowConsigneeDropdown(false);
       clearResults();
       setConsigneeSelectedIndex(-1);
+      setConsigneeLastCity(null);
       return;
     }
     
@@ -296,6 +309,13 @@ const ConsignorConsigneeSection = ({
   const handleConsigneeSelect = async (consignee) => {
     console.log('🎯 Consignee selected:', consignee.company_name);
     setConsigneeSearch(consignee.company_name);
+    
+    // Fetch last city for this consignee from their most recent bilty
+    const lastCity = await getConsigneeLastCity(consignee.company_name);
+    setConsigneeLastCity(lastCity);
+    if (lastCity) {
+      console.log('📍 Consignee last city:', lastCity.city_name);
+    }
     
     setFormData(prev => {
       const updatedData = {
@@ -1024,6 +1044,20 @@ const ConsignorConsigneeSection = ({
           />
         </div>
       </div>
+
+      {/* Consignee Last City Info */}
+      {consigneeLastCity && formData.consignee_name && (
+        <div className="grid grid-cols-12 gap-2 items-center mt-1">
+          <div className="col-span-1"></div>
+          <div className="col-span-11">
+            <div className="flex items-center gap-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+              <span className="text-xs text-amber-700 font-medium">
+                📍 Last Station: <span className="font-bold text-amber-900">{consigneeLastCity.city_name}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add New Consignor Modal */}
       {showAddConsignor && (

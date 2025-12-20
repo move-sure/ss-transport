@@ -279,3 +279,36 @@ export const getSimilarConsignees = async (searchTerm, limit = 5) => {
     return [];
   }
 };
+
+// Get the last city (to_city) for a consignee from their most recent bilty
+export const getConsigneeLastCity = async (consigneeName) => {
+  try {
+    // Find the most recent bilty for this consignee
+    const { data: biltyData, error: biltyError } = await supabase
+      .from('bilty')
+      .select('to_city_id')
+      .ilike('consignee_name', consigneeName.trim())
+      .eq('is_active', true)
+      .order('bilty_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (biltyError || !biltyData?.to_city_id) {
+      return null;
+    }
+
+    // Get the city name
+    const { data: cityData, error: cityError } = await supabase
+      .from('cities')
+      .select('id, city_name, city_code')
+      .eq('id', biltyData.to_city_id)
+      .single();
+
+    if (cityError) throw cityError;
+    return cityData;
+  } catch (error) {
+    console.error('Error getting consignee last city:', error);
+    return null;
+  }
+};

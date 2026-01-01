@@ -324,6 +324,7 @@ export default function FinancePage() {
               onAddBulkExpense={() => handleOpenBulkModal('expense')}
               onEditTransaction={handleEditTransaction}
               onDeleteTransaction={handleDeleteTransaction}
+              onSearchByDate={(startDate, endDate) => fetchTransactions(startDate, endDate)}
             />
           )}
         </div>

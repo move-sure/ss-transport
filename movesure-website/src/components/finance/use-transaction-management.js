@@ -19,13 +19,27 @@ export default function useTransactionManagement(user) {
   const [transactionFormErrors, setTransactionFormErrors] = useState({});
   const [transactionSubmitting, setTransactionSubmitting] = useState(false);
 
-  // Fetch transactions
-  const fetchTransactions = async () => {
+  // Fetch transactions - fetch all transactions with date range filter support
+  const fetchTransactions = async (startDate = null, endDate = null) => {
     try {
-      const [incomeRes, expenseRes] = await Promise.all([
-        supabase.from('income_transactions').select('*').order('transaction_date', { ascending: false }),
-        supabase.from('expense_transactions').select('*').order('transaction_date', { ascending: false })
-      ]);
+      let incomeQuery = supabase.from('income_transactions').select('*');
+      let expenseQuery = supabase.from('expense_transactions').select('*');
+
+      // Apply date filters if provided
+      if (startDate) {
+        incomeQuery = incomeQuery.gte('transaction_date', startDate);
+        expenseQuery = expenseQuery.gte('transaction_date', startDate);
+      }
+      if (endDate) {
+        incomeQuery = incomeQuery.lte('transaction_date', endDate);
+        expenseQuery = expenseQuery.lte('transaction_date', endDate);
+      }
+
+      // Order and set a high limit to fetch all records
+      incomeQuery = incomeQuery.order('transaction_date', { ascending: false }).limit(10000);
+      expenseQuery = expenseQuery.order('transaction_date', { ascending: false }).limit(10000);
+
+      const [incomeRes, expenseRes] = await Promise.all([incomeQuery, expenseQuery]);
 
       if (incomeRes.error) throw incomeRes.error;
       if (expenseRes.error) throw expenseRes.error;

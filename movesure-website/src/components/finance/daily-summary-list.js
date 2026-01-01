@@ -9,17 +9,38 @@ export default function DailySummaryList({
   onDeleteSummary
 }) {
   const [filterBranch, setFilterBranch] = useState('');
-  const [filterMonth, setFilterMonth] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   // Filter summaries
   const filteredSummaries = summaries.filter(summary => {
     if (filterBranch && summary.branch_id !== filterBranch) return false;
-    if (filterMonth) {
-      const summaryMonth = summary.summary_date.substring(0, 7); // YYYY-MM
-      if (summaryMonth !== filterMonth) return false;
+    
+    // Date range filter
+    if (filterStartDate) {
+      const startDate = new Date(filterStartDate);
+      const summaryDate = new Date(summary.summary_date);
+      if (summaryDate < startDate) return false;
     }
+    if (filterEndDate) {
+      const endDate = new Date(filterEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      const summaryDate = new Date(summary.summary_date);
+      if (summaryDate > endDate) return false;
+    }
+    
     return true;
   });
+
+  // Check if any filters are active
+  const hasActiveFilters = filterBranch || filterStartDate || filterEndDate;
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilterBranch('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+  };
 
   // Calculate totals
   const totals = filteredSummaries.reduce((acc, summary) => {
@@ -33,11 +54,11 @@ export default function DailySummaryList({
       {/* Header */}
       <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+          <div>
             <label className="block text-xs font-semibold text-gray-900 mb-1">
-              <Filter size={14} className="inline mr-1" />
-              Filter by Branch
+              <Building2 size={14} className="inline mr-1" />
+              Branch
             </label>
             <select
               value={filterBranch}
@@ -52,17 +73,39 @@ export default function DailySummaryList({
               ))}
             </select>
           </div>
-          <div className="flex-1">
+          <div>
             <label className="block text-xs font-semibold text-gray-900 mb-1">
               <Calendar size={14} className="inline mr-1" />
-              Filter by Month
+              From Date
             </label>
             <input
-              type="month"
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm text-gray-900"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-900 mb-1">
+              <Calendar size={14} className="inline mr-1" />
+              To Date
+            </label>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm text-gray-900"
+            />
+          </div>
+          <div className="flex items-end">
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
@@ -99,9 +142,17 @@ export default function DailySummaryList({
         <div className="text-center py-16">
           <Calendar className="mx-auto text-gray-400 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No daily summaries found</h3>
-          <p className="text-gray-600">
-            {filterBranch || filterMonth ? 'Try adjusting your filters' : 'Start by adding your first daily summary'}
+          <p className="text-gray-600 mb-4">
+            {hasActiveFilters ? 'Try adjusting your filters' : 'Start by adding your first daily summary'}
           </p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all shadow-md"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto">

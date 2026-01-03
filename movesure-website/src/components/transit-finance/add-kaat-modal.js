@@ -17,6 +17,10 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
   const [selectedCity, setSelectedCity] = useState(null);
   const [searchCity, setSearchCity] = useState('');
   const [filteredCities, setFilteredCities] = useState([]);
+  const [existingRates, setExistingRates] = useState([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [editingExistingId, setEditingExistingId] = useState(null);
+  const [editExistingForm, setEditExistingForm] = useState({});
   
   // Form states
   const [formData, setFormData] = useState({
@@ -80,6 +84,142 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     }
   };
 
+  const checkExistingRates = async (transportId, destinationCityId) => {
+    try {
+      setShowDuplicateWarning(false);
+      setExistingRates([]);
+
+      const { data, error: fetchError } = await supabase
+        .from('transport_hub_rates')
+        .select('*')
+        .eq('transport_id', transportId)
+        .eq('destination_city_id', destinationCityId)
+        .eq('is_active', true);
+
+      if (fetchError) throw fetchError;
+
+      if (data && data.length > 0) {
+        console.log('⚠️ Found existing rates:', data.length);
+        setExistingRates(data);
+        setShowDuplicateWarning(true);
+      } else {
+        setExistingRates([]);
+        setShowDuplicateWarning(false);
+      }
+
+    } catch (err) {
+      console.error('❌ Error checking existing rates:', err);
+    }
+  };
+
+  const handleEditExisting = (rate) => {
+    setEditingExistingId(rate.id);
+    setEditExistingForm({
+      goods_type: rate.goods_type || '',
+      pricing_mode: rate.pricing_mode,
+      rate_per_kg: rate.rate_per_kg || '',
+      rate_per_pkg: rate.rate_per_pkg || '',
+      min_charge: rate.min_charge || '0',
+      transit_days: rate.metadata?.transit_days || '',
+      notes: rate.metadata?.notes || ''
+    });
+  };
+
+  const handleCancelEditExisting = () => {
+    setEditingExistingId(null);
+    setEditExistingForm({});
+  };
+
+  const handleUpdateExisting = async (id) => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      let updatedBy = null;
+      if (typeof window !== 'undefined') {
+        const userSession = localStorage.getItem('userSession');
+        if (userSession) {
+          const session = JSON.parse(userSession);
+          updatedBy = session.user?.id || null;
+        }
+      }
+
+      const metadata = {};
+      if (editExistingForm.transit_days) metadata.transit_days = parseInt(editExistingForm.transit_days);
+      if (editExistingForm.notes) metadata.notes = editExistingForm.notes;
+
+      const updateData = {
+        goods_type: editExistingForm.goods_type || null,
+        pricing_mode: editExistingForm.pricing_mode,
+        rate_per_kg: editExistingForm.rate_per_kg ? parseFloat(editExistingForm.rate_per_kg) : null,
+        rate_per_pkg: editExistingForm.rate_per_pkg ? parseFloat(editExistingForm.rate_per_pkg) : null,
+        min_charge: editExistingForm.min_charge ? parseFloat(editExistingForm.min_charge) : 0,
+        metadata: Object.keys(metadata).length > 0 ? metadata : null,
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: updateError } = await supabase
+        .from('transport_hub_rates')
+        .update(updateData)
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Existing rate updated successfully');
+      setSuccess('Rate updated successfully!');
+      
+      window.dispatchEvent(new CustomEvent('hubRateUpdated'));
+      
+      // Reload existing rates
+      if (selectedTransport && selectedCity) {
+        await checkExistingRates(selectedTransport.id, selectedCity.id);
+      }
+      
+      setTimeout(() => {
+        setSuccess(null);
+        handleCancelEditExisting();
+      }, 1500);
+
+    } catch (err) {
+      console.error('❌ Error updating existing rate:', err);
+      setError(err.message || 'Failed to update rate');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteExisting = async (id) => {
+    if (!confirm('Delete this existing rate?')) return;
+
+    try {
+      setError(null);
+
+      const { error: deleteError } = await supabase
+        .from('transport_hub_rates')
+        .update({ is_active: false })
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+
+      console.log('✅ Existing rate deleted');
+      setSuccess('Rate deleted successfully!');
+      
+      window.dispatchEvent(new CustomEvent('hubRateUpdated'));
+      
+      // Reload existing rates
+      if (selectedTransport && selectedCity) {
+        await checkExistingRates(selectedTransport.id, selectedCity.id);
+      }
+      
+      setTimeout(() => setSuccess(null), 1500);
+
+    } catch (err) {
+      console.error('❌ Error deleting existing rate:', err);
+      setError(err.message || 'Failed to delete rate');
+    }
+  };
+
   // Handle city search
   const handleCitySearch = (query) => {
     setSearchCity(query);
@@ -98,12 +238,14 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
   };
 
   // Handle city selection
-  const handleCitySelect = (city) => {
+  const handleCitySelect = async (city) => {
     setSelectedCity(city);
     setFormData(prev => ({ ...prev, destination_city_id: city.id }));
     setSearchCity('');
     setSelectedTransport(null);
     setFormData(prev => ({ ...prev, transport_id: '' }));
+    setExistingRates([]);
+    setShowDuplicateWarning(false);
   };
 
   const resetForm = () => {
@@ -126,12 +268,19 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     setFilteredCities(cities?.slice(0, 10) || []);
     setError(null);
     setSuccess(null);
+    setExistingRates([]);
+    setShowDuplicateWarning(false);
   };
 
-  const handleTransportSelect = (transport) => {
+  const handleTransportSelect = async (transport) => {
     setSelectedTransport(transport);
     setFormData(prev => ({ ...prev, transport_id: transport.id }));
     setSearchTransport('');
+    
+    // Check for existing rates with same transport and destination
+    if (selectedCity) {
+      await checkExistingRates(transport.id, selectedCity.id);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -295,6 +444,198 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
               <div>
                 <h4 className="text-green-800 font-semibold text-sm">Success</h4>
                 <p className="text-green-600 text-xs">{success}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Duplicate Warning with Edit */}
+          {showDuplicateWarning && existingRates.length > 0 && (
+            <div className="mb-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3">
+              <div className="flex items-start gap-2 mb-2">
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-yellow-800 font-bold text-sm">⚠️ Duplicate Rate Warning</h4>
+                  <p className="text-yellow-700 text-xs mt-0.5">
+                    {existingRates.length} existing {existingRates.length === 1 ? 'rate' : 'rates'} found - Edit below or add new
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-3 bg-white border border-yellow-300 rounded-lg overflow-hidden">
+                <div className="bg-yellow-100 px-3 py-2 border-b border-yellow-300">
+                  <h5 className="text-xs font-bold text-yellow-900">Existing Rates (Click Edit to Modify):</h5>
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {existingRates.map((rate) => {
+                    const isEditing = editingExistingId === rate.id;
+                    
+                    return (
+                      <div key={rate.id} className={`px-3 py-2.5 border-b border-yellow-200 last:border-b-0 ${isEditing ? 'bg-blue-50' : 'hover:bg-yellow-50'}`}>
+                        {isEditing ? (
+                          /* Edit Mode */
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Goods Type</label>
+                                <input
+                                  type="text"
+                                  value={editExistingForm.goods_type}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, goods_type: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Mode</label>
+                                <select
+                                  value={editExistingForm.pricing_mode}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, pricing_mode: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                >
+                                  <option value="per_kg">Per KG</option>
+                                  <option value="per_pkg">Per Pkg</option>
+                                  <option value="hybrid">Hybrid</option>
+                                </select>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-4 gap-2">
+                              {(editExistingForm.pricing_mode === 'per_kg' || editExistingForm.pricing_mode === 'hybrid') && (
+                                <div>
+                                  <label className="text-[9px] font-semibold text-gray-700">₹/KG</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editExistingForm.rate_per_kg}
+                                    onChange={(e) => setEditExistingForm(prev => ({ ...prev, rate_per_kg: e.target.value }))}
+                                    className="w-full px-2 py-1 border rounded text-[11px]"
+                                  />
+                                </div>
+                              )}
+                              {(editExistingForm.pricing_mode === 'per_pkg' || editExistingForm.pricing_mode === 'hybrid') && (
+                                <div>
+                                  <label className="text-[9px] font-semibold text-gray-700">₹/Pkg</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editExistingForm.rate_per_pkg}
+                                    onChange={(e) => setEditExistingForm(prev => ({ ...prev, rate_per_pkg: e.target.value }))}
+                                    className="w-full px-2 py-1 border rounded text-[11px]"
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Min ₹</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editExistingForm.min_charge}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, min_charge: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Days</label>
+                                <input
+                                  type="number"
+                                  value={editExistingForm.transit_days}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, transit_days: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                  placeholder="-"
+                                />
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <label className="text-[9px] font-semibold text-gray-700">Notes</label>
+                              <input
+                                type="text"
+                                value={editExistingForm.notes}
+                                onChange={(e) => setEditExistingForm(prev => ({ ...prev, notes: e.target.value }))}
+                                className="w-full px-2 py-1 border rounded text-[11px]"
+                                placeholder="Optional"
+                              />
+                            </div>
+                            
+                            <div className="flex gap-2 justify-end pt-1">
+                              <button
+                                onClick={() => handleUpdateExisting(rate.id)}
+                                disabled={saving}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded text-[11px] font-semibold hover:bg-green-700 flex items-center gap-1 disabled:opacity-50"
+                              >
+                                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                Update
+                              </button>
+                              <button
+                                onClick={handleCancelEditExisting}
+                                disabled={saving}
+                                className="px-3 py-1.5 bg-gray-500 text-white rounded text-[11px] font-semibold hover:bg-gray-600 flex items-center gap-1 disabled:opacity-50"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* View Mode */
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 text-[11px]">
+                                <span className="font-semibold text-gray-900">
+                                  {rate.pricing_mode === 'per_kg' && `₹${parseFloat(rate.rate_per_kg || 0).toFixed(2)}/KG`}
+                                  {rate.pricing_mode === 'per_pkg' && `₹${parseFloat(rate.rate_per_pkg || 0).toFixed(2)}/Pkg`}
+                                  {rate.pricing_mode === 'hybrid' && `₹${parseFloat(rate.rate_per_kg || 0).toFixed(2)}/KG | ₹${parseFloat(rate.rate_per_pkg || 0).toFixed(2)}/Pkg`}
+                                </span>
+                                <span className="text-gray-400">•</span>
+                                <span className="text-gray-600">Min: ₹{parseFloat(rate.min_charge || 0).toFixed(0)}</span>
+                                {rate.metadata?.transit_days && (
+                                  <>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-gray-600">{rate.metadata.transit_days}d</span>
+                                  </>
+                                )}
+                              </div>
+                              {rate.goods_type && (
+                                <div className="text-[10px] text-gray-600 mt-0.5">
+                                  Goods: {rate.goods_type}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                rate.pricing_mode === 'per_kg' 
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : rate.pricing_mode === 'per_pkg'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {rate.pricing_mode === 'per_kg' ? 'KG' : rate.pricing_mode === 'per_pkg' ? 'PKG' : 'BOTH'}
+                              </span>
+                              <button
+                                onClick={() => handleEditExisting(rate)}
+                                className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteExisting(rate.id)}
+                                className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="mt-2 text-[11px] text-yellow-700 font-medium">
+                💡 Edit existing rates above or scroll down to add a new rate
               </div>
             </div>
           )}

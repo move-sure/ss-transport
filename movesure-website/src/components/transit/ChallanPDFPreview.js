@@ -22,6 +22,18 @@ const ChallanPDFPreview = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const pdfViewerRef = useRef(null);
+  const [selectedCity, setSelectedCity] = useState('all');
+  const [availableCities, setAvailableCities] = useState([]);
+
+  // Get unique cities from transit bilties and reset filter when modal opens
+  useEffect(() => {
+    if (isOpen && type === 'challan' && transitBilties.length > 0) {
+      const cities = [...new Set(transitBilties.map(b => b.to_city_code).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+      setAvailableCities(cities);
+      setSelectedCity('all'); // Reset filter when opening
+    }
+  }, [isOpen, type, transitBilties]);
 
   // Generate PDF blob for preview
   const generatePDFBlob = useCallback(async () => {
@@ -29,10 +41,18 @@ const ChallanPDFPreview = ({
       setLoading(true);
       setError(null);
 
-      let doc;      if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob(transitBilties);
+      let doc;
+      let filteredData = transitBilties;
+      
+      // Filter by city if challan type and city is selected
+      if (type === 'challan' && selectedCity !== 'all') {
+        filteredData = transitBilties.filter(b => b.to_city_code === selectedCity);
+      }
+      
+      if (type === 'loading') {
+        doc = await generateLoadingChallanPDFBlob(filteredData);
       } else if (type === 'challan') {
-        doc = await generateChallanBiltiesPDFBlob(transitBilties);
+        doc = await generateChallanBiltiesPDFBlob(filteredData);
       } else {
         throw new Error('Invalid PDF type');
       }
@@ -222,8 +242,25 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, margin + 62, currentY);
         
-        // Add empty remark field
-        doc.text('', margin + 90, currentY);
+        // Add E-way bill indicator or W (missing consignor/consignee) in remark column
+        const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
+        const missingConsignorOrConsignee = bilty.bilty_type === 'station' && 
+          (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
+           !bilty.consignee_name || bilty.consignee_name.trim() === '');
+        
+        if (hasEwayBill && missingConsignorOrConsignee) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text('E,W', margin + 88, currentY);
+        } else if (hasEwayBill) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('E', margin + 90, currentY);
+        } else if (missingConsignorOrConsignee) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('W', margin + 90, currentY);
+        }
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
@@ -337,8 +374,25 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
-        // Add empty remark field
-        doc.text('', rightColumnX + 90, currentY);
+        // Add E-way bill indicator or W (missing consignor/consignee) in remark column
+        const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
+        const missingConsignorOrConsignee = bilty.bilty_type === 'station' && 
+          (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
+           !bilty.consignee_name || bilty.consignee_name.trim() === '');
+        
+        if (hasEwayBill && missingConsignorOrConsignee) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text('E,W', rightColumnX + 88, currentY);
+        } else if (hasEwayBill) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('E', rightColumnX + 90, currentY);
+        } else if (missingConsignorOrConsignee) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.text('W', rightColumnX + 90, currentY);
+        }
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
@@ -376,6 +430,25 @@ const ChallanPDFPreview = ({
     // Add totals at the bottom of the last page
     const lastPageBottomY = pageHeight - 40; // Position from bottom
     
+    // Calculate total e-way bills
+    const totalEwayBills = sortedBiltiesData.reduce((total, bilty) => {
+      if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
+        const ewayBills = bilty.e_way_bill.split(',').filter(bill => bill.trim() !== '');
+        return total + ewayBills.length;
+      }
+      return total;
+    }, 0);
+    
+    // Calculate total W (station bilties missing consignor or consignee)
+    const totalWCount = sortedBiltiesData.reduce((total, bilty) => {
+      if (bilty.bilty_type === 'station' && 
+          (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
+           !bilty.consignee_name || bilty.consignee_name.trim() === '')) {
+        return total + 1;
+      }
+      return total;
+    }, 0);
+    
     // Add totals section
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
@@ -384,6 +457,8 @@ const ChallanPDFPreview = ({
     doc.setFont('helvetica', 'normal');
     doc.text(`Total Packages: ${totalPackages}`, margin, lastPageBottomY + 6);
     doc.text(`Total Weight: ${Math.round(totalWeight)} KG`, margin, lastPageBottomY + 12);
+    doc.text(`Total E-way Bills: ${totalEwayBills}`, margin, lastPageBottomY + 18);
+    doc.text(`Total W (Missing Info): ${totalWCount}`, margin, lastPageBottomY + 24);
     
     // Add signature area
     doc.text('Authorized Signatory: ____________________', pageWidth - margin - 80, lastPageBottomY + 6);
@@ -629,12 +704,21 @@ const ChallanPDFPreview = ({
   const handleDownload = async () => {
     try {
       let doc;
-      let filename;      if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob(transitBilties);
+      let filename;
+      let filteredData = transitBilties;
+      
+      // Filter by city if challan type and city is selected
+      if (type === 'challan' && selectedCity !== 'all') {
+        filteredData = transitBilties.filter(b => b.to_city_code === selectedCity);
+      }
+      
+      if (type === 'loading') {
+        doc = await generateLoadingChallanPDFBlob(filteredData);
         filename = `Loading_Challan_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else if (type === 'challan') {
-        doc = await generateChallanBiltiesPDFBlob(transitBilties);
-        filename = `Challan_${selectedChallan.challan_no}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
+        doc = await generateChallanBiltiesPDFBlob(filteredData);
+        const cityPart = selectedCity !== 'all' ? `_${selectedCity}` : '';
+        filename = `Challan_${selectedChallan.challan_no}${cityPart}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else {
         throw new Error('Invalid PDF type');
       }
@@ -667,7 +751,7 @@ const ChallanPDFPreview = ({
     if (isOpen && type) {
       generatePDFBlob();
     }
-  }, [isOpen, type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, generatePDFBlob]);
+  }, [isOpen, type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, selectedCity, generatePDFBlob]);
 
   // Cleanup URL when component unmounts
   useEffect(() => {
@@ -712,6 +796,36 @@ const ChallanPDFPreview = ({
               )}
             </div>
             
+            {/* City Filter for Challan Type - Prominent Position */}
+            {type === 'challan' && availableCities.length > 0 && (
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg border border-white/30">
+                <span className="text-white text-sm font-bold">🎯 Filter by City:</span>
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="bg-white text-gray-800 border border-gray-300 rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-md"
+                >
+                  <option value="all">🌍 All Cities ({transitBilties.length} bilties)</option>
+                  {availableCities.map(city => {
+                    const count = transitBilties.filter(b => b.to_city_code === city).length;
+                    return (
+                      <option key={city} value={city}>
+                        📍 {city} ({count} bilties)
+                      </option>
+                    );
+                  })}
+                </select>
+                {selectedCity !== 'all' && (
+                  <button
+                    onClick={() => setSelectedCity('all')}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Document Info */}
             <div className="flex items-center gap-6 text-xs">
               <div className="flex items-center gap-1">
@@ -733,34 +847,44 @@ const ChallanPDFPreview = ({
               </div>
               
               <div>
-                <span className="text-purple-200">Total Bilties:</span>
-                <span className="ml-1 font-bold">{transitBilties.length}</span>
+                <span className="text-purple-200">{type === 'challan' && selectedCity !== 'all' ? 'Filtered' : 'Total'} Bilties:</span>
+                <span className="ml-1 font-bold">
+                  {type === 'challan' && selectedCity !== 'all' 
+                    ? `${transitBilties.filter(b => b.to_city_code === selectedCity).length} (of ${transitBilties.length})`
+                    : transitBilties.length}
+                </span>
               </div>
 
-              {transitBilties.length > 0 && (
-                <>
-                  <div>
-                    <span className="text-purple-200">Packages:</span>
-                    <span className="ml-1 font-bold">{transitBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}</span>
-                  </div>
-                  <div>
-                    <span className="text-purple-200">Weight:</span>
-                    <span className="ml-1 font-bold">{Math.round(transitBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg</span>
-                  </div>
-                  <div>
-                    <span className="text-purple-200">E-way Bills:</span>
-                    <span className="ml-1 font-bold">
-                      {transitBilties.reduce((total, bilty) => {
-                        if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
-                          const ewayBills = bilty.e_way_bill.split(',').filter(bill => bill.trim() !== '');
-                          return total + ewayBills.length;
-                        }
-                        return total;
-                      }, 0)}
-                    </span>
-                  </div>
-                </>
-              )}
+              {transitBilties.length > 0 && (() => {
+                const displayBilties = type === 'challan' && selectedCity !== 'all'
+                  ? transitBilties.filter(b => b.to_city_code === selectedCity)
+                  : transitBilties;
+                
+                return (
+                  <>
+                    <div>
+                      <span className="text-purple-200">Packages:</span>
+                      <span className="ml-1 font-bold">{displayBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-purple-200">Weight:</span>
+                      <span className="ml-1 font-bold">{Math.round(displayBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg</span>
+                    </div>
+                    <div>
+                      <span className="text-purple-200">E-way Bills:</span>
+                      <span className="ml-1 font-bold">
+                        {displayBilties.reduce((total, bilty) => {
+                          if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
+                            const ewayBills = bilty.e_way_bill.split(',').filter(bill => bill.trim() !== '');
+                            return total + ewayBills.length;
+                          }
+                          return total;
+                        }, 0)}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Action Buttons */}
@@ -914,8 +1038,15 @@ const ChallanPDFPreview = ({
               )}
             </div>
             
-            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-              Generated: {format(new Date(), 'dd/MM/yyyy HH:mm')}
+            <div className="flex items-center gap-3">
+              {type === 'challan' && selectedCity !== 'all' && (
+                <div className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-300">
+                  🎯 Filtered: {selectedCity}
+                </div>
+              )}
+              <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+                Generated: {format(new Date(), 'dd/MM/yyyy HH:mm')}
+              </div>
             </div>
           </div>
         </div>

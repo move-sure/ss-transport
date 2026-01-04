@@ -82,6 +82,13 @@ const ConsignorBiltyProfile = ({ user }) => {
     loadInitialData();
   }, []);
 
+  // Load profiles when filters change
+  useEffect(() => {
+    if (!loading) {
+      loadFilteredProfiles();
+    }
+  }, [selectedConsignor, selectedCity, showActiveOnly]);
+
   const loadInitialData = async () => {
     setLoading(true);
     setError(null);
@@ -130,6 +137,63 @@ const ConsignorBiltyProfile = ({ user }) => {
     }
   };
 
+  const loadFilteredProfiles = async () => {
+    // If no filters are applied, load only first 50
+    if (!selectedConsignor && !selectedCity && showActiveOnly) {
+      // Already loaded in initial data, no need to reload
+      if (profiles.length > 0) return;
+      
+      try {
+        const { data, error, count } = await supabase
+          .from('consignor_bilty_profile')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+
+        if (error) throw error;
+
+        setProfiles(data || []);
+        setTotalProfileCount(count || 0);
+      } catch (err) {
+        console.error('Error loading profiles:', err);
+        setError('Failed to load profiles.');
+      }
+      return;
+    }
+
+    // If filters are applied, fetch ALL matching records
+    setLoadingMore(true);
+    try {
+      let query = supabase
+        .from('consignor_bilty_profile')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (selectedConsignor) {
+        query = query.eq('consignor_id', selectedConsignor);
+      }
+      if (selectedCity) {
+        query = query.eq('destination_station_id', selectedCity);
+      }
+      if (showActiveOnly) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error, count } = await query;
+
+      if (error) throw error;
+
+      setProfiles(data || []);
+      setTotalProfileCount(count || 0);
+    } catch (err) {
+      console.error('Error loading filtered profiles:', err);
+      setError('Failed to load filtered profiles.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   // Load more profiles
   const loadMoreProfiles = async () => {
     setLoadingMore(true);
@@ -152,7 +216,7 @@ const ConsignorBiltyProfile = ({ user }) => {
   };
 
   // Check if there are more profiles to load
-  const hasMoreProfiles = profiles.length < totalProfileCount;
+  const hasMoreProfiles = !selectedConsignor && !selectedCity && profiles.length < totalProfileCount;
 
   // Get consignor name by ID
   const getConsignorName = (consignorId) => {
@@ -564,7 +628,7 @@ const ConsignorBiltyProfile = ({ user }) => {
           />
 
           {/* Load More Button */}
-          {hasMoreProfiles && !searchQuery && !selectedConsignor && !selectedCity && (
+          {hasMoreProfiles && !searchQuery && (
             <div className="flex flex-col items-center gap-2 mt-4">
               <p className="text-sm text-gray-500">
                 Showing {profiles.length} of {totalProfileCount} profiles

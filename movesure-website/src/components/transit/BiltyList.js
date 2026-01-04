@@ -39,6 +39,12 @@ const BiltyList = ({
   const [filteredBilties, setFilteredBilties] = useState([]);
   const [filteredTransitBilties, setFilteredTransitBilties] = useState([]);
   const [fullyFilteredBilties, setFullyFilteredBilties] = useState([]);
+  
+  // Sorting states for available bilties
+  const [availableSortConfig, setAvailableSortConfig] = useState({ key: null, direction: null });
+  
+  // Sorting states for transit bilties
+  const [transitSortConfig, setTransitSortConfig] = useState({ key: null, direction: null });
   // City mapping function
   const getCityName = (cityCode) => {
     if (!cityCode) return '';
@@ -99,6 +105,108 @@ const BiltyList = ({
     } else {
       setSelectedTransitBilties([...filteredTransitBilties]);
     }
+  };
+  
+  // Handle column sorting with three states: asc -> desc -> none
+  const handleSort = (key, isTransit = false) => {
+    const sortConfig = isTransit ? transitSortConfig : availableSortConfig;
+    const setSortConfig = isTransit ? setTransitSortConfig : setAvailableSortConfig;
+    
+    let direction = 'asc';
+    
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else if (sortConfig.direction === 'desc') {
+        direction = null; // Reset to no sort
+      }
+    }
+    
+    setSortConfig({ key, direction });
+  };
+  
+  // Get sort icon
+  const getSortIcon = (key, isTransit = false) => {
+    const sortConfig = isTransit ? transitSortConfig : availableSortConfig;
+    
+    if (sortConfig.key !== key) {
+      return <span className="ml-1 text-slate-400">⇅</span>;
+    }
+    
+    if (sortConfig.direction === 'asc') {
+      return <span className="ml-1 text-indigo-600">↑</span>;
+    }
+    
+    if (sortConfig.direction === 'desc') {
+      return <span className="ml-1 text-indigo-600">↓</span>;
+    }
+    
+    return <span className="ml-1 text-slate-400">⇅</span>;
+  };
+  
+  // Apply sorting to bilties array
+  const applySorting = (biltiesArray, sortConfig) => {
+    if (!sortConfig.direction || !sortConfig.key) {
+      return biltiesArray;
+    }
+    
+    return [...biltiesArray].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortConfig.key) {
+        case 'gr_no':
+          return sortConfig.direction === 'asc' 
+            ? sortByGRNumber(a, b)
+            : sortByGRNumber(b, a);
+        
+        case 'date':
+          aValue = new Date(a.bilty_date || a.created_at || 0);
+          bValue = new Date(b.bilty_date || b.created_at || 0);
+          break;
+        
+        case 'consignor':
+          aValue = (a.consignor_name || a.consignor || '').toLowerCase();
+          bValue = (b.consignor_name || b.consignor || '').toLowerCase();
+          break;
+        
+        case 'consignee':
+          aValue = (a.consignee_name || a.consignee || '').toLowerCase();
+          bValue = (b.consignee_name || b.consignee || '').toLowerCase();
+          break;
+        
+        case 'destination':
+          aValue = getBiltyDisplayCity(a).toLowerCase();
+          bValue = getBiltyDisplayCity(b).toLowerCase();
+          break;
+        
+        case 'payment':
+          aValue = (a.payment_mode || a.payment_status || '').toLowerCase();
+          bValue = (b.payment_mode || b.payment_status || '').toLowerCase();
+          break;
+        
+        case 'packages':
+          aValue = parseInt(a.no_of_pkg || a.no_of_packets || 0);
+          bValue = parseInt(b.no_of_pkg || b.no_of_packets || 0);
+          break;
+        
+        case 'weight':
+          aValue = parseFloat(a.wt || a.weight || 0);
+          bValue = parseFloat(b.wt || b.weight || 0);
+          break;
+        
+        case 'amount':
+          aValue = parseFloat(a.total || a.amount || 0);
+          bValue = parseFloat(b.total || b.amount || 0);
+          break;
+        
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
   };
   // Sort function for GR numbers to handle alphanumeric sorting properly
   const sortByGRNumber = (a, b) => {
@@ -246,15 +354,18 @@ const BiltyList = ({
       const transitGRSet = new Set((transitRecords || []).map(t => t.gr_no));
       // Remove bilties whose gr_no is in transit_details
       const filtered = filteredBilties.filter(b => !transitGRSet.has(b.gr_no));
-      setFullyFilteredBilties(filtered);
+      
+      // Apply sorting
+      const sorted = applySorting(filtered, availableSortConfig);
+      setFullyFilteredBilties(sorted);
       
       // Notify parent of the filtered count
       if (onFilteredCountChange) {
-        onFilteredCountChange(filtered.length);
+        onFilteredCountChange(sorted.length);
       }
     }
     filterBiltiesByTransit();
-  }, [filteredBilties]);
+  }, [filteredBilties, availableSortConfig, onFilteredCountChange]);
 
   const handleBiltySelect = (bilty) => {
     // Only allow selection of regular bilties, not transit bilties, and not for dispatched challans
@@ -343,6 +454,10 @@ const BiltyList = ({
   const availableTotals = calculateTotals(fullyFilteredBilties);
   const transitTotals = calculateTotals(filteredTransitBilties);
 
+  // Apply sorting to bilties for display
+  const sortedAvailableBilties = applySorting(fullyFilteredBilties, availableSortConfig);
+  const sortedTransitBilties = applySorting(filteredTransitBilties, transitSortConfig);
+
   // Builds consistent row styling so selection visibly highlights the full row.
   const getRowClassNames = (isSelected, isLocked) => {
     const baseClasses = 'transition-colors border-b border-slate-200 last:border-b-0';
@@ -357,7 +472,7 @@ const BiltyList = ({
 
   // CSV export for transit bilties
   const handleExportTransitCSV = () => {
-    if (!selectedChallan || !filteredTransitBilties.length) {
+    if (!selectedChallan || !sortedTransitBilties.length) {
       alert('No bilties to export for this challan.');
       return;
     }
@@ -365,7 +480,7 @@ const BiltyList = ({
     const headers = [
       'Type', 'GR No', 'Date', 'Consignor', 'Consignee', 'Content', 'Destination', 'PVT Marks', 'Payment', 'Pkgs', 'Weight', 'Amount'
     ];
-    const rows = filteredTransitBilties.map(bilty => [
+    const rows = sortedTransitBilties.map(bilty => [
       bilty.bilty_type === 'station' || bilty.source === 'station_bilty_summary' ? 'MNL' : 'REG',
       bilty.gr_no || '',
       bilty.bilty_date || bilty.created_at || '',
@@ -541,24 +656,42 @@ const BiltyList = ({
                     </th>
                     <th className="px-2.5 py-2.5 text-left">#</th>
                     <th className="px-2.5 py-2.5 text-left">Type</th>
-                    <th className="px-2.5 py-2.5 text-left">GR No</th>
-                    <th className="px-2.5 py-2.5 text-left">Date</th>
-                    <th className="px-2.5 py-2.5 text-left">Consignor</th>
-                    <th className="px-2.5 py-2.5 text-left">Consignee</th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('gr_no', false)}>
+                      <div className="flex items-center">GR No{getSortIcon('gr_no', false)}</div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('date', false)}>
+                      <div className="flex items-center">Date{getSortIcon('date', false)}</div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('consignor', false)}>
+                      <div className="flex items-center">Consignor{getSortIcon('consignor', false)}</div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('consignee', false)}>
+                      <div className="flex items-center">Consignee{getSortIcon('consignee', false)}</div>
+                    </th>
                     <th className="px-2.5 py-2.5 text-left">Content</th>
-                    <th className="px-2.5 py-2.5 text-left">Destination</th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('destination', false)}>
+                      <div className="flex items-center">Destination{getSortIcon('destination', false)}</div>
+                    </th>
                     <th className="px-2.5 py-2.5 text-left">PVT Marks</th>
-                    <th className="px-2.5 py-2.5 text-left">Payment</th>
-                    <th className="px-2.5 py-2.5 text-left">Pkgs</th>
-                    <th className="px-2.5 py-2.5 text-left">Weight</th>
-                    <th className="px-2.5 py-2.5 text-left">Amount</th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('payment', false)}>
+                      <div className="flex items-center">Payment{getSortIcon('payment', false)}</div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('packages', false)}>
+                      <div className="flex items-center">Pkgs{getSortIcon('packages', false)}</div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('weight', false)}>
+                      <div className="flex items-center">Weight{getSortIcon('weight', false)}</div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('amount', false)}>
+                      <div className="flex items-center">Amount{getSortIcon('amount', false)}</div>
+                    </th>
                     {!isChallanLocked && (
                       <th className="px-2.5 py-2.5 text-left">Action</th>
                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white [&_.selected-row>td]:bg-indigo-100/80">
-                  {filteredTransitBilties.map((bilty, index) => {
+                  {sortedTransitBilties.map((bilty, index) => {
                     const isSelected = selectedTransitBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
                     const isRowLocked = isChallanLocked || bilty.is_dispatched;
 
@@ -839,7 +972,7 @@ const BiltyList = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white [&_.selected-row>td]:bg-indigo-100/80">
-                {fullyFilteredBilties.map((bilty, index) => {
+                {sortedAvailableBilties.map((bilty, index) => {
                   const isSelected = selectedBilties.find(b => b.id === bilty.id && b.bilty_type === bilty.bilty_type);
 
                   return (

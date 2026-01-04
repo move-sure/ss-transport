@@ -50,6 +50,7 @@ const ConsignorBiltyProfile = ({ user }) => {
   const [consignors, setConsignors] = useState([]);
   const [cities, setCities] = useState([]);
   const [transports, setTransports] = useState([]);
+  const [users, setUsers] = useState([]);
   const [totalProfileCount, setTotalProfileCount] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   
@@ -99,7 +100,7 @@ const ConsignorBiltyProfile = ({ user }) => {
         .from('consignor_bilty_profile')
         .select('*', { count: 'exact', head: true });
 
-      const [profilesRes, consignorsRes, citiesRes, transportsRes] = await Promise.all([
+      const [profilesRes, consignorsRes, citiesRes, transportsRes, usersRes] = await Promise.all([
         supabase
           .from('consignor_bilty_profile')
           .select('*')
@@ -116,19 +117,25 @@ const ConsignorBiltyProfile = ({ user }) => {
         supabase
           .from('transports')
           .select('id, transport_name, city_id, city_name, gst_number, mob_number')
-          .order('transport_name')
+          .order('transport_name'),
+        supabase
+          .from('users')
+          .select('id, name, username, post, is_staff')
+          .eq('is_active', true)
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
       if (consignorsRes.error) throw consignorsRes.error;
       if (citiesRes.error) throw citiesRes.error;
       if (transportsRes.error) throw transportsRes.error;
+      if (usersRes.error) throw usersRes.error;
 
       setProfiles(profilesRes.data || []);
       setTotalProfileCount(profileCount || 0);
       setConsignors(consignorsRes.data || []);
       setCities(citiesRes.data || []);
       setTransports(transportsRes.data || []);
+      setUsers(usersRes.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load data. Please refresh.');
@@ -228,6 +235,13 @@ const ConsignorBiltyProfile = ({ user }) => {
   const getCityName = (cityId) => {
     const city = cities.find(c => c.id === cityId);
     return city ? city.city_name : 'Unknown';
+  };
+
+  // Get user details by ID
+  const getUserDetails = (userId) => {
+    if (!userId) return null;
+    const user = users.find(u => u.id === userId);
+    return user || null;
   };
 
   // Filter profiles
@@ -621,6 +635,7 @@ const ConsignorBiltyProfile = ({ user }) => {
             profiles={filteredProfiles}
             getConsignorName={getConsignorName}
             getCityName={getCityName}
+            getUserDetails={getUserDetails}
             onEdit={handleEdit}
             onDuplicate={handleDuplicate}
             onDelete={(id) => setShowDeleteConfirm(id)}

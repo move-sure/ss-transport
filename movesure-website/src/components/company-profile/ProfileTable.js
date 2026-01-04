@@ -8,6 +8,7 @@ const ProfileTable = ({
   profiles,
   getConsignorName,
   getCityName,
+  getUserDetails,
   onEdit,
   onDuplicate,
   onDelete,
@@ -29,13 +30,14 @@ const ProfileTable = ({
               <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">DD Charges</th>
               <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Other</th>
               <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Staff Info</th>
               <th className="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {profiles.length === 0 ? (
               <tr>
-                <td colSpan="11" className="px-3 py-12 text-center">
+                <td colSpan="12" className="px-3 py-12 text-center">
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No profiles found</p>
                   <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or add a new profile</p>
@@ -49,6 +51,7 @@ const ProfileTable = ({
                   index={index}
                   getConsignorName={getConsignorName}
                   getCityName={getCityName}
+                  getUserDetails={getUserDetails}
                   onEdit={onEdit}
                   onDuplicate={onDuplicate}
                   onDelete={onDelete}
@@ -78,10 +81,25 @@ const ProfileTableRow = ({
   index,
   getConsignorName,
   getCityName,
+  getUserDetails,
   onEdit,
   onDuplicate,
   onDelete
 }) => {
+  const createdByUser = getUserDetails(profile.created_by);
+  const updatedByUser = getUserDetails(profile.updated_by);
+  
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '-';
+    const date = new Date(dateTimeString);
+    return date.toLocaleString('en-IN', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
   return (
     <tr className={`hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
       <td className="px-3 py-2">
@@ -203,6 +221,29 @@ const ProfileTableRow = ({
             Inactive
           </span>
         )}
+      </td>
+      <td className="px-3 py-2">
+        <div className="text-[10px] space-y-1">
+          {createdByUser ? (
+            <div className="text-gray-700">
+              <p className="font-medium text-blue-600">{createdByUser.name || createdByUser.username}</p>
+              {createdByUser.post && <p className="text-gray-500">{createdByUser.post}</p>}
+              <p className="text-gray-400">{formatDateTime(profile.created_at)}</p>
+            </div>
+          ) : profile.created_at ? (
+            <p className="text-gray-400">{formatDateTime(profile.created_at)}</p>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+          {updatedByUser && profile.updated_at !== profile.created_at && (
+            <div className="text-gray-600 pt-1 border-t border-gray-200">
+              <p className="font-medium text-green-600">Updated by:</p>
+              <p className="font-medium">{updatedByUser.name || updatedByUser.username}</p>
+              {updatedByUser.post && <p className="text-gray-500">{updatedByUser.post}</p>}
+              <p className="text-gray-400">{formatDateTime(profile.updated_at)}</p>
+            </div>
+          )}
+        </div>
       </td>
       <td className="px-3 py-2">
         <div className="flex items-center justify-center gap-0.5">

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Truck, MapPin, Package, DollarSign, Save, Loader2, AlertCircle } from 'lucide-react';
+import { X, Plus, Truck, MapPin, Package, DollarSign, Save, Loader2, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {

@@ -426,11 +426,15 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       }
     });
 
-    // Summary Box (smaller)
+    // Get previous balance from metadata
+    const previousBalance = parseFloat(billMaster.metadata?.previousBalance || 0);
+    const grandTotalWithPrevious = totalBiltyAmount + previousBalance;
+
+    // Summary Box (adjusted for previous balance)
     const summaryBoxX = tableStartX;
     const summaryBoxY = yPosition;
-    const summaryBoxWidth = 85;
-    const summaryBoxHeight = 42;
+    const summaryBoxWidth = 95;
+    const summaryBoxHeight = previousBalance > 0 ? 44 : 30;
 
     pdf.setDrawColor(0, 0, 0);
     pdf.setLineWidth(0.5);
@@ -448,17 +452,25 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     pdf.text('Total Bilties:', summaryBoxX + 4, summaryY);
     pdf.text(billDetails.length.toString(), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
 
-    summaryY += 8;
-    pdf.text('Grand Total:', summaryBoxX + 4, summaryY);
+    summaryY += 7;
+    pdf.text('Current Bill Total:', summaryBoxX + 4, summaryY);
     pdf.text('Rs.' + formatCurrency(totalBiltyAmount), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
 
-    summaryY += 8;
-    pdf.text('Paid Amount:', summaryBoxX + 4, summaryY);
-    pdf.text('Rs.' + formatCurrency(paidAmount), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
-
-    summaryY += 8;
-    pdf.text('To Pay Amount:', summaryBoxX + 4, summaryY);
-    pdf.text('Rs.' + formatCurrency(toPayAmount), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+    // Show previous balance if exists
+    if (previousBalance > 0) {
+      summaryY += 7;
+      pdf.setTextColor(180, 83, 9); // Orange color for previous balance
+      pdf.text('Previous Balance:', summaryBoxX + 4, summaryY);
+      pdf.text('Rs.' + formatCurrency(previousBalance), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+      
+      summaryY += 7;
+      pdf.setTextColor(220, 38, 38); // Red color for grand total
+      pdf.setFont('times', 'bold');
+      pdf.text('GRAND TOTAL:', summaryBoxX + 4, summaryY);
+      pdf.text('Rs.' + formatCurrency(grandTotalWithPrevious), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('times', 'normal');
+    }
 
     // Bank Account Details
     const bankBoxY = summaryBoxY + summaryBoxHeight + 8;

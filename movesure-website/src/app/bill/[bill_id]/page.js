@@ -508,17 +508,43 @@ export default function BillEditPage() {
                 className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 text-gray-600"
               />
             </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Previous Balance (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={billMaster.metadata?.previousBalance || ''}
+                onChange={(e) => {
+                  const metadata = {
+                    ...billMaster.metadata,
+                    previousBalance: e.target.value ? parseFloat(e.target.value) : 0
+                  };
+                  setBillMaster(prev => ({ ...prev, metadata }));
+                }}
+                placeholder="Enter last month/year balance"
+                className="w-full px-2 py-1.5 text-sm border border-orange-300 rounded focus:border-orange-500 focus:ring-1 focus:ring-orange-200 bg-orange-50"
+              />
+            </div>
           </div>
         </div>
 
         <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-lg shadow-sm p-3 mb-4 border border-blue-200">
-          <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-11 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-13 gap-2">
             <div className="bg-white rounded p-2 shadow-sm border-l-2 border-blue-600">
               <div className="flex items-center gap-1 mb-0.5">
                 <DollarSign className="h-3 w-3 text-blue-600" />
-                <p className="text-xs font-semibold text-gray-600">Total</p>
+                <p className="text-xs font-semibold text-gray-600">Current</p>
               </div>
               <p className="text-base font-bold text-gray-900">₹{totals.total.toLocaleString('en-IN')}</p>
+            </div>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-orange-500">
+              <p className="text-xs font-semibold text-gray-600 mb-0.5">Prev Bal</p>
+              <p className="text-base font-bold text-orange-600">₹{(billMaster.metadata?.previousBalance || 0).toLocaleString('en-IN')}</p>
+            </div>
+            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-red-600">
+              <p className="text-xs font-semibold text-gray-600 mb-0.5">Grand Total</p>
+              <p className="text-base font-bold text-red-600">₹{(totals.total + (billMaster.metadata?.previousBalance || 0)).toLocaleString('en-IN')}</p>
             </div>
             <div className="bg-white rounded p-2 shadow-sm border-l-2 border-green-600">
               <p className="text-xs font-semibold text-gray-600 mb-0.5">Paid</p>

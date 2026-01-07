@@ -919,7 +919,7 @@ const PDFGenerator = ({
       // Use Times font for GR number
       pdf.setFontSize(12);
       pdf.setFont('times', 'bold');
-      pdf.text(`SSTC-2025-26-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y);
+      pdf.text(`SSTC-2026-27-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y);
 
       // Second copy GR box (with Y offset)
       pdf.rect(

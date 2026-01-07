@@ -253,7 +253,10 @@ export default function BillEditPage() {
   };
 
   const calculateTotals = () => {
-    return billDetails.reduce((acc, detail) => {
+    // If totalAmountOverride is set, use it for the total
+    const overrideTotal = billMaster?.metadata?.totalAmountOverride;
+    
+    const calculatedTotals = billDetails.reduce((acc, detail) => {
       acc.total += parseFloat(detail.bilty_total || 0);
       acc.freight += parseFloat(detail.freight_amount || 0);
       acc.labour += parseFloat(detail.labour_charge || 0);
@@ -276,6 +279,13 @@ export default function BillEditPage() {
       total: 0, paid: 0, toPay: 0, freight: 0, labour: 0, bill: 0,
       toll: 0, dd: 0, pf: 0, other: 0, packages: 0, weight: 0 
     });
+
+    // Apply override if set
+    if (overrideTotal !== null && overrideTotal !== undefined) {
+      calculatedTotals.total = overrideTotal;
+    }
+
+    return calculatedTotals;
   };
 
   const handlePrintBill = async () => {
@@ -526,17 +536,42 @@ export default function BillEditPage() {
                 className="w-full px-2 py-1.5 text-sm border border-orange-300 rounded focus:border-orange-500 focus:ring-1 focus:ring-orange-200 bg-orange-50"
               />
             </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Total Amount Override (₹)
+                <span className="text-xs font-normal text-gray-500 ml-1">(Optional - leave empty to use calculated total)</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={billMaster.metadata?.totalAmountOverride || ''}
+                onChange={(e) => {
+                  const metadata = {
+                    ...billMaster.metadata,
+                    totalAmountOverride: e.target.value ? parseFloat(e.target.value) : null
+                  };
+                  setBillMaster(prev => ({ ...prev, metadata }));
+                }}
+                placeholder="Enter custom total or leave blank for automatic"
+                className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 bg-blue-50"
+              />
+            </div>
           </div>
         </div>
 
         <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-lg shadow-sm p-3 mb-4 border border-blue-200">
           <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-13 gap-2">
-            <div className="bg-white rounded p-2 shadow-sm border-l-2 border-blue-600">
+            <div className={`bg-white rounded p-2 shadow-sm border-l-2 ${billMaster.metadata?.totalAmountOverride ? 'border-cyan-600' : 'border-blue-600'}`}>
               <div className="flex items-center gap-1 mb-0.5">
-                <DollarSign className="h-3 w-3 text-blue-600" />
-                <p className="text-xs font-semibold text-gray-600">Current</p>
+                <DollarSign className={`h-3 w-3 ${billMaster.metadata?.totalAmountOverride ? 'text-cyan-600' : 'text-blue-600'}`} />
+                <p className="text-xs font-semibold text-gray-600">
+                  {billMaster.metadata?.totalAmountOverride ? 'Total (Custom)' : 'Current'}
+                </p>
               </div>
-              <p className="text-base font-bold text-gray-900">₹{totals.total.toLocaleString('en-IN')}</p>
+              <p className={`text-base font-bold ${billMaster.metadata?.totalAmountOverride ? 'text-cyan-700' : 'text-gray-900'}`}>
+                ₹{totals.total.toLocaleString('en-IN')}
+              </p>
             </div>
             <div className="bg-white rounded p-2 shadow-sm border-l-2 border-orange-500">
               <p className="text-xs font-semibold text-gray-600 mb-0.5">Prev Bal</p>

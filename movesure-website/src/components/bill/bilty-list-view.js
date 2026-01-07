@@ -55,7 +55,7 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
     setEditData(prev => {
       const updated = { ...prev, [field]: value };
       
-      // Auto-calculate bilty total when charges change
+      // Auto-calculate bilty total when charges change (but not if total is being edited directly)
       if (['freight_amount', 'labour_charge', 'bill_charge', 'toll_charge', 'dd_charge', 'pf_charge', 'other_charge'].includes(field)) {
         const freight = parseFloat(updated.freight_amount || 0);
         const labour = parseFloat(updated.labour_charge || 0);
@@ -357,7 +357,15 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
         );
       
       case 'total':
-        return (
+        return isEditing ? (
+          <input
+            type="number"
+            step="0.01"
+            value={data.bilty_total || ''}
+            onChange={(e) => handleChange('bilty_total', parseFloat(e.target.value) || 0)}
+            className="w-32 px-2 py-1 text-sm border border-green-500 rounded focus:ring-2 focus:ring-green-500 text-right font-bold bg-green-50"
+          />
+        ) : (
           <span className={`text-base font-bold ${isEditing ? 'text-green-600' : 'text-blue-600'}`}>
             ₹{parseFloat(data.bilty_total || 0).toLocaleString('en-IN')}
           </span>

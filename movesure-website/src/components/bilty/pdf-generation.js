@@ -851,6 +851,14 @@ const PDFGenerator = ({
       y + COORDINATES.FOOTER_SECTION.SIGNATURE.y,
       STYLES.FONTS.LABELS
     );
+    
+    // Add biller signature image
+    try {
+      const signatureImg = '/biller-signature.png';
+      pdf.addImage(signatureImg, 'PNG', 155, y + 115, 50, 50); // x, y, width, height
+    } catch (error) {
+      console.log('Biller signature image not found');
+    }
   };
 
   const generatePDFPreview = async (permDetails = permanentDetails, fromCity = fromCityData, toCity = toCityData, transport = transportData) => {

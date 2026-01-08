@@ -23,6 +23,8 @@ export default function BillEditPage() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [billMaster, setBillMaster] = useState(null);
   const [billDetails, setBillDetails] = useState([]);
+  const [newChargeName, setNewChargeName] = useState('');
+  const [newChargeAmount, setNewChargeAmount] = useState('');
 
   useEffect(() => {
     if (!requireAuth()) return;
@@ -280,6 +282,14 @@ export default function BillEditPage() {
       toll: 0, dd: 0, pf: 0, other: 0, packages: 0, weight: 0 
     });
 
+    // Add custom other charges
+    if (billMaster?.metadata?.otherCharges && Array.isArray(billMaster.metadata.otherCharges)) {
+      billMaster.metadata.otherCharges.forEach(charge => {
+        calculatedTotals.otherCharges = (calculatedTotals.otherCharges || 0) + parseFloat(charge.amount || 0);
+        calculatedTotals.total += parseFloat(charge.amount || 0);
+      });
+    }
+
     // Apply override if set
     if (overrideTotal !== null && overrideTotal !== undefined) {
       calculatedTotals.total = overrideTotal;
@@ -299,6 +309,49 @@ export default function BillEditPage() {
     } finally {
       setGeneratingPDF(false);
     }
+  };
+
+  const addOtherCharge = () => {
+    if (!newChargeName.trim() || !newChargeAmount.trim()) {
+      alert('Please enter charge name and amount');
+      return;
+    }
+
+    const metadata = {
+      ...billMaster.metadata,
+      otherCharges: [
+        ...(billMaster.metadata?.otherCharges || []),
+        {
+          id: Date.now(),
+          name: newChargeName,
+          amount: parseFloat(newChargeAmount)
+        }
+      ]
+    };
+
+    setBillMaster(prev => ({ ...prev, metadata }));
+    setNewChargeName('');
+    setNewChargeAmount('');
+  };
+
+  const removeOtherCharge = (chargeId) => {
+    const metadata = {
+      ...billMaster.metadata,
+      otherCharges: (billMaster.metadata?.otherCharges || []).filter(c => c.id !== chargeId)
+    };
+    setBillMaster(prev => ({ ...prev, metadata }));
+  };
+
+  const updateOtherCharge = (chargeId, field, value) => {
+    const metadata = {
+      ...billMaster.metadata,
+      otherCharges: (billMaster.metadata?.otherCharges || []).map(c =>
+        c.id === chargeId
+          ? { ...c, [field]: field === 'name' ? value : parseFloat(value) }
+          : c
+      )
+    };
+    setBillMaster(prev => ({ ...prev, metadata }));
   };
 
   if (!user) {
@@ -560,6 +613,99 @@ export default function BillEditPage() {
           </div>
         </div>
 
+        {/* Other Charges Section */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-gray-200">
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+            <div className="p-1.5 bg-red-600 rounded-lg">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">Additional Charges</h2>
+          </div>
+
+          {/* Add New Charge */}
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Add New Charge</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Charge Name</label>
+                <input
+                  type="text"
+                  value={newChargeName}
+                  onChange={(e) => setNewChargeName(e.target.value)}
+                  placeholder="e.g., Handling, Documentation, Insurance"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Amount (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newChargeAmount}
+                  onChange={(e) => setNewChargeAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 text-sm"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={addOtherCharge}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-semibold"
+                >
+                  Add Charge
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* List of Other Charges */}
+          {billMaster?.metadata?.otherCharges && billMaster.metadata.otherCharges.length > 0 ? (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Current Charges</h3>
+              <div className="space-y-2">
+                {billMaster.metadata.otherCharges.map((charge) => (
+                  <div key={charge.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded border border-gray-200">
+                    <div className="flex-1 grid grid-cols-2 gap-3">
+                      <div>
+                        <input
+                          type="text"
+                          value={charge.name}
+                          onChange={(e) => updateOtherCharge(charge.id, 'name', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={charge.amount}
+                          onChange={(e) => updateOtherCharge(charge.id, 'amount', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeOtherCharge(charge.id)}
+                      className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors font-semibold"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+                <p className="text-xs font-semibold text-gray-700">
+                  Total Other Charges: <span className="text-blue-600">₹{billMaster.metadata.otherCharges.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0).toLocaleString('en-IN')}</span>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-gray-500">
+              <p className="text-sm">No additional charges added yet</p>
+            </div>
+          )}
+        </div>
+
         <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-lg shadow-sm p-3 mb-4 border border-blue-200">
           <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-13 gap-2">
             <div className={`bg-white rounded p-2 shadow-sm border-l-2 ${billMaster.metadata?.totalAmountOverride ? 'border-cyan-600' : 'border-blue-600'}`}>
@@ -627,6 +773,12 @@ export default function BillEditPage() {
               <p className="text-xs text-gray-600 font-medium">Other</p>
               <p className="text-sm font-bold text-gray-900">₹{totals.other.toLocaleString('en-IN')}</p>
             </div>
+            {totals.otherCharges && totals.otherCharges > 0 && (
+              <div className="bg-white rounded p-2 shadow-sm border-l-2 border-red-600">
+                <p className="text-xs font-semibold text-gray-600 mb-0.5">Add. Charges</p>
+                <p className="text-base font-bold text-red-600">₹{totals.otherCharges.toLocaleString('en-IN')}</p>
+              </div>
+            )}
           </div>
         </div>
 

@@ -428,13 +428,25 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
 
     // Get previous balance from metadata
     const previousBalance = parseFloat(billMaster.metadata?.previousBalance || 0);
-    const grandTotalWithPrevious = totalBiltyAmount + previousBalance;
+    
+    // Calculate other charges from metadata
+    let otherChargesTotal = 0;
+    const otherChargesArray = [];
+    if (billMaster.metadata?.otherCharges && Array.isArray(billMaster.metadata.otherCharges)) {
+      billMaster.metadata.otherCharges.forEach(charge => {
+        const amount = parseFloat(charge.amount || 0);
+        otherChargesTotal += amount;
+        otherChargesArray.push({ name: charge.name, amount });
+      });
+    }
+    
+    const grandTotalWithPrevious = totalBiltyAmount + previousBalance + otherChargesTotal;
 
-    // Summary Box (adjusted for previous balance)
+    // Summary Box (adjusted for previous balance and other charges)
     const summaryBoxX = tableStartX;
     const summaryBoxY = yPosition;
     const summaryBoxWidth = 95;
-    const summaryBoxHeight = previousBalance > 0 ? 44 : 30;
+    const summaryBoxHeight = 38 + (previousBalance > 0 ? 8 : 0) + (otherChargesArray.length > 0 ? (otherChargesArray.length * 7 + 18) : 0);
 
     pdf.setDrawColor(0, 0, 0);
     pdf.setLineWidth(0.5);
@@ -462,15 +474,42 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.setTextColor(180, 83, 9); // Orange color for previous balance
       pdf.text('Previous Balance:', summaryBoxX + 4, summaryY);
       pdf.text('Rs.' + formatCurrency(previousBalance), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
-      
+      pdf.setTextColor(0, 0, 0);
+    }
+
+    // Show other charges if exist
+    if (otherChargesArray.length > 0) {
       summaryY += 7;
-      pdf.setTextColor(220, 38, 38); // Red color for grand total
       pdf.setFont('times', 'bold');
-      pdf.text('GRAND TOTAL:', summaryBoxX + 4, summaryY);
-      pdf.text('Rs.' + formatCurrency(grandTotalWithPrevious), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+      pdf.setFontSize(8);
+      pdf.setTextColor(220, 38, 38); // Red color for additional charges header
+      pdf.text('ADD. CHARGES:', summaryBoxX + 4, summaryY);
       pdf.setTextColor(0, 0, 0);
       pdf.setFont('times', 'normal');
+      
+      otherChargesArray.forEach((charge) => {
+        summaryY += 6.5;
+        pdf.setFontSize(8);
+        pdf.text(charge.name + ':', summaryBoxX + 6, summaryY);
+        pdf.text('Rs.' + formatCurrency(charge.amount), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+      });
+      
+      summaryY += 7;
+      pdf.setFont('times', 'bold');
+      pdf.text('Total Add. Charges:', summaryBoxX + 4, summaryY);
+      pdf.text('Rs.' + formatCurrency(otherChargesTotal), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+      pdf.setFont('times', 'normal');
     }
+
+    // Grand total
+    summaryY += 8;
+    pdf.setTextColor(220, 38, 38); // Red color for grand total
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(9);
+    pdf.text('GRAND TOTAL:', summaryBoxX + 4, summaryY);
+    pdf.text('Rs.' + formatCurrency(grandTotalWithPrevious), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('times', 'normal');
 
     // Bank Account Details
     const bankBoxY = summaryBoxY + summaryBoxHeight + 8;

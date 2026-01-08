@@ -281,40 +281,7 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Charge Per Bilty (GR)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={billChargePerBilty}
-                  onChange={(e) => setBillChargePerBilty(e.target.value)}
-                  className="w-full px-3 py-2 border border-green-400 rounded-lg focus:border-green-600 focus:ring-1 focus:ring-green-200 text-sm font-semibold bg-white"
-                  placeholder="₹/bilty"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Toll Charge Per Bilty (GR)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={tollChargePerBilty}
-                  onChange={(e) => setTollChargePerBilty(e.target.value)}
-                  className="w-full px-3 py-2 border border-orange-400 rounded-lg focus:border-orange-600 focus:ring-1 focus:ring-orange-200 text-sm font-semibold bg-white"
-                  placeholder="₹/bilty"
-                />
-              </div>
-              <div className="bg-blue-50 rounded-lg p-2 border border-blue-300">
-                <p className="text-xs font-semibold text-gray-700">
-                  📊 Per Package Mode
-                </p>
-                <p className="text-xs text-gray-600 mt-1">
-                  Freight & Labour = Rate × Packages<br/>Bill & Toll = Per Bilty (GR)
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Labour Rate Per KG</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Labour Rate Per NAG (KG)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -346,13 +313,52 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
                   placeholder="₹/bilty"
                 />
               </div>
-              <div className="bg-blue-50 rounded-lg p-2 border border-blue-300">
-                <p className="text-xs font-semibold text-gray-700">
-                  📊 Per KG Mode
-                </p>
-                <p className="text-xs text-gray-600 mt-1">
-                  Freight & Labour = Rate × Weight (KG)<br/>Bill & Toll = Per Bilty (GR)
-                </p>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Labour Rate Per KG</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={labourRatePerKg}
+                  onChange={(e) => setLabourRatePerKg(e.target.value)}
+                  className="w-full px-3 py-2 border border-blue-400 rounded-lg focus:border-blue-600 focus:ring-1 focus:ring-blue-200 text-sm font-semibold bg-white"
+                  placeholder="₹/kg"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Labour Rate Per Package</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={labourRatePerPackage}
+                  onChange={(e) => setLabourRatePerPackage(e.target.value)}
+                  className="w-full px-3 py-2 border border-blue-400 rounded-lg focus:border-blue-600 focus:ring-1 focus:ring-blue-200 text-sm font-semibold bg-white"
+                  placeholder="₹/pkg"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Charge Per Bilty (GR)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={billChargePerBilty}
+                  onChange={(e) => setBillChargePerBilty(e.target.value)}
+                  className="w-full px-3 py-2 border border-green-400 rounded-lg focus:border-green-600 focus:ring-1 focus:ring-green-200 text-sm font-semibold bg-white"
+                  placeholder="₹/bilty"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Toll Charge Per Bilty (GR)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={tollChargePerBilty}
+                  onChange={(e) => setTollChargePerBilty(e.target.value)}
+                  className="w-full px-3 py-2 border border-orange-400 rounded-lg focus:border-orange-600 focus:ring-1 focus:ring-orange-200 text-sm font-semibold bg-white"
+                  placeholder="₹/bilty"
+                />
               </div>
             </>
           )}

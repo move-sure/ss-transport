@@ -151,23 +151,38 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       pdf.text('RATE LIST', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 6;
 
-      // Common Charges Only - Vertical Layout
+      // Display only non-zero rates from bulk rates
       pdf.setFontSize(9);
       pdf.setFont('times', 'bold');
       pdf.setTextColor(0, 0, 0);
-      const rateType = bulkRates.commonRateType === 'per-package' ? 'Package' : 'KG';
       
-      // Line 1: Common Labour Rate
-      pdf.text(`Common Labour Rate: Rs.${bulkRates.commonLabourRate || 0} / ${rateType}`, margin + 5, yPosition);
-      yPosition += 5;
+      // Show Labour Rate Per Package (if > 0)
+      const labourRatePerPackage = bulkRates.labourRatePerPackage || 0;
+      if (labourRatePerPackage > 0) {
+        pdf.text(`Labour Rate (Per Package): Rs.${labourRatePerPackage}`, margin + 5, yPosition);
+        yPosition += 5;
+      }
       
-      // Line 2: Bilty Charge
-      pdf.text(`Bilty Charge: Rs.${bulkRates.commonBillCharge || 0} per bilty`, margin + 5, yPosition);
-      yPosition += 5;
+      // Show Labour Rate Per KG (if > 0)
+      const labourRatePerKg = bulkRates.labourRatePerKg || 0;
+      if (labourRatePerKg > 0) {
+        pdf.text(`Labour Rate (Per KG): Rs.${labourRatePerKg}`, margin + 5, yPosition);
+        yPosition += 5;
+      }
       
-      // Line 3: Toll Charge
-      pdf.text(`Toll Charge: Rs.${bulkRates.commonTollCharge || 0} per bilty`, margin + 5, yPosition);
-      yPosition += 3;
+      // Show Bill Charge per Bilty (if > 0)
+      const billCharge = bulkRates.billChargePerBilty || 0;
+      if (billCharge > 0) {
+        pdf.text(`Bill Charge: Rs.${billCharge} per bilty`, margin + 5, yPosition);
+        yPosition += 5;
+      }
+      
+      // Show Toll Charge per Bilty (if > 0)
+      const tollCharge = bulkRates.tollChargePerBilty || 0;
+      if (tollCharge > 0) {
+        pdf.text(`Toll Charge: Rs.${tollCharge} per bilty`, margin + 5, yPosition);
+        yPosition += 5;
+      }
 
       pdf.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
       pdf.line(margin + 2, yPosition, pageWidth - margin - 2, yPosition);

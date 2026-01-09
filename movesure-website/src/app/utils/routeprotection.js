@@ -42,6 +42,7 @@ const PUBLIC_ROUTES = [
   '/register',
   '/about',
   '/contact',
+  '/station-list',
 ];
 
 // Routes that require authentication but no specific module

@@ -31,8 +31,7 @@ const PackageChargesSection = ({
   const labourChargeTimeoutRef = useRef(null);
   const [rateInfo, setRateInfo] = useState(null);
   const [isSavingRate, setIsSavingRate] = useState(false);
-  const [showDuplicatePopup, setShowDuplicatePopup] = useState(false);
-  const [duplicateGrInfo, setDuplicateGrInfo] = useState(null);  const rateRef = useRef(null);
+  const rateRef = useRef(null);
   const saveDebounceRef = useRef(null); // Add debounce ref for save operations
   const lastSaveTimeRef = useRef(0); // Track last save time
   
@@ -108,53 +107,11 @@ const PackageChargesSection = ({
       };
     }
 
-    // Check for duplicate GR number only if we have a GR number and not in edit mode
-    if (formData.gr_no && !isEditMode) {
-      try {
-        console.log('🔍 Checking for duplicate GR number:', formData.gr_no.trim());
-        
-        const { data: existingBilty, error } = await supabase
-          .from('bilty')
-          .select('gr_no, id, created_at')
-          .eq('gr_no', formData.gr_no.trim())
-          .eq('is_active', true)
-          .is('deleted_at', null)
-          .maybeSingle(); // Use maybeSingle instead of single to avoid error when no record found
-
-        console.log('🔍 Duplicate check result:', { existingBilty, error });
-
-        if (existingBilty) {
-          console.log('❌ Duplicate GR found:', existingBilty);
-          setDuplicateGrInfo({
-            grNo: formData.gr_no,
-            existingId: existingBilty.id,
-            createdAt: new Date(existingBilty.created_at).toLocaleString()
-          });
-          setShowDuplicatePopup(true);
-          return { 
-            isValid: false, 
-            message: '' // No message since we're showing popup
-          };
-        }
-
-        if (error) {
-          console.error('❌ Error checking duplicate GR number:', error);
-          return { 
-            isValid: false, 
-            message: `❌ Error checking GR number: ${error.message}\n\nPlease try again or contact support.` 
-          };
-        }
-
-        console.log('✅ No duplicate GR found - safe to proceed');
-      } catch (error) {
-        console.error('❌ Exception while checking duplicate GR number:', error);
-        return { 
-          isValid: false, 
-          message: `❌ Error checking GR number: ${error.message}\n\nPlease try again or contact support.` 
-        };
-      }
-    }
-
+    // Duplicate GR check removed - handled by main page.js handleSave function
+    // The page.js already has comprehensive duplicate detection and handling
+    // that prevents bill book number increment on duplicates
+    console.log('✅ Validation passed - duplicate check handled by page.js');
+    
     return { isValid: true, message: '' };
   };
 
@@ -1201,46 +1158,7 @@ return (
         </div>
       </div>
 
-      {/* Duplicate GR Number Popup */}
-      {showDuplicatePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl border-2 border-red-300">
-            <div className="text-center">
-              <div className="mb-4">
-                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
-                  <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 19c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold text-red-800 mb-2">GR Number Already Exists!</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  GR Number <span className="font-bold text-red-600">{duplicateGrInfo?.grNo}</span> already exists in the database.
-                </p>
-                <div className="bg-red-50 p-3 rounded-lg mb-4 text-sm">
-                  <p className="text-red-700 mb-2">
-                    <strong>You can change the GR number from danger zone</strong>
-                  </p>
-                  <p className="text-red-700">
-                    <strong>Or call: </strong>
-                    <a href="tel:7668291228" className="text-indigo-600 underline font-bold">
-                      7668291228
-                    </a>
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowDuplicatePopup(false);
-                  setDuplicateGrInfo(null);
-                }}
-                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Duplicate GR check removed - handled by page.js */}
     </>
   );
 };

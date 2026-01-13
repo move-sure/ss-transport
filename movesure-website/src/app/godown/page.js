@@ -21,8 +21,10 @@ export default function GodownPage() {
   const [consignors, setConsignors] = useState([]);
   const [consignees, setConsignees] = useState([]);
   const [transitDetails, setTransitDetails] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [userBranchId, setUserBranchId] = useState(null);
   const [userBranchName, setUserBranchName] = useState(null);
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [error, setError] = useState(null);
   
   // Search and filter state
@@ -46,7 +48,7 @@ export default function GodownPage() {
     if (user) {
       loadInitialData();
     }
-  }, [user]);
+  }, [user, selectedBranchId]);
 
   // Load all required data
   const loadInitialData = async () => {
@@ -68,6 +70,11 @@ export default function GodownPage() {
 
       const userBranchId = userData?.branch_id;
       setUserBranchId(userBranchId);
+      
+      // Set selected branch to user's branch if not already set
+      if (selectedBranchId === null && userBranchId) {
+        setSelectedBranchId(userBranchId);
+      }
 
       // Get branch name if branch_id exists
       let branchName = null;
@@ -83,13 +90,20 @@ export default function GodownPage() {
         }
       }
       setUserBranchName(branchName);
+      
+      // Determine which branch to filter by
+      const filterBranchId = selectedBranchId || userBranchId;
 
-      const [biltiesData, stationBiltiesData, citiesData, transportsData, consignorsData, consigneesData, transitDetailsData] = await Promise.all([
-        supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type').order('created_at', { ascending: false }),
-        // Filter station bilties by user's branch_id
-        userBranchId 
-          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').eq('branch_id', userBranchId).order('created_at', { ascending: false })
-          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').limit(0), // Return empty if no branch_id
+      const [biltiesData, stationBiltiesData, branchesData, citiesData, transportsData, consignorsData, consigneesData, transitDetailsData] = await Promise.all([
+        // Filter regular bilties by selected branch_id
+        filterBranchId
+          ? supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type, branch_id').eq('branch_id', filterBranchId).order('created_at', { ascending: false })
+          : supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type, branch_id').order('created_at', { ascending: false }),
+        // Filter station bilties by selected branch_id
+        filterBranchId 
+          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').eq('branch_id', filterBranchId).order('created_at', { ascending: false })
+          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').order('created_at', { ascending: false }),
+        supabase.from('branches').select('id, branch_name').order('branch_name'),
         supabase.from('cities').select('id, city_name, city_code'),
         supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number'),
         supabase.from('consignors').select('id, company_name, number'),
@@ -99,6 +113,7 @@ export default function GodownPage() {
 
       if (biltiesData.error) throw biltiesData.error;
       if (stationBiltiesData.error) throw stationBiltiesData.error;
+      if (branchesData.error) throw branchesData.error;
       if (citiesData.error) throw citiesData.error;
       if (transportsData.error) throw transportsData.error;
       if (consignorsData.error) throw consignorsData.error;
@@ -107,6 +122,7 @@ export default function GodownPage() {
 
       setBilties(biltiesData.data || []);
       setStationBilties(stationBiltiesData.data || []);
+      setBranches(branchesData.data || []);
       setCities(citiesData.data || []);
       setTransports(transportsData.data || []);
       setConsignors(consignorsData.data || []);
@@ -362,26 +378,71 @@ export default function GodownPage() {
           stations={uniqueStations}
         />
 
+        {/* Branch Selector */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-4">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+              Select Branch:
+            </label>
+            <select
+              value={selectedBranchId || ''}
+              onChange={(e) => setSelectedBranchId(e.target.value || null)}
+              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              <option value="">All Branches</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.branch_name} {branch.id === userBranchId ? '(Your Branch)' : ''}
+                </option>
+              ))}
+            </select>
+            {selectedBranchId && selectedBranchId !== userBranchId && (
+              <button
+                onClick={() => setSelectedBranchId(userBranchId)}
+                className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors whitespace-nowrap"
+              >
+                Reset to My Branch
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Branch filter notification */}
-        {userBranchId ? (
+        {selectedBranchId ? (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <div className="flex items-center gap-2 text-sm text-green-700">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>
-                Showing station bilties for your branch only {userBranchName && `(${userBranchName})`}
+                {selectedBranchId === userBranchId 
+                  ? `Showing all bilties for your branch ${userBranchName ? `(${userBranchName})` : ''}` 
+                  : `Showing all bilties for: ${branches.find(b => b.id === selectedBranchId)?.branch_name || 'Selected Branch'}`}
               </span>
             </div>
           </div>
         ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-sm text-blue-700">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                Showing all bilties from all branches
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Branch assignment warning - only show if user has no branch */}
+        {!userBranchId && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
             <div className="flex items-center gap-2 text-sm text-yellow-700">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
               <span>
-                No branch assigned to your account. Station bilties are not available.
+                No branch assigned to your account. Select a branch from the dropdown above.
               </span>
             </div>
           </div>

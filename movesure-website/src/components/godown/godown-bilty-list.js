@@ -13,11 +13,13 @@ import {
   Weight,
   User,
   Users,
-  Truck
+  Truck,
+  Edit
 } from 'lucide-react';
 import GodownPagination from './godown-pagination';
 import TransportInfo from './transport-info';
 import ChallanDetailsModal from './challan-details-modal';
+import EditBiltyModal from './edit-bilty-modal';
 
 export default function GodownBiltyList({ 
   bilties, 
@@ -37,6 +39,8 @@ export default function GodownBiltyList({
   // Modal state
   const [selectedChallanNo, setSelectedChallanNo] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedBilty, setSelectedBilty] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Handle challan click
   const handleChallanClick = (challanNo) => {
@@ -47,6 +51,27 @@ export default function GodownBiltyList({
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedChallanNo(null);
+  };
+
+  // Handle edit click
+  const handleEditClick = (bilty) => {
+    // Only allow edit for station bilties (manual source)
+    if (bilty.source === 'manual') {
+      setSelectedBilty(bilty);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedBilty(null);
+  };
+
+  const handleBiltyUpdate = (updatedBilty) => {
+    // Refresh data after update
+    if (onRefresh) {
+      onRefresh();
+    }
   };
 
   // Format weight helper
@@ -265,6 +290,9 @@ export default function GodownBiltyList({
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Date
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
@@ -383,6 +411,19 @@ export default function GodownBiltyList({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                   {formatDate(bilty.created_at)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {bilty.source === 'manual' ? (
+                    <button
+                      onClick={() => handleEditClick(bilty)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                  ) : (
+                    <span className="text-xs text-slate-400">-</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -553,10 +594,19 @@ export default function GodownBiltyList({
                 </div>
 
                 {/* Date Row */}
-                <div className="flex items-center justify-center pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                   <span className="text-xs text-slate-500">
                     {formatDate(bilty.created_at)}
                   </span>
+                  {bilty.source === 'manual' && (
+                    <button
+                      onClick={() => handleEditClick(bilty)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs font-medium shadow-sm"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  )}
                 </div>
 
               </div>
@@ -584,6 +634,15 @@ export default function GodownBiltyList({
         isOpen={isModalOpen}
         onClose={handleCloseModal}
       />
+
+      {/* Edit Bilty Modal */}
+      {isEditModalOpen && selectedBilty && (
+        <EditBiltyModal
+          bilty={selectedBilty}
+          onClose={handleCloseEditModal}
+          onUpdate={handleBiltyUpdate}
+        />
+      )}
 
     </div>
   );

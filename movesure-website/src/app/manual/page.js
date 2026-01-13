@@ -441,6 +441,8 @@ export default function StationBiltySummaryPage() {
         handleSubmit={handleSubmit}
         saving={saving}
         selectedBranch={selectedBranch}
+        branches={branches}
+        onBranchChange={setSelectedBranch}
         cities={cities}
         loadingReferenceData={loadingReferenceData}
       />

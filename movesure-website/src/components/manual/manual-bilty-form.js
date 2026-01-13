@@ -386,6 +386,8 @@ const ManualBiltyForm = ({
   handleSubmit,
   saving,
   selectedBranch,
+  branches = [],
+  onBranchChange,
   cities,
   loadingReferenceData
 }) => {
@@ -760,15 +762,38 @@ const ManualBiltyForm = ({
               </button>
             </div>
 
-            {/* Branch Indicator */}
-            {selectedBranch && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-6">
-                <div className="flex items-center gap-2 text-purple-700">
+            {/* Branch Selector */}
+            {branches.length > 0 && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <label className="block text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
                   <Building2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">
-                    Recording for: {selectedBranch.branch_name} ({selectedBranch.branch_code})
-                  </span>
-                </div>
+                  Select Branch {editingId && <span className="text-xs font-normal text-purple-600">(You can change branch while editing)</span>}
+                </label>
+                <select
+                  value={selectedBranch?.id || ''}
+                  onChange={(e) => {
+                    const branch = branches.find(b => b.id === e.target.value);
+                    if (branch && onBranchChange) {
+                      onBranchChange(branch);
+                      setFormData(prev => ({ ...prev, branch_id: branch.id }));
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm font-medium"
+                  disabled={saving}
+                >
+                  <option value="">Select a branch...</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.branch_name} {branch.branch_code ? `(${branch.branch_code})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedBranch && (
+                  <p className="mt-2 text-xs text-purple-600 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Recording for: {selectedBranch.branch_name}
+                  </p>
+                )}
               </div>
             )}
 

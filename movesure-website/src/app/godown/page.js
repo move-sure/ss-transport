@@ -378,32 +378,34 @@ export default function GodownPage() {
           stations={uniqueStations}
         />
 
-        {/* Branch Selector */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-4">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+        {/* Branch Selector - Mobile Optimized */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3 sm:p-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <label className="text-sm font-semibold text-slate-700 sm:whitespace-nowrap">
               Select Branch:
             </label>
-            <select
-              value={selectedBranchId || ''}
-              onChange={(e) => setSelectedBranchId(e.target.value || null)}
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-            >
-              <option value="">All Branches</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.branch_name} {branch.id === userBranchId ? '(Your Branch)' : ''}
-                </option>
-              ))}
-            </select>
-            {selectedBranchId && selectedBranchId !== userBranchId && (
-              <button
-                onClick={() => setSelectedBranchId(userBranchId)}
-                className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors whitespace-nowrap"
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:flex-1">
+              <select
+                value={selectedBranchId || ''}
+                onChange={(e) => setSelectedBranchId(e.target.value || null)}
+                className="w-full sm:flex-1 px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
               >
-                Reset to My Branch
-              </button>
-            )}
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.branch_name} {branch.id === userBranchId ? '(Your Branch)' : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedBranchId && selectedBranchId !== userBranchId && (
+                <button
+                  onClick={() => setSelectedBranchId(userBranchId)}
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-medium bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-sm"
+                >
+                  Reset to My Branch
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

@@ -15,12 +15,21 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
   // Per-KG Common Rates
   const [labourRatePerKg, setLabourRatePerKg] = useState(0);
   
+  // PF (Packing Forward) Rates
+  const [pfRatePerPackage, setPfRatePerPackage] = useState(0);
+  const [pfRatePerKg, setPfRatePerKg] = useState(0);
+  const [pfConstantAmount, setPfConstantAmount] = useState(0);
+  const [includePfInTotal, setIncludePfInTotal] = useState(true);
+  
   // City Wise Per-Package Rates
   const [cityLabourRate, setCityLabourRate] = useState({});
   const [cityLabourRatePerPackage, setCityLabourRatePerPackage] = useState({});
   const [cityLabourRatePerKg, setCityLabourRatePerKg] = useState({});
   const [cityBillCharge, setCityBillCharge] = useState({}); // Per Bilty
   const [cityTollCharge, setCityTollCharge] = useState({}); // Per Bilty
+  const [cityPfRatePerPackage, setCityPfRatePerPackage] = useState({});
+  const [cityPfRatePerKg, setCityPfRatePerKg] = useState({});
+  const [cityPfConstantAmount, setCityPfConstantAmount] = useState({});
   
   const [applying, setApplying] = useState(false);
 
@@ -62,10 +71,17 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
       if (savedMetadata.billChargePerBilty !== undefined) setBillChargePerBilty(savedMetadata.billChargePerBilty);
       if (savedMetadata.tollChargePerBilty !== undefined) setTollChargePerBilty(savedMetadata.tollChargePerBilty);
       if (savedMetadata.labourRatePerKg !== undefined) setLabourRatePerKg(savedMetadata.labourRatePerKg);
+      if (savedMetadata.pfRatePerPackage !== undefined) setPfRatePerPackage(savedMetadata.pfRatePerPackage);
+      if (savedMetadata.pfRatePerKg !== undefined) setPfRatePerKg(savedMetadata.pfRatePerKg);
+      if (savedMetadata.pfConstantAmount !== undefined) setPfConstantAmount(savedMetadata.pfConstantAmount);
+      if (savedMetadata.includePfInTotal !== undefined) setIncludePfInTotal(savedMetadata.includePfInTotal);
       if (savedMetadata.cityLabourRatePerPackage) setCityLabourRatePerPackage(savedMetadata.cityLabourRatePerPackage);
       if (savedMetadata.cityLabourRatePerKg) setCityLabourRatePerKg(savedMetadata.cityLabourRatePerKg);
       if (savedMetadata.cityBillCharge) setCityBillCharge(savedMetadata.cityBillCharge);
       if (savedMetadata.cityTollCharge) setCityTollCharge(savedMetadata.cityTollCharge);
+      if (savedMetadata.cityPfRatePerPackage) setCityPfRatePerPackage(savedMetadata.cityPfRatePerPackage);
+      if (savedMetadata.cityPfRatePerKg) setCityPfRatePerKg(savedMetadata.cityPfRatePerKg);
+      if (savedMetadata.cityPfConstantAmount) setCityPfConstantAmount(savedMetadata.cityPfConstantAmount);
     }
   }, [savedMetadata]);
 
@@ -99,6 +115,18 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
     setCityTollCharge(prev => ({ ...prev, [city]: value }));
   };
 
+  const handleCityPfPerPackageChange = (city, value) => {
+    setCityPfRatePerPackage(prev => ({ ...prev, [city]: value }));
+  };
+
+  const handleCityPfPerKgChange = (city, value) => {
+    setCityPfRatePerKg(prev => ({ ...prev, [city]: value }));
+  };
+
+  const handleCityPfConstantChange = (city, value) => {
+    setCityPfConstantAmount(prev => ({ ...prev, [city]: value }));
+  };
+
   // Helper function to get rate value, treating empty strings as undefined
   const getRateValue = (value) => {
     const parsed = parseFloat(value);
@@ -126,6 +154,24 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
   const getLabourRatePerKg = (city) => {
     const cityRate = getRateValue(cityLabourRatePerKg[city]);
     return cityRate > 0 ? cityRate : getRateValue(labourRatePerKg);
+  };
+
+  // Get PF rate per package
+  const getPfRatePerPackage = (city) => {
+    const cityRate = getRateValue(cityPfRatePerPackage[city]);
+    return cityRate > 0 ? cityRate : getRateValue(pfRatePerPackage);
+  };
+
+  // Get PF rate per kg
+  const getPfRatePerKg = (city) => {
+    const cityRate = getRateValue(cityPfRatePerKg[city]);
+    return cityRate > 0 ? cityRate : getRateValue(pfRatePerKg);
+  };
+
+  // Get PF constant amount
+  const getPfConstantAmount = (city) => {
+    const cityAmount = getRateValue(cityPfConstantAmount[city]);
+    return cityAmount > 0 ? cityAmount : getRateValue(pfConstantAmount);
   };
 
   const applyBulkRates = async () => {
@@ -159,11 +205,26 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
       // Toll charge - PER BILTY ONLY (NOT multiplied by quantity)
       tollCharge = getRateValue(cityTollCharge[city]) > 0 ? getRateValue(cityTollCharge[city]) : getRateValue(tollChargePerBilty);
 
+      // PF charge - Calculate based on per package, per kg, and constant amount
+      const pfPerPackage = getPfRatePerPackage(city);
+      const pfPerKg = getPfRatePerKg(city);
+      const pfConstant = getPfConstantAmount(city);
+      let pfCharge = 0;
+      
+      if (pfPerPackage > 0) {
+        pfCharge += pfPerPackage * parseInt(detail.no_of_pckg || 0);
+      }
+      if (pfPerKg > 0) {
+        pfCharge += pfPerKg * parseFloat(detail.wt || 0);
+      }
+      if (pfConstant > 0) {
+        pfCharge += pfConstant; // Add constant/flat amount per bilty
+      }
+
       // Calculate new total
       const ddCharge = parseFloat(detail.dd_charge || 0);
-      const pfCharge = parseFloat(detail.pf_charge || 0);
       const otherCharge = parseFloat(detail.other_charge || 0);
-      const biltyTotal = freightAmount + labourCharge + billCharge + tollCharge + ddCharge + pfCharge + otherCharge;
+      const biltyTotal = freightAmount + labourCharge + billCharge + tollCharge + ddCharge + (includePfInTotal ? pfCharge : 0) + otherCharge;
 
       return {
         ...detail,
@@ -171,6 +232,7 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
         labour_charge: labourCharge,
         bill_charge: billCharge,
         toll_charge: tollCharge,
+        pf_charge: pfCharge,
         bilty_total: biltyTotal
       };
     });
@@ -182,11 +244,18 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
       billChargePerBilty: billChargePerBilty,
       tollChargePerBilty: tollChargePerBilty,
       labourRatePerKg: labourRatePerKg,
+      pfRatePerPackage: pfRatePerPackage,
+      pfRatePerKg: pfRatePerKg,
+      pfConstantAmount: pfConstantAmount,
+      includePfInTotal: includePfInTotal,
       cityRates: cityRates,
       cityLabourRatePerPackage: cityLabourRatePerPackage,
       cityLabourRatePerKg: cityLabourRatePerKg,
       cityBillCharge: cityBillCharge,
-      cityTollCharge: cityTollCharge
+      cityTollCharge: cityTollCharge,
+      cityPfRatePerPackage: cityPfRatePerPackage,
+      cityPfRatePerKg: cityPfRatePerKg,
+      cityPfConstantAmount: cityPfConstantAmount
     };
 
     await onApplyRates(updatedDetails, bulkEditMetadata);
@@ -266,6 +335,61 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
           <Package className="h-4 w-4 text-blue-600" />
           Overall Default Rates (Applied to All Bilties)
         </h3>
+        
+        {/* PF Calculation Options */}
+        <div className="mb-3 p-3 bg-amber-50 rounded-lg border border-amber-300">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-bold text-gray-900">PF (Packing Forward) Calculation</h4>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includePfInTotal}
+                onChange={(e) => setIncludePfInTotal(e.target.checked)}
+                className="w-4 h-4 text-amber-600 rounded"
+              />
+              <span className="text-xs font-semibold text-gray-700">Include PF in Total</span>
+            </label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">PF Rate Per Package</label>
+              <input
+                type="number"
+                step="0.01"
+                value={pfRatePerPackage}
+                onChange={(e) => setPfRatePerPackage(e.target.value)}
+                className="w-full px-3 py-2 border border-amber-400 rounded-lg focus:border-amber-600 focus:ring-1 focus:ring-amber-200 text-sm font-semibold bg-white"
+                placeholder="₹/pkg"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">PF Rate Per KG</label>
+              <input
+                type="number"
+                step="0.01"
+                value={pfRatePerKg}
+                onChange={(e) => setPfRatePerKg(e.target.value)}
+                className="w-full px-3 py-2 border border-amber-400 rounded-lg focus:border-amber-600 focus:ring-1 focus:ring-amber-200 text-sm font-semibold bg-white"
+                placeholder="₹/kg"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">PF Constant Amount (Flat)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={pfConstantAmount}
+                onChange={(e) => setPfConstantAmount(e.target.value)}
+                className="w-full px-3 py-2 border border-amber-400 rounded-lg focus:border-amber-600 focus:ring-1 focus:ring-amber-200 text-sm font-semibold bg-white"
+                placeholder="₹ flat"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-amber-700 mt-2 bg-amber-100 p-2 rounded">
+            💡 PF can be calculated using per package, per kg, AND flat/constant amount - all three can be used together! Uncheck "Include PF in Total" to calculate PF without adding it to bilty total.
+          </p>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {rateType === 'per-package' ? (
             <>
@@ -447,6 +571,42 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
                   />
                 </div>
               </div>
+              
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">PF/Pkg</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={cityPfRatePerPackage[city] || ''}
+                    onChange={(e) => handleCityPfPerPackageChange(city, e.target.value)}
+                    className="w-full px-2 py-1 border border-amber-300 rounded text-xs font-semibold focus:border-amber-500 focus:ring-1 focus:ring-amber-200 bg-white"
+                    placeholder="₹/pkg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">PF/KG</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={cityPfRatePerKg[city] || ''}
+                    onChange={(e) => handleCityPfPerKgChange(city, e.target.value)}
+                    className="w-full px-2 py-1 border border-amber-300 rounded text-xs font-semibold focus:border-amber-500 focus:ring-1 focus:ring-amber-200 bg-white"
+                    placeholder="₹/kg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">PF Flat</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={cityPfConstantAmount[city] || ''}
+                    onChange={(e) => handleCityPfConstantChange(city, e.target.value)}
+                    className="w-full px-2 py-1 border border-amber-300 rounded text-xs font-semibold focus:border-amber-500 focus:ring-1 focus:ring-amber-200 bg-white"
+                    placeholder="₹ flat"
+                  />
+                </div>
+              </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 pt-2 border-t border-purple-200">
                 <div className="bg-white rounded px-2 py-1 border border-purple-300">
@@ -461,12 +621,6 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
                     ₹{(getLabourRatePerPackage(city) * data.totalPackages).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                   </p>
                 </div>
-                <div className="bg-white rounded px-2 py-1 border border-indigo-300">
-                  <p className="text-xs text-gray-600 font-semibold">Labour Est. (Per KG)</p>
-                  <p className="text-sm font-bold text-indigo-600">
-                    ₹{(getLabourRatePerKg(city) * data.totalWeight).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </p>
-                </div>
                 <div className="bg-white rounded px-2 py-1 border border-green-300">
                   <p className="text-xs text-gray-600 font-semibold">Bill (Per Bilty)</p>
                   <p className="text-sm font-bold text-green-600">
@@ -477,6 +631,18 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
                   <p className="text-xs text-gray-600 font-semibold">Toll (Per Bilty)</p>
                   <p className="text-sm font-bold text-orange-600">
                     ₹{(getRateValue(cityTollCharge[city]) > 0 ? getRateValue(cityTollCharge[city]) : getRateValue(tollChargePerBilty)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className="bg-white rounded px-2 py-1 border border-amber-300">
+                  <p className="text-xs text-gray-600 font-semibold">PF Est. (All)</p>
+                  <p className="text-sm font-bold text-amber-600">
+                    ₹{((getPfRatePerPackage(city) * data.totalPackages) + (getPfRatePerKg(city) * data.totalWeight) + (getPfConstantAmount(city) * data.count)).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+                <div className="bg-white rounded px-2 py-1 border border-amber-200">
+                  <p className="text-xs text-gray-600 font-semibold">{includePfInTotal ? 'PF In Total ✓' : 'PF Separate'}</p>
+                  <p className="text-xs font-semibold text-amber-700">
+                    P:₹{getPfRatePerPackage(city).toFixed(1)} | K:₹{getPfRatePerKg(city).toFixed(1)} | F:₹{getPfConstantAmount(city).toFixed(1)}
                   </p>
                 </div>
               </div>

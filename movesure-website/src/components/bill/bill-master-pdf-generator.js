@@ -1,8 +1,10 @@
 'use client';
 
 import { jsPDF } from 'jspdf';
+import { buildColumnConfig, calculateBillTotals } from './pdf-column-builder';
+import { DEFAULT_SELECTED_COLUMNS } from './print-column-selector';
 
-export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob = false) => {
+export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob = false, selectedColumns = DEFAULT_SELECTED_COLUMNS) => {
   try {
     if (!billMaster || !billDetails || billDetails.length === 0) {
       throw new Error('Bill master or bill details are missing');
@@ -194,26 +196,9 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     const tableStartX = margin + 2;
     const totalTableWidth = contentWidth - 4;
     
-    // Column widths (optimized to use full width)
-    const colWidths = [
-      totalTableWidth * 0.03,  // S.No (3%)
-      totalTableWidth * 0.06,  // Date (6%)
-      totalTableWidth * 0.07,  // GR No (7%)
-      totalTableWidth * 0.11,  // Consignor (11%)
-      totalTableWidth * 0.11,  // Consignee (11%)
-      totalTableWidth * 0.08,  // City (8%)
-      totalTableWidth * 0.05,  // Pvt Marks (5%)
-      totalTableWidth * 0.04,  // Pkgs (4%)
-      totalTableWidth * 0.04,  // Wt (4%)
-      totalTableWidth * 0.04,  // Del.Type (4%)
-      totalTableWidth * 0.04,  // Pay Mode (4%)
-      totalTableWidth * 0.07,  // Freight (7%)
-      totalTableWidth * 0.05,  // Labour (5%)
-      totalTableWidth * 0.06,  // Bilty Charge (6%)
-      totalTableWidth * 0.05,  // Toll (5%)
-      totalTableWidth * 0.05,  // DD (5%)
-      totalTableWidth * 0.07   // Total (7%)
-    ];
+    // Build column configuration based on selected columns
+    const columnConfig = buildColumnConfig(selectedColumns, totalTableWidth);
+    const { columnWidths: colWidths, headers, dataAccessors, totalCalculators } = columnConfig;
 
     const drawColumnDividers = (startX, startY, height, widths) => {
       let dividerX = startX;
@@ -234,7 +219,6 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     drawColumnDividers(tableStartX, tableStartY, 8, colWidths);
 
     let currentX = tableStartX + 1;
-    const headers = ['S.No', 'Date', 'GR No', 'Consignor', 'Consignee', 'City', 'Pvt Marks', 'Pkgs', 'Wt', 'Del', 'Pay', 'Freight', 'Labour', 'Bilty Charge', 'Toll', 'DD', 'Total'];
     headers.forEach((header, idx) => {
       pdf.text(header, currentX, tableStartY + 5.5);
       currentX += colWidths[idx];
@@ -250,16 +234,7 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
     pdf.setFont('times', 'normal');
     pdf.setFontSize(7);
 
-    let totalFreight = 0;
-    let totalLabour = 0;
-    let totalBillCharge = 0;
-    let totalToll = 0;
-    let totalDD = 0;
-    let totalBiltyAmount = 0;
-    let totalPackages = 0;
-    let totalWeight = 0;
-
-    billDetails.forEach((detail) => {
+    billDetails.forEach((detail, detailIndex) => {
       if (yPosition > maxPageHeight) {
         pdf.addPage();
         drawPageBorder();
@@ -284,92 +259,12 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
 
       currentX = tableStartX + 1;
       
-      // S.No
-      pdf.text(serialNumber.toString(), currentX, yPosition + 4);
-      currentX += colWidths[0];
-      
-      // Date
-      pdf.text(formatDate(detail.date), currentX, yPosition + 4);
-      currentX += colWidths[1];
-      
-      // GR No
-      pdf.text((detail.grno || 'N/A').substring(0, 10), currentX, yPosition + 4);
-      currentX += colWidths[2];
-      
-      // Consignor
-      pdf.text((detail.consignor || 'N/A').substring(0, 15), currentX, yPosition + 4);
-      currentX += colWidths[3];
-      
-      // Consignee
-      pdf.text((detail.consignee || 'N/A').substring(0, 15), currentX, yPosition + 4);
-      currentX += colWidths[4];
-      
-      // City
-      pdf.text((detail.city || 'N/A').substring(0, 12), currentX, yPosition + 4);
-      currentX += colWidths[5];
-      
-      // Private Marks (moved after city)
-      pdf.text((detail.pvt_marks || '-').substring(0, 8), currentX, yPosition + 4);
-      currentX += colWidths[6];
-      
-      // Packages
-      const pkgs = parseInt(detail.no_of_pckg || 0);
-      totalPackages += pkgs;
-      pdf.text(pkgs.toString(), currentX, yPosition + 4);
-      currentX += colWidths[7];
-      
-      // Weight
-      const wt = parseFloat(detail.wt || 0);
-      totalWeight += wt;
-      pdf.text(wt.toFixed(1), currentX, yPosition + 4);
-      currentX += colWidths[8];
-      
-      // Delivery Type
-      const delType = detail.delivery_type || 'N/A';
-      const delText = delType === 'door-delivery' ? 'DD' : delType === 'godown' ? 'GD' : delType.substring(0, 3).toUpperCase();
-      pdf.text(delText, currentX, yPosition + 4);
-      currentX += colWidths[9];
-      
-      // Payment Mode
-      const payMode = detail.pay_mode || 'N/A';
-      const payText = payMode === 'to-pay' ? 'ToPay' : payMode === 'paid' ? 'Paid' : payMode.substring(0, 5);
-      pdf.text(payText, currentX, yPosition + 4);
-      currentX += colWidths[10];
-      
-      // Freight
-      const freight = parseFloat(detail.freight_amount || 0);
-      totalFreight += freight;
-      pdf.text(formatCurrency(freight), currentX, yPosition + 4);
-      currentX += colWidths[11];
-      
-      // Labour
-      const labour = parseFloat(detail.labour_charge || 0);
-      totalLabour += labour;
-      pdf.text(formatCurrency(labour), currentX, yPosition + 4);
-      currentX += colWidths[12];
-      
-      // Bill Charge
-      const billCharge = parseFloat(detail.bill_charge || 0);
-      totalBillCharge += billCharge;
-      pdf.text(formatCurrency(billCharge), currentX, yPosition + 4);
-      currentX += colWidths[13];
-      
-      // Toll
-      const toll = parseFloat(detail.toll_charge || 0);
-      totalToll += toll;
-      pdf.text(formatCurrency(toll), currentX, yPosition + 4);
-      currentX += colWidths[14];
-      
-      // DD Charge
-      const dd = parseFloat(detail.dd_charge || 0);
-      totalDD += dd;
-      pdf.text(formatCurrency(dd), currentX, yPosition + 4);
-      currentX += colWidths[15];
-      
-      // Bilty Total
-      const biltyTotal = parseFloat(detail.bilty_total || 0);
-      totalBiltyAmount += biltyTotal;
-      pdf.text(formatCurrency(biltyTotal), currentX, yPosition + 4);
+      // Render each column dynamically using data accessors
+      dataAccessors.forEach((accessor, idx) => {
+        const value = accessor(detail, detailIndex);
+        pdf.text(value, currentX, yPosition + 4);
+        currentX += colWidths[idx];
+      });
 
       // Row border
       pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'S');
@@ -379,46 +274,18 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       serialNumber++;
     });
 
-    // Total Row
+    // Total Row - dynamically render using total calculators
     pdf.setFont('times', 'bold');
     pdf.setFillColor(summaryFillColor.r, summaryFillColor.g, summaryFillColor.b);
     pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'FD');
     drawColumnDividers(tableStartX, yPosition, rowHeight, colWidths);
     
     currentX = tableStartX + 1;
-    pdf.text('TOTAL', currentX, yPosition + 4);
-    currentX += colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + colWidths[6];
-    
-    // Total Packages
-    pdf.text(totalPackages.toString(), currentX, yPosition + 4);
-    currentX += colWidths[7];
-    
-    // Total Weight
-    pdf.text(totalWeight.toFixed(1), currentX, yPosition + 4);
-    currentX += colWidths[8] + colWidths[9] + colWidths[10];
-    
-    // Total Freight
-    pdf.text(formatCurrency(totalFreight), currentX, yPosition + 4);
-    currentX += colWidths[11];
-    
-    // Total Labour
-    pdf.text(formatCurrency(totalLabour), currentX, yPosition + 4);
-    currentX += colWidths[12];
-    
-    // Total Bill Charge
-    pdf.text(formatCurrency(totalBillCharge), currentX, yPosition + 4);
-    currentX += colWidths[13];
-    
-    // Total Toll
-    pdf.text(formatCurrency(totalToll), currentX, yPosition + 4);
-    currentX += colWidths[14];
-    
-    // Total DD
-    pdf.text(formatCurrency(totalDD), currentX, yPosition + 4);
-    currentX += colWidths[15];
-    
-    // Grand Total
-    pdf.text(formatCurrency(totalBiltyAmount), currentX, yPosition + 4);
+    totalCalculators.forEach((calculator, idx) => {
+      const value = calculator(billDetails);
+      pdf.text(value, currentX, yPosition + 4);
+      currentX += colWidths[idx];
+    });
 
     yPosition += rowHeight + 8;
 
@@ -429,17 +296,8 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       yPosition = 15;
     }
 
-    // Calculate paid/to-pay
-    let paidAmount = 0;
-    let toPayAmount = 0;
-    billDetails.forEach(detail => {
-      const amount = parseFloat(detail.bilty_total || 0);
-      if (detail.pay_mode?.toLowerCase() === 'paid') {
-        paidAmount += amount;
-      } else if (detail.pay_mode?.toLowerCase() === 'to-pay') {
-        toPayAmount += amount;
-      }
-    });
+    // Calculate totals using the helper function
+    const billTotals = calculateBillTotals(billDetails);
 
     // Get previous balance from metadata
     const previousBalance = parseFloat(billMaster.metadata?.previousBalance || 0);
@@ -455,7 +313,7 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
       });
     }
     
-    const grandTotalWithPrevious = totalBiltyAmount + previousBalance + otherChargesTotal;
+    const grandTotalWithPrevious = billTotals.total + previousBalance + otherChargesTotal;
 
     // Summary Box (adjusted for previous balance and other charges)
     const summaryBoxX = tableStartX;
@@ -481,7 +339,7 @@ export const generateBillMasterPDF = async (billMaster, billDetails, returnBlob 
 
     summaryY += 7;
     pdf.text('Current Bill Total:', summaryBoxX + 4, summaryY);
-    pdf.text('Rs.' + formatCurrency(totalBiltyAmount), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
+    pdf.text('Rs.' + formatCurrency(billTotals.total), summaryBoxX + summaryBoxWidth - 4, summaryY, { align: 'right' });
 
     // Show previous balance if exists
     if (previousBalance > 0) {

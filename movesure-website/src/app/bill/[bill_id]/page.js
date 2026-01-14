@@ -9,6 +9,7 @@ import { useAuth } from '@/app/utils/auth';
 import Navbar from '@/components/dashboard/navbar';
 import BulkRateEditor from '@/components/bill/bulk-rate-editor';
 import BiltyListView from '@/components/bill/bilty-list-view';
+import PrintColumnSelector, { DEFAULT_SELECTED_COLUMNS } from '@/components/bill/print-column-selector';
 import { generateBillMasterPDF } from '@/components/bill/bill-master-pdf-generator';
 
 export default function BillEditPage() {
@@ -21,6 +22,7 @@ export default function BillEditPage() {
   const [saving, setSaving] = useState(false);
   const [savingBilties, setSavingBilties] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState(DEFAULT_SELECTED_COLUMNS);
   const [billMaster, setBillMaster] = useState(null);
   const [billDetails, setBillDetails] = useState([]);
   const [newChargeName, setNewChargeName] = useState('');
@@ -301,7 +303,7 @@ export default function BillEditPage() {
   const handlePrintBill = async () => {
     try {
       setGeneratingPDF(true);
-      const pdfUrl = await generateBillMasterPDF(billMaster, billDetails);
+      const pdfUrl = await generateBillMasterPDF(billMaster, billDetails, false, selectedColumns);
       window.open(pdfUrl, '_blank');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -416,6 +418,10 @@ export default function BillEditPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <PrintColumnSelector
+              selectedColumns={selectedColumns}
+              onColumnsChange={setSelectedColumns}
+            />
             <button
               onClick={handlePrintBill}
               disabled={generatingPDF || billDetails.length === 0}

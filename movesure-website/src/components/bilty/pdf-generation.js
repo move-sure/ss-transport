@@ -20,6 +20,7 @@ const PDFGenerator = ({
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [darkenedSignature, setDarkenedSignature] = useState(null);
 
   // Mobile detection
   useEffect(() => {
@@ -33,6 +34,61 @@ const PDFGenerator = ({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Pre-process signature image to make it darker
+  useEffect(() => {
+    const processSignature = async () => {
+      try {
+        const signatureImg = '/biller-signature.png';
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = signatureImg;
+        
+        img.onload = () => {
+          try {
+            // Create canvas to process image
+            const canvas = document.createElement('canvas');
+            canvas.width = 500;
+            canvas.height = 500;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw original image
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // Increase darkness and contrast
+            for (let i = 0; i < data.length; i += 4) {
+              // Apply darkness filter - make dark pixels darker
+              data[i] = Math.max(0, data[i] * 0.5);     // Red
+              data[i + 1] = Math.max(0, data[i + 1] * 0.5); // Green
+              data[i + 2] = Math.max(0, data[i + 2] * 0.5); // Blue
+              // Alpha stays the same (data[i + 3])
+            }
+            
+            // Put modified image data back
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Convert canvas to data URL and store
+            const darkerSignature = canvas.toDataURL('image/png');
+            setDarkenedSignature(darkerSignature);
+          } catch (error) {
+            console.log('Failed to process signature image:', error);
+          }
+        };
+        
+        img.onerror = () => {
+          console.log('Failed to load signature image');
+        };
+      } catch (error) {
+        console.log('Error processing signature:', error);
+      }
+    };
+    
+    processSignature();
   }, []);
 
   // ==========================================
@@ -852,12 +908,13 @@ const PDFGenerator = ({
       STYLES.FONTS.LABELS
     );
     
-    // Add biller signature image
-    try {
-      const signatureImg = '/biller-signature.png';
-      pdf.addImage(signatureImg, 'PNG', 155, y + 115, 50, 50); // x, y, width, height
-    } catch (error) {
-      console.log('Biller signature image not found');
+    // Add biller signature image (pre-processed darker version)
+    if (darkenedSignature) {
+      try {
+        pdf.addImage(darkenedSignature, 'PNG', 155, y + 115, 50, 50); // x, y, width, height
+      } catch (error) {
+        console.log('Failed to add signature to PDF:', error);
+      }
     }
   };
 

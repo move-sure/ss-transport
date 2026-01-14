@@ -183,48 +183,80 @@ const BulkRateEditor = ({ billDetails, onApplyRates, onRefresh, savedMetadata })
       
       if (!cityData) return detail;
 
-      let freightAmount = 0;
-      let labourCharge = 0;
-      let billCharge = 0;
-      let tollCharge = 0;
+      // Track what we're actually updating
+      let updatedFreight = false;
+      let updatedLabour = false;
+      let updatedBill = false;
+      let updatedToll = false;
+      let updatedPf = false;
+
+      // Preserve existing values as defaults
+      let freightAmount = parseFloat(detail.freight_amount || 0);
+      let labourCharge = parseFloat(detail.labour_charge || 0);
+      let billCharge = parseFloat(detail.bill_charge || 0);
+      let tollCharge = parseFloat(detail.toll_charge || 0);
+      let pfCharge = parseFloat(detail.pf_charge || 0);
 
       // Calculate based on rate type for freight and labour
       const quantity = rateType === 'per-package' ? parseInt(detail.no_of_pckg || 0) : parseFloat(detail.wt || 0);
 
-      // Freight (city-specific rate) - scaled by quantity based on overall rate type
-      freightAmount = getRateValue(cityData.freightRate) * quantity;
+      // Only update freight if a rate is defined
+      if (getRateValue(cityData.freightRate) > 0) {
+        freightAmount = getRateValue(cityData.freightRate) * quantity;
+        updatedFreight = true;
+      }
 
-      // Labour charge - ALWAYS per package if available, otherwise falls back to default labour per package
-      // This is independent of the overall rate type selection
+      // Only update labour if a rate is defined
       const labourRatePerPkg = getLabourRatePerPackage(city);
-      labourCharge = getRateValue(labourRatePerPkg) * parseInt(detail.no_of_pckg || 0);
+      if (getRateValue(labourRatePerPkg) > 0) {
+        labourCharge = getRateValue(labourRatePerPkg) * parseInt(detail.no_of_pckg || 0);
+        updatedLabour = true;
+      }
 
-      // Bill charge - PER BILTY ONLY (NOT multiplied by quantity)
-      billCharge = getRateValue(cityBillCharge[city]) > 0 ? getRateValue(cityBillCharge[city]) : getRateValue(billChargePerBilty);
+      // Only update bill charge if a rate is defined
+      const definedBillCharge = getRateValue(cityBillCharge[city]) > 0 ? getRateValue(cityBillCharge[city]) : getRateValue(billChargePerBilty);
+      if (definedBillCharge > 0) {
+        billCharge = definedBillCharge;
+        updatedBill = true;
+      }
 
-      // Toll charge - PER BILTY ONLY (NOT multiplied by quantity)
-      tollCharge = getRateValue(cityTollCharge[city]) > 0 ? getRateValue(cityTollCharge[city]) : getRateValue(tollChargePerBilty);
+      // Only update toll charge if a rate is defined
+      const definedTollCharge = getRateValue(cityTollCharge[city]) > 0 ? getRateValue(cityTollCharge[city]) : getRateValue(tollChargePerBilty);
+      if (definedTollCharge > 0) {
+        tollCharge = definedTollCharge;
+        updatedToll = true;
+      }
 
-      // PF charge - Calculate based on per package, per kg, and constant amount
+      // PF charge - Calculate only if any PF rate is defined
       const pfPerPackage = getPfRatePerPackage(city);
       const pfPerKg = getPfRatePerKg(city);
       const pfConstant = getPfConstantAmount(city);
-      let pfCharge = 0;
       
-      if (pfPerPackage > 0) {
-        pfCharge += pfPerPackage * parseInt(detail.no_of_pckg || 0);
-      }
-      if (pfPerKg > 0) {
-        pfCharge += pfPerKg * parseFloat(detail.wt || 0);
-      }
-      if (pfConstant > 0) {
-        pfCharge += pfConstant; // Add constant/flat amount per bilty
+      if (pfPerPackage > 0 || pfPerKg > 0 || pfConstant > 0) {
+        pfCharge = 0; // Reset to calculate fresh
+        if (pfPerPackage > 0) {
+          pfCharge += pfPerPackage * parseInt(detail.no_of_pckg || 0);
+        }
+        if (pfPerKg > 0) {
+          pfCharge += pfPerKg * parseFloat(detail.wt || 0);
+        }
+        if (pfConstant > 0) {
+          pfCharge += pfConstant; // Add constant/flat amount per bilty
+        }
+        updatedPf = true;
       }
 
-      // Calculate new total
-      const ddCharge = parseFloat(detail.dd_charge || 0);
-      const otherCharge = parseFloat(detail.other_charge || 0);
-      const biltyTotal = freightAmount + labourCharge + billCharge + tollCharge + ddCharge + (includePfInTotal ? pfCharge : 0) + otherCharge;
+      // Calculate new total ONLY if we updated any charge-related fields
+      // If ONLY PF was updated and includePfInTotal is false, preserve existing total
+      let biltyTotal = parseFloat(detail.bilty_total || 0);
+      
+      const shouldRecalculateTotal = updatedFreight || updatedLabour || updatedBill || updatedToll || (updatedPf && includePfInTotal);
+      
+      if (shouldRecalculateTotal) {
+        const ddCharge = parseFloat(detail.dd_charge || 0);
+        const otherCharge = parseFloat(detail.other_charge || 0);
+        biltyTotal = freightAmount + labourCharge + billCharge + tollCharge + ddCharge + (includePfInTotal ? pfCharge : 0) + otherCharge;
+      }
 
       return {
         ...detail,

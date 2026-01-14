@@ -26,6 +26,7 @@ export default function BiltySearch() {
   const [allBilties, setAllBilties] = useState([]);
   const [allStationBilties, setAllStationBilties] = useState([]);
   const [cities, setCities] = useState([]);
+  const [selectedCityTransports, setSelectedCityTransports] = useState([]);
   const [branchData, setBranchData] = useState(null);
   const [error, setError] = useState(null);
   
@@ -800,6 +801,32 @@ export default function BiltySearch() {
     return city ? city.city_name : 'N/A';
   }, [cities, branchData]);
 
+  // Load transports for a specific city (called only when city is selected)
+  const loadTransportsForCity = useCallback(async (cityId) => {
+    if (!cityId) {
+      setSelectedCityTransports([]);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('transports')
+        .select('id, transport_name, city_id, city_name, mob_number')
+        .eq('city_id', cityId)
+        .order('transport_name');
+      
+      if (error) {
+        console.error('Error loading transports:', error);
+        setSelectedCityTransports([]);
+      } else {
+        setSelectedCityTransports(data || []);
+      }
+    } catch (err) {
+      console.error('Error loading transports:', err);
+      setSelectedCityTransports([]);
+    }
+  }, []);
+
   // Action handlers
   const handleEdit = useCallback((bilty) => {
     localStorage.setItem('editBiltyData', JSON.stringify({
@@ -1209,6 +1236,8 @@ export default function BiltySearch() {
         <BiltyFilterPanel
           filters={pendingFilters}
           cities={cities}
+          selectedCityTransports={selectedCityTransports}
+          loadTransportsForCity={loadTransportsForCity}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
           onSearch={handleSearch}

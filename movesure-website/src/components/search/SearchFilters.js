@@ -19,6 +19,8 @@ import {
 const BiltyFilterPanel = ({ 
   filters, 
   cities, 
+  selectedCityTransports,
+  loadTransportsForCity,
   onFilterChange, 
   onClearFilters,
   onSearch,
@@ -111,7 +113,11 @@ const BiltyFilterPanel = ({
     // Set both city ID (for regular bilties) and city_code (for station bilty search)
     handleInputChange('toCityId', city.id);
     handleInputChange('cityCode', city.city_code);
-  }, [handleInputChange]);
+    // Load transports for selected city
+    if (loadTransportsForCity) {
+      loadTransportsForCity(city.id);
+    }
+  }, [handleInputChange, loadTransportsForCity]);
 
   // Handle city input focus
   const handleCityInputFocus = useCallback(() => {
@@ -342,7 +348,9 @@ const BiltyFilterPanel = ({
                             }`}
                           >
                             <MapPin className="w-3 h-3 text-slate-400" />
-                            <span className="flex-1">{city.city_name}</span>
+                            <div className="flex-1">
+                              <div className="font-medium">{city.city_name}</div>
+                            </div>
                             {city.city_code && (
                               <span className="text-xs text-slate-400">({city.city_code})</span>
                             )}
@@ -357,6 +365,29 @@ const BiltyFilterPanel = ({
                   </div>
                 )}
               </div>
+              
+              {/* Transport Count and Details Display */}
+              {filters.toCityId && selectedCityTransports && (() => {
+                const cityName = cities.find(c => c.id?.toString() === filters.toCityId?.toString())?.city_name;
+                return selectedCityTransports.length > 0 ? (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                    <div className="text-xs font-semibold text-green-700 mb-1 flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {selectedCityTransports.length} Transporter{selectedCityTransports.length !== 1 ? 's' : ''} in {cityName}
+                    </div>
+                    <div className="space-y-1">
+                      {selectedCityTransports.map((transport, idx) => (
+                        <div key={transport.id} className="text-xs bg-white p-2 rounded border border-green-100">
+                          <div className="font-medium text-slate-800">{idx + 1}. {transport.transport_name}</div>
+                          {transport.mob_number && (
+                            <div className="text-green-600 font-semibold mt-0.5">📱 {transport.mob_number}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Payment Mode */}

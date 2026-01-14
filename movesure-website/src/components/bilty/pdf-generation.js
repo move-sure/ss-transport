@@ -21,6 +21,7 @@ const PDFGenerator = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [darkenedSignature, setDarkenedSignature] = useState(null);
+  const [signatureReady, setSignatureReady] = useState(false);
 
   // Mobile detection
   useEffect(() => {
@@ -75,13 +76,16 @@ const PDFGenerator = ({
             // Convert canvas to data URL and store
             const darkerSignature = canvas.toDataURL('image/png');
             setDarkenedSignature(darkerSignature);
+            setSignatureReady(true);
           } catch (error) {
             console.log('Failed to process signature image:', error);
+            setSignatureReady(true); // Set ready even on error to not block PDF generation
           }
         };
         
         img.onerror = () => {
           console.log('Failed to load signature image');
+          setSignatureReady(true); // Set ready even on error to not block PDF generation
         };
       } catch (error) {
         console.log('Error processing signature:', error);
@@ -318,10 +322,10 @@ const PDFGenerator = ({
   };
 
   useEffect(() => {
-    if (biltyData?.branch_id) {
+    if (biltyData?.branch_id && signatureReady) {
       loadAllDataAndGeneratePreview();
     }
-  }, [biltyData]);
+  }, [biltyData, signatureReady]);
 
   useEffect(() => {
     return () => {
@@ -330,6 +334,17 @@ const PDFGenerator = ({
       }
     };
   }, [pdfUrl]);
+
+  // Regenerate PDF when signature becomes available
+  useEffect(() => {
+    if (signatureReady && darkenedSignature && permanentDetails && !loading && !isGenerating) {
+      // Only regenerate if we already have the data loaded
+      if (pdfUrl) {
+        // Signature just became available, regenerate PDF
+        generatePDFPreview();
+      }
+    }
+  }, [darkenedSignature]);
 
   // NEW: Add keyboard event listener for Enter key to print PDF
   useEffect(() => {

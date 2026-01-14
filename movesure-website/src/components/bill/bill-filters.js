@@ -9,6 +9,7 @@ export default function BillFilterPanel({
   onSearch, 
   onClearFilters, 
   cities, 
+  branches = [],
   loading 
 }) {
   const [showCityDropdown, setShowCityDropdown] = useState(false);
@@ -153,6 +154,25 @@ export default function BillFilterPanel({
             {biltyTypes.map(type => (
               <option key={type.value} value={type.value}>
                 {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Branch Filter */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Branch
+          </label>
+          <select
+            value={filters.branchId || ''}
+            onChange={(e) => handleInputChange('branchId', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All Branches</option>
+            {branches.map(branch => (
+              <option key={branch.id} value={branch.id}>
+                {branch.branch_name || branch.name || `Branch ${branch.id}`}
               </option>
             ))}
           </select>
@@ -422,6 +442,11 @@ export default function BillFilterPanel({
               break;
             case 'eWayBill':
               displayKey = 'E-Way Bill';
+              break;
+            case 'branchId':
+              displayKey = 'Branch';
+              // Find branch name from branches array if available (passed from parent)
+              displayValue = value; // Will show ID if branch name not found
               break;
             default:
               break;

@@ -52,7 +52,8 @@ export default function BillSearch() {
     cityName: '',
     paymentMode: '',
     eWayBill: '',
-    biltyType: 'all' // 'all', 'regular', 'station'
+    biltyType: 'all', // 'all', 'regular', 'station'
+    branchId: '' // branch filter
   });
 
   // UI state
@@ -114,7 +115,8 @@ export default function BillSearch() {
       
       await Promise.all([
         fetchCities(),
-        fetchBranchData()
+        fetchBranchData(),
+        fetchBranches()
         // Removed initial search - only search when user clicks search button
       ]);
       
@@ -317,8 +319,10 @@ export default function BillSearch() {
         .eq('is_active', true)
         .is('deleted_at', null);
 
-      // Apply branch filter if user has branch_id
-      if (user?.branch_id) {
+      // Apply branch filter - either from filter or user's branch_id
+      if (filters.branchId) {
+        query = query.eq('branch_id', filters.branchId);
+      } else if (user?.branch_id) {
         query = query.eq('branch_id', user.branch_id);
       }
 
@@ -502,10 +506,12 @@ export default function BillSearch() {
         .from('station_bilty_summary')
         .select('*');
 
-      // Remove branch filter to get all station bilties from all branches
-      // if (user?.branch_id) {
-      //   query = query.eq('branch_id', user.branch_id);
-      // }
+      // Apply branch filter - either from filter or user's branch_id
+      if (filters.branchId) {
+        query = query.eq('branch_id', filters.branchId);
+      }
+      // Note: Intentionally not applying user.branch_id automatically for station bilties
+      // to allow cross-branch visibility unless explicitly filtered
 
       // Apply filters
       if (filters.grNumber?.trim()) {
@@ -1311,6 +1317,7 @@ export default function BillSearch() {
             onSearch={handleSearch}
             onClearFilters={handleClearFilters}
             cities={cities}
+            branches={branches}
             loading={loading}
           />
         )}

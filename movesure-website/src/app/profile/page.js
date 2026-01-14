@@ -13,14 +13,100 @@ import Image from 'next/image';
 export default function ProfilePage() {
   const { user, loading, isAuthenticated, initialized } = useAuth();
   const router = useRouter();
+  const [userImage, setUserImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     if (initialized && !loading) {
       if (!isAuthenticated || !user) {
         router.push('/login');
+      } else if (user?.image_url) {
+        setUserImage(user.image_url);
       }
     }
   }, [initialized, loading, isAuthenticated, user, router]);
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result;
+      setImagePreview(base64String);
+      setShowImageModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveImage = async () => {
+    if (!imagePreview) return;
+
+    try {
+      setUploadingImage(true);
+
+      const { error } = await supabase
+        .from('users')
+        .update({ image_url: imagePreview })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setUserImage(imagePreview);
+      setShowImageModal(false);
+      setImagePreview(null);
+      alert('Profile image updated successfully!');
+      
+      // Refresh the page to update user context
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating image:', error);
+      alert('Failed to update profile image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (!confirm('Are you sure you want to remove your profile image?')) return;
+
+    try {
+      setUploadingImage(true);
+
+      const { error } = await supabase
+        .from('users')
+        .update({ image_url: null })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setUserImage(null);
+      alert('Profile image removed successfully!');
+      
+      // Refresh the page to update user context
+      window.location.reload();
+    } catch (error) {
+      console.error('Error removing image:', error);
+      alert('Failed to remove profile image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   if (!initialized || loading) {
     return (
@@ -62,13 +148,11 @@ export default function ProfilePage() {
                 <div className="relative px-6 pb-6">
                   {/* Profile Picture */}
                   <div className="flex justify-center -mt-16 mb-4">
-                    <div className="relative">
-                      {user.image_url ? (
-                        <Image
-                          src={user.image_url}
+                    <div className="relative group">
+                      {userImage ? (
+                        <img
+                          src={userImage}
                           alt="Profile"
-                          width={128}
-                          height={128}
                           className="h-32 w-32 rounded-full object-cover border-4 border-white shadow-lg"
                         />
                       ) : (
@@ -77,8 +161,36 @@ export default function ProfilePage() {
                         </div>
                       )}
                       <div className="absolute bottom-2 right-2 bg-green-500 h-6 w-6 rounded-full border-2 border-white"></div>
+                      
+                      {/* Upload/Change Image Button */}
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                          <span className="text-white text-xs font-semibold bg-blue-600 px-3 py-1 rounded-full hover:bg-blue-700 transition-colors">
+                            {userImage ? 'Change' : 'Upload'}
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Remove Image Button */}
+                  {userImage && (
+                    <div className="flex justify-center mb-4">
+                      <button
+                        onClick={handleRemoveImage}
+                        disabled={uploadingImage}
+                        className="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  )}
 
                   {/* User Name and Username */}
                   <div className="text-center mb-4">
@@ -146,6 +258,50 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Image Preview Modal */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Preview Profile Image</h3>
+            
+            {/* Image Preview */}
+            <div className="mb-6 flex justify-center">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="h-48 w-48 rounded-full object-cover border-4 border-gray-200 shadow-lg"
+              />
+            </div>
+
+            <div className="text-sm text-gray-600 mb-6">
+              <p className="mb-2">• Image will be saved as base64 in the database</p>
+              <p>• Maximum size: 5MB</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowImageModal(false);
+                  setImagePreview(null);
+                }}
+                disabled={uploadingImage}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveImage}
+                disabled={uploadingImage}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploadingImage ? 'Saving...' : 'Save Image'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

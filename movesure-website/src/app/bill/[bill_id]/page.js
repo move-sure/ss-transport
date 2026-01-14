@@ -8,6 +8,7 @@ import supabase from '@/app/utils/supabase';
 import { useAuth } from '@/app/utils/auth';
 import Navbar from '@/components/dashboard/navbar';
 import BulkRateEditor from '@/components/bill/bulk-rate-editor';
+import BulkRateCopy from '@/components/bill/bulk-rate-copy';
 import BiltyListView from '@/components/bill/bilty-list-view';
 import PrintColumnSelector, { DEFAULT_SELECTED_COLUMNS } from '@/components/bill/print-column-selector';
 import { generateBillMasterPDF } from '@/components/bill/bill-master-pdf-generator';
@@ -234,6 +235,27 @@ export default function BillEditPage() {
       console.error('Error applying bulk rates:', error);
       alert('Failed to save bulk rates to database: ' + error.message);
       setSavingBilties(false);
+    }
+  };
+
+  const handleCopyRatesFromBill = async (copiedBulkRates, sourceBillNumber) => {
+    try {
+      // Save the copied rates to current bill's metadata
+      const metadata = billMaster.metadata || {};
+      metadata.bulkRates = copiedBulkRates;
+      metadata.copiedFrom = sourceBillNumber;
+      metadata.copiedDate = new Date().toISOString();
+      
+      await saveBillMaster(metadata);
+      
+      // Reload bill data to refresh the BulkRateEditor with new metadata
+      await loadBillData();
+      
+      alert(`✅ Bulk rates copied from Bill #${sourceBillNumber}! You can now apply them to bilties.`);
+    } catch (error) {
+      console.error('Error copying rates:', error);
+      alert('Failed to copy rates: ' + error.message);
+      throw error;
     }
   };
 
@@ -787,6 +809,12 @@ export default function BillEditPage() {
             )}
           </div>
         </div>
+
+        <BulkRateCopy
+          currentBillId={billId}
+          partyName={billMaster?.party_name}
+          onCopyRates={handleCopyRatesFromBill}
+        />
 
         <BulkRateEditor
           billDetails={billDetails}

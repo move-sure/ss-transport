@@ -17,6 +17,7 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [biltyImagePreview, setBiltyImagePreview] = useState(bilty?.bilty_image || null);
+  const [isExistingImage, setIsExistingImage] = useState(!!bilty?.bilty_image);
   
   const biltyImageRef = useRef(null);
 
@@ -52,6 +53,7 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
       
       setFormData(prev => ({ ...prev, bilty_image: base64 }));
       setBiltyImagePreview(base64);
+      setIsExistingImage(false); // Mark as new image
       
       setError(null);
     } catch (err) {
@@ -64,6 +66,7 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
   const removeImage = () => {
     setFormData(prev => ({ ...prev, bilty_image: null }));
     setBiltyImagePreview(null);
+    setIsExistingImage(false);
     if (biltyImageRef.current) biltyImageRef.current.value = '';
   };
 
@@ -203,22 +206,60 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
               Bilty Image
+              {isExistingImage && (
+                <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                  ✓ Image Uploaded
+                </span>
+              )}
+              {biltyImagePreview && !isExistingImage && (
+                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                  ● New Image Selected
+                </span>
+              )}
             </label>
             
             {biltyImagePreview ? (
-              <div className="relative border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
-                <img
-                  src={biltyImagePreview}
-                  alt="Bilty Preview"
-                  className="w-full h-48 object-contain rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={removeImage}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors shadow-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div className="space-y-3">
+                <div className="relative border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
+                  <img
+                    src={biltyImagePreview}
+                    alt="Bilty Preview"
+                    className="w-full h-64 object-contain rounded-lg bg-white"
+                  />
+                  {isExistingImage && (
+                    <div className="absolute top-4 left-4 bg-green-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
+                      Existing Image
+                    </div>
+                  )}
+                  {!isExistingImage && (
+                    <div className="absolute top-4 left-4 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
+                      New Image
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors shadow-md"
+                  >
+                    <X className="w-4 h-4" />
+                    Delete Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (biltyImageRef.current) {
+                        biltyImageRef.current.removeAttribute('capture');
+                        biltyImageRef.current.click();
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors shadow-md"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Replace Image
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">

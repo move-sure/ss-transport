@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Search, MapPin, X } from 'lucide-react';
 
 export default function GodownSearchFilter({ 
@@ -10,29 +10,56 @@ export default function GodownSearchFilter({
   onStationChange, 
   stations 
 }) {
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+
+  const handleSearchClick = () => {
+    onSearchChange(localSearchQuery);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearchClick();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setLocalSearchQuery('');
+    onSearchChange('');
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 mb-6">
       <div className="flex flex-col lg:flex-row gap-4">
         
         {/* Search Input */}
         <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by GR Number, Private Marks, or Destination..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-slate-50 focus:bg-white"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => onSearchChange('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by GR Number, Private Marks, or Destination..."
+                value={localSearchQuery}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-slate-50 focus:bg-white"
+              />
+              {localSearchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleSearchClick}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
+            >
+              <Search className="w-5 h-5" />
+              <span className="hidden sm:inline">Search</span>
+            </button>
           </div>
         </div>
 
@@ -97,6 +124,7 @@ export default function GodownSearchFilter({
             {(searchQuery || selectedStation) && (
               <button
                 onClick={() => {
+                  setLocalSearchQuery('');
                   onSearchChange('');
                   onStationChange('');
                 }}

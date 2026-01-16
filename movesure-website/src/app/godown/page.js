@@ -101,8 +101,8 @@ export default function GodownPage() {
           : supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type, branch_id').order('created_at', { ascending: false }),
         // Filter station bilties by selected branch_id
         filterBranchId 
-          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').eq('branch_id', filterBranchId).order('created_at', { ascending: false })
-          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type').order('created_at', { ascending: false }),
+          ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type, w_name, is_in_head_branch, bilty_image').eq('branch_id', filterBranchId).order('created_at', { ascending: false })
+          : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type, w_name, is_in_head_branch, bilty_image').order('created_at', { ascending: false }),
         supabase.from('branches').select('id, branch_name').order('branch_name'),
         supabase.from('cities').select('id, city_name, city_code'),
         supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number'),

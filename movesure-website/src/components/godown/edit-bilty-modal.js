@@ -95,14 +95,13 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
 
       setSuccess(true);
       
-      // Call onUpdate callback
-      if (onUpdate) {
-        onUpdate({ ...bilty, ...updateData });
-      }
-
-      // Close modal after 1 second
+      // Close modal after 1 second and trigger refresh
       setTimeout(() => {
         onClose();
+        // Call onUpdate callback to refresh the data
+        if (onUpdate) {
+          onUpdate({ ...bilty, ...updateData });
+        }
       }, 1000);
 
     } catch (err) {

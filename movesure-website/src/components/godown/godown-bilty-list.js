@@ -14,12 +14,14 @@ import {
   User,
   Users,
   Truck,
-  Edit
+  Edit,
+  Info
 } from 'lucide-react';
 import GodownPagination from './godown-pagination';
 import TransportInfo from './transport-info';
 import ChallanDetailsModal from './challan-details-modal';
 import EditBiltyModal from './edit-bilty-modal';
+import BiltyInfoModal from './bilty-info-modal';
 
 export default function GodownBiltyList({ 
   bilties, 
@@ -41,6 +43,8 @@ export default function GodownBiltyList({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBilty, setSelectedBilty] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [infoBilty, setInfoBilty] = useState(null);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Handle challan click
   const handleChallanClick = (challanNo) => {
@@ -65,13 +69,28 @@ export default function GodownBiltyList({
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
     setSelectedBilty(null);
-  };
-
-  const handleBiltyUpdate = (updatedBilty) => {
-    // Refresh data after update
+    // Refresh data when modal closes
     if (onRefresh) {
       onRefresh();
     }
+  };
+
+  const handleBiltyUpdate = (updatedBilty) => {
+    // Close modal first
+    handleCloseEditModal();
+  };
+
+  // Handle info click
+  const handleInfoClick = (bilty) => {
+    if (bilty.source === 'manual') {
+      setInfoBilty(bilty);
+      setIsInfoModalOpen(true);
+    }
+  };
+
+  const handleCloseInfoModal = () => {
+    setIsInfoModalOpen(false);
+    setInfoBilty(null);
   };
 
   // Format weight helper
@@ -599,13 +618,22 @@ export default function GodownBiltyList({
                     {formatDate(bilty.created_at)}
                   </span>
                   {bilty.source === 'manual' && (
-                    <button
-                      onClick={() => handleEditClick(bilty)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs font-medium shadow-sm"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                      Edit
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleInfoClick(bilty)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 active:bg-purple-700 transition-colors text-xs font-medium shadow-sm"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                        Info
+                      </button>
+                      <button
+                        onClick={() => handleEditClick(bilty)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs font-medium shadow-sm"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -643,6 +671,13 @@ export default function GodownBiltyList({
           onUpdate={handleBiltyUpdate}
         />
       )}
+
+      {/* Bilty Info Modal */}
+      <BiltyInfoModal
+        bilty={infoBilty}
+        isOpen={isInfoModalOpen}
+        onClose={handleCloseInfoModal}
+      />
 
     </div>
   );

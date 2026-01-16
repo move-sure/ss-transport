@@ -3,17 +3,14 @@
 import React from 'react';
 import { 
   Package, 
-  RefreshCw, 
-  BarChart3, 
-  Building,
-  MapPin
+  RefreshCw
 } from 'lucide-react';
 
-export default function GodownHeader({ stats, onRefresh, loading }) {
+export default function GodownHeader({ onRefresh, loading }) {
   return (
     <div className="mb-6">
       {/* Main Header */}
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 mb-4">
+      <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           
           {/* Title Section */}
@@ -43,96 +40,6 @@ export default function GodownHeader({ stats, onRefresh, loading }) {
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        
-        {/* Total Bilties */}
-        <div className="bg-white rounded-lg shadow-md border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                Total Bilties
-              </p>
-              <p className="text-xl lg:text-2xl font-bold text-slate-800">
-                {stats.totalBilties.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filtered Count */}
-        <div className="bg-white rounded-lg shadow-md border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-2 rounded-lg">
-              <Package className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                Showing
-              </p>
-              <p className="text-xl lg:text-2xl font-bold text-slate-800">
-                {stats.filteredCount.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Regular Bilties */}
-        <div className="bg-white rounded-lg shadow-md border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-lg">
-              <Building className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                Regular
-              </p>
-              <p className="text-xl lg:text-2xl font-bold text-slate-800">
-                {stats.regularCount.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Station Bilties */}
-        <div className="bg-white rounded-lg shadow-md border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-orange-100 p-2 rounded-lg">
-              <MapPin className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                Station
-              </p>
-              <p className="text-xl lg:text-2xl font-bold text-slate-800">
-                {stats.stationCount.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Bags */}
-        <div className="bg-white rounded-lg shadow-md border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-100 p-2 rounded-lg">
-              <Package className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                Total Bags
-              </p>
-              <p className="text-xl lg:text-2xl font-bold text-slate-800">
-                {stats.totalBags.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   );

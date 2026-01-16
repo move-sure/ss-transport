@@ -286,23 +286,6 @@ export default function GodownPage() {
     return Array.from(stations).sort();
   }, [bilties, stationBilties, cities]);
 
-  // Stats
-  const stats = useMemo(() => {
-    const totalBilties = bilties.length + stationBilties.length;
-    const filteredCount = allFilteredBilties.length;
-    const totalBags = allFilteredBilties.reduce((sum, bilty) => sum + (parseInt(bilty.no_of_bags) || 0), 0);
-    const totalWeight = allFilteredBilties.reduce((sum, bilty) => sum + (parseFloat(bilty.weight) || 0), 0);
-    
-    return {
-      totalBilties,
-      filteredCount,
-      totalBags,
-      totalWeight,
-      regularCount: bilties.length,
-      stationCount: stationBilties.length
-    };
-  }, [bilties, stationBilties, allFilteredBilties]);
-
   // Reset to first page when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -364,7 +347,6 @@ export default function GodownPage() {
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <GodownHeader 
-          stats={stats}
           onRefresh={handleRefresh}
           loading={loading}
         />

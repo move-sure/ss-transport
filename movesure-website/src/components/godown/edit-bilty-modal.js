@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, CheckCircle, AlertCircle, Camera } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import wNameConfig from './w-name-options.json';
 
@@ -10,18 +10,15 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
     w_name: bilty?.w_name || '',
     w_name_other: '',
     is_in_head_branch: bilty?.is_in_head_branch || false,
-    bilty_image: bilty?.bilty_image || null,
-    transit_bilty_image: bilty?.transit_bilty_image || null
+    bilty_image: bilty?.bilty_image || null
   });
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [biltyImagePreview, setBiltyImagePreview] = useState(bilty?.bilty_image || null);
-  const [transitImagePreview, setTransitImagePreview] = useState(bilty?.transit_bilty_image || null);
   
   const biltyImageRef = useRef(null);
-  const transitImageRef = useRef(null);
 
   // Convert image to base64
   const convertToBase64 = (file) => {
@@ -53,13 +50,8 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
     try {
       const base64 = await convertToBase64(file);
       
-      if (imageType === 'bilty') {
-        setFormData(prev => ({ ...prev, bilty_image: base64 }));
-        setBiltyImagePreview(base64);
-      } else {
-        setFormData(prev => ({ ...prev, transit_bilty_image: base64 }));
-        setTransitImagePreview(base64);
-      }
+      setFormData(prev => ({ ...prev, bilty_image: base64 }));
+      setBiltyImagePreview(base64);
       
       setError(null);
     } catch (err) {
@@ -69,16 +61,10 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
   };
 
   // Remove image
-  const removeImage = (imageType) => {
-    if (imageType === 'bilty') {
-      setFormData(prev => ({ ...prev, bilty_image: null }));
-      setBiltyImagePreview(null);
-      if (biltyImageRef.current) biltyImageRef.current.value = '';
-    } else {
-      setFormData(prev => ({ ...prev, transit_bilty_image: null }));
-      setTransitImagePreview(null);
-      if (transitImageRef.current) transitImageRef.current.value = '';
-    }
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, bilty_image: null }));
+    setBiltyImagePreview(null);
+    if (biltyImageRef.current) biltyImageRef.current.value = '';
   };
 
   // Handle form submit
@@ -93,8 +79,7 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
       const updateData = {
         w_name: formData.w_name === 'other' ? formData.w_name_other : formData.w_name,
         is_in_head_branch: formData.is_in_head_branch,
-        bilty_image: formData.bilty_image,
-        transit_bilty_image: formData.transit_bilty_image
+        bilty_image: formData.bilty_image
       };
 
       // Update in database
@@ -229,14 +214,14 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
                 />
                 <button
                   type="button"
-                  onClick={() => removeImage('bilty')}
+                  onClick={removeImage}
                   className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors shadow-lg"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-slate-50">
+              <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
                 <input
                   ref={biltyImageRef}
                   type="file"
@@ -244,66 +229,44 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
                   onChange={(e) => handleImageUpload(e, 'bilty')}
                   className="hidden"
                 />
-                <button
-                  type="button"
-                  onClick={() => biltyImageRef.current?.click()}
-                  className="flex flex-col items-center gap-2 mx-auto"
-                >
-                  <Upload className="w-8 h-8 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-600">
-                    Click to upload bilty image
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    PNG, JPG up to 5MB
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Transit Bilty Image Upload */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Transit Bilty Image
-            </label>
-            
-            {transitImagePreview ? (
-              <div className="relative border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
-                <img
-                  src={transitImagePreview}
-                  alt="Transit Bilty Preview"
-                  className="w-full h-48 object-contain rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage('transit')}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors shadow-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors bg-slate-50">
-                <input
-                  ref={transitImageRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e, 'transit')}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => transitImageRef.current?.click()}
-                  className="flex flex-col items-center gap-2 mx-auto"
-                >
-                  <Upload className="w-8 h-8 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-600">
-                    Click to upload transit bilty image
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    PNG, JPG up to 5MB
-                  </span>
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (biltyImageRef.current) {
+                        biltyImageRef.current.capture = 'environment';
+                        biltyImageRef.current.click();
+                      }
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                  >
+                    <Camera className="w-8 h-8 text-blue-600" />
+                    <span className="text-sm font-medium text-slate-700">
+                      Take Photo
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Use camera
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (biltyImageRef.current) {
+                        biltyImageRef.current.removeAttribute('capture');
+                        biltyImageRef.current.click();
+                      }
+                    }}
+                    className="flex flex-col items-center gap-2 p-4 border-2 border-slate-300 rounded-lg hover:bg-slate-100 hover:border-slate-400 transition-colors"
+                  >
+                    <Upload className="w-8 h-8 text-slate-600" />
+                    <span className="text-sm font-medium text-slate-700">
+                      Upload Image
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      From gallery
+                    </span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

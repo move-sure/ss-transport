@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../utils/auth';
@@ -10,12 +10,12 @@ import BiltyDetailsDisplay from '@/components/tracking/bilty-details-display';
 import ChallanDetailsDisplay from '@/components/tracking/challan-details-display';
 import ChallanTrackingSection from '@/components/tracking/challan-tracking-section';
 import ComplaintsSection from '@/components/tracking/complaints-section';
-import { FileText, Package } from 'lucide-react';
+import { FileText, Package, Truck } from 'lucide-react';
 
 export default function TrackingPage() {
   const router = useRouter();
-  const { user } = useAuth(); // Use the auth context instead of checking manually
-  const [trackingMode, setTrackingMode] = useState('bilty'); // 'bilty', 'challan', or 'complaints'
+  const { user } = useAuth();
+  const [trackingMode, setTrackingMode] = useState('bilty');
   const [bilties, setBilties] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedBilty, setSelectedBilty] = useState(null);
@@ -28,16 +28,31 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(true);
   const [complaints, setComplaints] = useState([]);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [complaintsLoaded, setComplaintsLoaded] = useState(false);
+  const [branchesLoaded, setBranchesLoaded] = useState(false);
 
+  // Initial load - only fetch bilties
   useEffect(() => {
     if (user) {
       fetchBilties(user);
-      fetchBranches();
-      fetchComplaints();
     }
   }, [user]);
 
-  const fetchBranches = async () => {
+  // Lazy load branches when challan mode is activated
+  useEffect(() => {
+    if (user && trackingMode === 'challan' && !branchesLoaded) {
+      fetchBranches();
+    }
+  }, [user, trackingMode, branchesLoaded]);
+
+  // Lazy load complaints when complaints mode is activated
+  useEffect(() => {
+    if (user && trackingMode === 'complaints' && !complaintsLoaded) {
+      fetchComplaints();
+    }
+  }, [user, trackingMode, complaintsLoaded]);
+
+  const fetchBranches = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('branches')
@@ -46,12 +61,13 @@ export default function TrackingPage() {
 
       if (error) throw error;
       setBranches(data || []);
+      setBranchesLoaded(true);
     } catch (error) {
       console.error('Error fetching branches:', error);
     }
-  };
+  }, []);
 
-  const fetchComplaints = async () => {
+  const fetchComplaints = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('complaints')
@@ -60,12 +76,11 @@ export default function TrackingPage() {
 
       if (error) throw error;
       setComplaints(data || []);
+      setComplaintsLoaded(true);
     } catch (error) {
       console.error('Error fetching complaints:', error);
     }
-  };
-
-  const fetchBilties = async (currentUser) => {
+  }, []);useCallback(async (currentUser) => {
     try {
       // Fetch user's branch_id from users table
       const { data: userData, error: userError } = await supabase
@@ -76,7 +91,7 @@ export default function TrackingPage() {
 
       if (userError) throw userError;
 
-      // Fetch bilties for user's branch
+      // Fetch only recent bilties (last 100) to reduce load time
       const { data, error } = await supabase
         .from('bilty')
         .select('*')
@@ -84,7 +99,8 @@ export default function TrackingPage() {
         .eq('is_active', true)
         .is('deleted_at', null)
         .order('bilty_date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (error) throw error;
 
@@ -94,9 +110,9 @@ export default function TrackingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSelectBilty = async (bilty) => {
+  const handleSelectBilty = useCallback(async (bilty) => {
     setSelectedBilty(bilty);
     
     // Reset challan-related states
@@ -104,108 +120,70 @@ export default function TrackingPage() {
     setTruck(null);
     setDriver(null);
     setOwner(null);
+    setCreatedByUser(null);
     
-    // Fetch transit details for the selected bilty
-    let transitData = null;
     try {
-      const { data, error } = await supabase
-        .from('transit_details')
-        .select('*')
-        .eq('gr_no', bilty.gr_no)
-        .single();
+      // Parallel fetch: transit details and created by user
+      const [transitResult, userResult] = await Promise.all([
+        supabase
+          .from('transit_details')
+          .select('*')
+          .eq('gr_no', bilty.gr_no)
+          .single(),
+        supabase
+          .from('users')
+          .select('id, username, name, post, image_url')
+          .eq('id', bilty.staff_id)
+          .single()
+      ]);
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching transit details:', error);
-      }
-
-      transitData = data || null;
+      const transitData = transitResult.data || null;
       setTransitDetails(transitData);
-    } catch (error) {
-      console.error('Error fetching transit details:', error);
-      setTransitDetails(null);
-    }
+      setCreatedByUser(userResult.data || null);
 
-    // Fetch challan details if transit details has challan_no
-    if (transitData && transitData.challan_no) {
-      try {
+      // Fetch challan details if transit details has challan_no
+      if (transitData && transitData.challan_no) {
         const { data: challanData, error: challanError } = await supabase
           .from('challan_details')
           .select('*')
           .eq('challan_no', transitData.challan_no)
           .single();
 
-        if (challanError && challanError.code !== 'PGRST116') {
-          console.error('Error fetching challan details:', challanError);
-        }
+        if (!challanError) {
+          setChallanDetails(challanData);
 
-        setChallanDetails(challanData || null);
-
-        // Fetch truck details if available
-        if (challanData && challanData.truck_id) {
-          const { data: truckData, error: truckError } = await supabase
-            .from('trucks')
-            .select('*')
-            .eq('id', challanData.truck_id)
-            .single();
-
-          if (truckError && truckError.code !== 'PGRST116') {
-            console.error('Error fetching truck details:', truckError);
+          // Parallel fetch: truck, driver, and owner details
+          const fetchPromises = [];
+          
+          if (challanData.truck_id) {
+            fetchPromises.push(
+              supabase.from('trucks').select('*').eq('id', challanData.truck_id).single()
+            );
+          }
+          if (challanData.driver_id) {
+            fetchPromises.push(
+              supabase.from('staff').select('*').eq('id', challanData.driver_id).single()
+            );
+          }
+          if (challanData.owner_id) {
+            fetchPromises.push(
+              supabase.from('staff').select('*').eq('id', challanData.owner_id).single()
+            );
           }
 
-          setTruck(truckData || null);
-        }
-
-        // Fetch driver details if available
-        if (challanData && challanData.driver_id) {
-          const { data: driverData, error: driverError } = await supabase
-            .from('staff')
-            .select('*')
-            .eq('id', challanData.driver_id)
-            .single();
-
-          if (driverError && driverError.code !== 'PGRST116') {
-            console.error('Error fetching driver details:', driverError);
+          if (fetchPromises.length > 0) {
+            const results = await Promise.all(fetchPromises);
+            let index = 0;
+            if (challanData.truck_id) setTruck(results[index++].data || null);
+            if (challanData.driver_id) setDriver(results[index++].data || null);
+            if (challanData.owner_id) setOwner(results[index++].data || null);
           }
-
-          setDriver(driverData || null);
         }
-
-        // Fetch owner details if available
-        if (challanData && challanData.owner_id) {
-          const { data: ownerData, error: ownerError } = await supabase
-            .from('staff')
-            .select('*')
-            .eq('id', challanData.owner_id)
-            .single();
-
-          if (ownerError && ownerError.code !== 'PGRST116') {
-            console.error('Error fetching owner details:', ownerError);
-          }
-
-          setOwner(ownerData || null);
-        }
-      } catch (error) {
-        console.error('Error fetching challan details:', error);
       }
-    }
-
-    // Fetch user who created the bilty
-    try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, username, name, post, image_url')
-        .eq('id', bilty.staff_id)
-        .single();
-
-      if (userError && userError.code !== 'PGRST116') {
-        console.error('Error fetching user details:', userError);
-      }
-
-      setCreatedByUser(userData || null);
     } catch (error) {
-      console.error('Error fetching user details:', error);
-      setCreatedByUser(null);
+      console.error('Error fetching bilty details:', error);
     }
+  }, []) }
   };
 
   const handleBiltyUpdate = (updatedBilty) => {
@@ -246,61 +224,71 @@ export default function TrackingPage() {
         </div>
       </div>
     );
-  }
+  }useCallback((updatedBilty) => {
+    setSelectedBilty(updatedBilty);
+    setBilties(prev => prev.map(b => b.id === updatedBilty.id ? updatedBilty : b));
+  }, []);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <Navbar />
-      <div className="p-2">
-        {/* Header with Toggle */}
-        <div className="mb-3 px-2">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5">
-                {trackingMode === 'bilty' ? '📦Tracking' : '🚚Tracking'}
-              </h1>
-              <p className="text-xs text-gray-600">
-                {trackingMode === 'bilty' 
-                  ? 'Search and track individual bilties in real-time' 
-                  : 'Track challans and view all associated bilties'}
+  const handleComplaintCreated = useCallback((grNo = null) => {
+    fetchComplaints();
+    setTrackingMode('complaints');
+    if (grNo) {
+      setSelectedComplaint({ gr_no: grNo, isNew: true });
+    }
+  }, [fetchComplaints]);
+
+  const handleViewComplaint = useCallback((complaint) => {
+    setSelectedComplaint(complaint);
+  }, [])               : 'Track challans and view all associated bilties'}
               </p>
             </div>
             
-            {/* Mode Toggle */}
-            <div className="flex gap-2 rounded-xl border-2 border-slate-200 bg-white p-1 shadow-sm">
+            <div className="flex gap-2">
+              {/* Transport Change Button */}
               <button
-                onClick={() => setTrackingMode('bilty')}
-                className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
-                  trackingMode === 'bilty'
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
+                onClick={() => router.push('/tracking/transport-change')}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-gradient-to-r from-green-600 to-teal-600 text-white hover:from-green-700 hover:to-teal-700 shadow-lg transition-all"
               >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Bilty</span>
+                <Truck className="h-4 w-4" />
+                <span className="hidden sm:inline">Transport Change</span>
               </button>
-              <button
-                onClick={() => setTrackingMode('challan')}
-                className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
-                  trackingMode === 'challan'
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Package className="h-4 w-4" />
-                <span className="hidden sm:inline">Challan</span>
-              </button>
-              <button
-                onClick={() => setTrackingMode('complaints')}
-                className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
-                  trackingMode === 'complaints'
-                    ? 'bg-orange-600 text-white shadow-md'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                🚨
-                <span className="hidden sm:inline">Complaints</span>
-              </button>
+              
+              {/* Mode Toggle */}
+              <div className="flex gap-2 rounded-xl border-2 border-slate-200 bg-white p-1 shadow-sm">
+                <button
+                  onClick={() => setTrackingMode('bilty')}
+                  className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
+                    trackingMode === 'bilty'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bilty</span>
+                </button>
+                <button
+                  onClick={() => setTrackingMode('challan')}
+                  className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
+                    trackingMode === 'challan'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Package className="h-4 w-4" />
+                  <span className="hidden sm:inline">Challan</span>
+                </button>
+                <button
+                  onClick={() => setTrackingMode('complaints')}
+                  className={`inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs sm:text-sm font-semibold transition ${
+                    trackingMode === 'complaints'
+                      ? 'bg-orange-600 text-white shadow-md'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  🚨
+                  <span className="hidden sm:inline">Complaints</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

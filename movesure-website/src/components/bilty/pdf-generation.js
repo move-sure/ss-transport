@@ -16,6 +16,7 @@ const PDFGenerator = ({
   const [fromCityData, setFromCityData] = useState(null);
   const [toCityData, setToCityData] = useState(null);
   const [transportData, setTransportData] = useState(null);
+  const [biltyBookBranch, setBiltyBookBranch] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -96,7 +97,21 @@ const PDFGenerator = ({
   }, []);
 
   // ==========================================
-  // 📐 COORDINATE CONFIGURATION SECTION
+  // � UTILITY FUNCTIONS
+  // ==========================================
+  
+  // Map city code to city name - MUST BE BEFORE loadAllDataAndGeneratePreview
+  const getCityNameByCode = (cityCode) => {
+    const cityCodeMap = {
+      'ALG': 'ALIGARH',
+      'KP': 'KANPUR',
+      // Add more city codes as needed
+    };
+    return cityCodeMap[cityCode?.toUpperCase()] || cityCode || 'ALIGARH';
+  };
+
+  // ==========================================
+  // �📐 COORDINATE CONFIGURATION SECTION
   // ==========================================
   // All coordinates are in millimeters (mm) for A4 paper (210 x 297 mm)
   // You can easily modify these coordinates to adjust the layout
@@ -375,19 +390,35 @@ const PDFGenerator = ({
     try {
       setLoading(true);
       
-      // Load all required data in parallel
-      const [permRes, fromCityRes, toCityRes] = await Promise.all([
+      // Load all required data in parallel including branch details
+      const [permRes, fromCityRes, toCityRes, branchRes] = await Promise.all([
         supabase.from('permanent_details').select('*').eq('branch_id', biltyData.branch_id).single(),
         biltyData.from_city_id ? 
           supabase.from('cities').select('*').eq('id', biltyData.from_city_id).single() : 
           Promise.resolve({ data: null }),
         biltyData.to_city_id ? 
           supabase.from('cities').select('*').eq('id', biltyData.to_city_id).single() : 
+          Promise.resolve({ data: null }),
+        biltyData.branch_id ? 
+          supabase.from('branches').select('branch_code, branch_name, city_code').eq('id', biltyData.branch_id).single() : 
           Promise.resolve({ data: null })
       ]);
 
+      console.log('🔍 DEBUG - Branch data:', branchRes.data);
+      console.log('🔍 DEBUG - City code from branch:', branchRes.data?.city_code);
+
       setPermanentDetails(permRes.data);
-      setFromCityData(fromCityRes.data);
+      setBiltyBookBranch(branchRes.data);
+      
+      // Use branch data to determine from city if from_city_id is not set
+      const effectiveFromCity = fromCityRes.data || (branchRes.data ? {
+        city_name: getCityNameByCode(branchRes.data.city_code),
+        city_code: branchRes.data.city_code
+      } : null);
+      
+      console.log('🔍 DEBUG - effectiveFromCity:', effectiveFromCity);
+      
+      setFromCityData(effectiveFromCity);
       setToCityData(toCityRes.data);
 
       // Load transport data based on to_city_id
@@ -402,7 +433,7 @@ const PDFGenerator = ({
       }
       setTransportData(transportRes.data);
 
-      await generatePDFPreview(permRes.data, fromCityRes.data, toCityRes.data, transportRes.data);
+      await generatePDFPreview(permRes.data, effectiveFromCity, toCityRes.data, transportRes.data);
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -412,8 +443,9 @@ const PDFGenerator = ({
   };
 
   // ==========================================
-  // 🔧 UTILITY FUNCTIONS
+  // 🔧 OTHER UTILITY FUNCTIONS
   // ==========================================
+  
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB');

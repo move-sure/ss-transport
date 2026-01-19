@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, CheckCircle, AlertCircle, Camera } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, CheckCircle, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import wNameConfig from './w-name-options.json';
 
-export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
+export default function EditBiltyModal({ bilty, onClose, onUpdate, isTransit = false }) {
   const [formData, setFormData] = useState({
     w_name: bilty?.w_name || '',
     w_name_other: '',
@@ -14,6 +14,8 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
   });
   
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [biltyImagePreview, setBiltyImagePreview] = useState(bilty?.bilty_image || null);
@@ -21,17 +23,10 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
   
   const biltyImageRef = useRef(null);
 
-  // Convert image to base64
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
+  // Determine which bucket to use
+  const bucketName = isTransit ? 'transit-bilty' : 'bilty';
 
-  // Handle image upload
+  // Handle image upload to Supabase storage
   const handleImageUpload = async (e, imageType) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -42,28 +37,80 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image size should be less than 5MB');
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size should be less than 10MB');
       return;
     }
 
     try {
-      const base64 = await convertToBase64(file);
-      
-      setFormData(prev => ({ ...prev, bilty_image: base64 }));
-      setBiltyImagePreview(base64);
+      setUploading(true);
+      setUploadProgress(10);
+      setError(null);
+
+      // Generate unique filename with gr_no and timestamp
+      const fileExt = file.name.split('.').pop();
+      const timestamp = Date.now();
+      const fileName = `${bilty.gr_no}_${timestamp}.${fileExt}`;
+      const filePath = `bilty-images/${fileName}`;
+
+      setUploadProgress(30);
+
+      // Upload to Supabase storage bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, file, {
+          contentType: file.type,
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      setUploadProgress(70);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      setUploadProgress(100);
+
+      // Update form data with the public URL
+      setFormData(prev => ({ ...prev, bilty_image: publicUrl }));
+      setBiltyImagePreview(publicUrl);
       setIsExistingImage(false); // Mark as new image
-      
+
       setError(null);
     } catch (err) {
-      console.error('Error converting image:', err);
-      setError('Failed to process image. Please try again.');
+      console.error('Error uploading image:', err);
+      setError(`Failed to upload image: ${err.message}`);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
   // Remove image
-  const removeImage = () => {
+  const removeImage = async () => {
+    try {
+      // If there's an existing image URL from Supabase, try to delete it
+      const currentImageUrl = formData.bilty_image;
+      if (currentImageUrl && currentImageUrl.includes(bucketName)) {
+        const urlParts = currentImageUrl.split(`${bucketName}/`);
+        if (urlParts.length > 1) {
+          const filePath = urlParts[1];
+          // Try to delete from storage (ignore errors)
+          await supabase.storage.from(bucketName).remove([filePath]);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting image from storage:', err);
+    }
+
     setFormData(prev => ({ ...prev, bilty_image: null }));
     setBiltyImagePreview(null);
     setIsExistingImage(false);
@@ -216,6 +263,25 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
                 </span>
               )}
             </label>
+
+            {/* Upload Progress */}
+            {uploading && (
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between text-sm text-blue-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading to {bucketName} bucket...
+                  </span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
             
             {biltyImagePreview ? (
               <div className="space-y-3">
@@ -316,17 +382,17 @@ export default function EditBiltyModal({ bilty, onClose, onUpdate }) {
             <button
               type="button"
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || uploading}
               className="flex-1 px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading || success}
+              disabled={loading || success || uploading}
               className="flex-1 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Updating...' : success ? 'Updated!' : 'Update Bilty'}
+              {loading ? 'Updating...' : success ? 'Updated!' : uploading ? 'Wait...' : 'Update Bilty'}
             </button>
           </div>
         </form>

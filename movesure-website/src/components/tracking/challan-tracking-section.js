@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import supabase from '../../app/utils/supabase';
 import ChallanTrackingSelector from './challan-tracking-selector';
 import ChallanBiltyList from './challan-bilty-list';
+import ChallanDetailsDisplay from './challan-details-display';
 import { Package, Loader2 } from 'lucide-react';
 
 const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => {
@@ -17,6 +18,7 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
   const [owner, setOwner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingBilties, setLoadingBilties] = useState(false);
+  const [cities, setCities] = useState([]);
 
   useEffect(() => {
     if (user) {
@@ -127,6 +129,16 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
         ];
 
         setBiltyDetails(allBilties);
+
+        // Fetch cities for bilties
+        const cityIds = [...new Set(allBilties.map(b => b.to_city_id).filter(Boolean))];
+        if (cityIds.length > 0) {
+          const { data: citiesData } = await supabase
+            .from('cities')
+            .select('id, city_name, city_code')
+            .in('id', cityIds);
+          setCities(citiesData || []);
+        }
       } else {
         setBiltyDetails([]);
       }
@@ -134,6 +146,13 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
       console.error('Error loading challan details:', error);
     } finally {
       setLoadingBilties(false);
+    }
+  };
+
+  const handleStatusUpdate = () => {
+    // Refresh the data after status update
+    if (selectedChallan) {
+      handleChallanSelect(selectedChallan);
     }
   };
 
@@ -157,7 +176,7 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
           </span>
           <div>
             <h2 className="text-lg font-bold text-slate-900 sm:text-xl">Challan Tracking</h2>
-            <p className="text-xs text-slate-600">Select a challan to view all bilties</p>
+            <p className="text-xs text-slate-600">Select a challan to view all bilties and update status</p>
           </div>
         </div>
 
@@ -174,13 +193,27 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
       </div>
 
       {selectedChallan && (
-        <ChallanBiltyList
-          bilties={biltyDetails}
-          transitDetails={transitBilties}
-          loading={loadingBilties}
-          branches={branches}
-          onComplaintCreated={onComplaintCreated}
-        />
+        <>
+          {/* Challan Details Display */}
+          <ChallanDetailsDisplay
+            challanDetails={challanDetails}
+            truck={truck}
+            driver={driver}
+            owner={owner}
+          />
+
+          {/* Bilty List with Individual Status Updaters */}
+          <ChallanBiltyList
+            bilties={biltyDetails}
+            transitDetails={transitBilties}
+            loading={loadingBilties}
+            branches={branches}
+            onComplaintCreated={onComplaintCreated}
+            onStatusUpdate={handleStatusUpdate}
+            user={user}
+            cities={cities}
+          />
+        </>
       )}
     </div>
   );

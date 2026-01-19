@@ -1,10 +1,150 @@
 'use client';
 
-import React from 'react';
-import { X, Image as ImageIcon, Info, Building, FileText } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Image as ImageIcon, Info, Building, FileText, Upload, Loader2, Check, Trash2 } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
 
-export default function BiltyInfoModal({ bilty, isOpen, onClose }) {
+export default function BiltyInfoModal({ bilty, isOpen, onClose, onImageUpdate, isTransit = false }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [localImageUrl, setLocalImageUrl] = useState(null);
+  const fileInputRef = useRef(null);
+
   if (!isOpen || !bilty) return null;
+
+  // Determine which bucket to use based on isTransit prop
+  const bucketName = isTransit ? 'transit-bilty' : 'bilty';
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file (JPG, PNG, etc.)');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image size should be less than 10MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadProgress(10);
+
+      // Generate unique filename with gr_no and timestamp
+      const fileExt = file.name.split('.').pop();
+      const timestamp = Date.now();
+      const fileName = `${bilty.gr_no}_${timestamp}.${fileExt}`;
+      const filePath = `bilty-images/${fileName}`;
+
+      setUploadProgress(30);
+
+      // Upload to Supabase storage bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, file, {
+          contentType: file.type,
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      setUploadProgress(70);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      setUploadProgress(85);
+
+      // Update the bilty record in database with new image URL
+      const tableName = isTransit ? 'transit_bilty' : 'bilty';
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update({ bilty_image: publicUrl })
+        .eq('gr_no', bilty.gr_no);
+
+      if (updateError) {
+        throw new Error(`Database update failed: ${updateError.message}`);
+      }
+
+      setUploadProgress(100);
+      setLocalImageUrl(publicUrl);
+
+      // Notify parent component about the update
+      if (onImageUpdate) {
+        onImageUpdate(bilty.gr_no, publicUrl);
+      }
+
+      alert('Image uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert(`Error uploading image: ${error.message}`);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (!confirm('Are you sure you want to remove this image?')) return;
+
+    try {
+      setUploading(true);
+
+      // Extract file path from URL if it's a Supabase URL
+      const currentImageUrl = localImageUrl || bilty.bilty_image;
+      if (currentImageUrl && currentImageUrl.includes(bucketName)) {
+        const urlParts = currentImageUrl.split(`${bucketName}/`);
+        if (urlParts.length > 1) {
+          const filePath = urlParts[1];
+          // Try to delete from storage (ignore errors as file might not exist)
+          await supabase.storage.from(bucketName).remove([filePath]);
+        }
+      }
+
+      // Update the bilty record in database to remove image
+      const tableName = isTransit ? 'transit_bilty' : 'bilty';
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update({ bilty_image: null })
+        .eq('gr_no', bilty.gr_no);
+
+      if (updateError) {
+        throw new Error(`Failed to remove image: ${updateError.message}`);
+      }
+
+      setLocalImageUrl(null);
+
+      // Notify parent component about the update
+      if (onImageUpdate) {
+        onImageUpdate(bilty.gr_no, null);
+      }
+
+      alert('Image removed successfully!');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      alert(`Error removing image: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Use local state if image was just uploaded, otherwise use bilty data
+  const displayImageUrl = localImageUrl || bilty.bilty_image;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -102,24 +242,92 @@ export default function BiltyInfoModal({ bilty, isOpen, onClose }) {
               <ImageIcon className="w-5 h-5 text-purple-600" />
               Bilty Image
             </h3>
-            {bilty.bilty_image ? (
+            
+            {/* Upload Section */}
+            <div className="mb-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+                id="bilty-image-upload"
+                disabled={uploading}
+              />
+              <div className="flex items-center gap-3 flex-wrap">
+                <label
+                  htmlFor="bilty-image-upload"
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium cursor-pointer transition-all ${
+                    uploading 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      {displayImageUrl ? 'Replace Image' : 'Upload Image'}
+                    </>
+                  )}
+                </label>
+                
+                {displayImageUrl && !uploading && (
+                  <button
+                    onClick={handleRemoveImage}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Remove Image
+                  </button>
+                )}
+              </div>
+              
+              {/* Upload Progress */}
+              {uploading && uploadProgress > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-sm text-slate-600 mb-1">
+                    <span>Uploading to {bucketName} bucket...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-slate-500 mt-2">
+                Supported formats: JPG, PNG, GIF, WebP (Max size: 10MB)
+              </p>
+            </div>
+
+            {/* Image Display */}
+            {displayImageUrl ? (
               <div className="relative border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50">
                 <div className="bg-white rounded-lg overflow-hidden shadow-lg">
                   <img
-                    src={bilty.bilty_image}
+                    src={displayImageUrl}
                     alt="Bilty"
                     className="w-full h-auto max-h-[500px] object-contain"
                   />
                 </div>
-                <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
-                  ✓ Image Available
+                <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Image Available
                 </div>
               </div>
             ) : (
               <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center bg-slate-50">
                 <ImageIcon className="w-16 h-16 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-500 font-medium">No image uploaded</p>
-                <p className="text-xs text-slate-400 mt-1">Use the Edit button to upload an image</p>
+                <p className="text-xs text-slate-400 mt-1">Click "Upload Image" button above to add an image</p>
               </div>
             )}
           </div>

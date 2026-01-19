@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../utils/auth';
@@ -31,27 +31,6 @@ export default function TrackingPage() {
   const [complaintsLoaded, setComplaintsLoaded] = useState(false);
   const [branchesLoaded, setBranchesLoaded] = useState(false);
 
-  // Initial load - only fetch bilties
-  useEffect(() => {
-    if (user) {
-      fetchBilties(user);
-    }
-  }, [user]);
-
-  // Lazy load branches when challan mode is activated
-  useEffect(() => {
-    if (user && trackingMode === 'challan' && !branchesLoaded) {
-      fetchBranches();
-    }
-  }, [user, trackingMode, branchesLoaded]);
-
-  // Lazy load complaints when complaints mode is activated
-  useEffect(() => {
-    if (user && trackingMode === 'complaints' && !complaintsLoaded) {
-      fetchComplaints();
-    }
-  }, [user, trackingMode, complaintsLoaded]);
-
   const fetchBranches = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -80,9 +59,10 @@ export default function TrackingPage() {
     } catch (error) {
       console.error('Error fetching complaints:', error);
     }
-  }, []);useCallback(async (currentUser) => {
+  }, []);
+
+  const fetchBilties = useCallback(async (currentUser) => {
     try {
-      // Fetch user's branch_id from users table
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('branch_id')
@@ -91,7 +71,6 @@ export default function TrackingPage() {
 
       if (userError) throw userError;
 
-      // Fetch only recent bilties (last 100) to reduce load time
       const { data, error } = await supabase
         .from('bilty')
         .select('*')
@@ -103,7 +82,6 @@ export default function TrackingPage() {
         .limit(100);
 
       if (error) throw error;
-
       setBilties(data || []);
     } catch (error) {
       console.error('Error fetching bilties:', error);
@@ -112,10 +90,29 @@ export default function TrackingPage() {
     }
   }, []);
 
+  // Initial load - only fetch bilties
+  useEffect(() => {
+    if (user) {
+      fetchBilties(user);
+    }
+  }, [user, fetchBilties]);
+
+  // Lazy load branches when challan mode is activated
+  useEffect(() => {
+    if (user && trackingMode === 'challan' && !branchesLoaded) {
+      fetchBranches();
+    }
+  }, [user, trackingMode, branchesLoaded, fetchBranches]);
+
+  // Lazy load complaints when complaints mode is activated
+  useEffect(() => {
+    if (user && trackingMode === 'complaints' && !complaintsLoaded) {
+      fetchComplaints();
+    }
+  }, [user, trackingMode, complaintsLoaded, fetchComplaints]);
+
   const handleSelectBilty = useCallback(async (bilty) => {
     setSelectedBilty(bilty);
-    
-    // Reset challan-related states
     setChallanDetails(null);
     setTruck(null);
     setDriver(null);
@@ -123,7 +120,6 @@ export default function TrackingPage() {
     setCreatedByUser(null);
     
     try {
-      // Parallel fetch: transit details and created by user
       const [transitResult, userResult] = await Promise.all([
         supabase
           .from('transit_details')
@@ -141,7 +137,6 @@ export default function TrackingPage() {
       setTransitDetails(transitData);
       setCreatedByUser(userResult.data || null);
 
-      // Fetch challan details if transit details has challan_no
       if (transitData && transitData.challan_no) {
         const { data: challanData, error: challanError } = await supabase
           .from('challan_details')
@@ -149,26 +144,18 @@ export default function TrackingPage() {
           .eq('challan_no', transitData.challan_no)
           .single();
 
-        if (!challanError) {
+        if (!challanError && challanData) {
           setChallanDetails(challanData);
 
-          // Parallel fetch: truck, driver, and owner details
           const fetchPromises = [];
-          
           if (challanData.truck_id) {
-            fetchPromises.push(
-              supabase.from('trucks').select('*').eq('id', challanData.truck_id).single()
-            );
+            fetchPromises.push(supabase.from('trucks').select('*').eq('id', challanData.truck_id).single());
           }
           if (challanData.driver_id) {
-            fetchPromises.push(
-              supabase.from('staff').select('*').eq('id', challanData.driver_id).single()
-            );
+            fetchPromises.push(supabase.from('staff').select('*').eq('id', challanData.driver_id).single());
           }
           if (challanData.owner_id) {
-            fetchPromises.push(
-              supabase.from('staff').select('*').eq('id', challanData.owner_id).single()
-            );
+            fetchPromises.push(supabase.from('staff').select('*').eq('id', challanData.owner_id).single());
           }
 
           if (fetchPromises.length > 0) {
@@ -183,26 +170,24 @@ export default function TrackingPage() {
     } catch (error) {
       console.error('Error fetching bilty details:', error);
     }
-  }, []) }
-  };
+  }, []);
 
-  const handleBiltyUpdate = (updatedBilty) => {
+  const handleBiltyUpdate = useCallback((updatedBilty) => {
     setSelectedBilty(updatedBilty);
-    // Update in the bilties list as well
     setBilties(prev => prev.map(b => b.id === updatedBilty.id ? updatedBilty : b));
-  };
+  }, []);
 
-  const handleComplaintCreated = (grNo = null) => {
+  const handleComplaintCreated = useCallback((grNo = null) => {
     fetchComplaints();
     setTrackingMode('complaints');
     if (grNo) {
       setSelectedComplaint({ gr_no: grNo, isNew: true });
     }
-  };
+  }, [fetchComplaints]);
 
-  const handleViewComplaint = (complaint) => {
+  const handleViewComplaint = useCallback((complaint) => {
     setSelectedComplaint(complaint);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -224,22 +209,23 @@ export default function TrackingPage() {
         </div>
       </div>
     );
-  }useCallback((updatedBilty) => {
-    setSelectedBilty(updatedBilty);
-    setBilties(prev => prev.map(b => b.id === updatedBilty.id ? updatedBilty : b));
-  }, []);
+  }
 
-  const handleComplaintCreated = useCallback((grNo = null) => {
-    fetchComplaints();
-    setTrackingMode('complaints');
-    if (grNo) {
-      setSelectedComplaint({ gr_no: grNo, isNew: true });
-    }
-  }, [fetchComplaints]);
-
-  const handleViewComplaint = useCallback((complaint) => {
-    setSelectedComplaint(complaint);
-  }, [])               : 'Track challans and view all associated bilties'}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <Navbar />
+      <div className="p-2">
+        {/* Header with Toggle */}
+        <div className="mb-3 px-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5">
+                {trackingMode === 'bilty' ? '📦Tracking' : '🚚Tracking'}
+              </h1>
+              <p className="text-xs text-gray-600">
+                {trackingMode === 'bilty' 
+                  ? 'Search and track individual bilties in real-time' 
+                  : 'Track challans and view all associated bilties'}
               </p>
             </div>
             
@@ -296,17 +282,13 @@ export default function TrackingPage() {
         {/* Content Based on Mode */}
         {trackingMode === 'bilty' ? (
           <>
-            {/* Search Section */}
             <div className="mb-3 px-2">
               <TrackingSearch
                 onSelectBilty={handleSelectBilty}
                 bilties={bilties}
               />
             </div>
-
-            {/* Details Section */}
             <div className="px-2">
-              {/* Challan Details - Show above bilty details */}
               {selectedBilty && challanDetails && (
                 <ChallanDetailsDisplay
                   challanDetails={challanDetails}
@@ -315,8 +297,6 @@ export default function TrackingPage() {
                   owner={owner}
                 />
               )}
-              
-              {/* Bilty Details */}
               <BiltyDetailsDisplay
                 bilty={selectedBilty}
                 transitDetails={transitDetails}

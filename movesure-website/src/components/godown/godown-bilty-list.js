@@ -21,6 +21,7 @@ import GodownPagination from './godown-pagination';
 import TransportInfo from './transport-info';
 import ChallanDetailsModal from './challan-details-modal';
 import EditBiltyModal from './edit-bilty-modal';
+import EditRegularBiltyModal from './edit-regular-bilty-modal';
 import BiltyInfoModal from './bilty-info-modal';
 
 export default function GodownBiltyList({ 
@@ -59,11 +60,9 @@ export default function GodownBiltyList({
 
   // Handle edit click
   const handleEditClick = (bilty) => {
-    // Only allow edit for station bilties (manual source)
-    if (bilty.source === 'manual') {
-      setSelectedBilty(bilty);
-      setIsEditModalOpen(true);
-    }
+    // Allow edit for both station bilties (manual source) and regular bilties
+    setSelectedBilty(bilty);
+    setIsEditModalOpen(true);
   };
 
   const handleCloseEditModal = () => {
@@ -82,10 +81,8 @@ export default function GodownBiltyList({
 
   // Handle info click
   const handleInfoClick = (bilty) => {
-    if (bilty.source === 'manual') {
-      setInfoBilty(bilty);
-      setIsInfoModalOpen(true);
-    }
+    setInfoBilty(bilty);
+    setIsInfoModalOpen(true);
   };
 
   const handleCloseInfoModal = () => {
@@ -432,17 +429,22 @@ export default function GodownBiltyList({
                   {formatDate(bilty.created_at)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {bilty.source === 'manual' ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleInfoClick(bilty)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-xs font-medium shadow-sm"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                      Info
+                    </button>
                     <button
                       onClick={() => handleEditClick(bilty)}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs font-medium shadow-sm"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-3.5 h-3.5" />
                       Edit
                     </button>
-                  ) : (
-                    <span className="text-xs text-slate-400">-</span>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -617,24 +619,22 @@ export default function GodownBiltyList({
                   <span className="text-xs text-slate-500">
                     {formatDate(bilty.created_at)}
                   </span>
-                  {bilty.source === 'manual' && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleInfoClick(bilty)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 active:bg-purple-700 transition-colors text-xs font-medium shadow-sm"
-                      >
-                        <Info className="w-3.5 h-3.5" />
-                        Info
-                      </button>
-                      <button
-                        onClick={() => handleEditClick(bilty)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs font-medium shadow-sm"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        Edit
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleInfoClick(bilty)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 active:bg-purple-700 transition-colors text-xs font-medium shadow-sm"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                      Info
+                    </button>
+                    <button
+                      onClick={() => handleEditClick(bilty)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 active:bg-blue-700 transition-colors text-xs font-medium shadow-sm"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  </div>
                 </div>
 
               </div>
@@ -663,9 +663,18 @@ export default function GodownBiltyList({
         onClose={handleCloseModal}
       />
 
-      {/* Edit Bilty Modal */}
-      {isEditModalOpen && selectedBilty && (
+      {/* Edit Bilty Modal - For Station Bilties (manual source) */}
+      {isEditModalOpen && selectedBilty && selectedBilty.source === 'manual' && (
         <EditBiltyModal
+          bilty={selectedBilty}
+          onClose={handleCloseEditModal}
+          onUpdate={handleBiltyUpdate}
+        />
+      )}
+
+      {/* Edit Regular Bilty Modal - For Regular Bilties (transit-bilty upload only) */}
+      {isEditModalOpen && selectedBilty && selectedBilty.source === 'regular' && (
+        <EditRegularBiltyModal
           bilty={selectedBilty}
           onClose={handleCloseEditModal}
           onUpdate={handleBiltyUpdate}
@@ -677,6 +686,7 @@ export default function GodownBiltyList({
         bilty={infoBilty}
         isOpen={isInfoModalOpen}
         onClose={handleCloseInfoModal}
+        isTransit={infoBilty?.source !== 'manual'}
       />
 
     </div>

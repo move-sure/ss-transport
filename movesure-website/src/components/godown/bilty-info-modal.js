@@ -12,8 +12,11 @@ export default function BiltyInfoModal({ bilty, isOpen, onClose, onImageUpdate, 
 
   if (!isOpen || !bilty) return null;
 
-  // Determine which bucket to use based on isTransit prop
-  const bucketName = isTransit ? 'transit-bilty' : 'bilty';
+  // Determine if this is a station bilty (has 'station' field) or regular bilty
+  const isStationBilty = !!bilty?.station;
+  
+  // Use transit-bilty bucket for regular bilties and transit bilties, bilty bucket for station bilties
+  const bucketName = isStationBilty ? 'bilty' : 'transit-bilty';
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -66,12 +69,15 @@ export default function BiltyInfoModal({ bilty, isOpen, onClose, onImageUpdate, 
 
       setUploadProgress(85);
 
+      // Determine which table to update based on bilty source
+      // station bilties have 'station' field, regular bilties have 'to_city_id' field
+      const tableName = isTransit ? 'transit_bilty' : (bilty.station ? 'station_bilty_summary' : 'bilty');
+      
       // Update the bilty record in database with new image URL
-      const tableName = isTransit ? 'transit_bilty' : 'bilty';
       const { error: updateError } = await supabase
         .from(tableName)
         .update({ bilty_image: publicUrl })
-        .eq('gr_no', bilty.gr_no);
+        .eq('id', bilty.id);
 
       if (updateError) {
         throw new Error(`Database update failed: ${updateError.message}`);
@@ -116,12 +122,14 @@ export default function BiltyInfoModal({ bilty, isOpen, onClose, onImageUpdate, 
         }
       }
 
+      // Determine which table to update based on bilty source
+      const tableName = isTransit ? 'transit_bilty' : (bilty.station ? 'station_bilty_summary' : 'bilty');
+      
       // Update the bilty record in database to remove image
-      const tableName = isTransit ? 'transit_bilty' : 'bilty';
       const { error: updateError } = await supabase
         .from(tableName)
         .update({ bilty_image: null })
-        .eq('gr_no', bilty.gr_no);
+        .eq('id', bilty.id);
 
       if (updateError) {
         throw new Error(`Failed to remove image: ${updateError.message}`);

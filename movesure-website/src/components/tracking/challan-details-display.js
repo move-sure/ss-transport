@@ -3,7 +3,7 @@
 import React from 'react';
 import { Truck, User, Calendar, CheckCircle, XCircle, AlertCircle, Package, MapPin, Phone } from 'lucide-react';
 
-const ChallanDetailsDisplay = ({ challanDetails, truck, driver, owner }) => {
+const ChallanDetailsDisplay = ({ challanDetails, truck, driver, owner, destinationCity, fromCity }) => {
   if (!challanDetails) {
     return null;
   }
@@ -98,19 +98,39 @@ const ChallanDetailsDisplay = ({ challanDetails, truck, driver, owner }) => {
           </div>
         </div>
 
+        {/* From Station */}
+        {(fromCity || challanDetails.from_station) && (
+          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-4 rounded-xl shadow-md border-2 border-cyan-300 hover:shadow-lg transition">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="w-4 h-4 text-cyan-600" />
+              <span className="text-xs font-bold text-cyan-700 uppercase tracking-wide">From</span>
+            </div>
+            <div className="text-lg font-bold text-cyan-900">
+              {fromCity?.city_name || challanDetails.from_station || '-'}
+            </div>
+            {fromCity?.city_code && (
+              <div className="text-[10px] text-cyan-600 font-semibold mt-1">
+                Code: {fromCity.city_code}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Destination */}
-        {challanDetails.to_station && (
-          <div className="md:col-span-2 lg:col-span-1 bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-xl shadow-md border-2 border-pink-300 hover:shadow-lg transition">
+        {(destinationCity || challanDetails.to_station) && (
+          <div className="bg-gradient-to-br from-pink-50 to-rose-50 p-4 rounded-xl shadow-md border-2 border-pink-300 hover:shadow-lg transition">
             <div className="flex items-center gap-2 mb-2">
               <MapPin className="w-4 h-4 text-pink-600" />
               <span className="text-xs font-bold text-pink-700 uppercase tracking-wide">Destination</span>
             </div>
             <div className="text-lg font-bold text-pink-900">
-              {challanDetails.to_station}
+              {destinationCity?.city_name || challanDetails.to_station || '-'}
             </div>
-            <div className="text-[10px] text-pink-600 font-semibold mt-1">
-              Delivery destination
-            </div>
+            {destinationCity?.city_code && (
+              <div className="text-[10px] text-pink-600 font-semibold mt-1">
+                Code: {destinationCity.city_code}
+              </div>
+            )}
           </div>
         )}
       </div>

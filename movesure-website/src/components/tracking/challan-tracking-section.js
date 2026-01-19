@@ -19,6 +19,8 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
   const [loading, setLoading] = useState(true);
   const [loadingBilties, setLoadingBilties] = useState(false);
   const [cities, setCities] = useState([]);
+  const [destinationCity, setDestinationCity] = useState(null);
+  const [fromCity, setFromCity] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -59,8 +61,30 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
     setSelectedChallan(challan);
     setChallanDetails(challan);
     setLoadingBilties(true);
+    setDestinationCity(null);
+    setFromCity(null);
 
     try {
+      // Fetch destination city details
+      if (challan.to_city_id) {
+        const { data: toCity } = await supabase
+          .from('cities')
+          .select('id, city_name, city_code')
+          .eq('id', challan.to_city_id)
+          .single();
+        setDestinationCity(toCity);
+      }
+
+      // Fetch from city details
+      if (challan.from_city_id) {
+        const { data: fromCityData } = await supabase
+          .from('cities')
+          .select('id, city_name, city_code')
+          .eq('id', challan.from_city_id)
+          .single();
+        setFromCity(fromCityData);
+      }
+
       // Fetch truck details
       if (challan.truck_id) {
         const { data: truckData } = await supabase
@@ -200,6 +224,8 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
             truck={truck}
             driver={driver}
             owner={owner}
+            destinationCity={destinationCity}
+            fromCity={fromCity}
           />
 
           {/* Bilty List with Individual Status Updaters */}

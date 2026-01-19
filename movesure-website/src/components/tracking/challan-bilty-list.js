@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import BiltyStatusUpdater from './bilty-status-updater';
 import supabase from '../../app/utils/supabase';
 
-const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [], onComplaintCreated, onStatusUpdate, user, cities = [] }) => {
+const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [], onComplaintCreated, onStatusUpdate, user, cities = [], challanNo }) => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState('all');
@@ -295,6 +295,8 @@ const ChallanBiltyList = ({ bilties, transitDetails, loading, branches = [], onC
                         if (onStatusUpdate) onStatusUpdate();
                       }}
                       user={user}
+                      destinationCity={getCityName(bilty.to_city_id)}
+                      challanNo={challanNo}
                     />
                   </div>
                 </div>

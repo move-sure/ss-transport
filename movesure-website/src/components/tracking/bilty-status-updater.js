@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import supabase from '../../app/utils/supabase';
 import { Package, MapPin, CheckCircle, Loader2, Truck } from 'lucide-react';
 
-const BiltyStatusUpdater = ({ grNo, biltyId, currentStatus, onStatusUpdate, user }) => {
+const BiltyStatusUpdater = ({ grNo, biltyId, currentStatus, onStatusUpdate, user, destinationCity, challanNo }) => {
   const [updating, setUpdating] = useState(false);
   const [activeStatus, setActiveStatus] = useState(null);
 
@@ -116,6 +116,8 @@ const BiltyStatusUpdater = ({ grNo, biltyId, currentStatus, onStatusUpdate, user
             complaint_description: 'Auto-created for delivery tracking',
             priority: 'LOW',
             status: updateData.status || 'IN_TRANSIT',
+            destination_city: destinationCity || null,
+            challan_no: challanNo || null,
             created_by: user?.id,
             ...updateData,
           });

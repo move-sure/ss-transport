@@ -238,6 +238,7 @@ const ChallanTrackingSection = ({ user, branches = [], onComplaintCreated }) => 
             onStatusUpdate={handleStatusUpdate}
             user={user}
             cities={cities}
+            challanNo={selectedChallan?.challan_no}
           />
         </>
       )}

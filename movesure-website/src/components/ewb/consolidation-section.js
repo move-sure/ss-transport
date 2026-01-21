@@ -140,7 +140,7 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
   }, [fetchExistingCewbs]);
 
   const allValidated = useMemo(() => {
-    if (allEwbNumbers.length < 2) return false;
+    if (allEwbNumbers.length < 1) return false;
     return allEwbNumbers.every(ewb => {
       const entry = validationMap[ewb];
       return entry?.isValidated && entry?.success;
@@ -160,13 +160,13 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
     );
   }
 
-  if (allEwbNumbers.length < 2) {
+  if (allEwbNumbers.length < 1) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
         <FileStack className="w-12 h-12 text-orange-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Insufficient E-Way Bills</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">No E-Way Bills Found</h3>
         <p className="text-gray-600">
-          At least 2 E-Way Bills are required for consolidation. 
+          At least 1 E-Way Bill is required for consolidation. 
           Currently found: {allEwbNumbers.length}
         </p>
       </div>

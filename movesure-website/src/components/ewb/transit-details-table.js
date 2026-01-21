@@ -125,7 +125,7 @@ export default function TransitDetailsTable({ transitDetails, challanDetails }) 
   }, []);
 
   const allEwbsValidated = useMemo(() => {
-    if (!allEwbNumbers || allEwbNumbers.length < 2) return false;
+    if (!allEwbNumbers || allEwbNumbers.length < 1) return false;
     return allEwbNumbers.every(ewb => {
       const entry = validationMap[String(ewb).trim()];
       return entry?.isValidated && entry?.success;

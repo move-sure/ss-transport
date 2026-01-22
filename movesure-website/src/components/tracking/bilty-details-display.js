@@ -40,36 +40,94 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
   return (
     <div className="bg-white/95 rounded-lg border border-slate-200 shadow-lg">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white p-3 rounded-t-lg">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h2 className="text-lg font-bold mb-0.5">GR No: {bilty.gr_no}</h2>
-            <p className="text-indigo-100 text-[10px]">Date: {new Date(bilty.bilty_date).toLocaleDateString('en-IN')}</p>
-            {bilty.destination && (
-              <div className="flex items-center gap-1 mt-1 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded w-fit">
-                <span className="text-[10px]">📍 Destination:</span>
-                <span className="text-xs font-bold">{bilty.destination}</span>
-              </div>
-            )}
+      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white p-4 rounded-t-lg border-b-4 border-amber-500">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl font-black mb-1 text-white tracking-tight">GR No: {bilty.gr_no}</h2>
+            <p className="text-slate-300 text-sm font-semibold">Date: {new Date(bilty.bilty_date).toLocaleDateString('en-IN')}</p>
             {createdByUser && (
-              <div className="flex items-center gap-1.5 mt-1 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded w-fit">
-                <UserCircle className="w-3 h-3" />
-                <span className="text-[9px]">Created by: <strong>{createdByUser.name || createdByUser.username}</strong></span>
-                {createdByUser.post && <span className="text-[9px] opacity-80">({createdByUser.post})</span>}
+              <div className="flex items-center gap-1.5 mt-2 bg-white/10 px-2 py-1 rounded w-fit">
+                <UserCircle className="w-3.5 h-3.5" />
+                <span className="text-xs text-slate-200">Created by: <strong className="text-white">{createdByUser.name || createdByUser.username}</strong></span>
+                {createdByUser.post && <span className="text-xs text-slate-300">({createdByUser.post})</span>}
               </div>
             )}
           </div>
-          {transitDetails && (
-            <div className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded">
-              <div className="text-[9px] text-indigo-100 uppercase">Challan No</div>
-              <div className="text-sm font-bold">{transitDetails.challan_no}</div>
-            </div>
-          )}
+          
+          {/* Right Side - Destination & Dispatch Date */}
+          <div className="flex flex-col items-end gap-3">
+            {bilty.destination && (
+              <div className="text-right">
+                <div className="text-xs text-amber-400 uppercase font-bold tracking-wider mb-1">Destination</div>
+                <div className="text-3xl font-black text-white leading-tight tracking-tight">
+                  📍 {bilty.destination}
+                </div>
+              </div>
+            )}
+            {challanDetails?.dispatch_date && (
+              <div className="text-right">
+                <div className="text-xs text-emerald-400 uppercase font-bold tracking-wider mb-1">Dispatched</div>
+                <div className="text-xl font-bold text-white leading-tight">
+                  {new Date(challanDetails.dispatch_date).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </div>
+                <div className="text-sm font-semibold text-emerald-300 mt-0.5">
+                  {new Date(challanDetails.dispatch_date).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              </div>
+            )}
+            {transitDetails && (
+              <div className="bg-white/10 px-3 py-1.5 rounded">
+                <div className="text-[10px] text-slate-300 uppercase font-semibold">Challan No</div>
+                <div className="text-base font-bold text-white">{transitDetails.challan_no}</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-3 space-y-3">
+        {/* Transit Bilty Image */}
+        {bilty.bilty_image && (
+          <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-300">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-600" />
+                Transit Bilty Document
+              </h3>
+              <a
+                href={bilty.bilty_image}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition"
+              >
+                📄 View Document
+              </a>
+            </div>
+            <div className="bg-white rounded-lg p-2 border border-blue-200">
+              <img
+                src={bilty.bilty_image}
+                alt="Transit Bilty"
+                className="w-full h-auto max-h-96 object-contain rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+              <div className="hidden text-center py-4 text-gray-500 text-sm">
+                📄 Document preview not available. Click &quot;View Document&quot; to open.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Compact Challan Details */}
         {challanDetails && (
           <div className="p-2 bg-gradient-to-r from-teal-50 to-cyan-50 rounded border border-teal-200">
@@ -91,12 +149,33 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
                 <span className="font-semibold text-gray-600">Challan:</span>
                 <span className="font-bold text-gray-900">{challanDetails.challan_no}</span>
               </div>
-              {transitDetails?.dispatch_date && (
+              {challanDetails.dispatch_date && (
                 <>
                   <span className="text-gray-300">|</span>
                   <div className="flex items-center gap-1">
                     <span className="font-semibold text-gray-600">Dispatched:</span>
-                    <span className="font-bold text-teal-700">{new Date(transitDetails.dispatch_date).toLocaleDateString('en-IN')}</span>
+                    <span className="font-bold text-teal-700">
+                      {new Date(challanDetails.dispatch_date).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                      {' at '}
+                      {new Date(challanDetails.dispatch_date).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                </>
+              )}
+              {!challanDetails.is_dispatched && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] px-2 py-0.5 bg-orange-100 text-orange-700 font-bold rounded-full border border-orange-300">
+                      Pending Dispatch
+                    </span>
                   </div>
                 </>
               )}

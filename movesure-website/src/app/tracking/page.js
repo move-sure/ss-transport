@@ -10,7 +10,7 @@ import BiltyDetailsDisplay from '@/components/tracking/bilty-details-display';
 import ChallanDetailsDisplay from '@/components/tracking/challan-details-display';
 import ChallanTrackingSection from '@/components/tracking/challan-tracking-section';
 import ComplaintsSection from '@/components/tracking/complaints-section';
-import { FileText, Package, Truck } from 'lucide-react';
+import { FileText, Package, Truck, List } from 'lucide-react';
 
 export default function TrackingPage() {
   const router = useRouter();
@@ -211,16 +211,27 @@ export default function TrackingPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-0.5">
-                {trackingMode === 'bilty' ? '📦Tracking' : '🚚Tracking'}
+                {trackingMode === 'bilty' ? '📦Tracking' : trackingMode === 'challan' ? '🚚Tracking' : '🚨Complaints'}
               </h1>
               <p className="text-xs text-gray-600">
                 {trackingMode === 'bilty' 
                   ? 'Search and track individual bilties in real-time' 
-                  : 'Track challans and view all associated bilties'}
+                  : trackingMode === 'challan'
+                  ? 'Track challans and view all associated bilties'
+                  : 'View and manage complaints'}
               </p>
             </div>
             
             <div className="flex gap-2">
+              {/* Bulk Actions Button */}
+              <button
+                onClick={() => router.push('/tracking/bulk-actions')}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg transition-all"
+              >
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">Bulk Actions</span>
+              </button>
+              
               {/* Transport Change Button */}
               <button
                 onClick={() => router.push('/tracking/transport-change')}

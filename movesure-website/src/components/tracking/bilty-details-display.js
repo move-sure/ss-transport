@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Package, User, Users, Truck, FileText, IndianRupee, Info, UserCircle } from 'lucide-react';
 import MobileNumberEditor from './mobile-number-editor';
 
-const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate, onComplaintCreated }) => {
+const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate, onComplaintCreated, challanDetails, truck, driver, owner }) => {
   const router = useRouter();
 
   const handleComplaintClick = () => {
@@ -45,6 +45,12 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
           <div>
             <h2 className="text-lg font-bold mb-0.5">GR No: {bilty.gr_no}</h2>
             <p className="text-indigo-100 text-[10px]">Date: {new Date(bilty.bilty_date).toLocaleDateString('en-IN')}</p>
+            {bilty.destination && (
+              <div className="flex items-center gap-1 mt-1 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded w-fit">
+                <span className="text-[10px]">📍 Destination:</span>
+                <span className="text-xs font-bold">{bilty.destination}</span>
+              </div>
+            )}
             {createdByUser && (
               <div className="flex items-center gap-1.5 mt-1 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded w-fit">
                 <UserCircle className="w-3 h-3" />
@@ -64,6 +70,40 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
 
       {/* Content */}
       <div className="p-3 space-y-3">
+        {/* Compact Challan Details */}
+        {challanDetails && (
+          <div className="p-2 bg-gradient-to-r from-teal-50 to-cyan-50 rounded border border-teal-200">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+              <div className="flex items-center gap-1">
+                <Truck className="w-3 h-3 text-teal-600" />
+                <span className="font-semibold text-gray-600">Truck:</span>
+                <span className="font-bold text-gray-900">{truck?.truck_number || 'N/A'}</span>
+              </div>
+              <span className="text-gray-300">|</span>
+              <div className="flex items-center gap-1">
+                <User className="w-3 h-3 text-teal-600" />
+                <span className="font-semibold text-gray-600">Owner:</span>
+                <span className="font-bold text-gray-900">{owner?.name || 'N/A'}</span>
+              </div>
+              <span className="text-gray-300">|</span>
+              <div className="flex items-center gap-1">
+                <Package className="w-3 h-3 text-teal-600" />
+                <span className="font-semibold text-gray-600">Challan:</span>
+                <span className="font-bold text-gray-900">{challanDetails.challan_no}</span>
+              </div>
+              {transitDetails?.dispatch_date && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-gray-600">Dispatched:</span>
+                    <span className="font-bold text-teal-700">{new Date(transitDetails.dispatch_date).toLocaleDateString('en-IN')}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Party Information */}
         <div>
           <h3 className="text-sm font-bold text-gray-900 mb-1.5 flex items-center gap-1.5">

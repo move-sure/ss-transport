@@ -16,7 +16,6 @@ export default function TrackingPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [trackingMode, setTrackingMode] = useState('bilty');
-  const [bilties, setBilties] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedBilty, setSelectedBilty] = useState(null);
   const [transitDetails, setTransitDetails] = useState(null);
@@ -61,41 +60,12 @@ export default function TrackingPage() {
     }
   }, []);
 
-  const fetchBilties = useCallback(async (currentUser) => {
-    try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('branch_id')
-        .eq('id', currentUser.id)
-        .single();
-
-      if (userError) throw userError;
-
-      const { data, error } = await supabase
-        .from('bilty')
-        .select('*')
-        .eq('branch_id', userData.branch_id)
-        .eq('is_active', true)
-        .is('deleted_at', null)
-        .order('bilty_date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      setBilties(data || []);
-    } catch (error) {
-      console.error('Error fetching bilties:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Initial load - only fetch bilties
+  // Initial load
   useEffect(() => {
     if (user) {
-      fetchBilties(user);
+      setLoading(false);
     }
-  }, [user, fetchBilties]);
+  }, [user]);
 
   // Lazy load branches when challan mode is activated
   useEffect(() => {
@@ -149,21 +119,43 @@ export default function TrackingPage() {
 
           const fetchPromises = [];
           if (challanData.truck_id) {
-            fetchPromises.push(supabase.from('trucks').select('*').eq('id', challanData.truck_id).single());
+            fetchPromises.push(
+              supabase
+                .from('trucks')
+                .select('*')
+                .eq('id', challanData.truck_id)
+                .single()
+                .then(result => ({ type: 'truck', data: result.data }))
+            );
           }
           if (challanData.driver_id) {
-            fetchPromises.push(supabase.from('staff').select('*').eq('id', challanData.driver_id).single());
+            fetchPromises.push(
+              supabase
+                .from('staff')
+                .select('*')
+                .eq('id', challanData.driver_id)
+                .single()
+                .then(result => ({ type: 'driver', data: result.data }))
+            );
           }
           if (challanData.owner_id) {
-            fetchPromises.push(supabase.from('staff').select('*').eq('id', challanData.owner_id).single());
+            fetchPromises.push(
+              supabase
+                .from('staff')
+                .select('*')
+                .eq('id', challanData.owner_id)
+                .single()
+                .then(result => ({ type: 'owner', data: result.data }))
+            );
           }
 
           if (fetchPromises.length > 0) {
             const results = await Promise.all(fetchPromises);
-            let index = 0;
-            if (challanData.truck_id) setTruck(results[index++].data || null);
-            if (challanData.driver_id) setDriver(results[index++].data || null);
-            if (challanData.owner_id) setOwner(results[index++].data || null);
+            results.forEach(result => {
+              if (result.type === 'truck') setTruck(result.data || null);
+              if (result.type === 'driver') setDriver(result.data || null);
+              if (result.type === 'owner') setOwner(result.data || null);
+            });
           }
         }
       }
@@ -174,7 +166,6 @@ export default function TrackingPage() {
 
   const handleBiltyUpdate = useCallback((updatedBilty) => {
     setSelectedBilty(updatedBilty);
-    setBilties(prev => prev.map(b => b.id === updatedBilty.id ? updatedBilty : b));
   }, []);
 
   const handleComplaintCreated = useCallback((grNo = null) => {
@@ -285,24 +276,20 @@ export default function TrackingPage() {
             <div className="mb-3 px-2">
               <TrackingSearch
                 onSelectBilty={handleSelectBilty}
-                bilties={bilties}
+                user={user}
               />
             </div>
             <div className="px-2">
-              {selectedBilty && challanDetails && (
-                <ChallanDetailsDisplay
-                  challanDetails={challanDetails}
-                  truck={truck}
-                  driver={driver}
-                  owner={owner}
-                />
-              )}
               <BiltyDetailsDisplay
                 bilty={selectedBilty}
                 transitDetails={transitDetails}
                 createdByUser={createdByUser}
                 onBiltyUpdate={handleBiltyUpdate}
                 onComplaintCreated={handleComplaintCreated}
+                challanDetails={challanDetails}
+                truck={truck}
+                driver={driver}
+                owner={owner}
               />
             </div>
           </>

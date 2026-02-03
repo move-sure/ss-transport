@@ -255,18 +255,65 @@ export default function KaatBillPDFPreview({ bill, printFormData, onClose, onDow
       margin: { left: margin, right: margin }
     });
 
-    // Total Row - calculate totals
+    // Total Row - calculate totals from actual data
     const finalY = doc.lastAutoTable.finalY;
-    const totalAmount = enrichedData.reduce((sum, item) => {
+    
+    let totalPackages = 0;
+    let totalWeight = 0;
+    let totalAmount = 0;
+    let totalKaat = 0;
+    let totalProfit = 0;
+    
+    enrichedData.forEach(item => {
       const bilty = item.bilty;
       const station = item.station;
-      return sum + parseFloat(bilty?.total || station?.amount || 0);
-    }, 0);
+      const kaat = item.kaat;
+      
+      // Calculate packages
+      const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+      totalPackages += packages;
+      
+      // Calculate weight
+      const weight = parseFloat(bilty?.wt || station?.weight || 0);
+      totalWeight += weight;
+      
+      // Calculate total amount
+      const amount = parseFloat(bilty?.total || station?.amount || 0);
+      totalAmount += amount;
+      
+      // Calculate kaat amount
+      if (kaat) {
+        const rateKg = parseFloat(kaat.rate_per_kg) || 0;
+        const ratePkg = parseFloat(kaat.rate_per_pkg) || 0;
+        
+        let kaatAmount = 0;
+        if (kaat.rate_type === 'per_kg') {
+          kaatAmount = weight * rateKg;
+        } else if (kaat.rate_type === 'per_pkg') {
+          kaatAmount = packages * ratePkg;
+        } else if (kaat.rate_type === 'hybrid') {
+          kaatAmount = (weight * rateKg) + (packages * ratePkg);
+        }
+        totalKaat += kaatAmount;
+      }
+    });
     
-    const totalKaat = parseFloat(bill.total_kaat_amount || 0);
-    const totalProfit = totalAmount - totalKaat;
+    // Calculate profit
+    totalProfit = totalAmount - totalKaat;
     
-    const totalRow = ['', '', '', '', 'TOTAL', '', bill.total_bilty_count, '', totalAmount.toFixed(2), totalKaat.toFixed(2), totalProfit.toFixed(2)];
+    const totalRow = [
+      '', 
+      '', 
+      '', 
+      '', 
+      'TOTAL', 
+      '', 
+      Math.round(totalPackages).toString(), 
+      totalWeight.toFixed(2), 
+      totalAmount.toFixed(2), 
+      totalKaat.toFixed(2), 
+      totalProfit.toFixed(2)
+    ];
 
     autoTable(doc, {
       startY: finalY,

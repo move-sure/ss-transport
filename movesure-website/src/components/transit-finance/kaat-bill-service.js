@@ -215,24 +215,91 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
 
 /**
  * Get transport details from filtered bilties
+ * Always returns transport details from the FIRST bilty in the list
+ * Fetches from multiple sources: bilty table, kaat rates, or transports table
  */
-export const getTransportDetailsFromBilties = (biltiesWithKaat) => {
-  const transportSet = new Set();
-  const gstSet = new Set();
+export const getTransportDetailsFromBilties = async (biltiesWithKaat) => {
+  // Get first bilty or station data
+  const firstItem = biltiesWithKaat[0];
+  const firstBilty = firstItem?.bilty;
+  const firstGrNo = firstItem?.gr_no;
   
-  biltiesWithKaat.forEach(t => {
-    if (t.bilty?.transport_name) transportSet.add(t.bilty.transport_name);
-    if (t.bilty?.transport_gst) gstSet.add(t.bilty.transport_gst);
-  });
+  let transportName = firstBilty?.transport_name || null;
+  let transportGst = firstBilty?.transport_gst || null;
 
-  const transportName = transportSet.size === 1 
-    ? Array.from(transportSet)[0] 
-    : 'Multiple Transports';
-  const transportGst = gstSet.size === 1 
-    ? Array.from(gstSet)[0] 
-    : null;
+  console.log('🔍 Step 1 - Checking bilty table:', { transportName, transportGst });
 
-  return { transportName, transportGst };
+  // If not found in bilty, try to get from bilty_wise_kaat -> transport_hub_rates -> transports
+  if (!transportName || transportName === 'N/A' || !transportGst) {
+    console.log('🔍 Step 2 - Fetching from bilty_wise_kaat and transport_hub_rates...');
+    
+    try {
+      // Get kaat data for first GR number
+      const { data: kaatData, error: kaatError } = await supabase
+        .from('bilty_wise_kaat')
+        .select('transport_hub_rate_id')
+        .eq('gr_no', firstGrNo)
+        .single();
+
+      if (!kaatError && kaatData?.transport_hub_rate_id) {
+        // Get transport details from hub rates
+        const { data: hubRateData, error: hubError } = await supabase
+          .from('transport_hub_rates')
+          .select('transport_id, transport_name')
+          .eq('id', kaatData.transport_hub_rate_id)
+          .single();
+
+        if (!hubError && hubRateData) {
+          transportName = hubRateData.transport_name;
+          console.log('✅ Found transport from hub rates:', transportName);
+
+          // If we have transport_id, get full details from transports table
+          if (hubRateData.transport_id) {
+            const { data: transportData, error: transportError } = await supabase
+              .from('transports')
+              .select('transport_name, gst_number')
+              .eq('id', hubRateData.transport_id)
+              .single();
+
+            if (!transportError && transportData) {
+              transportName = transportData.transport_name;
+              transportGst = transportData.gst_number;
+              console.log('✅ Found complete transport from transports table:', { transportName, transportGst });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error fetching transport from kaat/hub rates:', err);
+    }
+  }
+
+  // If still not found, try looking up by GST in transports table
+  if (transportGst && (!transportName || transportName === 'N/A')) {
+    console.log('🔍 Step 3 - Looking up transport by GST...');
+    
+    try {
+      const { data: transportData, error: transportError } = await supabase
+        .from('transports')
+        .select('transport_name, gst_number, mob_number')
+        .ilike('gst_number', transportGst)
+        .single();
+
+      if (!transportError && transportData) {
+        transportName = transportData.transport_name;
+        console.log('✅ Found transport by GST lookup:', transportName);
+      }
+    } catch (err) {
+      console.warn('⚠️ Error looking up transport by GST:', err);
+    }
+  }
+
+  const finalName = transportName || 'Unknown Transport';
+  const finalGst = transportGst || null;
+
+  console.log('🚚 Final transport details:', { transportName: finalName, transportGst: finalGst });
+
+  return { transportName: finalName, transportGst: finalGst };
 };
 
 /**

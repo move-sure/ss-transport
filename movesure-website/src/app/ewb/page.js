@@ -6,10 +6,11 @@ import Navbar from '../../components/dashboard/navbar';
 import ChallanSelector from '../../components/ewb/challan-selector';
 import EwbSearch from '../../components/ewb/ewb-search';
 import StandaloneTransporterUpdate from '../../components/ewb/standalone-transporter-update';
+import VehicleUpdate from '../../components/ewb/vehicle-update';
 
 export default function EWBPage() {
   const { requireAuth, loading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('challan'); // 'challan', 'search', or 'transporter'
+  const [activeTab, setActiveTab] = useState('challan'); // 'challan', 'search', 'transporter', or 'vehicle'
 
   // Move requireAuth to useEffect to avoid setState during render
   useEffect(() => {
@@ -50,33 +51,43 @@ export default function EWBPage() {
             <div className="flex bg-white/10 rounded-xl p-1 border border-white/20">
               <button
                 onClick={() => setActiveTab('challan')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                   activeTab === 'challan'
                     ? 'bg-white text-slate-900 shadow-md'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
               >
-                📋 Challan Selection
+                📋 Challan
               </button>
               <button
                 onClick={() => setActiveTab('search')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                   activeTab === 'search'
                     ? 'bg-white text-slate-900 shadow-md'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
               >
-                🔍 EWB Search
+                🔍 Search
               </button>
               <button
                 onClick={() => setActiveTab('transporter')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                   activeTab === 'transporter'
                     ? 'bg-white text-slate-900 shadow-md'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
               >
-                🚚 Transport Update
+                🚚 Transport
+              </button>
+              <button
+                onClick={() => setActiveTab('vehicle')}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'vehicle'
+                    ? 'bg-white text-slate-900 shadow-md'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                🚛 Vehicle
               </button>
             </div>
           </div>
@@ -116,9 +127,13 @@ export default function EWBPage() {
           <section className="w-full px-4 sm:px-6 lg:px-8">
             <EwbSearch />
           </section>
-        ) : (
+        ) : activeTab === 'transporter' ? (
           <section className="w-full px-4 sm:px-6 lg:px-8">
             <StandaloneTransporterUpdate />
+          </section>
+        ) : (
+          <section className="w-full px-4 sm:px-6 lg:px-8">
+            <VehicleUpdate />
           </section>
         )}
       </main>

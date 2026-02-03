@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, Download, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap } from 'lucide-react';
+import { FileText, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
 import TransportFilter from './transport-filter';
 import StationTransportCell from './station-transport-cell';
 import supabase from '../../app/utils/supabase';
-import { generateFinanceBiltyPDF } from './finance-bilty-pdf-generator';
 import {
   getCityNameById,
   getCityNameByCode,
@@ -55,14 +54,67 @@ export default function FinanceBiltyTable({
   const [savingKaatBill, setSavingKaatBill] = useState(false);
   const [selectedBiltiesForSave, setSelectedBiltiesForSave] = useState([]);
   const [showBiltySelector, setShowBiltySelector] = useState(false);
+  const [selectedTransportForBill, setSelectedTransportForBill] = useState(null);
   const [kaatDetails, setKaatDetails] = useState([]);
   const [alreadySavedGrNos, setAlreadySavedGrNos] = useState([]);
   const [autoApplyingKaat, setAutoApplyingKaat] = useState(false);
+  const [modalUniqueTransports, setModalUniqueTransports] = useState([]);
+  const [loadingModalTransports, setLoadingModalTransports] = useState(false);
   
   // NEW: Batch loaded data to avoid per-cell requests
   const [allKaatData, setAllKaatData] = useState({});
   const [transportsByCity, setTransportsByCity] = useState({});
   const [loadingBatchData, setLoadingBatchData] = useState(false);
+
+  // Helper function to get transport for a bilty (handles both types)
+  const getTransportForBilty = async (transit) => {
+    const bilty = transit.bilty;
+    const station = transit.station;
+    
+    // If bilty has transport_name directly, use it
+    if (bilty?.transport_name) {
+      return {
+        name: bilty.transport_name,
+        gst: bilty.transport_gst || null
+      };
+    }
+    
+    // If station bilty, lookup transport via city
+    if (station?.station) {
+      try {
+        // Get city_id from city_code
+        const { data: cityData } = await supabase
+          .from('cities')
+          .select('id, city_name')
+          .eq('city_code', station.station)
+          .single();
+        
+        if (cityData) {
+          // Get transport for this city
+          const { data: transportData } = await supabase
+            .from('transports')
+            .select('transport_name, gst_number')
+            .eq('city_id', cityData.id)
+            .limit(1)
+            .single();
+          
+          if (transportData) {
+            return {
+              name: transportData.transport_name,
+              gst: transportData.gst_number || null
+            };
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching transport for station bilty:', err);
+      }
+    }
+    
+    return {
+      name: 'Unknown Transport',
+      gst: null
+    };
+  };
 
   // Initialize selected bilties from edit mode
   useEffect(() => {
@@ -73,6 +125,80 @@ export default function FinanceBiltyTable({
       setSelectedBiltiesForSave([]);
     }
   }, [editMode, editingBillGrNumbers]);
+
+  // Load unique transports when modal opens
+  useEffect(() => {
+    if (showBiltySelector && selectedBiltiesForSave.length > 0) {
+      loadModalTransports();
+    } else {
+      setModalUniqueTransports([]);
+      setSelectedTransportForBill(null);
+    }
+  }, [showBiltySelector, selectedBiltiesForSave]);
+
+  const loadModalTransports = async () => {
+    try {
+      setLoadingModalTransports(true);
+      
+      const selectedBilties = filteredTransits.filter(t => 
+        selectedBiltiesForSave.includes(String(t.gr_no).trim().toUpperCase())
+      );
+      
+      console.log('🔍 Loading transports for', selectedBilties.length, 'selected bilties');
+      
+      // Load transports for all selected bilties
+      const transportPromises = selectedBilties.map(async (t, idx) => {
+        const transportDetails = await getTransportForBilty(t);
+        
+        // Debug first few items
+        if (idx < 3) {
+          console.log(`Transport ${idx + 1}:`, { 
+            gr_no: t.gr_no,
+            biltyType: t.bilty ? 'bilty' : 'station',
+            station_code: t.station?.station,
+            transport_name: transportDetails.name,
+            transport_gst: transportDetails.gst
+          });
+        }
+        
+        return transportDetails;
+      });
+      
+      const transportResults = await Promise.all(transportPromises);
+      
+      // Build unique transports list
+      const uniqueTransports = [];
+      const transportMap = new Map();
+      
+      transportResults.forEach(({ name, gst }) => {
+        // Skip if no transport name
+        if (!name || name === 'Unknown' || name === 'N/A' || name === 'Unknown Transport') return;
+        
+        const key = `${name}_${gst || 'NO_GST'}`;
+        
+        if (!transportMap.has(key)) {
+          transportMap.set(key, { name, gst });
+          uniqueTransports.push({ name, gst: gst || null, count: 1 });
+        } else {
+          const existing = uniqueTransports.find(u => `${u.name}_${u.gst || 'NO_GST'}` === key);
+          if (existing) existing.count++;
+        }
+      });
+      
+      console.log('✅ Unique transports found:', uniqueTransports);
+      setModalUniqueTransports(uniqueTransports);
+      
+      // Auto-select first transport if not already selected
+      if (!selectedTransportForBill && uniqueTransports.length > 0) {
+        setSelectedTransportForBill(uniqueTransports[0]);
+      }
+    } catch (err) {
+      console.error('Error loading modal transports:', err);
+      setModalUniqueTransports([]);
+    } finally {
+      setLoadingModalTransports(false);
+    }
+  };
 
   // Filter transit details for selected challan - DEFINE BEFORE USE
   const challanTransits = useMemo(() => {
@@ -350,11 +476,6 @@ export default function FinanceBiltyTable({
 
 
 
-  // Download PDF
-  const handleDownloadPDF = async () => {
-    await generateFinanceBiltyPDF(filteredTransits, selectedChallan, cities, getCityName);
-  };
-
   // Save Kaat Bill
   const handleSaveKaatBill = async () => {
     if (selectedBiltiesForSave.length === 0) {
@@ -380,14 +501,30 @@ export default function FinanceBiltyTable({
         selectedBiltiesForSave.includes(String(t.gr_no).trim().toUpperCase())
       );
 
+      if (biltiesWithKaat.length === 0) {
+        throw new Error('No bilty data found for selected GR numbers');
+      }
+
       // Calculate total kaat amount
       const { totalKaatAmount, kaatDetails: details, error: calcError } = await calculateTotalKaatAmount(biltiesWithKaat);
       if (calcError) throw calcError;
       
       setKaatDetails(details);
 
-      // Get transport details
-      const { transportName, transportGst } = getTransportDetailsFromBilties(biltiesWithKaat);
+      // Use selected transport OR get from first bilty (with proper lookup for station bilties)
+      let transportName = selectedTransportForBill?.name;
+      let transportGst = selectedTransportForBill?.gst;
+
+      // If no transport selected, get from first bilty
+      if (!transportName) {
+        const firstBilty = biltiesWithKaat[0];
+        const transportDetails = await getTransportForBilty(firstBilty);
+        transportName = transportDetails.name;
+        transportGst = transportDetails.gst;
+        console.log('📦 Using transport from first bilty:', { transportName, transportGst, biltyType: firstBilty.bilty ? 'bilty' : 'station' });
+      } else {
+        console.log('📦 Using selected transport:', { transportName, transportGst });
+      }
 
       // Get current user
       const currentUser = getCurrentUser();
@@ -400,13 +537,15 @@ export default function FinanceBiltyTable({
             gr_numbers: selectedBiltiesForSave,
             total_bilty_count: selectedBiltiesForSave.length,
             total_kaat_amount: totalKaatAmount,
+            transport_name: transportName,
+            transport_gst: transportGst,
             updated_by: currentUser.id,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingBillId);
 
         if (error) throw error;
-        alert(`✅ Kaat Bill updated successfully!\n\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
+        alert(`✅ Kaat Bill updated successfully!\n\nTransport: ${transportName}\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
       } else {
         // Create new bill
         const kaatBillData = {
@@ -424,7 +563,7 @@ export default function FinanceBiltyTable({
         const { success, error } = await saveKaatBillToDatabase(kaatBillData);
         if (!success) throw error;
 
-        alert(`✅ Kaat Bill saved successfully!\n\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
+        alert(`✅ Kaat Bill saved successfully!\n\nTransport: ${transportName}\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
       }
       
       // Refresh already saved list for this challan
@@ -443,6 +582,7 @@ export default function FinanceBiltyTable({
       
       setShowBiltySelector(false);
       setSelectedBiltiesForSave([]);
+      setSelectedTransportForBill(null);
       
       // Notify parent component
       if (onKaatBillSaved) {
@@ -534,15 +674,6 @@ export default function FinanceBiltyTable({
               <Save className="w-4 h-4" />
               {editMode ? 'Update' : 'Save'} Kaat Bill {selectedBiltiesForSave.length > 0 && `(${selectedBiltiesForSave.length})`}
             </button>
-            {!editMode && (
-              <button
-                onClick={handleDownloadPDF}
-                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg border border-white/20"
-              >
-                <Download className="w-4 h-4" />
-                Download PDF
-              </button>
-            )}
           </div>
         </div>
 
@@ -1120,6 +1251,53 @@ export default function FinanceBiltyTable({
               <p className="text-sm text-white/80 mt-1">
                 Choose which bilties to include in the kaat bill report
               </p>
+              
+              {/* Transport Selection */}
+              {loadingModalTransports ? (
+                <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-white/90">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Loading transport details...</span>
+                  </div>
+                </div>
+              ) : modalUniqueTransports.length > 0 ? (
+                <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                  <div className="text-xs font-semibold mb-2 text-white/90">📦 Select Transport for this Bill (Optional):</div>
+                  <div className="space-y-2">
+                    {modalUniqueTransports.map((transport, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedTransportForBill(transport)}
+                        className={`p-3 rounded-lg cursor-pointer transition-all border-2 ${
+                          selectedTransportForBill?.name === transport.name && selectedTransportForBill?.gst === transport.gst
+                            ? 'bg-white text-green-700 border-white shadow-lg'
+                            : 'bg-white/5 text-white border-white/20 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-bold text-sm">{transport.name}</div>
+                            {transport.gst && <div className="text-xs opacity-80 mt-0.5">GST: {transport.gst}</div>}
+                          </div>
+                          <div className={`text-xs font-semibold px-2 py-1 rounded ${
+                            selectedTransportForBill?.name === transport.name && selectedTransportForBill?.gst === transport.gst
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-white/20 text-white'
+                          }`}>
+                            {transport.count} {transport.count === 1 ? 'bilty' : 'bilties'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 bg-yellow-500/20 backdrop-blur-sm rounded-lg p-3 border border-yellow-500/30">
+                  <div className="text-xs text-white/90">
+                    ℹ️ <strong>No transport info found</strong> - Will use data from first bilty
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bilty List */}
@@ -1178,7 +1356,10 @@ export default function FinanceBiltyTable({
                           </div>
                           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
                             <div>
-                              <span className="text-gray-500">Transport:</span> <span className="font-medium">{bilty?.transport_name || 'Station Bilty'}</span>
+                              <span className="text-gray-500">Transport:</span> <span className="font-medium text-blue-700">{bilty?.transport_name || station?.transport_name || 'Station Bilty'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">GST:</span> <span className="font-medium text-gray-700">{bilty?.transport_gst || station?.transport_gst || '-'}</span>
                             </div>
                             <div>
                               <span className="text-gray-500">Packages:</span> <span className="font-medium">{bilty?.no_of_pkg || station?.no_of_packets || 0}</span>
@@ -1188,6 +1369,9 @@ export default function FinanceBiltyTable({
                             </div>
                             <div>
                               <span className="text-gray-500">Freight:</span> <span className="font-medium">₹{formatCurrency(bilty?.total || station?.amount || 0)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Payment:</span> <span className="font-medium">{bilty?.payment_mode || station?.payment_status || 'N/A'}</span>
                             </div>
                           </div>
                           
@@ -1235,6 +1419,7 @@ export default function FinanceBiltyTable({
                   onClick={() => {
                     setShowBiltySelector(false);
                     setSelectedBiltiesForSave([]);
+                    setSelectedTransportForBill(null);
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold text-gray-700"
                 >

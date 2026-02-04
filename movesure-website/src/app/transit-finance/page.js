@@ -272,8 +272,17 @@ export default function TransitFinancePage() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={() => window.location.href = '/transit-finance/kaat-rate'}
+                className="group relative bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+                title="View detailed kaat rate management"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <List className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Detailed Kaat</span>
+              </button>
+              <button
                 onClick={() => setShowKaatModal(true)}
-                className="group relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+                className="group relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <Plus className="w-5 h-5 relative z-10" />
@@ -281,7 +290,7 @@ export default function TransitFinancePage() {
               </button>
               <button
                 onClick={() => setShowKaatList(true)}
-                className="group relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+                className="group relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <List className="w-5 h-5 relative z-10" />

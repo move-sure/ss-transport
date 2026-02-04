@@ -408,12 +408,24 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
             </h2>
             <p className="text-blue-100 text-xs mt-0.5">Configure transport hub rates for destinations</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.location.href = '/transit-finance/kaat-rate'}
+              className="text-white bg-white/20 hover:bg-white/30 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5"
+              title="Go to detailed kaat rate management"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Detailed View
+            </button>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content - Scrollable */}

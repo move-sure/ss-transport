@@ -47,9 +47,10 @@ export default function TransitFinancePage() {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Loading initial finance data (20 challans)...');
+      console.log('🔄 Loading initial finance data (20 challans from ALL branches)...');
 
       // Fetch cities, branches, and first batch of challans in parallel
+      // NOTE: No branch filtering - users can see challans from ALL branches
       const [citiesRes, branchesRes, challansRes] = await Promise.all([
         supabase
           .from('cities')
@@ -173,10 +174,13 @@ export default function TransitFinancePage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
+            <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-xl"></div>
+          </div>
+          <p className="mt-6 text-gray-600 font-semibold text-lg">Initializing...</p>
         </div>
       </div>
     );
@@ -184,13 +188,24 @@ export default function TransitFinancePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Navbar />
         <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-blue-200">
-            <div className="text-2xl font-bold text-indigo-800 flex items-center gap-3">
-              <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />
-              Loading Transit Finance Data...
+          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-white/50 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full blur-2xl opacity-30 animate-pulse"></div>
+                <Loader2 className="relative animate-spin h-16 w-16 text-blue-600 mx-auto" />
+              </div>
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-900 to-indigo-800 bg-clip-text text-transparent mb-2">
+                Loading Finance Data
+              </h3>
+              <p className="text-gray-600">Please wait while we fetch the latest information...</p>
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
             </div>
           </div>
         </div>
@@ -200,19 +215,26 @@ export default function TransitFinancePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Navbar />
         <div className="container mx-auto px-6 py-16">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-red-200 max-w-md mx-auto">
+          <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-10 border border-red-200 max-w-lg mx-auto">
             <div className="text-center">
-              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-red-800 mb-2">Error Loading Data</h2>
-              <p className="text-red-600 mb-4">{error}</p>
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 bg-red-500 rounded-full blur-2xl opacity-20"></div>
+                <div className="relative bg-gradient-to-br from-red-500 to-rose-600 p-5 rounded-2xl">
+                  <AlertCircle className="w-12 h-12 text-white" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Unable to Load Data</h2>
+              <p className="text-gray-600 mb-6 leading-relaxed">{error}</p>
               <button
                 onClick={loadAllFinanceData}
-                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                className="group relative bg-gradient-to-r from-red-600 to-rose-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-3 mx-auto overflow-hidden"
               >
-                Retry
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-rose-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <RefreshCw className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Try Again</span>
               </button>
             </div>
           </div>
@@ -222,149 +244,263 @@ export default function TransitFinancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
       
-      <div className="container mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-blue-600" />
-              Transit Finance Dashboard
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Select a challan to view bilty details and manage kaat
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowKaatModal(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Add Kaat
-            </button>
-            <button
-              onClick={() => setShowKaatList(true)}
-              className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-5 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
-            >
-              <List className="w-5 h-5" />
-              Kaat Rate List
-            </button>
+      <div className="container mx-auto px-4 py-6 max-w-[1600px]">
+        {/* Modern Header with Glass Effect */}
+        <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-3 rounded-xl shadow-lg">
+                  <DollarSign className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-800 bg-clip-text text-transparent">
+                    Transit Finance Dashboard
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                      <MapPin className="w-3 h-3" />
+                      All Branches Access
+                    </span>
+                    <span className="text-gray-500 text-sm">View and manage challans across all locations</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowKaatModal(true)}
+                className="group relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Plus className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Add Kaat Rate</span>
+              </button>
+              <button
+                onClick={() => setShowKaatList(true)}
+                className="group relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <List className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">View All Rates</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        {/* Enhanced Stats Cards with Modern Design */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           <div 
-            className={`bg-white rounded-xl shadow-md p-4 border-2 cursor-pointer transition-all ${
-              filterStatus === 'all' ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-blue-300'
+            className={`group relative bg-white rounded-2xl shadow-md hover:shadow-2xl p-6 border-2 cursor-pointer transition-all duration-300 overflow-hidden ${
+              filterStatus === 'all' 
+                ? 'border-blue-500 shadow-blue-200/50 scale-[1.02]' 
+                : 'border-gray-100 hover:border-blue-300 hover:scale-[1.01]'
             }`}
             onClick={() => setFilterStatus('all')}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Challans</p>
-                <p className="text-2xl font-bold text-gray-900">{totalChallans}</p>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -mr-16 -mt-16 transition-transform duration-300 group-hover:scale-150"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    {totalChallans}
+                  </p>
+                </div>
               </div>
-              <Package className="w-10 h-10 text-blue-500" />
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <span className="font-medium">All Challans</span>
+                {filterStatus === 'all' && <span className="text-blue-600 font-semibold">● Active</span>}
+              </div>
             </div>
           </div>
+
           <div 
-            className={`bg-white rounded-xl shadow-md p-4 border-2 cursor-pointer transition-all ${
-              filterStatus === 'dispatched' ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-green-300'
+            className={`group relative bg-white rounded-2xl shadow-md hover:shadow-2xl p-6 border-2 cursor-pointer transition-all duration-300 overflow-hidden ${
+              filterStatus === 'dispatched' 
+                ? 'border-emerald-500 shadow-emerald-200/50 scale-[1.02]' 
+                : 'border-gray-100 hover:border-emerald-300 hover:scale-[1.01]'
             }`}
             onClick={() => setFilterStatus('dispatched')}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Dispatched</p>
-                <p className="text-2xl font-bold text-green-600">{dispatchedChallans}</p>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full -mr-16 -mt-16 transition-transform duration-300 group-hover:scale-150"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-xl shadow-lg">
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Dispatched</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                    {dispatchedChallans}
+                  </p>
+                </div>
               </div>
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-bold">✓</span>
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <span className="font-medium">In Transit</span>
+                {filterStatus === 'dispatched' && <span className="text-emerald-600 font-semibold">● Active</span>}
               </div>
             </div>
           </div>
+
           <div 
-            className={`bg-white rounded-xl shadow-md p-4 border-2 cursor-pointer transition-all ${
-              filterStatus === 'active' ? 'border-orange-500 bg-orange-50' : 'border-transparent hover:border-orange-300'
+            className={`group relative bg-white rounded-2xl shadow-md hover:shadow-2xl p-6 border-2 cursor-pointer transition-all duration-300 overflow-hidden ${
+              filterStatus === 'active' 
+                ? 'border-amber-500 shadow-amber-200/50 scale-[1.02]' 
+                : 'border-gray-100 hover:border-amber-300 hover:scale-[1.01]'
             }`}
             onClick={() => setFilterStatus('active')}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-orange-600">{activeChallans}</p>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-full -mr-16 -mt-16 transition-transform duration-300 group-hover:scale-150"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-3 rounded-xl shadow-lg">
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Pending</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                    {activeChallans}
+                  </p>
+                </div>
               </div>
-              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 font-bold">⏳</span>
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <span className="font-medium">Not Dispatched</span>
+                {filterStatus === 'active' && <span className="text-amber-600 font-semibold">● Active</span>}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex items-center gap-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        {/* Modern Filters Section with Glass Morphism */}
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/50 p-5 mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Enhanced Search */}
+            <div className="relative flex-1 min-w-[300px]">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <Search className="w-5 h-5 text-gray-400" />
+              </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by challan number, truck, driver..."
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search challan, truck, driver, branch..."
+                className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 text-sm font-medium placeholder:text-gray-400"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
 
-            {/* Branch Filter */}
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            {/* Enhanced Branch Filter */}
+            <div className="relative min-w-[220px]">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 pointer-events-none z-10">
+                <MapPin className="w-4 h-4 text-gray-500" />
+              </div>
               <select
                 value={filterBranch}
                 onChange={(e) => setFilterBranch(e.target.value)}
-                className="pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white min-w-[180px]"
+                className="w-full pl-11 pr-10 py-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none font-semibold text-gray-700 text-sm cursor-pointer hover:border-blue-300 transition-all duration-200"
               >
-                <option value="all">All Branches</option>
+                <option value="all">🌐 All Branches</option>
                 {branches?.map(branch => (
                   <option key={branch.id} value={branch.id}>
-                    {branch.branch_name}
+                    📍 {branch.branch_name}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-600 pointer-events-none" />
             </div>
 
-            {/* Refresh Button */}
+            {/* Enhanced Refresh Button */}
             <button
               onClick={loadAllFinanceData}
-              className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+              className="group relative p-3.5 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg"
               title="Refresh data"
             >
-              <RefreshCw className="w-5 h-5 text-gray-600" />
+              <RefreshCw className="w-5 h-5 text-gray-600 group-hover:text-blue-600 group-hover:rotate-180 transition-all duration-500" />
             </button>
           </div>
 
-          {/* Results Count */}
-          <div className="mt-3 text-sm text-gray-600">
-            Showing {sortedChallans.length} of {totalChallans} challans
-            {hasMoreChallans && <span className="text-blue-600 ml-2">• More available</span>}
+          {/* Enhanced Results Count */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-gray-700">
+                  Showing <span className="text-blue-600">{sortedChallans.length}</span> of <span className="text-blue-600">{totalChallans}</span> challans
+                </span>
+                {filterBranch === 'all' ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200 shadow-sm">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                    </svg>
+                    All Branches
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200 shadow-sm">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {branches.find(b => b.id === filterBranch)?.branch_name || 'Filtered'}
+                  </span>
+                )}
+              </div>
+              {hasMoreChallans && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                  More Available
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Challan Grid */}
+        {/* Enhanced Challan Grid with Better Spacing */}
         {sortedChallans.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">No Challans Found</h3>
-            <p className="text-gray-500">Try adjusting your filters or search query</p>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 p-16 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="bg-gradient-to-br from-gray-100 to-gray-200 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <Package className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">No Challans Found</h3>
+              <p className="text-gray-500 mb-6">Try adjusting your filters or search criteria to find what you're looking for</p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterBranch('all');
+                  setFilterStatus('dispatched');
+                }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset Filters
+              </button>
+            </div>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
               {sortedChallans.map(challan => (
                 <ChallanCard 
                   key={challan.id} 
@@ -374,23 +510,27 @@ export default function TransitFinancePage() {
               ))}
             </div>
 
-            {/* Load More Button */}
+            {/* Enhanced Load More Button */}
             {hasMoreChallans && (
-              <div className="flex justify-center mt-8">
+              <div className="flex justify-center mt-10">
                 <button
                   onClick={loadMoreChallans}
                   disabled={loadingMore}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-10 py-4 rounded-2xl font-bold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   {loadingMore ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Loading More...
+                      <Loader2 className="w-6 h-6 animate-spin relative z-10" />
+                      <span className="relative z-10 text-lg">Loading More Challans...</span>
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="w-5 h-5" />
-                      Load More Challans
+                      <ChevronDown className="w-6 h-6 relative z-10 group-hover:animate-bounce" />
+                      <span className="relative z-10 text-lg">Load More Challans</span>
+                      <div className="relative z-10 px-3 py-1 bg-white/20 rounded-full text-sm font-semibold">
+                        {totalChallans - sortedChallans.length} More
+                      </div>
                     </>
                   )}
                 </button>

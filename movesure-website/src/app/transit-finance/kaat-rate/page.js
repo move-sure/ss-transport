@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../utils/auth';
 import Navbar from '../../../components/dashboard/navbar';
 import KaatRatesTable from '../../../components/transit-finance/kaat-list/kaat-rates-table';
-import { DollarSign, TrendingUp, Package, Users, Plus, Loader2, AlertCircle } from 'lucide-react';
+import KaatPDFSettingsModal from '../../../components/transit-finance/kaat-list/kaat-pdf-settings-modal';
+import KaatPDFPreview from '../../../components/transit-finance/kaat-list/kaat-pdf-preview';
+import { generateKaatRatesPDF } from '../../../components/transit-finance/kaat-list/kaat-pdf-generator-v2';
+import { DollarSign, TrendingUp, Package, Users, Plus, Loader2, AlertCircle, FileText } from 'lucide-react';
 import supabase from '../../utils/supabase';
 import AddKaatModal from '../../../components/transit-finance/add-kaat-modal';
 
@@ -16,6 +19,8 @@ export default function KaatRatePage() {
   
   // Data states
   const [cities, setCities] = useState([]);
+  const [transports, setTransports] = useState([]);
+  const [kaatRates, setKaatRates] = useState([]);
   const [stats, setStats] = useState({
     totalRates: 0,
     activeRates: 0,
@@ -23,6 +28,10 @@ export default function KaatRatePage() {
     uniqueCities: 0
   });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPDFModal, setShowPDFModal] = useState(false);
+  const [showPDFPreview, setShowPDFPreview] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfFilename, setPdfFilename] = useState('kaat-rates.pdf');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -43,28 +52,72 @@ export default function KaatRatePage() {
       console.log('🔄 Loading kaat rates data...');
 
       // Fetch cities and rates
-      const [citiesRes, ratesRes] = await Promise.all([
+      const [citiesRes, ratesRes, transportsRes] = await Promise.all([
         supabase
           .from('cities')
           .select('*')
           .order('city_name'),
         supabase
           .from('transport_hub_rates')
-          .select('id, transport_id, transport_name, destination_city_id, is_active')
+          .select('*')
+          .order('transport_name'),
+        supabase
+          .from('transports')
+          .select('*')
       ]);
 
       if (citiesRes.error) throw citiesRes.error;
       if (ratesRes.error) throw ratesRes.error;
+      if (transportsRes.error) throw transportsRes.error;
 
-      setCities(citiesRes.data || []);
+      const citiesData = citiesRes.data || [];
+      const ratesData = ratesRes.data || [];
+      const transportsData = transportsRes.data || [];
+
+      // Map transports and cities to rates
+      const enrichedRates = ratesData.map(rate => {
+        const transport = transportsData.find(t => t.id === rate.transport_id);
+        const city = citiesData.find(c => c.id === rate.destination_city_id);
+        
+        return {
+          ...rate,
+          transport: transport ? {
+            id: transport.id,
+            transport_name: transport.transport_name,
+            city_name: transport.city_name,
+            gst_number: transport.gst_number
+          } : null,
+          destination_city: city ? {
+            id: city.id,
+            city_name: city.city_name,
+            city_code: city.city_code
+          } : null
+        };
+      });
+
+      setCities(citiesData);
+      setKaatRates(enrichedRates);
+
+      // Extract unique transports from actual transports table
+      const uniqueTransportsMap = new Map();
+      transportsData.forEach(transport => {
+        uniqueTransportsMap.set(transport.id, {
+          id: transport.id,
+          company_name: transport.transport_name,
+          transport_name: transport.transport_name, // Add this for compatibility
+          hub_city_name: transport.city_name || 'N/A',
+          gst_number: transport.gst_number || 'N/A'
+        });
+      });
+      setTransports(Array.from(uniqueTransportsMap.values()));
 
       // Calculate stats
-      const allRates = ratesRes.data || [];
+      const allRates = enrichedRates;
       const activeRates = allRates.filter(r => r.is_active);
-      const uniqueTransports = new Set(
+      const uniqueTransportsCount = new Set(
         allRates
-          .filter(r => r.transport_name || r.transport_id)
-          .map(r => r.transport_name || r.transport_id)
+          .filter(r => r.transport_id)
+          .map(r => r.transport_id)
       ).size;
       const uniqueCities = new Set(
         allRates.map(r => r.destination_city_id)
@@ -73,7 +126,7 @@ export default function KaatRatePage() {
       setStats({
         totalRates: allRates.length,
         activeRates: activeRates.length,
-        uniqueTransports,
+        uniqueTransports: uniqueTransportsCount,
         uniqueCities
       });
 
@@ -90,6 +143,47 @@ export default function KaatRatePage() {
   const handleRateAdded = () => {
     setShowAddModal(false);
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleGeneratePDF = async (settings) => {
+    try {
+      console.log('📄 Generating PDF with settings:', settings);
+      console.log('📊 Available data:', {
+        kaatRates: kaatRates?.length || 0,
+        cities: cities?.length || 0,
+        transports: transports?.length || 0
+      });
+      
+      // Generate PDF in preview mode
+      const url = generateKaatRatesPDF(kaatRates, cities, transports, settings, true);
+      
+      if (!url) {
+        throw new Error('Failed to generate PDF URL');
+      }
+      
+      // Generate filename
+      let filename = 'kaat-rates';
+      if (settings.filterType === 'transport' && settings.selectedTransport) {
+        const transport = transports?.find(t => String(t.id) === String(settings.selectedTransport));
+        filename = `kaat-${(transport?.company_name || 'transport').toLowerCase().replace(/\s+/g, '-')}`;
+      } else if (settings.filterType === 'city' && settings.selectedCity) {
+        const city = cities?.find(c => String(c.id) === String(settings.selectedCity));
+        filename = `kaat-${(city?.city_name || 'city').toLowerCase().replace(/\s+/g, '-')}`;
+      }
+      filename += `-${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.pdf`;
+      
+      setPdfUrl(url);
+      setPdfFilename(filename);
+      console.log('✅ PDF generated successfully');
+      
+      // Close settings modal and show preview
+      setShowPDFModal(false);
+      setShowPDFPreview(true);
+      
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      alert('Failed to generate PDF: ' + error.message);
+    }
   };
 
   if (!mounted) {
@@ -179,14 +273,24 @@ export default function KaatRatePage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="group relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <Plus className="w-5 h-5 relative z-10" />
-              <span className="relative z-10">Add New Rate</span>
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPDFModal(true)}
+                className="group relative bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <FileText className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Export PDF</span>
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="group relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Plus className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Add New Rate</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -278,6 +382,29 @@ export default function KaatRatePage() {
         onClose={() => setShowAddModal(false)}
         cities={cities}
         onSuccess={handleRateAdded}
+      />
+
+      {/* PDF Settings Modal */}
+      <KaatPDFSettingsModal
+        isOpen={showPDFModal}
+        onClose={() => setShowPDFModal(false)}
+        cities={cities}
+        transports={transports}
+        onGenerate={handleGeneratePDF}
+      />
+
+      {/* PDF Preview Modal */}
+      <KaatPDFPreview
+        isOpen={showPDFPreview}
+        onClose={() => {
+          setShowPDFPreview(false);
+          if (pdfUrl) {
+            URL.revokeObjectURL(pdfUrl);
+            setPdfUrl(null);
+          }
+        }}
+        pdfUrl={pdfUrl}
+        filename={pdfFilename}
       />
     </div>
   );

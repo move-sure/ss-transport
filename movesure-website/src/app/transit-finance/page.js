@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
 import ChallanCard from '../../components/transit-finance/challan-card';
-import { DollarSign, Loader2, AlertCircle, List, Plus, Search, RefreshCw, ChevronDown, MapPin, Package } from 'lucide-react';
+import { DollarSign, Loader2, AlertCircle, List, Plus, Search, RefreshCw, ChevronDown, MapPin, Package, FileText, Printer } from 'lucide-react';
 import KaatListModal from '../../components/transit-finance/kaat-list-modal';
 import AddKaatModal from '../../components/transit-finance/add-kaat-modal';
 
 export default function TransitFinancePage() {
+  const router = useRouter();
   const { user, requireAuth } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -272,7 +274,16 @@ export default function TransitFinancePage() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => window.location.href = '/transit-finance/kaat-rate'}
+                onClick={() => router.push('/transit-finance/transit-bill')}
+                className="group relative bg-gradient-to-r from-orange-500 to-amber-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
+                title="Generate consolidated kaat bill PDF"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Printer className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Transit Bill</span>
+              </button>
+              <button
+                onClick={() => router.push('/transit-finance/kaat-rate')}
                 className="group relative bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
                 title="View detailed kaat rate management"
               >

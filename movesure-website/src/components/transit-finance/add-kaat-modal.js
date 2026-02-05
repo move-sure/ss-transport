@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Plus, Truck, MapPin, Package, DollarSign, Save, Loader2, AlertCircle, Edit2, Trash2, XCircle } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -410,7 +412,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.location.href = '/transit-finance/kaat-rate'}
+              onClick={() => router.push('/transit-finance/kaat-rate')}
               className="text-white bg-white/20 hover:bg-white/30 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5"
               title="Go to detailed kaat rate management"
             >

@@ -1,20 +1,88 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Calendar, User, Package, DollarSign, Printer, Edit2, Save, XCircle } from 'lucide-react';
+import { X, FileText, Calendar, User, Package, DollarSign, Printer, Edit2, Save, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import supabase from '../../app/utils/supabase';
+
+// Helper to calculate kaat amount for GR numbers
+const calculateTotalKaatForGrNumbers = async (grNumbers) => {
+  if (!grNumbers || grNumbers.length === 0) return 0;
+
+  try {
+    // Fetch kaat rates
+    const { data: kaatData } = await supabase
+      .from('bilty_wise_kaat')
+      .select('*')
+      .in('gr_no', grNumbers);
+
+    // Fetch bilty data
+    const { data: biltyData } = await supabase
+      .from('bilty')
+      .select('gr_no, wt, no_of_pkg')
+      .in('gr_no', grNumbers)
+      .eq('is_active', true);
+
+    // Fetch station bilty data
+    const { data: stationData } = await supabase
+      .from('station_bilty_summary')
+      .select('gr_no, weight, no_of_packets')
+      .in('gr_no', grNumbers);
+
+    // Create maps
+    const kaatMap = {};
+    const biltyMap = {};
+    const stationMap = {};
+
+    (kaatData || []).forEach(k => { kaatMap[k.gr_no] = k; });
+    (biltyData || []).forEach(b => { biltyMap[b.gr_no] = b; });
+    (stationData || []).forEach(s => { stationMap[s.gr_no] = s; });
+
+    // Calculate total kaat
+    let totalKaat = 0;
+    grNumbers.forEach(grNo => {
+      const kaat = kaatMap[grNo];
+      const bilty = biltyMap[grNo];
+      const station = stationMap[grNo];
+
+      if (kaat) {
+        const weight = parseFloat(bilty?.wt || station?.weight || 0);
+        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+        const rateKg = parseFloat(kaat.rate_per_kg) || 0;
+        const ratePkg = parseFloat(kaat.rate_per_pkg) || 0;
+
+        if (kaat.rate_type === 'per_kg') {
+          totalKaat += weight * rateKg;
+        } else if (kaat.rate_type === 'per_pkg') {
+          totalKaat += packages * ratePkg;
+        } else if (kaat.rate_type === 'hybrid') {
+          totalKaat += (weight * rateKg) + (packages * ratePkg);
+        }
+      }
+    });
+
+    return totalKaat;
+  } catch (err) {
+    console.error('Error calculating kaat:', err);
+    return 0;
+  }
+};
 
 export default function KaatBillDetailModal({ bill, onClose, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedBill, setEditedBill] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [calculatedKaat, setCalculatedKaat] = useState(0);
 
   useEffect(() => {
     if (bill) {
       setEditedBill({
         ...bill,
         gr_numbers: Array.isArray(bill.gr_numbers) ? bill.gr_numbers : []
+      });
+      // Calculate actual kaat amount
+      calculateTotalKaatForGrNumbers(bill.gr_numbers).then(kaat => {
+        setCalculatedKaat(kaat);
       });
     }
   }, [bill]);
@@ -33,6 +101,10 @@ export default function KaatBillDetailModal({ bill, onClose, onUpdate }) {
         updatedBy = session.user?.id || null;
       }
 
+      // Calculate total kaat amount for the GR numbers
+      const totalKaatAmount = await calculateTotalKaatForGrNumbers(editedBill.gr_numbers);
+      console.log('📊 Calculated total kaat amount:', totalKaatAmount);
+
       const { error } = await supabase
         .from('kaat_bill_master')
         .update({
@@ -40,6 +112,7 @@ export default function KaatBillDetailModal({ bill, onClose, onUpdate }) {
           transport_gst: editedBill.transport_gst,
           gr_numbers: editedBill.gr_numbers,
           total_bilty_count: editedBill.gr_numbers.length,
+          total_kaat_amount: totalKaatAmount,
           updated_by: updatedBy,
           updated_at: new Date().toISOString()
         })
@@ -47,7 +120,7 @@ export default function KaatBillDetailModal({ bill, onClose, onUpdate }) {
 
       if (error) throw error;
 
-      alert('✅ Kaat bill updated successfully!');
+      alert(`✅ Kaat Bill updated successfully!\n\nTransport: ${editedBill.transport_name}\nBilties: ${editedBill.gr_numbers.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
       setIsEditing(false);
       if (onUpdate) onUpdate();
       onClose();
@@ -183,8 +256,11 @@ export default function KaatBillDetailModal({ bill, onClose, onUpdate }) {
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                 <div className="text-sm text-green-700 font-medium">Total Kaat Amount</div>
                 <div className="text-2xl font-bold text-green-900 mt-1">
-                  ₹{parseFloat(editedBill.total_kaat_amount || 0).toFixed(2)}
+                  ₹{(calculatedKaat > 0 ? calculatedKaat : parseFloat(editedBill.total_kaat_amount || 0)).toFixed(2)}
                 </div>
+                {calculatedKaat > 0 && parseFloat(editedBill.total_kaat_amount || 0) === 0 && (
+                  <div className="text-xs text-green-600 mt-1">(Calculated from bilty data)</div>
+                )}
               </div>
             </div>
           </div>

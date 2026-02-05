@@ -21,6 +21,69 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
     }
   }, [isOpen, selectedChallan?.challan_no]);
 
+  // Helper to calculate actual kaat amount from bilty data
+  const calculateActualKaatAmount = async (grNumbers) => {
+    if (!grNumbers || grNumbers.length === 0) return 0;
+
+    try {
+      // Fetch kaat rates
+      const { data: kaatData } = await supabase
+        .from('bilty_wise_kaat')
+        .select('*')
+        .in('gr_no', grNumbers);
+
+      // Fetch bilty data
+      const { data: biltyData } = await supabase
+        .from('bilty')
+        .select('gr_no, wt, no_of_pkg')
+        .in('gr_no', grNumbers)
+        .eq('is_active', true);
+
+      // Fetch station bilty data
+      const { data: stationData } = await supabase
+        .from('station_bilty_summary')
+        .select('gr_no, weight, no_of_packets')
+        .in('gr_no', grNumbers);
+
+      // Create maps
+      const kaatMap = {};
+      const biltyMap = {};
+      const stationMap = {};
+
+      (kaatData || []).forEach(k => { kaatMap[k.gr_no] = k; });
+      (biltyData || []).forEach(b => { biltyMap[b.gr_no] = b; });
+      (stationData || []).forEach(s => { stationMap[s.gr_no] = s; });
+
+      // Calculate total kaat
+      let totalKaat = 0;
+      grNumbers.forEach(grNo => {
+        const kaat = kaatMap[grNo];
+        const bilty = biltyMap[grNo];
+        const station = stationMap[grNo];
+
+        if (kaat) {
+          const weight = parseFloat(bilty?.wt || station?.weight || 0);
+          const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+          const rateKg = parseFloat(kaat.rate_per_kg) || 0;
+          const ratePkg = parseFloat(kaat.rate_per_pkg) || 0;
+
+          if (kaat.rate_type === 'per_kg') {
+            totalKaat += weight * rateKg;
+          } else if (kaat.rate_type === 'per_pkg') {
+            totalKaat += packages * ratePkg;
+          } else if (kaat.rate_type === 'hybrid') {
+            totalKaat += (weight * rateKg) + (packages * ratePkg);
+          }
+        }
+      });
+
+      return totalKaat;
+    } catch (err) {
+      console.error('Error calculating kaat:', err);
+      return 0;
+    }
+  };
+
   const fetchKaatBills = async () => {
     setLoading(true);
     try {
@@ -42,7 +105,21 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
       }
       
       console.log('✅ Kaat bills with user details:', data);
-      setKaatBills(data || []);
+
+      // Calculate actual kaat amounts for each bill
+      const billsWithCalculatedKaat = await Promise.all(
+        (data || []).map(async (bill) => {
+          const calculatedKaat = await calculateActualKaatAmount(bill.gr_numbers);
+          return {
+            ...bill,
+            calculated_kaat_amount: calculatedKaat,
+            // Use calculated if stored is 0 or very different
+            display_kaat_amount: calculatedKaat > 0 ? calculatedKaat : parseFloat(bill.total_kaat_amount || 0)
+          };
+        })
+      );
+
+      setKaatBills(billsWithCalculatedKaat);
     } catch (err) {
       console.error('❌ Error fetching kaat bills:', err);
       alert('Error loading kaat bills: ' + (err.message || 'Unknown error'));
@@ -164,7 +241,7 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
                             <DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" />
                             <div>
                               <div className="text-xs text-gray-500">Kaat Amount</div>
-                              <div className="font-semibold text-gray-900">₹{parseFloat(bill.total_kaat_amount).toFixed(2)}</div>
+                              <div className="font-semibold text-gray-900">₹{parseFloat(bill.display_kaat_amount || bill.calculated_kaat_amount || bill.total_kaat_amount || 0).toFixed(2)}</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 text-sm">

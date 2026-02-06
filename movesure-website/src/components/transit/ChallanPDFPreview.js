@@ -687,20 +687,13 @@ const ChallanPDFPreview = ({
     try {
       let doc;
       let filename;
-      let filteredData = transitBilties;
-      
-      // Filter by city if challan type and city is selected
-      if (type === 'challan' && selectedCity !== 'all') {
-        filteredData = transitBilties.filter(b => b.to_city_code === selectedCity);
-      }
       
       if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob(filteredData);
+        doc = await generateLoadingChallanPDFBlob(transitBilties);
         filename = `Loading_Challan_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else if (type === 'challan') {
-        doc = await generateChallanBiltiesPDFBlob(filteredData);
-        const cityPart = selectedCity !== 'all' ? `_${selectedCity}` : '';
-        filename = `Challan_${selectedChallan.challan_no}${cityPart}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
+        doc = await generateChallanBiltiesPDFBlob(transitBilties);
+        filename = `Challan_${selectedChallan.challan_no}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       } else {
         throw new Error('Invalid PDF type');
       }

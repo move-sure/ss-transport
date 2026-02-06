@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import supabase from '../../app/utils/supabase';
 
 // Helper to calculate kaat amount for GR numbers
+// NOTE: Minimum weight for per_kg calculation is 50kg
 const calculateTotalKaatForGrNumbers = async (grNumbers) => {
   if (!grNumbers || grNumbers.length === 0) return 0;
 
@@ -46,17 +47,21 @@ const calculateTotalKaatForGrNumbers = async (grNumbers) => {
       const station = stationMap[grNo];
 
       if (kaat) {
-        const weight = parseFloat(bilty?.wt || station?.weight || 0);
+        const actualWeight = parseFloat(bilty?.wt || station?.weight || 0);
         const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
         const rateKg = parseFloat(kaat.rate_per_kg) || 0;
         const ratePkg = parseFloat(kaat.rate_per_pkg) || 0;
+        
+        // Apply 50kg minimum for per_kg calculations
+        const effectiveWeight = Math.max(actualWeight, 50);
 
         if (kaat.rate_type === 'per_kg') {
-          totalKaat += weight * rateKg;
+          totalKaat += effectiveWeight * rateKg;
         } else if (kaat.rate_type === 'per_pkg') {
+          // No minimum for per_pkg
           totalKaat += packages * ratePkg;
         } else if (kaat.rate_type === 'hybrid') {
-          totalKaat += (weight * rateKg) + (packages * ratePkg);
+          totalKaat += (effectiveWeight * rateKg) + (packages * ratePkg);
         }
       }
     });

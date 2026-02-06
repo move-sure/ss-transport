@@ -234,13 +234,16 @@ export default function BiltyKaatCell({
     const ratePkg = parseFloat(formData.rate_per_pkg) || 0;
     const weight = parseFloat(biltyWeight) || 0;
     const packages = parseFloat(biltyPackages) || 0;
+    
+    // Apply 50kg minimum for per_kg rate type
+    const effectiveWeight = Math.max(weight, 50);
 
     if (formData.rate_type === 'per_kg') {
-      return (weight * rateKg).toFixed(2);
+      return (effectiveWeight * rateKg).toFixed(2);
     } else if (formData.rate_type === 'per_pkg') {
       return (packages * ratePkg).toFixed(2);
     } else if (formData.rate_type === 'hybrid') {
-      return ((weight * rateKg) + (packages * ratePkg)).toFixed(2);
+      return ((effectiveWeight * rateKg) + (packages * ratePkg)).toFixed(2);
     }
     return 0;
   };

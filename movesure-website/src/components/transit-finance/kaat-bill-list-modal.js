@@ -22,6 +22,7 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
   }, [isOpen, selectedChallan?.challan_no]);
 
   // Helper to calculate actual kaat amount from bilty data
+  // NOTE: Minimum weight for per_kg calculation is 50kg
   const calculateActualKaatAmount = async (grNumbers) => {
     if (!grNumbers || grNumbers.length === 0) return 0;
 
@@ -62,17 +63,21 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
         const station = stationMap[grNo];
 
         if (kaat) {
-          const weight = parseFloat(bilty?.wt || station?.weight || 0);
+          const actualWeight = parseFloat(bilty?.wt || station?.weight || 0);
           const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
           const rateKg = parseFloat(kaat.rate_per_kg) || 0;
           const ratePkg = parseFloat(kaat.rate_per_pkg) || 0;
+          
+          // Apply 50kg minimum for per_kg calculations
+          const effectiveWeight = Math.max(actualWeight, 50);
 
           if (kaat.rate_type === 'per_kg') {
-            totalKaat += weight * rateKg;
+            totalKaat += effectiveWeight * rateKg;
           } else if (kaat.rate_type === 'per_pkg') {
+            // No minimum for per_pkg
             totalKaat += packages * ratePkg;
           } else if (kaat.rate_type === 'hybrid') {
-            totalKaat += (weight * rateKg) + (packages * ratePkg);
+            totalKaat += (effectiveWeight * rateKg) + (packages * ratePkg);
           }
         }
       });

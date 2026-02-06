@@ -22,18 +22,6 @@ const ChallanPDFPreview = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const pdfViewerRef = useRef(null);
-  const [selectedCity, setSelectedCity] = useState('all');
-  const [availableCities, setAvailableCities] = useState([]);
-
-  // Get unique cities from transit bilties and reset filter when modal opens
-  useEffect(() => {
-    if (isOpen && type === 'challan' && transitBilties.length > 0) {
-      const cities = [...new Set(transitBilties.map(b => b.to_city_code).filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b));
-      setAvailableCities(cities);
-      setSelectedCity('all'); // Reset filter when opening
-    }
-  }, [isOpen, type, transitBilties]);
 
   // Generate PDF blob for preview
   const generatePDFBlob = useCallback(async () => {
@@ -42,17 +30,11 @@ const ChallanPDFPreview = ({
       setError(null);
 
       let doc;
-      let filteredData = transitBilties;
-      
-      // Filter by city if challan type and city is selected
-      if (type === 'challan' && selectedCity !== 'all') {
-        filteredData = transitBilties.filter(b => b.to_city_code === selectedCity);
-      }
       
       if (type === 'loading') {
-        doc = await generateLoadingChallanPDFBlob(filteredData);
+        doc = await generateLoadingChallanPDFBlob(transitBilties);
       } else if (type === 'challan') {
-        doc = await generateChallanBiltiesPDFBlob(filteredData);
+        doc = await generateChallanBiltiesPDFBlob(transitBilties);
       } else {
         throw new Error('Invalid PDF type');
       }
@@ -751,7 +733,7 @@ const ChallanPDFPreview = ({
     if (isOpen && type) {
       generatePDFBlob();
     }
-  }, [isOpen, type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, selectedCity, generatePDFBlob]);
+  }, [isOpen, type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, generatePDFBlob]);
 
   // Cleanup URL when component unmounts
   useEffect(() => {
@@ -765,11 +747,66 @@ const ChallanPDFPreview = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full m-4 flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full h-full max-w-full max-h-full flex flex-col" style={{ backgroundColor: '#fbfaf9' }}>
         {/* Header */}
-        <div className="p-3 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl shadow-lg">
-          <div className="flex items-center justify-between">
+        <div className="p-2 sm:p-3 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl shadow-lg">
+          {/* Mobile Layout */}
+          <div className="flex flex-col gap-2 sm:hidden">
+            {/* Title Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="bg-white/20 p-1.5 rounded-lg">
+                  {type === 'loading' ? <Package className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">
+                    {type === 'loading' ? 'Loading Challan' : `Challan ${selectedChallan?.challan_no}`}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="bg-white/20 hover:bg-white/30 text-white p-1.5 rounded transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {/* Info Row */}
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-purple-100">Bilties: <span className="font-bold text-white">{transitBilties.length}</span></span>
+                {transitBilties.length > 0 && (
+                  <span className="text-purple-100">Pkg: <span className="font-bold text-white">{transitBilties.reduce((sum, b) => sum + (b.no_of_pkg || 0), 0)}</span></span>
+                )}
+              </div>
+              <span className="text-purple-100">{format(new Date(), 'dd/MM/yy')}</span>
+            </div>
+            
+            {/* Action Buttons Row */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={generatePDFBlob}
+                disabled={loading}
+                className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 text-sm font-semibold"
+              >
+                <Eye className="w-4 h-4" />
+                {loading ? 'Generating...' : 'Preview'}
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={loading || error || !pdfUrl}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 text-sm font-semibold shadow-lg"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden sm:flex items-center justify-between">
             <div className="flex items-center gap-3">
               {type === 'loading' ? (
                 <>
@@ -795,36 +832,6 @@ const ChallanPDFPreview = ({
                 </>
               )}
             </div>
-            
-            {/* City Filter for Challan Type - Prominent Position */}
-            {type === 'challan' && availableCities.length > 0 && (
-              <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg border border-white/30">
-                <span className="text-white text-sm font-bold">🎯 Filter by City:</span>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="bg-white text-gray-800 border border-gray-300 rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-md"
-                >
-                  <option value="all">🌍 All Cities ({transitBilties.length} bilties)</option>
-                  {availableCities.map(city => {
-                    const count = transitBilties.filter(b => b.to_city_code === city).length;
-                    return (
-                      <option key={city} value={city}>
-                        📍 {city} ({count} bilties)
-                      </option>
-                    );
-                  })}
-                </select>
-                {selectedCity !== 'all' && (
-                  <button
-                    onClick={() => setSelectedCity('all')}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-bold transition-colors"
-                  >
-                    ✕ Clear
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Document Info */}
             <div className="flex items-center gap-6 text-xs">
@@ -847,44 +854,33 @@ const ChallanPDFPreview = ({
               </div>
               
               <div>
-                <span className="text-purple-200">{type === 'challan' && selectedCity !== 'all' ? 'Filtered' : 'Total'} Bilties:</span>
-                <span className="ml-1 font-bold">
-                  {type === 'challan' && selectedCity !== 'all' 
-                    ? `${transitBilties.filter(b => b.to_city_code === selectedCity).length} (of ${transitBilties.length})`
-                    : transitBilties.length}
-                </span>
+                <span className="text-purple-200">Total Bilties:</span>
+                <span className="ml-1 font-bold">{transitBilties.length}</span>
               </div>
 
-              {transitBilties.length > 0 && (() => {
-                const displayBilties = type === 'challan' && selectedCity !== 'all'
-                  ? transitBilties.filter(b => b.to_city_code === selectedCity)
-                  : transitBilties;
-                
-                return (
-                  <>
-                    <div>
-                      <span className="text-purple-200">Packages:</span>
-                      <span className="ml-1 font-bold">{displayBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}</span>
-                    </div>
-                    <div>
-                      <span className="text-purple-200">Weight:</span>
-                      <span className="ml-1 font-bold">{Math.round(displayBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg</span>
-                    </div>
-                    <div>
-                      <span className="text-purple-200">E-way Bills:</span>
-                      <span className="ml-1 font-bold">
-                        {displayBilties.reduce((total, bilty) => {
-                          if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
-                            const ewayBills = bilty.e_way_bill.split(',').filter(bill => bill.trim() !== '');
-                            return total + ewayBills.length;
-                          }
-                          return total;
-                        }, 0)}
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
+              {transitBilties.length > 0 && (
+                <>
+                  <div>
+                    <span className="text-purple-200">Packages:</span>
+                    <span className="ml-1 font-bold">{transitBilties.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0)}</span>
+                  </div>
+                  <div>
+                    <span className="text-purple-200">Weight:</span>
+                    <span className="ml-1 font-bold">{Math.round(transitBilties.reduce((sum, bilty) => sum + (bilty.wt || 0), 0))} kg</span>
+                  </div>
+                  <div>
+                    <span className="text-purple-200">E-way Bills:</span>
+                    <span className="ml-1 font-bold">
+                      {transitBilties.reduce((total, bilty) => {
+                        if (bilty.e_way_bill && bilty.e_way_bill.trim() !== '') {
+                          return total + bilty.e_way_bill.split(',').filter(e => e.trim()).length;
+                        }
+                        return total;
+                      }, 0)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -901,7 +897,7 @@ const ChallanPDFPreview = ({
               <button
                 onClick={handleDownload}
                 disabled={loading || error || !pdfUrl}
-                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded flex items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded flex items-center gap-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold shadow-lg"
               >
                 <Download className="w-3 h-3" />
                 Download
@@ -1008,9 +1004,9 @@ const ChallanPDFPreview = ({
             </div>
           </div>
         </div>        {/* Footer */}
-        <div className="p-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-4 text-gray-700">
+        <div className="p-2 sm:p-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+          <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 text-gray-700 flex-wrap">
               {type === 'loading' && (
                 <span className="flex items-center gap-1">
                   <Package className="w-3 h-3 text-purple-600" />
@@ -1038,15 +1034,8 @@ const ChallanPDFPreview = ({
               )}
             </div>
             
-            <div className="flex items-center gap-3">
-              {type === 'challan' && selectedCity !== 'all' && (
-                <div className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-300">
-                  🎯 Filtered: {selectedCity}
-                </div>
-              )}
-              <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-                Generated: {format(new Date(), 'dd/MM/yyyy HH:mm')}
-              </div>
+            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+              <span className="hidden sm:inline">Generated: </span>{format(new Date(), 'dd/MM/yyyy HH:mm')}
             </div>
           </div>
         </div>

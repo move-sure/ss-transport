@@ -448,6 +448,51 @@ export default function FinanceBiltyTable({
     }
   };
 
+  // Auto apply kaat to selected bilties only
+  const handleAutoApplyKaatForSelected = async () => {
+    if (selectedBiltiesForSave.length === 0) {
+      alert('Please select bilties first!');
+      return;
+    }
+
+    // Filter challanTransits to get only selected ones
+    const selectedTransits = challanTransits.filter(t => 
+      selectedBiltiesForSave.includes(String(t.gr_no).trim().toUpperCase())
+    );
+
+    if (selectedTransits.length === 0) {
+      alert('No valid bilties selected!');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `🚀 Auto Apply Kaat for Selected\n\nThis will automatically apply kaat rates to ${selectedTransits.length} selected bilties based on their destination city.\n\nBilties with existing kaat will be updated.\n\nContinue?`
+    );
+    if (!confirmed) return;
+
+    setAutoApplyingKaat(true);
+    try {
+      const { success, applied, skipped, error } = await autoApplyKaatToAllBilties(
+        selectedTransits,
+        selectedChallan,
+        cities
+      );
+
+      if (success) {
+        alert(`✅ Auto Apply Kaat for Selected Completed!\n\n✓ Applied: ${applied} bilties\n✗ Skipped: ${skipped} bilties (no matching rate found)`);
+        // Reload kaat data to refresh the table
+        loadAllKaatData();
+      } else {
+        alert('❌ Failed to auto-apply kaat:\n\n' + (error?.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error in auto-apply kaat for selected:', err);
+      alert('❌ Error: ' + err.message);
+    } finally {
+      setAutoApplyingKaat(false);
+    }
+  };
+
   // Get unique city list from filtered transits
   const uniqueCities = useMemo(() => {
     return getUniqueCities(challanTransits, cities);
@@ -632,19 +677,36 @@ export default function FinanceBiltyTable({
           </div>
           <div className="flex items-center gap-3">
             {!editMode && (
-              <button
-                onClick={handleAutoApplyKaat}
-                disabled={autoApplyingKaat || challanTransits.length === 0}
-                className="bg-yellow-500 hover:bg-yellow-600 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                title="Automatically apply kaat rates to all bilties based on destination city"
-              >
-                {autoApplyingKaat ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Zap className="w-4 h-4" />
+              <>
+                <button
+                  onClick={handleAutoApplyKaat}
+                  disabled={autoApplyingKaat || challanTransits.length === 0}
+                  className="bg-yellow-500 hover:bg-yellow-600 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  title="Automatically apply kaat rates to all bilties based on destination city"
+                >
+                  {autoApplyingKaat ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  {autoApplyingKaat ? 'Applying...' : 'Auto Kaat All'}
+                </button>
+                {selectedBiltiesForSave.length > 0 && (
+                  <button
+                    onClick={handleAutoApplyKaatForSelected}
+                    disabled={autoApplyingKaat}
+                    className="bg-orange-500 hover:bg-orange-600 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    title="Automatically apply kaat rates to selected bilties only"
+                  >
+                    {autoApplyingKaat ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Zap className="w-4 h-4" />
+                    )}
+                    {autoApplyingKaat ? 'Applying...' : `Auto Kaat Selected (${selectedBiltiesForSave.length})`}
+                  </button>
                 )}
-                {autoApplyingKaat ? 'Applying...' : 'Auto Apply Kaat'}
-              </button>
+              </>
             )}
             {onViewKaatBills && !editMode && (
               <button
@@ -1049,13 +1111,16 @@ export default function FinanceBiltyTable({
                       const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
                       const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
                       
+                      // Apply 50kg minimum for per_kg rate type
+                      const effectiveWeight = Math.max(weight, 50);
+                      
                       let kaatAmount = 0;
                       if (kaatData.rate_type === 'per_kg') {
-                        kaatAmount = weight * rateKg;
+                        kaatAmount = effectiveWeight * rateKg;
                       } else if (kaatData.rate_type === 'per_pkg') {
                         kaatAmount = packages * ratePkg;
                       } else if (kaatData.rate_type === 'hybrid') {
-                        kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                        kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
                       }
                       
                       // Profit = Total Amount - Kaat Amount (can be negative for Paid/DD bilties)
@@ -1145,13 +1210,16 @@ export default function FinanceBiltyTable({
                         const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
                         const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
                         
+                        // Apply 50kg minimum for per_kg rate type
+                        const effectiveWeight = Math.max(weight, 50);
+                        
                         let kaatAmount = 0;
                         if (kaatData.rate_type === 'per_kg') {
-                          kaatAmount = weight * rateKg;
+                          kaatAmount = effectiveWeight * rateKg;
                         } else if (kaatData.rate_type === 'per_pkg') {
                           kaatAmount = packages * ratePkg;
                         } else if (kaatData.rate_type === 'hybrid') {
-                          kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
                         }
                         
                         return sum + kaatAmount;
@@ -1183,13 +1251,16 @@ export default function FinanceBiltyTable({
                       const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
                       const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
                       
+                      // Apply 50kg minimum for per_kg rate type
+                      const effectiveWeight = Math.max(weight, 50);
+                      
                       let kaatAmount = 0;
                       if (kaatData.rate_type === 'per_kg') {
-                        kaatAmount = weight * rateKg;
+                        kaatAmount = effectiveWeight * rateKg;
                       } else if (kaatData.rate_type === 'per_pkg') {
                         kaatAmount = packages * ratePkg;
                       } else if (kaatData.rate_type === 'hybrid') {
-                        kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                        kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
                       }
                       
                       const profit = totalAmount - kaatAmount;
@@ -1216,13 +1287,16 @@ export default function FinanceBiltyTable({
                         const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
                         const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
                         
+                        // Apply 50kg minimum for per_kg rate type
+                        const effectiveWeight = Math.max(weight, 50);
+                        
                         let kaatAmount = 0;
                         if (kaatData.rate_type === 'per_kg') {
-                          kaatAmount = weight * rateKg;
+                          kaatAmount = effectiveWeight * rateKg;
                         } else if (kaatData.rate_type === 'per_pkg') {
                           kaatAmount = packages * ratePkg;
                         } else if (kaatData.rate_type === 'hybrid') {
-                          kaatAmount = (weight * rateKg) + (packages * ratePkg);
+                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
                         }
                         
                         const profit = totalAmount - kaatAmount;

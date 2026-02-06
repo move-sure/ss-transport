@@ -51,12 +51,15 @@ const calculateKaatAmount = (kaat, weight, packages) => {
   const rateKg = parseFloat(kaat.rate_per_kg) || 0;
   const ratePkg = parseFloat(kaat.rate_per_pkg) || 0;
   
+  // Apply 50kg minimum for per_kg rate type
+  const effectiveWeight = Math.max(weight, 50);
+  
   if (kaat.rate_type === 'per_kg') {
-    return weight * rateKg;
+    return effectiveWeight * rateKg;
   } else if (kaat.rate_type === 'per_pkg') {
     return packages * ratePkg;
   } else if (kaat.rate_type === 'hybrid') {
-    return (weight * rateKg) + (packages * ratePkg);
+    return (effectiveWeight * rateKg) + (packages * ratePkg);
   }
   return 0;
 };

@@ -148,6 +148,7 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
 
 /**
  * Calculate total kaat amount for selected bilties
+ * NOTE: Minimum weight for per_kg calculation is 50kg
  */
 export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
   try {
@@ -156,7 +157,7 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
     // Fetch kaat data
     const { data: kaatData, error: kaatError } = await supabase
       .from('bilty_wise_kaat')
-      .select('gr_no, rate_per_kg, rate_per_pkg, transport_hub_rate_id')
+      .select('gr_no, rate_per_kg, rate_per_pkg, rate_type, transport_hub_rate_id')
       .in('gr_no', grNumbers);
 
     if (kaatError) throw kaatError;
@@ -183,24 +184,43 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
     const kaatDetails = [];
 
     kaatData?.forEach(kaat => {
-      const bilty = biltiesWithKaat.find(t => t.gr_no === kaat.gr_no)?.bilty;
-      if (bilty) {
-        const weight = parseFloat(bilty.wt || 0);
-        const packages = parseInt(bilty.no_of_pkg || 0);
+      const transit = biltiesWithKaat.find(t => t.gr_no === kaat.gr_no);
+      const bilty = transit?.bilty;
+      const station = transit?.station;
+      
+      if (bilty || station) {
+        const actualWeight = parseFloat(bilty?.wt || station?.weight || 0);
+        const packages = parseInt(bilty?.no_of_pkg || station?.no_of_packets || 0);
         const rateKg = parseFloat(kaat.rate_per_kg || 0);
         const ratePkg = parseFloat(kaat.rate_per_pkg || 0);
         const minCharge = parseFloat(hubRatesData[kaat.transport_hub_rate_id] || 0);
-        const calculatedAmount = Math.max((weight * rateKg) + (packages * ratePkg), minCharge);
+        const rateType = kaat.rate_type || 'per_kg';
+        
+        // Apply 50kg minimum for per_kg calculations
+        const effectiveWeight = Math.max(actualWeight, 50);
+        
+        let calculatedAmount = 0;
+        if (rateType === 'per_kg') {
+          calculatedAmount = effectiveWeight * rateKg;
+        } else if (rateType === 'per_pkg') {
+          calculatedAmount = packages * ratePkg;
+        } else if (rateType === 'hybrid') {
+          calculatedAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+        }
+        
+        calculatedAmount = Math.max(calculatedAmount, minCharge);
         
         totalKaatAmount += calculatedAmount;
         
         kaatDetails.push({
           gr_no: kaat.gr_no,
-          weight,
+          weight: actualWeight,
+          effectiveWeight,
           packages,
           rateKg,
           ratePkg,
           minCharge,
+          rateType,
           kaatAmount: calculatedAmount
         });
       }

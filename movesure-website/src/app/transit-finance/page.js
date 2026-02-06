@@ -40,6 +40,25 @@ export default function TransitFinancePage() {
 
   useEffect(() => {
     if (mounted && user) {
+      // Try to load from cache first
+      const cachedData = sessionStorage.getItem('transitFinanceData');
+      if (cachedData) {
+        try {
+          const { challans: cachedChallans, branches: cachedBranches, cities: cachedCities, timestamp } = JSON.parse(cachedData);
+          // Use cache if less than 5 minutes old
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            console.log('📦 Using cached transit finance data');
+            setChallans(cachedChallans || []);
+            setBranches(cachedBranches || []);
+            setCities(cachedCities || []);
+            setHasMoreChallans((cachedChallans?.length || 0) >= 20);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn('Failed to parse cache:', e);
+        }
+      }
       loadAllFinanceData();
     }
   }, [mounted, user]);
@@ -93,6 +112,14 @@ export default function TransitFinancePage() {
       setChallans(challansRes.data || []);
       setHasMoreChallans((challansRes.data?.length || 0) >= 20);
 
+      // Cache the data in sessionStorage
+      sessionStorage.setItem('transitFinanceData', JSON.stringify({
+        challans: challansRes.data || [],
+        branches: branchesRes.data || [],
+        cities: citiesRes.data || [],
+        timestamp: Date.now()
+      }));
+
     } catch (error) {
       console.error('❌ Error loading finance data:', error);
       setError(error.message || 'Failed to load finance data');
@@ -125,9 +152,25 @@ export default function TransitFinancePage() {
       if (error) throw error;
 
       if (moreChallans && moreChallans.length > 0) {
+        const updatedChallans = [...challans, ...moreChallans];
         setChallans(prev => [...prev, ...moreChallans]);
         setHasMoreChallans(moreChallans.length >= challanBatchSize);
         console.log('✅ Loaded', moreChallans.length, 'more challans');
+        
+        // Update cache with new challans
+        const cachedData = sessionStorage.getItem('transitFinanceData');
+        if (cachedData) {
+          try {
+            const parsed = JSON.parse(cachedData);
+            sessionStorage.setItem('transitFinanceData', JSON.stringify({
+              ...parsed,
+              challans: updatedChallans,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            console.warn('Failed to update cache:', e);
+          }
+        }
       } else {
         setHasMoreChallans(false);
         console.log('✅ No more challans to load');

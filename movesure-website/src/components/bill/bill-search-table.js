@@ -108,6 +108,12 @@ const BillSearchTable = memo(({
           </div>
         </td>
         
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.contain}>
+            {bilty.contain || 'N/A'}
+          </div>
+        </td>
+        
         <td className="px-3 py-2 whitespace-nowrap">
           <div className="flex items-center text-xs text-gray-900">
             <MapPin className="h-3 w-3 text-gray-400 mr-1" />
@@ -223,6 +229,12 @@ const BillSearchTable = memo(({
         <td className="px-3 py-2">
           <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.consignee}>
             {bilty.consignee || 'N/A'}
+          </div>
+        </td>
+        
+        <td className="px-3 py-2">
+          <div className="text-xs text-gray-900 max-w-32 truncate" title={bilty.contents}>
+            {bilty.contents || 'N/A'}
           </div>
         </td>
         
@@ -363,6 +375,9 @@ const BillSearchTable = memo(({
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Consignee
+              </th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Content
               </th>
               <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Destination/Station

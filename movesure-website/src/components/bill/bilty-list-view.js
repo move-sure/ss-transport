@@ -14,6 +14,7 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
     { key: 'date', label: 'Date', align: 'left', fixed: false },
     { key: 'consignor', label: 'Consignor', align: 'left', fixed: false },
     { key: 'consignee', label: 'Consignee', align: 'left', fixed: false },
+    { key: 'content', label: 'Content', align: 'left', fixed: false },
     { key: 'city', label: 'City', align: 'left', fixed: false },
     { key: 'packages', label: 'Pkgs', align: 'center', fixed: false },
     { key: 'weight', label: 'Weight', align: 'center', fixed: false },
@@ -135,6 +136,20 @@ const BiltyListView = ({ billDetails, onSave, onDelete }) => {
         ) : (
           <span className="text-sm text-gray-900 max-w-[150px] truncate block" title={detail.consignee}>
             {detail.consignee || 'N/A'}
+          </span>
+        );
+      
+      case 'content':
+        return isEditing ? (
+          <input
+            type="text"
+            value={data.contain || ''}
+            onChange={(e) => handleChange('contain', e.target.value)}
+            className="w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+          />
+        ) : (
+          <span className="text-sm text-gray-900 max-w-[150px] truncate block" title={detail.contain}>
+            {detail.contain || 'N/A'}
           </span>
         );
       

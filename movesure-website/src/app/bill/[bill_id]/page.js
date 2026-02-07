@@ -56,7 +56,52 @@ export default function BillEditPage() {
         .order('detail_id', { ascending: true });
 
       if (detailsError) throw detailsError;
-      setBillDetails(detailsData || []);
+      
+      // Fetch content from bilty and station_bilty_summary tables for each detail
+      if (detailsData && detailsData.length > 0) {
+        const grNumbers = detailsData.map(d => d.grno).filter(Boolean);
+        
+        if (grNumbers.length > 0) {
+          // Fetch from regular bilty table
+          const { data: biltyData } = await supabase
+            .from('bilty')
+            .select('gr_no, contain')
+            .in('gr_no', grNumbers);
+          
+          // Fetch from station bilty summary table
+          const { data: stationBiltyData } = await supabase
+            .from('station_bilty_summary')
+            .select('gr_no, contents')
+            .in('gr_no', grNumbers);
+          
+          // Create a map of gr_no to content
+          const contentMap = {};
+          
+          if (biltyData) {
+            biltyData.forEach(b => {
+              contentMap[b.gr_no] = b.contain;
+            });
+          }
+          
+          if (stationBiltyData) {
+            stationBiltyData.forEach(b => {
+              contentMap[b.gr_no] = b.contents;
+            });
+          }
+          
+          // Merge content into details data
+          const detailsWithContent = detailsData.map(detail => ({
+            ...detail,
+            contain: contentMap[detail.grno] || detail.contain || 'N/A'
+          }));
+          
+          setBillDetails(detailsWithContent);
+        } else {
+          setBillDetails(detailsData || []);
+        }
+      } else {
+        setBillDetails([]);
+      }
 
     } catch (error) {
       console.error('Error loading bill:', error);

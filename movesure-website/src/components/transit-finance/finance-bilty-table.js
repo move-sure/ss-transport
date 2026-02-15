@@ -921,6 +921,8 @@ export default function FinanceBiltyTable({
               <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Total</th>
               <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px]">Pay</th>
               <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px] w-28">Kaat</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">PF</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Act.Rate</th>
               <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Profit</th>
             </tr>
           </thead>
@@ -1082,6 +1084,37 @@ export default function FinanceBiltyTable({
                       onKaatDelete={() => handleKaatDeleted(transit.gr_no)}
                     />
                   </td>
+                  {/* PF Column */}
+                  <td className="px-1.5 py-1.5 text-right">
+                    {(() => {
+                      const kaatData = allKaatData[transit.gr_no];
+                      if (!kaatData || kaatData.pf == null) return <span className="text-gray-400 text-[10px]">-</span>;
+                      const pf = parseFloat(kaatData.pf);
+                      return (
+                        <div className={`px-1 py-0.5 rounded border inline-block ${
+                          pf > 0 ? 'bg-green-50 border-green-200' : pf < 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <span className={`font-bold text-[10px] ${
+                            pf > 0 ? 'text-green-700' : pf < 0 ? 'text-red-700' : 'text-gray-700'
+                          }`}>
+                            ₹{pf.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  {/* Actual Kaat Rate Column */}
+                  <td className="px-1.5 py-1.5 text-right">
+                    {(() => {
+                      const kaatData = allKaatData[transit.gr_no];
+                      if (!kaatData || !kaatData.actual_kaat_rate) return <span className="text-gray-400 text-[10px]">-</span>;
+                      return (
+                        <span className="font-semibold text-indigo-700 text-[10px]">
+                          ₹{parseFloat(kaatData.actual_kaat_rate).toFixed(2)}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-1.5 py-1.5 text-right">
                     {(() => {
                       const kaatData = allKaatData[transit.gr_no];
@@ -1105,22 +1138,24 @@ export default function FinanceBiltyTable({
                         );
                       }
                       
-                      // Calculate kaat amount using same logic as BiltyKaatCell
-                      const weight = parseFloat(bilty?.wt || station?.weight || 0);
-                      const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                      const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
-                      const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
-                      
-                      // Apply 50kg minimum for per_kg rate type
-                      const effectiveWeight = Math.max(weight, 50);
-                      
+                      // Use stored kaat value if available, otherwise calculate
                       let kaatAmount = 0;
-                      if (kaatData.rate_type === 'per_kg') {
-                        kaatAmount = effectiveWeight * rateKg;
-                      } else if (kaatData.rate_type === 'per_pkg') {
-                        kaatAmount = packages * ratePkg;
-                      } else if (kaatData.rate_type === 'hybrid') {
-                        kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+                      if (kaatData.kaat != null) {
+                        kaatAmount = parseFloat(kaatData.kaat);
+                      } else {
+                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                        const effectiveWeight = Math.max(weight, 50);
+                        
+                        if (kaatData.rate_type === 'per_kg') {
+                          kaatAmount = effectiveWeight * rateKg;
+                        } else if (kaatData.rate_type === 'per_pkg') {
+                          kaatAmount = packages * ratePkg;
+                        } else if (kaatData.rate_type === 'hybrid') {
+                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+                        }
                       }
                       
                       // Profit = Total Amount - Kaat Amount (can be negative for Paid/DD bilties)
@@ -1203,6 +1238,11 @@ export default function FinanceBiltyTable({
                         const kaatData = allKaatData[transit.gr_no];
                         if (!kaatData) return sum;
                         
+                        // Use stored kaat value if available, otherwise calculate
+                        if (kaatData.kaat != null) {
+                          return sum + parseFloat(kaatData.kaat);
+                        }
+                        
                         const bilty = transit.bilty;
                         const station = transit.station;
                         const weight = parseFloat(bilty?.wt || station?.weight || 0);
@@ -1229,6 +1269,30 @@ export default function FinanceBiltyTable({
                   </span>
                 </div>
               </td>
+              {/* PF Footer Total */}
+              <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
+                <div className="flex items-center justify-end gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                  <span className={`${(() => {
+                    const totalPf = filteredTransits.reduce((sum, transit) => {
+                      const kaatData = allKaatData[transit.gr_no];
+                      if (!kaatData || kaatData.pf == null) return sum;
+                      return sum + parseFloat(kaatData.pf);
+                    }, 0);
+                    return totalPf >= 0 ? 'text-green-700' : 'text-red-700';
+                  })()}`}>
+                    {(() => {
+                      const totalPf = filteredTransits.reduce((sum, transit) => {
+                        const kaatData = allKaatData[transit.gr_no];
+                        if (!kaatData || kaatData.pf == null) return sum;
+                        return sum + parseFloat(kaatData.pf);
+                      }, 0);
+                      return totalPf.toFixed(2);
+                    })()}
+                  </span>
+                </div>
+              </td>
+              {/* Act.Rate Footer - empty */}
+              <td className="px-1.5 py-2.5 text-right text-gray-900 text-[10px] w-16"></td>
               <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
                 <div className="flex items-center justify-end gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
                   <TrendingUp className="w-3 h-3 text-green-700" />
@@ -1246,21 +1310,24 @@ export default function FinanceBiltyTable({
                         return sum + totalAmount;
                       }
                       
-                      const weight = parseFloat(bilty?.wt || station?.weight || 0);
-                      const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                      const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
-                      const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
-                      
-                      // Apply 50kg minimum for per_kg rate type
-                      const effectiveWeight = Math.max(weight, 50);
-                      
+                      // Use stored kaat value if available
                       let kaatAmount = 0;
-                      if (kaatData.rate_type === 'per_kg') {
-                        kaatAmount = effectiveWeight * rateKg;
-                      } else if (kaatData.rate_type === 'per_pkg') {
-                        kaatAmount = packages * ratePkg;
-                      } else if (kaatData.rate_type === 'hybrid') {
-                        kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+                      if (kaatData.kaat != null) {
+                        kaatAmount = parseFloat(kaatData.kaat);
+                      } else {
+                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                        const effectiveWeight = Math.max(weight, 50);
+                        
+                        if (kaatData.rate_type === 'per_kg') {
+                          kaatAmount = effectiveWeight * rateKg;
+                        } else if (kaatData.rate_type === 'per_pkg') {
+                          kaatAmount = packages * ratePkg;
+                        } else if (kaatData.rate_type === 'hybrid') {
+                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+                        }
                       }
                       
                       const profit = totalAmount - kaatAmount;
@@ -1282,21 +1349,24 @@ export default function FinanceBiltyTable({
                           return sum + totalAmount;
                         }
                         
-                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
-                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
-                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
-                        
-                        // Apply 50kg minimum for per_kg rate type
-                        const effectiveWeight = Math.max(weight, 50);
-                        
+                        // Use stored kaat value if available
                         let kaatAmount = 0;
-                        if (kaatData.rate_type === 'per_kg') {
-                          kaatAmount = effectiveWeight * rateKg;
-                        } else if (kaatData.rate_type === 'per_pkg') {
-                          kaatAmount = packages * ratePkg;
-                        } else if (kaatData.rate_type === 'hybrid') {
-                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+                        if (kaatData.kaat != null) {
+                          kaatAmount = parseFloat(kaatData.kaat);
+                        } else {
+                          const weight = parseFloat(bilty?.wt || station?.weight || 0);
+                          const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+                          const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                          const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                          const effectiveWeight = Math.max(weight, 50);
+                          
+                          if (kaatData.rate_type === 'per_kg') {
+                            kaatAmount = effectiveWeight * rateKg;
+                          } else if (kaatData.rate_type === 'per_pkg') {
+                            kaatAmount = packages * ratePkg;
+                          } else if (kaatData.rate_type === 'hybrid') {
+                            kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+                          }
                         }
                         
                         const profit = totalAmount - kaatAmount;
@@ -1463,8 +1533,14 @@ export default function FinanceBiltyTable({
                                 <div>
                                   <span className="text-gray-500">Min Charge:</span> <span className="font-semibold text-indigo-600">₹{kaatDetail.minCharge.toFixed(0)}</span>
                                 </div>
-                                <div className="col-span-3 mt-1">
-                                  <span className="text-gray-500">Kaat Amount:</span> <span className="font-bold text-green-700 text-sm">₹{kaatDetail.kaatAmount.toFixed(2)}</span>
+                                <div>
+                                  <span className="text-gray-500">Kaat:</span> <span className="font-bold text-green-700 text-sm">₹{kaatDetail.kaatAmount.toFixed(2)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">PF:</span> <span className={`font-bold text-sm ${kaatDetail.pf >= 0 ? 'text-green-700' : 'text-red-700'}`}>₹{kaatDetail.pf.toFixed(2)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Act.Rate:</span> <span className="font-semibold text-indigo-600">₹{kaatDetail.actual_kaat_rate.toFixed(2)}/kg</span>
                                 </div>
                               </div>
                             </div>

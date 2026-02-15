@@ -113,18 +113,56 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
     }
 
     // Prepare bulk upsert data
-    const upsertData = filteredTransits.map(transit => ({
-      gr_no: transit.gr_no,
-      challan_no: selectedChallan.challan_no,
-      destination_city_id: selectedCityId,
-      transport_hub_rate_id: selectedRate.id,
-      rate_type: selectedRate.pricing_mode,
-      rate_per_kg: selectedRate.rate_per_kg || 0,
-      rate_per_pkg: selectedRate.rate_per_pkg || 0,
-      created_by: userId,
-      updated_by: userId,
-      updated_at: new Date().toISOString()
-    }));
+    const upsertData = filteredTransits.map(transit => {
+      const bilty = transit.bilty;
+      const station = transit.station;
+      const weight = parseFloat(bilty?.wt || station?.weight || 0);
+      const packages = parseInt(bilty?.no_of_pkg || station?.no_of_packets || 0);
+      const rateKg = parseFloat(selectedRate.rate_per_kg || 0);
+      const ratePkg = parseFloat(selectedRate.rate_per_pkg || 0);
+      const rateType = selectedRate.pricing_mode || 'per_kg';
+
+      // Apply 50kg minimum weight rule
+      const effectiveWeight = Math.max(weight, 50);
+
+      // Calculate kaat amount
+      let kaatAmount = 0;
+      if (rateType === 'per_kg') {
+        kaatAmount = effectiveWeight * rateKg;
+      } else if (rateType === 'per_pkg') {
+        kaatAmount = packages * ratePkg;
+      } else if (rateType === 'hybrid') {
+        kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+      }
+
+      // Calculate actual_kaat_rate (effective rate considering 50kg minimum)
+      let actualKaatRate = rateKg;
+      if (rateType === 'per_kg' && weight > 0 && weight < 50) {
+        actualKaatRate = (effectiveWeight * rateKg) / weight;
+      }
+
+      // Calculate PF (profit) = Total - Kaat
+      const paymentMode = bilty?.payment_mode || station?.payment_status;
+      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+      const pf = totalAmount - kaatAmount;
+
+      return {
+        gr_no: transit.gr_no,
+        challan_no: selectedChallan.challan_no,
+        destination_city_id: selectedCityId,
+        transport_hub_rate_id: selectedRate.id,
+        rate_type: rateType,
+        rate_per_kg: selectedRate.rate_per_kg || 0,
+        rate_per_pkg: selectedRate.rate_per_pkg || 0,
+        kaat: parseFloat(kaatAmount.toFixed(4)),
+        pf: parseFloat(pf.toFixed(4)),
+        actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
+        created_by: userId,
+        updated_by: userId,
+        updated_at: new Date().toISOString()
+      };
+    });
 
     // Bulk upsert
     const { error } = await supabase
@@ -210,6 +248,18 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
         
         calculatedAmount = Math.max(calculatedAmount, minCharge);
         
+        // Calculate actual_kaat_rate (effective rate considering 50kg minimum)
+        let actualKaatRate = rateKg;
+        if (rateType === 'per_kg' && actualWeight > 0 && actualWeight < 50) {
+          actualKaatRate = (effectiveWeight * rateKg) / actualWeight;
+        }
+
+        // Calculate PF
+        const paymentMode = bilty?.payment_mode || station?.payment_status;
+        const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+        const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+        const pf = totalAmount - calculatedAmount;
+        
         totalKaatAmount += calculatedAmount;
         
         kaatDetails.push({
@@ -221,7 +271,9 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
           ratePkg,
           minCharge,
           rateType,
-          kaatAmount: calculatedAmount
+          kaatAmount: calculatedAmount,
+          pf: pf,
+          actual_kaat_rate: actualKaatRate
         });
       }
     });
@@ -476,15 +528,51 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
       if (!selectedRate) {
         selectedRate = cityRates[0];
       }
+
+      // Calculate kaat, pf, actual_kaat_rate with 50kg minimum weight rule
+      const bilty = transit.bilty;
+      const station = transit.station;
+      const weight = parseFloat(bilty?.wt || station?.weight || 0);
+      const packages = parseInt(bilty?.no_of_pkg || station?.no_of_packets || 0);
+      const rateKg = parseFloat(selectedRate.rate_per_kg || 0);
+      const ratePkg = parseFloat(selectedRate.rate_per_pkg || 0);
+      const rateType = selectedRate.pricing_mode || 'per_kg';
+
+      // Apply 50kg minimum weight rule
+      const effectiveWeight = Math.max(weight, 50);
+
+      let kaatAmount = 0;
+      if (rateType === 'per_kg') {
+        kaatAmount = effectiveWeight * rateKg;
+      } else if (rateType === 'per_pkg') {
+        kaatAmount = packages * ratePkg;
+      } else if (rateType === 'hybrid') {
+        kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+      }
+
+      // Calculate actual_kaat_rate
+      let actualKaatRate = rateKg;
+      if (rateType === 'per_kg' && weight > 0 && weight < 50) {
+        actualKaatRate = (effectiveWeight * rateKg) / weight;
+      }
+
+      // Calculate PF
+      const paymentMode = bilty?.payment_mode || station?.payment_status;
+      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+      const pf = totalAmount - kaatAmount;
       
       upsertData.push({
         gr_no: transit.gr_no,
         challan_no: selectedChallan.challan_no,
         destination_city_id: destinationCityId,
         transport_hub_rate_id: selectedRate.id,
-        rate_type: selectedRate.pricing_mode,
+        rate_type: rateType,
         rate_per_kg: selectedRate.rate_per_kg || 0,
         rate_per_pkg: selectedRate.rate_per_pkg || 0,
+        kaat: parseFloat(kaatAmount.toFixed(4)),
+        pf: parseFloat(pf.toFixed(4)),
+        actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
         created_by: userId,
         updated_by: userId,
         updated_at: new Date().toISOString()

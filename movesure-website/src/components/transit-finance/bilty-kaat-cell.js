@@ -227,25 +227,49 @@ export default function BiltyKaatCell({
     }
   };
 
-  const calculateAmount = () => {
-    if (!biltyWeight && !biltyPackages) return 0;
-    
-    const rateKg = parseFloat(formData.rate_per_kg) || 0;
-    const ratePkg = parseFloat(formData.rate_per_pkg) || 0;
+  // Calculate kaat amount with 50kg minimum weight rule
+  const calculateKaatDetails = (rateData = formData, totalAmountOverride = null) => {
+    const rateKg = parseFloat(rateData.rate_per_kg) || 0;
+    const ratePkg = parseFloat(rateData.rate_per_pkg) || 0;
     const weight = parseFloat(biltyWeight) || 0;
     const packages = parseFloat(biltyPackages) || 0;
+    const rateType = rateData.rate_type || 'per_kg';
     
     // Apply 50kg minimum for per_kg rate type
     const effectiveWeight = Math.max(weight, 50);
-
-    if (formData.rate_type === 'per_kg') {
-      return (effectiveWeight * rateKg).toFixed(2);
-    } else if (formData.rate_type === 'per_pkg') {
-      return (packages * ratePkg).toFixed(2);
-    } else if (formData.rate_type === 'hybrid') {
-      return ((effectiveWeight * rateKg) + (packages * ratePkg)).toFixed(2);
+    
+    // actual_kaat_rate = the effective rate per kg used (considering 50kg minimum)
+    let actualKaatRate = rateKg;
+    if (rateType === 'per_kg' && weight > 0 && weight < 50) {
+      // Actual effective rate = (effectiveWeight * rateKg) / actualWeight
+      actualKaatRate = (effectiveWeight * rateKg) / weight;
     }
-    return 0;
+
+    let kaatAmount = 0;
+    if (rateType === 'per_kg') {
+      kaatAmount = effectiveWeight * rateKg;
+    } else if (rateType === 'per_pkg') {
+      kaatAmount = packages * ratePkg;
+    } else if (rateType === 'hybrid') {
+      kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+    }
+
+    // Calculate PF (profit) = Total Amount - Kaat Amount
+    // For Paid/DD bilties, total is 0 so pf will be negative
+    const totalAmount = totalAmountOverride !== null ? totalAmountOverride : 0;
+    const pf = totalAmount - kaatAmount;
+
+    return {
+      kaat: parseFloat(kaatAmount.toFixed(4)),
+      pf: parseFloat(pf.toFixed(4)),
+      actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4))
+    };
+  };
+
+  const calculateAmount = () => {
+    if (!biltyWeight && !biltyPackages) return 0;
+    const details = calculateKaatDetails();
+    return details.kaat.toFixed(2);
   };
 
   const handleSave = async () => {
@@ -262,6 +286,9 @@ export default function BiltyKaatCell({
         }
       }
 
+      // Calculate kaat, pf, and actual_kaat_rate
+      const kaatCalc = calculateKaatDetails();
+
       const saveData = {
         gr_no: grNo,
         challan_no: challanNo,
@@ -270,6 +297,9 @@ export default function BiltyKaatCell({
         rate_type: formData.rate_type,
         rate_per_kg: formData.rate_per_kg ? parseFloat(formData.rate_per_kg) : 0,
         rate_per_pkg: formData.rate_per_pkg ? parseFloat(formData.rate_per_pkg) : 0,
+        kaat: kaatCalc.kaat,
+        pf: kaatCalc.pf,
+        actual_kaat_rate: kaatCalc.actual_kaat_rate,
         updated_by: userId,
         updated_at: new Date().toISOString()
       };
@@ -511,8 +541,13 @@ export default function BiltyKaatCell({
                 </div>
               )}
               <div className="text-[9px] font-bold text-orange-700 mt-0.5">
-                ₹{calculateAmount()}
+                K: ₹{kaatData.kaat != null ? parseFloat(kaatData.kaat).toFixed(2) : calculateAmount()}
               </div>
+              {kaatData.actual_kaat_rate > 0 && (
+                <div className="text-[8px] text-gray-500">
+                  Eff: ₹{parseFloat(kaatData.actual_kaat_rate).toFixed(2)}/kg
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-0.5">
               <button

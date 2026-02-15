@@ -21,6 +21,12 @@ const CityTransportSection = ({
   const transportGstRef = useRef(null);
   const transportNumberRef = useRef(null);
 
+  // Multi-transport dropdown state
+  const [availableTransports, setAvailableTransports] = useState([]);
+  const [showTransportDropdown, setShowTransportDropdown] = useState(false);
+  const [transportSelectedIndex, setTransportSelectedIndex] = useState(-1);
+  const transportDropdownRef = useRef(null);
+
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
   // Initialize city search when formData has to_city_id (for edit mode)
@@ -40,9 +46,19 @@ const CityTransportSection = ({
       if (cityRef.current && !cityRef.current.contains(event.target)) {
         setShowCityDropdown(false);
       }
+      if (transportDropdownRef.current && !transportDropdownRef.current.contains(event.target)) {
+        setShowTransportDropdown(false);
+      }
     };    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);  // Register inputs for navigation
+  }, []);
+
+  // Reset transport dropdown when form resets
+  useEffect(() => {
+    setAvailableTransports([]);
+    setShowTransportDropdown(false);
+    setTransportSelectedIndex(-1);
+  }, [resetKey]);  // Register inputs for navigation
   useEffect(() => {
     if (cityInputRef.current) {
       register(1, cityInputRef.current, {
@@ -77,104 +93,144 @@ const CityTransportSection = ({
       unregister(4);
     };
   }, [register, unregister]);
+  // Shared rate fetching logic
+  const fetchRateForCity = async (city, transport) => {
+    let selectedRate = null;
+
+    // PRIORITY 1: Check historical bilty data if consignor is selected
+    if (formData.consignor_name && formData.branch_id) {
+      try {
+        console.log('🔍 Checking historical rates for:', formData.consignor_name, 'to city:', city.city_name);
+
+        const { data: historicalBilties, error } = await supabase
+          .from('bilty')
+          .select('rate')
+          .eq('consignor_name', formData.consignor_name)
+          .eq('to_city_id', city.id)
+          .eq('branch_id', formData.branch_id)
+          .eq('is_active', true)
+          .not('rate', 'is', null)
+          .gt('rate', 0)
+          .order('bilty_date', { ascending: false })
+          .limit(20);
+
+        if (!error && historicalBilties && historicalBilties.length > 0) {
+          const rateCounts = {};
+          historicalBilties.forEach(bilty => {
+            const rate = parseFloat(bilty.rate);
+            rateCounts[rate] = (rateCounts[rate] || 0) + 1;
+          });
+
+          let mostCommonRate = null;
+          let maxCount = 0;
+          Object.entries(rateCounts).forEach(([rate, count]) => {
+            if (count > maxCount) {
+              maxCount = count;
+              mostCommonRate = parseFloat(rate);
+            }
+          });
+
+          if (mostCommonRate) {
+            selectedRate = mostCommonRate;
+            console.log('✅ Using historical rate from bilty table:', selectedRate, `(used ${maxCount}/${historicalBilties.length} times)`);
+          }
+        }
+      } catch (error) {
+        console.warn('Error fetching historical rate:', error);
+      }
+    }
+
+    // PRIORITY 2: If no historical rate, check rates table for consignor-specific rate
+    if (!selectedRate && formData.consignor_name) {
+      console.log('🔍 Looking for consignor-specific rate in rates table');
+      const cityRates = rates.filter(r => r.city_id === city.id);
+      const consignorSpecificRates = cityRates.filter(r => !r.is_default && r.consignor_id);
+
+      if (consignorSpecificRates.length > 0) {
+        selectedRate = consignorSpecificRates[0].rate;
+        console.log('✅ Using consignor-specific rate from rates table:', selectedRate);
+      }
+    }
+
+    // PRIORITY 3: Fall back to default rate from rates table
+    if (!selectedRate) {
+      console.log('🔍 Looking for default rate in rates table');
+      const cityRates = rates.filter(r => r.city_id === city.id);
+      const defaultRate = cityRates.find(r => r.is_default) || cityRates[0];
+
+      if (defaultRate) {
+        selectedRate = defaultRate.rate;
+        console.log('✅ Using default rate from rates table:', selectedRate);
+      } else {
+        console.log('⚠️ No rate found for this city');
+      }
+    }
+
+    // Update form data
+    setFormData(prev => ({
+      ...prev,
+      to_city_id: city.id,
+      transport_name: transport?.transport_name || '',
+      transport_gst: transport?.gst_number || '',
+      transport_number: transport?.mob_number || '',
+      rate: selectedRate || prev.rate || 0
+    }));
+  };
+
+  // Handle selecting a transport from the multi-transport dropdown
+  const handleTransportSelect = (transport) => {
+    setShowTransportDropdown(false);
+    setTransportSelectedIndex(-1);
+
+    // Find the city object for rate lookup
+    const city = cities.find(c => c.id === transport.city_id);
+    if (city) {
+      fetchRateForCity(city, transport);
+    } else {
+      // Fallback: just set transport fields
+      setFormData(prev => ({
+        ...prev,
+        transport_name: transport.transport_name || '',
+        transport_gst: transport.gst_number || '',
+        transport_number: transport.mob_number || ''
+      }));
+    }
+    console.log('✅ Selected transport:', transport.transport_name);
+  };
+
   const handleCitySelect = (city) => {
     setCitySearch(city.city_name);
     setShowCityDropdown(false);
     setSelectedIndex(-1);
     
-    // Find transport for this city
+    // Find transports for this city
     const cityTransports = transports.filter(t => t.city_id === city.id);
-    const transport = cityTransports[0] || null;
     
-    // Enhanced rate lookup with historical data priority
-    const fetchRateForCity = async () => {
-      let selectedRate = null;
-      
-      // PRIORITY 1: Check historical bilty data if consignor is selected
-      if (formData.consignor_name && formData.branch_id) {
-        try {
-          console.log('🔍 Checking historical rates for:', formData.consignor_name, 'to city:', city.city_name);
-          
-          // Query last 20 bilties for this consignor + city combination
-          const { data: historicalBilties, error } = await supabase
-            .from('bilty')
-            .select('rate')
-            .eq('consignor_name', formData.consignor_name)
-            .eq('to_city_id', city.id)
-            .eq('branch_id', formData.branch_id)
-            .eq('is_active', true)
-            .not('rate', 'is', null)
-            .gt('rate', 0)
-            .order('bilty_date', { ascending: false })
-            .limit(20);
-          
-          if (!error && historicalBilties && historicalBilties.length > 0) {
-            // Calculate most common rate
-            const rateCounts = {};
-            historicalBilties.forEach(bilty => {
-              const rate = parseFloat(bilty.rate);
-              rateCounts[rate] = (rateCounts[rate] || 0) + 1;
-            });
-            
-            // Find most common rate
-            let mostCommonRate = null;
-            let maxCount = 0;
-            Object.entries(rateCounts).forEach(([rate, count]) => {
-              if (count > maxCount) {
-                maxCount = count;
-                mostCommonRate = parseFloat(rate);
-              }
-            });
-            
-            if (mostCommonRate) {
-              selectedRate = mostCommonRate;
-              console.log('✅ Using historical rate from bilty table:', selectedRate, `(used ${maxCount}/${historicalBilties.length} times)`);
-            }
-          }
-        } catch (error) {
-          console.warn('Error fetching historical rate:', error);
-        }
-      }
-      
-      // PRIORITY 2: If no historical rate, check rates table for consignor-specific rate
-      if (!selectedRate && formData.consignor_name) {
-        console.log('🔍 Looking for consignor-specific rate in rates table');
-        const cityRates = rates.filter(r => r.city_id === city.id);
-        const consignorSpecificRates = cityRates.filter(r => !r.is_default && r.consignor_id);
-        
-        if (consignorSpecificRates.length > 0) {
-          selectedRate = consignorSpecificRates[0].rate;
-          console.log('✅ Using consignor-specific rate from rates table:', selectedRate);
-        }
-      }
-      
-      // PRIORITY 3: Fall back to default rate from rates table
-      if (!selectedRate) {
-        console.log('🔍 Looking for default rate in rates table');
-        const cityRates = rates.filter(r => r.city_id === city.id);
-        const defaultRate = cityRates.find(r => r.is_default) || cityRates[0];
-        
-        if (defaultRate) {
-          selectedRate = defaultRate.rate;
-          console.log('✅ Using default rate from rates table:', selectedRate);
-        } else {
-          console.log('⚠️ No rate found for this city');
-        }
-      }
-      
-      // Update form data
+    if (cityTransports.length > 1) {
+      // Multiple transports — show dropdown, set city but don't auto-pick transport
+      console.log(`🚛 ${cityTransports.length} transports found for ${city.city_name}, showing selector`);
+      setAvailableTransports(cityTransports);
+      setShowTransportDropdown(true);
+      setTransportSelectedIndex(-1);
+
+      // Set city in form but clear transport fields until user picks
       setFormData(prev => ({
         ...prev,
         to_city_id: city.id,
-        transport_name: transport?.transport_name || '',
-        transport_gst: transport?.gst_number || '',
-        transport_number: transport?.mob_number || '',
-        rate: selectedRate || prev.rate || 0
+        transport_name: '',
+        transport_gst: '',
+        transport_number: ''
       }));
-    };
-    
-    // Execute the rate fetching
-    fetchRateForCity();
+
+      // Still fetch rate in the background (rate depends on city, not transport)
+      fetchRateForCity(city, null);
+    } else {
+      // 0 or 1 transport — auto-select as before
+      const transport = cityTransports[0] || null;
+      setAvailableTransports([]);
+      setShowTransportDropdown(false);
+      fetchRateForCity(city, transport);
+    }
   };  const handleKeyDown = (e) => {
     // Handle dropdown navigation
     if (showCityDropdown && filteredCities.length > 0) {
@@ -336,27 +392,116 @@ const CityTransportSection = ({
           </div>
         </div>
 
-        {/* Transport Name */}
+        {/* Transport Name with Multi-Transport Dropdown */}
         <div className="col-span-4">
           <div className="flex items-center gap-1">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[40px] text-center shadow-sm">
-              TRP
+            <span className={`px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[40px] text-center shadow-sm ${
+              availableTransports.length > 1 ? 'bg-amber-500 text-white animate-pulse' : 'bg-indigo-500 text-white'
+            }`}>
+              TRP{availableTransports.length > 1 ? ` (${availableTransports.length})` : ''}
             </span>
-            <input
-              type="text"
-              ref={transportNameRef}
-              value={formData.transport_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleEnter(e, 2);
-                }
-              }}
-              className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
-              placeholder="Transport name"
-              tabIndex={2}
-            />
+            <div className="relative flex-1" ref={transportDropdownRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  ref={transportNameRef}
+                  value={formData.transport_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
+                  onFocus={() => { if (availableTransports.length > 1) setShowTransportDropdown(true); }}
+                  onKeyDown={(e) => {
+                    // Handle transport dropdown navigation
+                    if (showTransportDropdown && availableTransports.length > 1) {
+                      switch (e.key) {
+                        case 'ArrowDown':
+                          e.preventDefault();
+                          setTransportSelectedIndex(prev => prev < availableTransports.length - 1 ? prev + 1 : 0);
+                          return;
+                        case 'ArrowUp':
+                          e.preventDefault();
+                          setTransportSelectedIndex(prev => prev > 0 ? prev - 1 : availableTransports.length - 1);
+                          return;
+                        case 'Enter':
+                        case 'Tab':
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (transportSelectedIndex >= 0) {
+                            handleTransportSelect(availableTransports[transportSelectedIndex]);
+                          } else if (availableTransports.length > 0) {
+                            handleTransportSelect(availableTransports[0]);
+                          }
+                          return;
+                        case 'Escape':
+                          e.preventDefault();
+                          setShowTransportDropdown(false);
+                          setTransportSelectedIndex(-1);
+                          return;
+                      }
+                    }
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleEnter(e, 2);
+                    }
+                  }}
+                  className={`flex-1 w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border rounded-lg bg-white shadow-sm focus:ring-0 transition-colors duration-200 ${
+                    availableTransports.length > 1 && !formData.transport_name
+                      ? 'border-amber-400 focus:border-amber-500 hover:border-amber-400 bg-amber-50'
+                      : 'border-slate-300 focus:border-indigo-400 hover:border-indigo-300'
+                  }`}
+                  placeholder={availableTransports.length > 1 ? `⬇ Select from ${availableTransports.length} transports...` : 'Transport name'}
+                  tabIndex={2}
+                />
+                {availableTransports.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTransportDropdown(!showTransportDropdown)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-amber-600 hover:text-amber-800"
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showTransportDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
+              </div>
+
+              {/* Multi-Transport Dropdown */}
+              {showTransportDropdown && availableTransports.length > 1 && (
+                <div className="absolute z-40 mt-1 w-full bg-white border border-amber-300 rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                  <div className="p-2 bg-amber-500 text-white text-xs font-semibold rounded-t-lg flex items-center justify-between">
+                    <span>🚛 SELECT TRANSPORT ({availableTransports.length} available)</span>
+                    <button onClick={() => setShowTransportDropdown(false)} className="hover:bg-amber-600 rounded px-1">✕</button>
+                  </div>
+                  {availableTransports.map((t, index) => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleTransportSelect(t)}
+                      className={`w-full px-3 py-2.5 text-left hover:bg-amber-50 border-b border-gray-100 transition-colors ${
+                        index === transportSelectedIndex ? 'bg-amber-100' : ''
+                      } ${
+                        formData.transport_name === t.transport_name ? 'bg-green-50 border-l-4 border-l-green-500' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-sm text-slate-900">{t.transport_name}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {t.gst_number && (
+                              <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1 rounded">GST: {t.gst_number}</span>
+                            )}
+                            {t.mob_number && (
+                              <span className="text-xs text-gray-600">📱 {t.mob_number}</span>
+                            )}
+                          </div>
+                          {t.address && (
+                            <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[280px]">{t.address}</div>
+                          )}
+                        </div>
+                        {formData.transport_name === t.transport_name && (
+                          <span className="text-green-600 text-sm">✓</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

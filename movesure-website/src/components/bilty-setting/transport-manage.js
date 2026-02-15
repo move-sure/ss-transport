@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import TransportSearchBar from './transport-search-bar';
 import { 
   searchTransporters, 
   filterByCity,
@@ -17,8 +16,8 @@ import {
 const TransportersComponent = () => {
   const { user } = useAuth();
   const [transporters, setTransporters] = useState([]);
-  const [filteredTransporters, setFilteredTransporters] = useState([]);
   const [cities, setCities] = useState([]);
+  const [transportAdmins, setTransportAdmins] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
@@ -33,56 +32,72 @@ const TransportersComponent = () => {
     gst_number: '',
     mob_number: '',
     branch_owner_name: '',
-    website: ''
+    website: '',
+    transport_admin_id: ''
   });
   const [editingId, setEditingId] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
   const [groupBy, setGroupBy] = useState('city'); // 'city', 'gst', 'name', 'mobile'
+  const ITEMS_PER_PAGE = 50;
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const searchDebounceRef = useRef(null);
 
   useEffect(() => {
     fetchCities();
     fetchTransporters();
+    fetchTransportAdmins();
   }, []);
 
-  useEffect(() => {
-    filterAndSortTransporters();
-  }, [transporters, searchTerm, selectedCity, sortBy, sortOrder]);
-
-  const filterAndSortTransporters = () => {
+  // Memoized filtered & sorted list (no state, just derived)
+  const filteredTransporters = useMemo(() => {
     let result = [...transporters];
 
-    // Apply city filter
     if (selectedCity) {
       result = filterByCity(result, selectedCity);
     }
 
-    // Apply search filter
     if (searchTerm.trim()) {
       result = searchTransporters(result, searchTerm);
     }
 
-    // Apply sorting
     result = sortTransporters(result, sortBy, sortOrder);
 
-    setFilteredTransporters(result);
-  };
+    return result;
+  }, [transporters, searchTerm, selectedCity, sortBy, sortOrder]);
 
-  const handleSearch = (term) => {
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [searchTerm, selectedCity, sortBy, sortOrder]);
+
+  const handleSearch = useCallback((term) => {
+    // Debounce search by 300ms
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchTerm(term);
+    }, 300);
+  }, []);
+
+  const handleSearchImmediate = useCallback((term) => {
     setSearchTerm(term);
-  };
+  }, []);
 
-  const handleCityFilter = (cityId) => {
+  const handleCityFilter = useCallback((cityId) => {
     setSelectedCity(cityId);
-  };
+  }, []);
 
-  const handleSort = (field) => {
+  const handleSort = useCallback((field) => {
     if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(field);
       setSortOrder('asc');
     }
-  };
+  }, [sortBy]);
+
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+  }, []);
 
   const fetchCities = async () => {
     try {
@@ -119,6 +134,20 @@ const TransportersComponent = () => {
       alert('Error fetching transporters: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTransportAdmins = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transport_admin')
+        .select('transport_id, transport_name, gstin, owner_name')
+        .order('transport_name');
+
+      if (error) throw error;
+      setTransportAdmins(data || []);
+    } catch (error) {
+      console.error('Error fetching transport admins:', error);
     }
   };
 
@@ -162,7 +191,8 @@ const TransportersComponent = () => {
         gst_number: formData.gst_number.trim() || null,
         mob_number: formData.mob_number.trim() || null,
         branch_owner_name: formData.branch_owner_name.trim() || null,
-        website: formData.website.trim() || null
+        website: formData.website.trim() || null,
+        transport_admin_id: formData.transport_admin_id || null
       };
 
       if (editingId) {
@@ -190,7 +220,8 @@ const TransportersComponent = () => {
         gst_number: '',
         mob_number: '',
         branch_owner_name: '',
-        website: ''
+        website: '',
+        transport_admin_id: ''
       });
       setEditingId(null);
       setShowForm(false);
@@ -213,7 +244,8 @@ const TransportersComponent = () => {
       gst_number: transporter.gst_number || '',
       mob_number: transporter.mob_number || '',
       branch_owner_name: transporter.branch_owner_name || '',
-      website: transporter.website || ''
+      website: transporter.website || '',
+      transport_admin_id: transporter.transport_admin_id || ''
     });
     setEditingId(transporter.id);
     setExpandedRows({ [transporter.id]: true });
@@ -230,7 +262,8 @@ const TransportersComponent = () => {
       gst_number: '',
       mob_number: '',
       branch_owner_name: '',
-      website: ''
+      website: '',
+      transport_admin_id: ''
     });
   };
 
@@ -264,7 +297,8 @@ const TransportersComponent = () => {
       gst_number: '',
       mob_number: '',
       branch_owner_name: '',
-      website: ''
+      website: '',
+      transport_admin_id: ''
     });
     setEditingId(null);
     setShowForm(false);
@@ -442,16 +476,49 @@ const TransportersComponent = () => {
         </div>
       )}
 
-      {/* Enhanced Search Bar with City Filter */}
+      {/* Integrated Search Bar */}
       {!showForm && (
         <div className="bg-white p-3 rounded-lg shadow border border-gray-200 mb-3">
-          <TransportSearchBar
-            transporters={transporters}
-            onSearch={handleSearch}
-            onCityFilter={handleCityFilter}
-            selectedCity={selectedCity}
-            cities={cities}
-          />
+          <div className="flex flex-col md:flex-row gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                defaultValue={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearchImmediate(e.target.value); }}
+                placeholder="🔍 Search transport name, GST, owner, mobile, address..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => { setSearchTerm(''); document.querySelector('#transportSearchInput')?.value && (document.querySelector('#transportSearchInput').value = ''); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+                >
+                  ✖
+                </button>
+              )}
+            </div>
+            <select
+              value={selectedCity}
+              onChange={(e) => handleCityFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[160px]"
+            >
+              <option value="">All Cities</option>
+              {cities.map((city) => (
+                <option key={city.id} value={city.id}>
+                  {city.city_name} ({city.city_code})
+                </option>
+              ))}
+            </select>
+            {(searchTerm || selectedCity) && (
+              <button
+                onClick={() => { setSearchTerm(''); setSelectedCity(''); }}
+                className="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+              >
+                ✖ Clear
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -552,6 +619,23 @@ const TransportersComponent = () => {
                 placeholder="https://example.com"
                 disabled={loading}
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">🏭 Transport Admin (Parent Company)</label>
+              <select
+                value={formData.transport_admin_id}
+                onChange={(e) => setFormData({ ...formData, transport_admin_id: e.target.value })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-black focus:outline-none focus:ring-1 focus:ring-blue-500"
+                disabled={loading}
+              >
+                <option value="">-- No Parent Company --</option>
+                {transportAdmins.map((admin) => (
+                  <option key={admin.transport_id} value={admin.transport_id}>
+                    {admin.transport_name}{admin.gstin ? ` (${admin.gstin})` : ''}{admin.owner_name ? ` - ${admin.owner_name}` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="md:col-span-3">
@@ -662,12 +746,13 @@ const TransportersComponent = () => {
                       <span className="text-xs">{getSortIcon('owner')}</span>
                     </div>
                   </th>
+                  <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">Admin</th>
                   <th className="px-2 py-2 text-left font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTransporters.length > 0 ? (
-                  getGroupedTransporters().map((group, groupIndex) => (
+                  getGroupedTransporters().slice(0, visibleCount).map((group, groupIndex) => (
                     <React.Fragment key={`group-${groupBy}-${groupIndex}`}>
                       {/* Group Header */}
                       <tr className={`border-t border-b ${
@@ -677,7 +762,7 @@ const TransportersComponent = () => {
                             ? 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200'
                             : 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300'
                       }`}>
-                        <td colSpan="7" className="px-2 py-1.5">
+                        <td colSpan="8" className="px-2 py-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               {groupBy === 'city' && <span className="text-base">🏙️</span>}
@@ -752,6 +837,18 @@ const TransportersComponent = () => {
                             <td className="border-r border-gray-200 px-2 py-2 text-black">
                               {transporter.branch_owner_name || '-'}
                             </td>
+                            <td className="border-r border-gray-200 px-2 py-2">
+                              {(() => {
+                                const admin = transportAdmins.find(a => a.transport_id === transporter.transport_admin_id);
+                                return admin ? (
+                                  <span className="bg-purple-50 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold" title={admin.gstin || ''}>
+                                    🏭 {admin.transport_name}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                );
+                              })()}
+                            </td>
                             <td className="px-2 py-2">
                               <div className="flex gap-1">
                                 <button
@@ -775,8 +872,8 @@ const TransportersComponent = () => {
                           {/* Inline Edit Row */}
                           {editingId === transporter.id && expandedRows[transporter.id] && (
                             <tr className="bg-blue-50">
-                              <td colSpan="7" className="px-2 py-2">
-                                <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-2">
+                              <td colSpan="8" className="px-2 py-2">
+                                <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-2">
                                   <div>
                                     <input
                                       type="text"
@@ -840,7 +937,21 @@ const TransportersComponent = () => {
                                       placeholder="Website"
                                     />
                                   </div>
-                                  <div className="col-span-3">
+                                  <div>
+                                    <select
+                                      value={formData.transport_admin_id}
+                                      onChange={(e) => setFormData({ ...formData, transport_admin_id: e.target.value })}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black"
+                                    >
+                                      <option value="">-- No Admin --</option>
+                                      {transportAdmins.map((admin) => (
+                                        <option key={admin.transport_id} value={admin.transport_id}>
+                                          {admin.transport_name}{admin.gstin ? ` (${admin.gstin})` : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="col-span-4">
                                     <textarea
                                       value={formData.address}
                                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -850,7 +961,7 @@ const TransportersComponent = () => {
                                       required
                                     />
                                   </div>
-                                  <div className="col-span-3 flex gap-2">
+                                  <div className="col-span-4 flex gap-2">
                                     <button
                                       type="submit"
                                       className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
@@ -875,7 +986,7 @@ const TransportersComponent = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-6 py-16 text-center">
+                    <td colSpan="8" className="px-6 py-16 text-center">
                       {loading ? (
                         <div className="flex flex-col items-center justify-center space-y-4">
                           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
@@ -921,6 +1032,39 @@ const TransportersComponent = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Load More Button */}
+          {filteredTransporters.length > 0 && (() => {
+            const groups = getGroupedTransporters();
+            const totalGroups = groups.length;
+            const shownGroups = Math.min(visibleCount, totalGroups);
+            const totalItems = filteredTransporters.length;
+            return totalGroups > shownGroups ? (
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div
+                    className="bg-blue-600 h-1.5 rounded-full transition-all"
+                    style={{ width: `${(shownGroups / totalGroups) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">
+                    Showing {shownGroups} of {totalGroups} groups ({totalItems} total transporters)
+                  </span>
+                  <button
+                    onClick={handleLoadMore}
+                    className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 text-xs font-semibold shadow transition-colors"
+                  >
+                    ⬇️ Load More ({Math.min(ITEMS_PER_PAGE, totalGroups - shownGroups)} more)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 text-center">
+                <span className="text-xs text-gray-400">✅ All {totalItems} transporters loaded ({totalGroups} groups)</span>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

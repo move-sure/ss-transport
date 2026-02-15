@@ -11,6 +11,7 @@ import ConsigneeComponent from '../../components/bilty-setting/consignee-manage'
 import RatesComponent from '../../components/bilty-setting/rates-manager';
 import PermanentDetailsComponent from '../../components/bilty-setting/permanent-details';
 import ConsignorRatesSearch from '../../components/bilty-setting/consignor-rates-search';
+import TransportAdminComponent from '../../components/bilty-setting/transport-admin-manage';
 
 const BiltySettingsPage = () => {
   const { user, requireAuth, loading: authLoading } = useAuth();
@@ -68,6 +69,7 @@ const BiltySettingsPage = () => {
   const tabs = [
     { id: 'cities', name: 'Cities', icon: '🏙️', description: 'Manage city locations' },
     { id: 'transporters', name: 'Transporters', icon: '🚛', description: 'Transport companies' },
+    { id: 'transport-admin', name: 'Transport Admin', icon: '🏭', description: 'Parent transport companies' },
     { id: 'consignors', name: 'Consignors', icon: '📦', description: 'Shipping parties' },
     { id: 'consignees', name: 'Consignees', icon: '🏢', description: 'Receiving parties' },
     { id: 'rates', name: 'Rates', icon: '💰', description: 'Pricing management' },
@@ -192,6 +194,7 @@ const BiltySettingsPage = () => {
             <div className="p-6">
               {activeTab === 'cities' && <CitiesComponent />}
               {activeTab === 'transporters' && <TransportersComponent />}
+              {activeTab === 'transport-admin' && <TransportAdminComponent />}
               {activeTab === 'consignors' && <ConsignorComponent />}
               {activeTab === 'consignees' && <ConsigneeComponent />}
               {activeTab === 'rates' && <RatesComponent />}

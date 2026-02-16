@@ -1,10 +1,12 @@
 'use client';
 
-import { Calendar, MapPin, Package, IndianRupee, Truck, Weight, Search, Copy, Check } from 'lucide-react';
+import { Calendar, MapPin, Package, IndianRupee, Truck, Weight, Search, Copy, Check, Eye } from 'lucide-react';
 import { useState } from 'react';
+import BiltyDetailPopup from './bilty-detail-popup';
 
 const ConsignorRateTable = ({ results, cities, loading }) => {
   const [copiedRate, setCopiedRate] = useState(null);
+  const [selectedBilty, setSelectedBilty] = useState(null);
 
   const getCityName = (cityId) => {
     const city = cities.find(c => c.id === cityId);
@@ -84,6 +86,14 @@ const ConsignorRateTable = ({ results, cities, loading }) => {
   }
 
   return (
+    <>
+    {selectedBilty && (
+      <BiltyDetailPopup
+        bilty={selectedBilty}
+        onClose={() => setSelectedBilty(null)}
+        cities={cities}
+      />
+    )}
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead className="bg-slate-100 sticky top-0">
@@ -108,7 +118,18 @@ const ConsignorRateTable = ({ results, cities, loading }) => {
                 <Calendar className="w-3 h-3 inline mr-1 text-slate-400" />
                 {formatDate(bilty.bilty_date)}
               </td>
-              <td className="px-4 py-3 text-sm font-semibold text-indigo-600">{bilty.gr_no}</td>
+              <td className="px-4 py-3 text-sm font-semibold text-indigo-600">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setSelectedBilty(bilty)}
+                    className="p-1 rounded hover:bg-indigo-100 text-indigo-400 hover:text-indigo-600 transition-colors"
+                    title="View bilty details"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <span>{bilty.gr_no}</span>
+                </div>
+              </td>
               <td className="px-4 py-3 text-sm text-slate-700">{bilty.consignee_name || '-'}</td>
               <td className="px-4 py-3 text-sm text-slate-700">
                 <MapPin className="w-3 h-3 inline mr-1 text-slate-400" />
@@ -177,6 +198,7 @@ const ConsignorRateTable = ({ results, cities, loading }) => {
         </tbody>
       </table>
     </div>
+    </>
   );
 };
 

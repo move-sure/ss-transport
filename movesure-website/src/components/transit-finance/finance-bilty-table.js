@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap, Search, Building2 } from 'lucide-react';
+import { FileText, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap, Search, Building2, Layers, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
 import TransportFilter from './transport-filter';
@@ -72,6 +72,13 @@ export default function FinanceBiltyTable({
   const [transportAdminSearch, setTransportAdminSearch] = useState('');
   const [loadingTransportAdmins, setLoadingTransportAdmins] = useState(false);
   const [transportAdminSubTransports, setTransportAdminSubTransports] = useState({}); // admin_id -> [sub-transports]
+
+  // Bulk create states
+  const [showBulkCreateModal, setShowBulkCreateModal] = useState(false);
+  const [bulkSelectedAdmins, setBulkSelectedAdmins] = useState([]);
+  const [bulkCreating, setBulkCreating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, results: [] });
+  const [bulkAdminSearch, setBulkAdminSearch] = useState('');
 
   // Helper function to get transport for a bilty (handles both types)
   const getTransportForBilty = async (transit) => {
@@ -763,6 +770,167 @@ export default function FinanceBiltyTable({
     }
   };
 
+  // ========== BULK CREATE KAAT BILLS ==========
+  // Group bilties by transport admin and create individual bills
+  const getBulkAdminBiltyGroups = () => {
+    // For each selected admin, find all unsaved bilties belonging to their sub-transports
+    const groups = [];
+
+    for (const adminId of bulkSelectedAdmins) {
+      const admin = transportAdmins.find(a => a.transport_id === adminId);
+      const subTransports = transportAdminSubTransports[adminId] || [];
+      if (!admin || subTransports.length === 0) continue;
+
+      const subGsts = subTransports.map(t => t.gst_number?.trim()).filter(Boolean);
+      const subNames = subTransports.map(t => t.transport_name?.toLowerCase().trim()).filter(Boolean);
+      const subCityIds = subTransports.map(t => t.city_id).filter(Boolean);
+
+      // Find matching bilties from challanTransits that are NOT already saved
+      const matchingBilties = challanTransits.filter(t => {
+        const normalizedGrNo = String(t.gr_no).trim().toUpperCase();
+        if (alreadySavedGrNos.includes(normalizedGrNo)) return false;
+
+        const biltyGst = t.bilty?.transport_gst?.trim();
+        const biltyName = t.bilty?.transport_name?.toLowerCase().trim();
+        const stationCode = t.station?.station;
+        const stationCityId = stationCode ? cities?.find(c => c.city_code === stationCode)?.id : null;
+
+        if (biltyGst && subGsts.includes(biltyGst)) return true;
+        if (biltyName && subNames.includes(biltyName)) return true;
+        if (stationCityId && subCityIds.includes(stationCityId)) return true;
+        if (t.bilty?.to_city_id && subCityIds.includes(t.bilty.to_city_id)) return true;
+
+        return false;
+      });
+
+      if (matchingBilties.length > 0) {
+        // Group by unique transport (name + gst)
+        const transportMap = {};
+        matchingBilties.forEach(t => {
+          const tName = t.bilty?.transport_name || 'Station Bilty';
+          const tGst = t.bilty?.transport_gst || '';
+          const key = `${tName}|||${tGst}`;
+          if (!transportMap[key]) {
+            transportMap[key] = { name: tName, gst: tGst || null, bilties: [] };
+          }
+          transportMap[key].bilties.push(t);
+        });
+
+        groups.push({
+          adminId,
+          adminName: admin.transport_name,
+          adminGstin: admin.gstin,
+          transports: Object.values(transportMap),
+          totalBilties: matchingBilties.length
+        });
+      }
+    }
+
+    return groups;
+  };
+
+  const handleBulkCreateKaatBills = async () => {
+    const groups = getBulkAdminBiltyGroups();
+    if (groups.length === 0) {
+      alert('No bilties found for selected transport admins (all may already be saved).');
+      return;
+    }
+
+    // Count total bills to create (one per transport per admin)
+    const totalBills = groups.reduce((sum, g) => sum + g.transports.length, 0);
+
+    if (!window.confirm(
+      `This will create ${totalBills} kaat bill(s) for ${groups.length} transport admin(s).\n\n` +
+      groups.map(g => `🏢 ${g.adminName}: ${g.transports.length} bill(s), ${g.totalBilties} bilties`).join('\n') +
+      '\n\nContinue?'
+    )) return;
+
+    setBulkCreating(true);
+    setBulkProgress({ current: 0, total: totalBills, results: [] });
+    const currentUser = getCurrentUser();
+    const results = [];
+    let processed = 0;
+
+    for (const group of groups) {
+      for (const transport of group.transports) {
+        processed++;
+        setBulkProgress(prev => ({ ...prev, current: processed }));
+
+        try {
+          const grNumbers = transport.bilties.map(t => String(t.gr_no).trim().toUpperCase());
+
+          // Calculate kaat amount
+          const { totalKaatAmount, error: calcError } = await calculateTotalKaatAmount(transport.bilties);
+          if (calcError) throw calcError;
+
+          const kaatBillData = {
+            challan_no: selectedChallan.challan_no,
+            transport_name: transport.name,
+            transport_gst: transport.gst,
+            transport_admin_id: group.adminId,
+            gr_numbers: grNumbers,
+            total_bilty_count: grNumbers.length,
+            total_kaat_amount: totalKaatAmount,
+            created_by: currentUser.id,
+            updated_by: currentUser.id,
+            printed_yet: false
+          };
+
+          const { success, error } = await saveKaatBillToDatabase(kaatBillData);
+          if (!success) throw error;
+
+          results.push({
+            admin: group.adminName,
+            transport: transport.name,
+            bilties: grNumbers.length,
+            amount: totalKaatAmount,
+            status: 'success'
+          });
+        } catch (err) {
+          console.error(`❌ Error creating bill for ${transport.name}:`, err);
+          results.push({
+            admin: group.adminName,
+            transport: transport.name,
+            bilties: transport.bilties.length,
+            amount: 0,
+            status: 'error',
+            error: err.message
+          });
+        }
+      }
+    }
+
+    setBulkProgress(prev => ({ ...prev, results }));
+
+    // Refresh saved GR numbers
+    const { data: updatedData } = await supabase
+      .from('kaat_bill_master')
+      .select('gr_numbers')
+      .eq('challan_no', selectedChallan.challan_no);
+    if (updatedData) {
+      const allSavedGrNos = updatedData.reduce((acc, bill) => {
+        const grNumbers = bill.gr_numbers || [];
+        return [...acc, ...grNumbers.map(gr => String(gr).trim().toUpperCase())];
+      }, []);
+      setAlreadySavedGrNos([...new Set(allSavedGrNos)]);
+    }
+
+    const successCount = results.filter(r => r.status === 'success').length;
+    const failCount = results.filter(r => r.status === 'error').length;
+
+    setBulkCreating(false);
+
+    if (failCount === 0) {
+      alert(`✅ All ${successCount} kaat bill(s) created successfully!`);
+      setShowBulkCreateModal(false);
+      setBulkSelectedAdmins([]);
+      setBulkProgress({ current: 0, total: 0, results: [] });
+      if (onKaatBillSaved) onKaatBillSaved();
+    } else {
+      alert(`⚠️ ${successCount} bill(s) created, ${failCount} failed. Check the results below.`);
+    }
+  };
+
   if (!selectedChallan) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 text-center">
@@ -857,6 +1025,16 @@ export default function FinanceBiltyTable({
               <Save className="w-4 h-4" />
               {editMode ? 'Update' : 'Save'} Kaat Bill {selectedBiltiesForSave.length > 0 && `(${selectedBiltiesForSave.length})`}
             </button>
+            {!editMode && (
+              <button
+                onClick={() => setShowBulkCreateModal(true)}
+                className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 px-4 py-2.5 rounded-lg transition-all hover:scale-105 flex items-center gap-2 text-sm font-bold shadow-lg"
+                title="Bulk create kaat bills for multiple transport admins at once"
+              >
+                <Layers className="w-4 h-4" />
+                Bulk Create
+              </button>
+            )}
           </div>
         </div>
 
@@ -1898,6 +2076,311 @@ export default function FinanceBiltyTable({
                     </>
                   )}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== BULK CREATE MODAL ========== */}
+      {showBulkCreateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-5 text-white flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Layers className="w-5 h-5" />
+                    Bulk Create Kaat Bills
+                  </h3>
+                  <p className="text-sm text-white/80 mt-1">
+                    Select transport admins to create individual transport-wise bills automatically
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!bulkCreating) {
+                      setShowBulkCreateModal(false);
+                      setBulkSelectedAdmins([]);
+                      setBulkProgress({ current: 0, total: 0, results: [] });
+                      setBulkAdminSearch('');
+                    }
+                  }}
+                  className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                  disabled={bulkCreating}
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+                <input
+                  type="text"
+                  value={bulkAdminSearch}
+                  onChange={(e) => setBulkAdminSearch(e.target.value)}
+                  placeholder="Search transport admin by name or GSTIN..."
+                  className="w-full pl-9 pr-3 py-2 bg-white/15 border border-white/20 rounded-lg text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40"
+                  disabled={bulkCreating}
+                />
+              </div>
+            </div>
+
+            {/* Admin List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Quick actions */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs text-gray-500">
+                  {bulkSelectedAdmins.length} admin(s) selected
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const filtered = transportAdmins.filter(admin => {
+                        if (bulkAdminSearch) {
+                          const q = bulkAdminSearch.toLowerCase();
+                          if (!admin.transport_name?.toLowerCase().includes(q) && !admin.gstin?.toLowerCase().includes(q)) return false;
+                        }
+                        const subTransports = transportAdminSubTransports[admin.transport_id] || [];
+                        if (subTransports.length === 0) return false;
+                        // Check if this admin has any unsaved bilties
+                        const subGsts = subTransports.map(t => t.gst_number?.trim()).filter(Boolean);
+                        const subNames = subTransports.map(t => t.transport_name?.toLowerCase().trim()).filter(Boolean);
+                        const subCityIds = subTransports.map(t => t.city_id).filter(Boolean);
+                        return challanTransits.some(t => {
+                          const grNo = String(t.gr_no).trim().toUpperCase();
+                          if (alreadySavedGrNos.includes(grNo)) return false;
+                          const biltyGst = t.bilty?.transport_gst?.trim();
+                          const biltyName = t.bilty?.transport_name?.toLowerCase().trim();
+                          const stationCode = t.station?.station;
+                          const stationCityId = stationCode ? cities?.find(c => c.city_code === stationCode)?.id : null;
+                          if (biltyGst && subGsts.includes(biltyGst)) return true;
+                          if (biltyName && subNames.includes(biltyName)) return true;
+                          if (stationCityId && subCityIds.includes(stationCityId)) return true;
+                          if (t.bilty?.to_city_id && subCityIds.includes(t.bilty.to_city_id)) return true;
+                          return false;
+                        });
+                      }).map(a => a.transport_id);
+                      setBulkSelectedAdmins(filtered);
+                    }}
+                    className="text-xs text-teal-600 hover:text-teal-800 font-semibold px-2 py-1 rounded hover:bg-teal-50"
+                    disabled={bulkCreating}
+                  >
+                    Select All with Bilties
+                  </button>
+                  <button
+                    onClick={() => setBulkSelectedAdmins([])}
+                    className="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-1 rounded hover:bg-red-50"
+                    disabled={bulkCreating}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {transportAdmins
+                  .filter(admin => {
+                    if (!bulkAdminSearch) return true;
+                    const q = bulkAdminSearch.toLowerCase();
+                    return admin.transport_name?.toLowerCase().includes(q) || admin.gstin?.toLowerCase().includes(q);
+                  })
+                  .map(admin => {
+                    const subTransports = transportAdminSubTransports[admin.transport_id] || [];
+                    const isSelected = bulkSelectedAdmins.includes(admin.transport_id);
+
+                    // Count unsaved bilties for this admin
+                    const subGsts = subTransports.map(t => t.gst_number?.trim()).filter(Boolean);
+                    const subNames = subTransports.map(t => t.transport_name?.toLowerCase().trim()).filter(Boolean);
+                    const subCityIds = subTransports.map(t => t.city_id).filter(Boolean);
+
+                    const matchingBilties = challanTransits.filter(t => {
+                      const grNo = String(t.gr_no).trim().toUpperCase();
+                      if (alreadySavedGrNos.includes(grNo)) return false;
+                      const biltyGst = t.bilty?.transport_gst?.trim();
+                      const biltyName = t.bilty?.transport_name?.toLowerCase().trim();
+                      const stationCode = t.station?.station;
+                      const stationCityId = stationCode ? cities?.find(c => c.city_code === stationCode)?.id : null;
+                      if (biltyGst && subGsts.includes(biltyGst)) return true;
+                      if (biltyName && subNames.includes(biltyName)) return true;
+                      if (stationCityId && subCityIds.includes(stationCityId)) return true;
+                      if (t.bilty?.to_city_id && subCityIds.includes(t.bilty.to_city_id)) return true;
+                      return false;
+                    });
+
+                    const hasBilties = matchingBilties.length > 0;
+
+                    return (
+                      <div
+                        key={admin.transport_id}
+                        onClick={() => {
+                          if (bulkCreating || !hasBilties) return;
+                          setBulkSelectedAdmins(prev =>
+                            prev.includes(admin.transport_id)
+                              ? prev.filter(id => id !== admin.transport_id)
+                              : [...prev, admin.transport_id]
+                          );
+                        }}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          !hasBilties
+                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : bulkCreating
+                            ? 'border-gray-200 cursor-not-allowed'
+                            : isSelected
+                            ? 'border-teal-500 bg-teal-50 cursor-pointer shadow-md'
+                            : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50/30 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Checkbox */}
+                          <div className="flex-shrink-0">
+                            {isSelected ? (
+                              <CheckSquare className="w-5 h-5 text-teal-600" />
+                            ) : (
+                              <Square className={`w-5 h-5 ${hasBilties ? 'text-gray-400' : 'text-gray-300'}`} />
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                              <span className="font-bold text-sm text-gray-900 truncate">{admin.transport_name}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-500">
+                              {admin.gstin && <span className="font-mono">GST: {admin.gstin}</span>}
+                              {admin.owner_name && <span>Owner: {admin.owner_name}</span>}
+                              <span className="text-teal-600">{subTransports.length} sub-transport(s)</span>
+                            </div>
+                            {/* Sub transport names */}
+                            {subTransports.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {subTransports.slice(0, 5).map((sub, i) => (
+                                  <span key={i} className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                    {sub.transport_name}{sub.city_name ? ` (${sub.city_name})` : ''}
+                                  </span>
+                                ))}
+                                {subTransports.length > 5 && (
+                                  <span className="text-[9px] text-gray-400">+{subTransports.length - 5} more</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Bilty count badge */}
+                          <div className="flex-shrink-0 text-right">
+                            {hasBilties ? (
+                              <div className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                                isSelected ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {matchingBilties.length} bilty
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-gray-400 font-semibold px-2 py-1 bg-gray-100 rounded-full">
+                                No bilties
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Progress / Results */}
+            {(bulkCreating || bulkProgress.results.length > 0) && (
+              <div className="border-t border-gray-200 p-4 bg-gray-50 flex-shrink-0 max-h-48 overflow-y-auto">
+                {bulkCreating && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-600 flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                        Creating bills...
+                      </span>
+                      <span className="font-bold text-teal-700">{bulkProgress.current} / {bulkProgress.total}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.current / bulkProgress.total * 100) : 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                {bulkProgress.results.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Results</div>
+                    {bulkProgress.results.map((r, i) => (
+                      <div key={i} className={`flex items-center justify-between text-xs px-2 py-1.5 rounded ${
+                        r.status === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                      }`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span>{r.status === 'success' ? '✅' : '❌'}</span>
+                          <span className="font-semibold truncate">{r.admin}</span>
+                          <span className="text-gray-500">→</span>
+                          <span className="truncate">{r.transport}</span>
+                        </div>
+                        <div className="flex-shrink-0 text-right">
+                          <span className="font-mono font-bold">{r.bilties} bilties</span>
+                          {r.amount > 0 && <span className="ml-2 font-mono">₹{r.amount.toFixed(2)}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="border-t border-gray-200 p-4 bg-white flex items-center justify-between flex-shrink-0">
+              <div className="text-sm text-gray-600">
+                <span className="font-bold text-teal-700">{bulkSelectedAdmins.length}</span> admin(s) selected
+                {bulkSelectedAdmins.length > 0 && (
+                  <span className="text-gray-400 ml-2">
+                    • {(() => {
+                      const groups = getBulkAdminBiltyGroups();
+                      const totalBills = groups.reduce((s, g) => s + g.transports.length, 0);
+                      const totalBilties = groups.reduce((s, g) => s + g.totalBilties, 0);
+                      return `${totalBills} bill(s), ${totalBilties} bilties`;
+                    })()}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowBulkCreateModal(false);
+                    setBulkSelectedAdmins([]);
+                    setBulkProgress({ current: 0, total: 0, results: [] });
+                    setBulkAdminSearch('');
+                  }}
+                  disabled={bulkCreating}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold text-gray-700 disabled:opacity-50"
+                >
+                  {bulkProgress.results.length > 0 ? 'Close' : 'Cancel'}
+                </button>
+                {!bulkProgress.results.length && (
+                  <button
+                    onClick={handleBulkCreateKaatBills}
+                    disabled={bulkSelectedAdmins.length === 0 || bulkCreating}
+                    className="px-6 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {bulkCreating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Layers className="w-4 h-4" />
+                        Create {bulkSelectedAdmins.length > 0 ? `${bulkSelectedAdmins.length} Bill(s)` : 'Bills'}
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>

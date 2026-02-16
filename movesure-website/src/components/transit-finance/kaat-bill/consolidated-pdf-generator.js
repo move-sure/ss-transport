@@ -168,7 +168,7 @@ const addChallanHeader = (doc, yPos, kaatBill, challanInfo) => {
 // ============================================================
 // MAIN: Generate Consolidated PDF
 // ============================================================
-export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, settings, challanDetailsMap = {}, previewMode = false) => {
+export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, settings, challanDetailsMap = {}, previewMode = false, citiesData = []) => {
   try {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📊 CONSOLIDATED KAAT PDF GENERATION STARTED');
@@ -176,6 +176,10 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     console.log('📊 Selected Bills:', selectedBills.length);
     console.log('📊 Settings:', settings);
     console.log('📊 Challan Details:', challanDetailsMap);
+
+    // Build city lookup map: id -> city_name
+    const citiesMap = {};
+    (citiesData || []).forEach(c => { citiesMap[c.id] = c.city_name; });
 
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.width;
@@ -191,6 +195,7 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     let grandTotalWeight = 0;
     let grandTotalAmount = 0;
     let grandTotalKaat = 0;
+    let grandTotalDD = 0;
     let grandTotalProfit = 0;
     
     // Sort bills by challan number (ascending)
@@ -232,6 +237,7 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       let billTotalWeight = 0;
       let billTotalAmount = 0;
       let billTotalKaat = 0;
+      let billTotalDD = 0;
       
       // Build table data for this bill
       const tableData = details.map((item, index) => {
@@ -243,13 +249,27 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
         const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
         const total = parseFloat(bilty?.total || station?.amount || 0);
         const kaatAmount = calculateKaatAmount(kaat, weight, packages);
-        const profit = kaat ? total - kaatAmount : 0;
+        const ddChrg = kaat?.dd_chrg ? parseFloat(kaat.dd_chrg) : 0;
+        const profit = kaat ? total - kaatAmount - ddChrg : 0;
+        
+        // Resolve destination city name from kaat data or bilty/station
+        let destName = '-';
+        if (kaat?.destination_city_id && citiesMap[kaat.destination_city_id]) {
+          destName = citiesMap[kaat.destination_city_id];
+        } else if (bilty?.to_city_id && citiesMap[bilty.to_city_id]) {
+          destName = citiesMap[bilty.to_city_id];
+        } else if (station?.station) {
+          // station field is a city_code, find matching city
+          const matchedCity = (citiesData || []).find(c => c.city_code === station.station);
+          if (matchedCity) destName = matchedCity.city_name;
+        }
         
         // Accumulate bill totals
         billTotalPackages += packages;
         billTotalWeight += weight;
         billTotalAmount += total;
         billTotalKaat += kaatAmount;
+        billTotalDD += ddChrg;
         
         const paymentDelivery = formatPaymentDelivery(
           bilty?.payment_mode,
@@ -262,12 +282,14 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
           item.gr_no || 'N/A',
           bilty?.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
             station?.created_at ? format(new Date(station.created_at), 'dd/MM') : '-',
-          (bilty?.consignor_name || station?.consignor || 'N/A').substring(0, 14),
-          (bilty?.consignee_name || station?.consignee || 'N/A').substring(0, 14),
+          (bilty?.consignor_name || station?.consignor || 'N/A').substring(0, 12),
+          (bilty?.consignee_name || station?.consignee || 'N/A').substring(0, 12),
+          destName.substring(0, 10),
           paymentDelivery,
           packages.toString(),
           weight.toFixed(1),
           total.toFixed(0),
+          ddChrg > 0 ? ddChrg.toFixed(0) : '-',
           kaatAmount.toFixed(0),
           profit.toFixed(0)
         ];
@@ -279,24 +301,27 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       grandTotalWeight += billTotalWeight;
       grandTotalAmount += billTotalAmount;
       grandTotalKaat += billTotalKaat;
-      grandTotalProfit += (billTotalAmount - billTotalKaat);
+      grandTotalDD += billTotalDD;
+      grandTotalProfit += (billTotalAmount - billTotalKaat - billTotalDD);
       
-      // Table headers
-      const headers = ['#', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Pay', 'Pkg', 'Wt', 'Amt', 'Kaat', 'PF'];
+      // Table headers - with Dest and DD columns
+      const headers = ['#', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Station', 'Pay', 'Pkg', 'Wt', 'Amt', 'DD', 'Kaat', 'PF'];
       
       // Column styles
       const columnStyles = {
-        0: { halign: 'center', cellWidth: 7 },
-        1: { halign: 'center', cellWidth: 17 },
-        2: { halign: 'center', cellWidth: 13 },
+        0: { halign: 'center', cellWidth: 6 },
+        1: { halign: 'center', cellWidth: 15 },
+        2: { halign: 'center', cellWidth: 11 },
         3: { cellWidth: 'auto' },
         4: { cellWidth: 'auto' },
-        5: { halign: 'center', cellWidth: 14 },
-        6: { halign: 'center', cellWidth: 10 },
-        7: { halign: 'right', cellWidth: 12 },
-        8: { halign: 'right', cellWidth: 14 },
-        9: { halign: 'right', cellWidth: 14 },
-        10: { halign: 'right', cellWidth: 14, fontStyle: 'bold' }
+        5: { cellWidth: 'auto' },
+        6: { halign: 'center', cellWidth: 12 },
+        7: { halign: 'center', cellWidth: 8 },
+        8: { halign: 'right', cellWidth: 10 },
+        9: { halign: 'right', cellWidth: 12 },
+        10: { halign: 'right', cellWidth: 10 },
+        11: { halign: 'right', cellWidth: 12 },
+        12: { halign: 'right', cellWidth: 12, fontStyle: 'bold' }
       };
       
       // Generate table
@@ -340,12 +365,17 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       
       const subtotalY = yPosition + 5.5;
       doc.text(`Challan ${kaatBill.challan_no} Total:`, margin + 3, subtotalY);
-      doc.text(`Pkg: ${Math.round(billTotalPackages)}`, margin + 55, subtotalY);
-      doc.text(`Wt: ${billTotalWeight.toFixed(1)}`, margin + 80, subtotalY);
-      doc.text(`Amt: ${billTotalAmount.toFixed(0)}`, margin + 105, subtotalY);
-      doc.text(`Kaat: ${billTotalKaat.toFixed(0)}`, margin + 135, subtotalY);
+      doc.text(`Pkg: ${Math.round(billTotalPackages)}`, margin + 50, subtotalY);
+      doc.text(`Wt: ${billTotalWeight.toFixed(1)}`, margin + 70, subtotalY);
+      doc.text(`Amt: ${billTotalAmount.toFixed(0)}`, margin + 92, subtotalY);
+      if (billTotalDD > 0) {
+        doc.setTextColor(220, 50, 50);
+        doc.text(`DD: -${billTotalDD.toFixed(0)}`, margin + 115, subtotalY);
+        doc.setTextColor(...PDF_CONFIG.colors.darkGray);
+      }
+      doc.text(`Kaat: ${billTotalKaat.toFixed(0)}`, margin + 140, subtotalY);
       doc.setTextColor(...PDF_CONFIG.colors.primary);
-      doc.text(`PF: ${(billTotalAmount - billTotalKaat).toFixed(0)}`, pageWidth - margin - 3, subtotalY, { align: 'right' });
+      doc.text(`PF: ${(billTotalAmount - billTotalKaat - billTotalDD).toFixed(0)}`, pageWidth - margin - 3, subtotalY, { align: 'right' });
       
       doc.setTextColor(...PDF_CONFIG.colors.black);
       yPosition += 12;
@@ -361,7 +391,7 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     
     // Grand Total Box
     doc.setFillColor(...PDF_CONFIG.colors.primary);
-    doc.rect(margin, yPosition, pageWidth - margin * 2, 32, 'F');
+    doc.rect(margin, yPosition, pageWidth - margin * 2, 38, 'F');
     
     doc.setTextColor(...PDF_CONFIG.colors.white);
     doc.setFontSize(12);
@@ -385,6 +415,13 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     doc.text(`Total Amount: Rs.${grandTotalAmount.toFixed(2)}`, col2X, yPosition + 21);
     doc.text(`Total Kaat: Rs.${grandTotalKaat.toFixed(2)}`, col3X, yPosition + 21);
     
+    // DD Total (Row 3)
+    if (grandTotalDD > 0) {
+      doc.setTextColor(255, 200, 200);
+      doc.text(`Total DD Charge: -Rs.${grandTotalDD.toFixed(2)}`, col1X, yPosition + 27);
+      doc.setTextColor(...PDF_CONFIG.colors.white);
+    }
+    
     // Net Profit with T&C note
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -399,9 +436,9 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     // Terms note in box
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text('Amount may vary based on bilty circumstances and applicable terms & conditions.', margin + 5, yPosition + 28);
+    doc.text('Amount may vary based on bilty circumstances and applicable terms & conditions.', margin + 5, yPosition + 34);
     
-    yPosition += 38;
+    yPosition += 44;
     
     // Footer - Position at bottom of page
     const footerY = pageHeight - 12;

@@ -576,7 +576,7 @@ export default function TransitBillPage() {
       const challanDetails = await fetchChallanDetails(challanNos);
       setChallanDetailsMap(challanDetails);
       setPdfSettings(settings);
-      const url = generateConsolidatedKaatPDF(selectedBills, enrichedData, settings, challanDetails, true);
+      const url = generateConsolidatedKaatPDF(selectedBills, enrichedData, settings, challanDetails, true, cities);
       setPdfUrl(url);
       setShowPreview(true);
     } catch (err) {
@@ -588,7 +588,7 @@ export default function TransitBillPage() {
 
   const handleDownloadPDF = async () => {
     try {
-      generateConsolidatedKaatPDF(selectedBills, enrichedBillsData, pdfSettings, challanDetailsMap, false);
+      generateConsolidatedKaatPDF(selectedBills, enrichedBillsData, pdfSettings, challanDetailsMap, false, cities);
       const billIds = selectedBills.map(b => b.id);
       await supabase.from('kaat_bill_master').update({ printed_yet: true }).in('id', billIds);
       await loadKaatBills();

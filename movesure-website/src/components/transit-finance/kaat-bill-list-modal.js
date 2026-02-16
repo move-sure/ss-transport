@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Edit, Trash2, Calendar, Package, DollarSign, User, Loader2, Printer } from 'lucide-react';
+import { X, FileText, Edit, Trash2, Calendar, Package, DollarSign, User, Loader2, Printer, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import supabase from '../../app/utils/supabase';
 import KaatBillPrintForm from './kaat-bill-print-form';
@@ -124,7 +124,24 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
         })
       );
 
-      setKaatBills(billsWithCalculatedKaat);
+      // Fetch transport admin names for bills that have transport_admin_id
+      const adminIds = [...new Set(billsWithCalculatedKaat.filter(b => b.transport_admin_id).map(b => b.transport_admin_id))];
+      let adminMap = {};
+      if (adminIds.length > 0) {
+        const { data: adminData } = await supabase
+          .from('transport_admin')
+          .select('transport_id, transport_name')
+          .in('transport_id', adminIds);
+        (adminData || []).forEach(a => { adminMap[a.transport_id] = a.transport_name; });
+      }
+
+      // Attach transport admin name to each bill
+      const billsWithAdmin = billsWithCalculatedKaat.map(bill => ({
+        ...bill,
+        transport_admin_name: bill.transport_admin_id ? (adminMap[bill.transport_admin_id] || null) : null
+      }));
+
+      setKaatBills(billsWithAdmin);
     } catch (err) {
       console.error('❌ Error fetching kaat bills:', err);
       alert('Error loading kaat bills: ' + (err.message || 'Unknown error'));
@@ -221,6 +238,12 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
                           <h4 className="font-bold text-gray-900 text-xl truncate">
                             {bill.transport_name || 'Unknown Transport'}
                           </h4>
+                          {bill.transport_admin_name && (
+                            <span className="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
+                              <Building2 className="w-3 h-3" />
+                              {bill.transport_admin_name}
+                            </span>
+                          )}
                           {bill.printed_yet && (
                             <span className="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1 rounded-full">
                               Printed

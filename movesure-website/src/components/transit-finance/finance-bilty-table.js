@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap } from 'lucide-react';
+import { FileText, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap, Search, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
 import TransportFilter from './transport-filter';
@@ -65,6 +65,13 @@ export default function FinanceBiltyTable({
   const [allKaatData, setAllKaatData] = useState({});
   const [transportsByCity, setTransportsByCity] = useState({});
   const [loadingBatchData, setLoadingBatchData] = useState(false);
+
+  // Transport Admin states
+  const [transportAdmins, setTransportAdmins] = useState([]);
+  const [selectedTransportAdmin, setSelectedTransportAdmin] = useState('');
+  const [transportAdminSearch, setTransportAdminSearch] = useState('');
+  const [loadingTransportAdmins, setLoadingTransportAdmins] = useState(false);
+  const [transportAdminSubTransports, setTransportAdminSubTransports] = useState({}); // admin_id -> [sub-transports]
 
   // Helper function to get transport for a bilty (handles both types)
   const getTransportForBilty = async (transit) => {
@@ -210,6 +217,51 @@ export default function FinanceBiltyTable({
     }
     return filtered;
   }, [transitDetails, selectedChallan]);
+
+  // Load transport admins on mount
+  useEffect(() => {
+    loadTransportAdmins();
+  }, []);
+
+  const loadTransportAdmins = async () => {
+    try {
+      setLoadingTransportAdmins(true);
+      
+      // Fetch all transport admins
+      const { data: admins, error: adminError } = await supabase
+        .from('transport_admin')
+        .select('transport_id, transport_name, gstin, hub_mobile_number, owner_name')
+        .order('transport_name');
+
+      if (adminError) throw adminError;
+
+      setTransportAdmins(admins || []);
+
+      // Fetch all sub-transports with their admin IDs
+      const { data: subTransports, error: subError } = await supabase
+        .from('transports')
+        .select('id, transport_name, gst_number, city_id, city_name, transport_admin_id')
+        .not('transport_admin_id', 'is', null);
+
+      if (subError) throw subError;
+
+      // Group sub-transports by transport_admin_id
+      const adminMap = {};
+      (subTransports || []).forEach(t => {
+        if (!adminMap[t.transport_admin_id]) {
+          adminMap[t.transport_admin_id] = [];
+        }
+        adminMap[t.transport_admin_id].push(t);
+      });
+
+      setTransportAdminSubTransports(adminMap);
+      console.log('✅ Loaded', admins?.length || 0, 'transport admins,', subTransports?.length || 0, 'sub-transports');
+    } catch (err) {
+      console.error('❌ Error loading transport admins:', err);
+    } finally {
+      setLoadingTransportAdmins(false);
+    }
+  };
 
   // NEW: Batch load all kaat data for the challan
   useEffect(() => {
@@ -511,8 +563,34 @@ export default function FinanceBiltyTable({
     // Apply city filter
     filtered = applyCityFilter(filtered, selectedCityId);
 
+    // Apply transport admin filter
+    if (selectedTransportAdmin) {
+      const subTransports = transportAdminSubTransports[selectedTransportAdmin] || [];
+      const subTransportGsts = subTransports.map(t => t.gst_number?.trim()).filter(Boolean);
+      const subTransportNames = subTransports.map(t => t.transport_name?.toLowerCase().trim()).filter(Boolean);
+      const subTransportCityIds = subTransports.map(t => t.city_id).filter(Boolean);
+
+      filtered = filtered.filter(t => {
+        const biltyGst = t.bilty?.transport_gst?.trim();
+        const biltyTransportName = t.bilty?.transport_name?.toLowerCase().trim();
+        const stationCode = t.station?.station;
+        const stationCityId = stationCode ? cities?.find(c => c.city_code === stationCode)?.id : null;
+
+        // Match by GST
+        if (biltyGst && subTransportGsts.includes(biltyGst)) return true;
+        // Match by transport name
+        if (biltyTransportName && subTransportNames.includes(biltyTransportName)) return true;
+        // Match by destination city (station bilties)
+        if (stationCityId && subTransportCityIds.includes(stationCityId)) return true;
+        // Match by bilty destination city
+        if (t.bilty?.to_city_id && subTransportCityIds.includes(t.bilty.to_city_id)) return true;
+
+        return false;
+      });
+    }
+
     return filtered;
-  }, [challanTransits, filterPaymentMode, selectedTransports, selectedCityId, availableTransports, cities]);
+  }, [challanTransits, filterPaymentMode, selectedTransports, selectedCityId, availableTransports, cities, selectedTransportAdmin, transportAdminSubTransports]);
 
   // Calculate financial summary
   const financialSummary = useMemo(() => {
@@ -574,6 +652,45 @@ export default function FinanceBiltyTable({
       // Get current user
       const currentUser = getCurrentUser();
 
+      // Lookup transport_admin_id from transports table
+      let transportAdminId = null;
+      try {
+        let lookupQuery = null;
+        if (transportGst) {
+          // Try matching by GST first
+          lookupQuery = await supabase
+            .from('transports')
+            .select('transport_admin_id')
+            .eq('gst_number', transportGst)
+            .not('transport_admin_id', 'is', null)
+            .limit(1)
+            .single();
+        }
+        if (!lookupQuery?.data && transportName) {
+          // Fallback: match by transport name
+          lookupQuery = await supabase
+            .from('transports')
+            .select('transport_admin_id')
+            .ilike('transport_name', transportName)
+            .not('transport_admin_id', 'is', null)
+            .limit(1)
+            .single();
+        }
+        if (lookupQuery?.data?.transport_admin_id) {
+          transportAdminId = lookupQuery.data.transport_admin_id;
+          console.log('✅ Found transport_admin_id:', transportAdminId);
+        } else {
+          console.log('⚠️ No transport_admin_id found for:', { transportName, transportGst });
+        }
+      } catch (err) {
+        console.warn('⚠️ Error looking up transport_admin_id:', err);
+      }
+
+      // If selectedTransportAdmin is set, use it directly
+      if (selectedTransportAdmin) {
+        transportAdminId = selectedTransportAdmin;
+      }
+
       if (editMode && editingBillId) {
         // Update existing bill
         const { error } = await supabase
@@ -584,19 +701,22 @@ export default function FinanceBiltyTable({
             total_kaat_amount: totalKaatAmount,
             transport_name: transportName,
             transport_gst: transportGst,
+            transport_admin_id: transportAdminId,
             updated_by: currentUser.id,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingBillId);
 
         if (error) throw error;
-        alert(`✅ Kaat Bill updated successfully!\n\nTransport: ${transportName}\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
+        const adminName = transportAdmins.find(a => a.transport_id === transportAdminId)?.transport_name || '';
+        alert(`✅ Kaat Bill updated successfully!\n\nTransport: ${transportName}${adminName ? `\nAdmin: ${adminName}` : ''}\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
       } else {
         // Create new bill
         const kaatBillData = {
           challan_no: selectedChallan.challan_no,
           transport_name: transportName,
           transport_gst: transportGst,
+          transport_admin_id: transportAdminId,
           gr_numbers: selectedBiltiesForSave,
           total_bilty_count: selectedBiltiesForSave.length,
           total_kaat_amount: totalKaatAmount,
@@ -608,7 +728,8 @@ export default function FinanceBiltyTable({
         const { success, error } = await saveKaatBillToDatabase(kaatBillData);
         if (!success) throw error;
 
-        alert(`✅ Kaat Bill saved successfully!\n\nTransport: ${transportName}\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
+        const adminName = transportAdmins.find(a => a.transport_id === transportAdminId)?.transport_name || '';
+        alert(`✅ Kaat Bill saved successfully!\n\nTransport: ${transportName}${adminName ? `\nAdmin: ${adminName}` : ''}\nBilties: ${selectedBiltiesForSave.length}\nTotal Kaat Amount: ₹${totalKaatAmount.toFixed(2)}`);
       }
       
       // Refresh already saved list for this challan
@@ -793,7 +914,58 @@ export default function FinanceBiltyTable({
             </button>
           )}
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Transport Admin Filter */}
+          <div className="w-56 flex-shrink-0">
+            <div className="relative">
+              <Building2 className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-teal-600" />
+              <select
+                value={selectedTransportAdmin}
+                onChange={(e) => setSelectedTransportAdmin(e.target.value)}
+                className={`w-full pl-7 pr-2 py-1.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-semibold ${
+                  selectedTransportAdmin 
+                    ? 'border-teal-500 bg-teal-50 text-teal-800' 
+                    : 'border-gray-300 text-gray-700'
+                }`}
+                disabled={loadingTransportAdmins}
+              >
+                <option value="">-- All Transport Admins --</option>
+                {transportAdmins
+                  .filter(admin => {
+                    if (!transportAdminSearch) return true;
+                    const q = transportAdminSearch.toLowerCase();
+                    return admin.transport_name?.toLowerCase().includes(q) || 
+                           admin.gstin?.toLowerCase().includes(q);
+                  })
+                  .map(admin => {
+                    const subCount = transportAdminSubTransports[admin.transport_id]?.length || 0;
+                    return (
+                      <option key={admin.transport_id} value={admin.transport_id}>
+                        {admin.transport_name} {admin.gstin ? `(${admin.gstin})` : ''} [{subCount} sub]
+                      </option>
+                    );
+                  })
+                }
+              </select>
+            </div>
+            {selectedTransportAdmin && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                <span className="text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded-full font-semibold">
+                  🏢 {transportAdmins.find(a => a.transport_id === selectedTransportAdmin)?.transport_name}
+                </span>
+                <span className="text-[9px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded-full">
+                  {transportAdminSubTransports[selectedTransportAdmin]?.length || 0} sub-transports
+                </span>
+                <button
+                  onClick={() => setSelectedTransportAdmin('')}
+                  className="text-[9px] text-red-600 hover:text-red-800 font-semibold px-1"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Transport Filter */}
           <div className="flex-1">
             <TransportFilter
@@ -920,6 +1092,7 @@ export default function FinanceBiltyTable({
               <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px]">Wt(KG)</th>
               <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Total</th>
               <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px]">Pay</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">DD Chrg</th>
               <th className="px-1.5 py-1.5 text-center font-semibold text-gray-900 text-[10px] w-28">Kaat</th>
               <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">PF</th>
               <th className="px-1.5 py-1.5 text-right font-semibold text-gray-900 text-[10px] w-16">Act.Rate</th>
@@ -1009,11 +1182,33 @@ export default function FinanceBiltyTable({
                   </td>
                   <td className="px-1.5 py-1.5">
                     {bilty?.transport_name ? (
-                      <div className="max-w-[120px]" title={bilty.transport_name}>
+                      <div className="max-w-[140px]" title={bilty.transport_name}>
                         <div className="font-semibold text-indigo-700 text-[10px] break-words leading-tight">{bilty.transport_name}</div>
                         {bilty.transport_gst && (
                           <div className="text-[8px] text-gray-500 truncate mt-0.5">{bilty.transport_gst}</div>
                         )}
+                        {/* Show transport admin name */}
+                        {(() => {
+                          const gst = bilty.transport_gst?.trim();
+                          const tName = bilty.transport_name?.toLowerCase().trim();
+                          for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
+                            const match = subs.find(s => 
+                              (gst && s.gst_number?.trim() === gst) ||
+                              (tName && s.transport_name?.toLowerCase().trim() === tName)
+                            );
+                            if (match) {
+                              const admin = transportAdmins.find(a => a.transport_id === adminId);
+                              if (admin) {
+                                return (
+                                  <div className="text-[7px] text-teal-600 font-semibold truncate mt-0.5" title={`Admin: ${admin.transport_name}`}>
+                                    🏢 {admin.transport_name}
+                                  </div>
+                                );
+                              }
+                            }
+                          }
+                          return null;
+                        })()}
                       </div>
                     ) : station?.station ? (
                       <StationTransportCell 
@@ -1071,6 +1266,30 @@ export default function FinanceBiltyTable({
                       })()}
                     </span>
                   </td>
+                  {/* DD Charge Column */}
+                  <td className="px-1.5 py-1.5 text-right">
+                    {(() => {
+                      const paymentMode = bilty?.payment_mode || station?.payment_status;
+                      const deliveryType = bilty?.delivery_type || station?.delivery_type || '';
+                      const hasDDFlag = deliveryType.toLowerCase().includes('door');
+                      const kaatDataRow = allKaatData[transit.gr_no];
+                      const ddChrg = kaatDataRow?.dd_chrg ? parseFloat(kaatDataRow.dd_chrg) : 0;
+                      
+                      if (!hasDDFlag) return <span className="text-gray-300 text-[10px]">-</span>;
+                      
+                      if (ddChrg > 0) {
+                        return (
+                          <div className="bg-red-50 px-1 py-0.5 rounded border border-red-200 inline-block">
+                            <span className="font-bold text-[10px] text-red-700">-₹{ddChrg.toFixed(2)}</span>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <span className="text-[9px] text-orange-500 font-semibold">DD ⚠</span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-1.5 py-1.5">
                     <BiltyKaatCell
                       grNo={transit.gr_no}
@@ -1079,6 +1298,8 @@ export default function FinanceBiltyTable({
                       biltyWeight={bilty?.wt || station?.weight || 0}
                       biltyPackages={bilty?.no_of_pkg || station?.no_of_packets || 0}
                       biltyTransportGst={bilty?.transport_gst || null}
+                      paymentMode={bilty?.payment_mode || station?.payment_status || ''}
+                      deliveryType={bilty?.delivery_type || station?.delivery_type || ''}
                       kaatData={allKaatData[transit.gr_no] || null}
                       onKaatUpdate={(newData) => handleKaatUpdated(transit.gr_no, newData)}
                       onKaatDelete={() => handleKaatDeleted(transit.gr_no)}
@@ -1124,15 +1345,19 @@ export default function FinanceBiltyTable({
                       const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
                       const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
                       
+                      // Get DD charge from kaat data
+                      const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
+                      
                       // If no kaat data, show - or just the negative of total if it exists
                       if (!kaatData) {
-                        if (totalAmount === 0) return <span className="text-gray-400 text-[10px]">-</span>;
+                        const adjustedTotal = totalAmount - ddChrg;
+                        if (adjustedTotal === 0 && ddChrg === 0) return <span className="text-gray-400 text-[10px]">-</span>;
                         return (
                           <div className="bg-green-50 px-1.5 py-0.5 rounded border border-green-200 inline-block">
                             <span className={`font-bold text-[10px] ${
-                              totalAmount > 0 ? 'text-green-700' : 'text-gray-700'
+                              adjustedTotal > 0 ? 'text-green-700' : 'text-gray-700'
                             }`}>
-                              ₹{totalAmount.toFixed(2)}
+                              ₹{adjustedTotal.toFixed(2)}
                             </span>
                           </div>
                         );
@@ -1158,8 +1383,8 @@ export default function FinanceBiltyTable({
                         }
                       }
                       
-                      // Profit = Total Amount - Kaat Amount (can be negative for Paid/DD bilties)
-                      const profit = totalAmount - kaatAmount;
+                      // Profit = Total Amount - Kaat Amount - DD Charge (can be negative for Paid/DD bilties)
+                      const profit = totalAmount - kaatAmount - ddChrg;
                       
                       return (
                         <div className={`px-1.5 py-0.5 rounded border inline-block ${
@@ -1229,6 +1454,21 @@ export default function FinanceBiltyTable({
                 </div>
               </td>
               <td className="px-1.5 py-2.5 text-center text-gray-900 text-[10px]"></td>
+              {/* DD Chrg Footer Total */}
+              <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
+                <div className="flex items-center justify-end gap-1 bg-red-50 px-2 py-1 rounded border border-red-200">
+                  <span className="text-red-700">
+                    {(() => {
+                      const totalDdChrg = filteredTransits.reduce((sum, transit) => {
+                        const kaatData = allKaatData[transit.gr_no];
+                        if (!kaatData || !kaatData.dd_chrg) return sum;
+                        return sum + parseFloat(kaatData.dd_chrg);
+                      }, 0);
+                      return totalDdChrg > 0 ? `-₹${totalDdChrg.toFixed(2)}` : '0.00';
+                    })()}
+                  </span>
+                </div>
+              </td>
               <td className="px-1.5 py-2.5 text-center text-gray-900 font-bold text-xs w-28">
                 <div className="flex items-center justify-center gap-1 bg-orange-50 px-2 py-1 rounded border border-orange-200">
                   <FileText className="w-3 h-3 text-orange-700" />
@@ -1305,9 +1545,10 @@ export default function FinanceBiltyTable({
                       const paymentMode = bilty?.payment_mode || station?.payment_status;
                       const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
                       const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+                      const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
                       
                       if (!kaatData) {
-                        return sum + totalAmount;
+                        return sum + totalAmount - ddChrg;
                       }
                       
                       // Use stored kaat value if available
@@ -1330,7 +1571,7 @@ export default function FinanceBiltyTable({
                         }
                       }
                       
-                      const profit = totalAmount - kaatAmount;
+                      const profit = totalAmount - kaatAmount - ddChrg;
                       return sum + profit;
                     }, 0);
                     return totalProfit > 0 ? 'text-green-700 font-bold' : totalProfit < 0 ? 'text-red-700 font-bold' : 'text-gray-700';
@@ -1344,9 +1585,10 @@ export default function FinanceBiltyTable({
                         const paymentMode = bilty?.payment_mode || station?.payment_status;
                         const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
                         const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+                        const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
                         
                         if (!kaatData) {
-                          return sum + totalAmount;
+                          return sum + totalAmount - ddChrg;
                         }
                         
                         // Use stored kaat value if available
@@ -1369,7 +1611,7 @@ export default function FinanceBiltyTable({
                           }
                         }
                         
-                        const profit = totalAmount - kaatAmount;
+                        const profit = totalAmount - kaatAmount - ddChrg;
                         return sum + profit;
                       }, 0);
                       return totalProfit.toFixed(2);
@@ -1408,7 +1650,21 @@ export default function FinanceBiltyTable({
                 <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3">
                   <div className="text-xs font-semibold mb-2 text-white/90">📦 Select Transport for this Bill (Optional):</div>
                   <div className="space-y-2">
-                    {modalUniqueTransports.map((transport, idx) => (
+                    {modalUniqueTransports.map((transport, idx) => {
+                      // Find admin for this transport
+                      let adminName = null;
+                      for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
+                        const match = subs.find(s => 
+                          (transport.gst && s.gst_number?.trim() === transport.gst) ||
+                          (transport.name && s.transport_name?.toLowerCase().trim() === transport.name?.toLowerCase().trim())
+                        );
+                        if (match) {
+                          adminName = transportAdmins.find(a => a.transport_id === adminId)?.transport_name;
+                          break;
+                        }
+                      }
+
+                      return (
                       <div
                         key={idx}
                         onClick={() => setSelectedTransportForBill(transport)}
@@ -1422,6 +1678,15 @@ export default function FinanceBiltyTable({
                           <div>
                             <div className="font-bold text-sm">{transport.name}</div>
                             {transport.gst && <div className="text-xs opacity-80 mt-0.5">GST: {transport.gst}</div>}
+                            {adminName && (
+                              <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${
+                                selectedTransportForBill?.name === transport.name && selectedTransportForBill?.gst === transport.gst
+                                  ? 'text-teal-600'
+                                  : 'text-teal-300'
+                              }`}>
+                                🏢 Admin: {adminName}
+                              </div>
+                            )}
                           </div>
                           <div className={`text-xs font-semibold px-2 py-1 rounded ${
                             selectedTransportForBill?.name === transport.name && selectedTransportForBill?.gst === transport.gst
@@ -1432,7 +1697,8 @@ export default function FinanceBiltyTable({
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -1442,6 +1708,46 @@ export default function FinanceBiltyTable({
                   </div>
                 </div>
               )}
+
+              {/* Transport Admin Info */}
+              {(() => {
+                // Auto-detect transport admin from selected transport
+                const selectedGst = selectedTransportForBill?.gst;
+                const selectedName = selectedTransportForBill?.name;
+                let matchedAdmin = null;
+
+                if (selectedGst || selectedName) {
+                  // Find sub-transport matching the selected transport
+                  for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
+                    const match = subs.find(s => 
+                      (selectedGst && s.gst_number?.trim() === selectedGst) ||
+                      (selectedName && s.transport_name?.toLowerCase().trim() === selectedName?.toLowerCase().trim())
+                    );
+                    if (match) {
+                      matchedAdmin = transportAdmins.find(a => a.transport_id === adminId);
+                      break;
+                    }
+                  }
+                }
+
+                if (matchedAdmin) {
+                  return (
+                    <div className="mt-3 bg-teal-500/20 backdrop-blur-sm rounded-lg p-3 border border-teal-400/30">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-white" />
+                        <div>
+                          <div className="text-xs font-bold text-white">Transport Admin: {matchedAdmin.transport_name}</div>
+                          <div className="text-[10px] text-white/80">
+                            {matchedAdmin.gstin && <span>GSTIN: {matchedAdmin.gstin} • </span>}
+                            {matchedAdmin.owner_name && <span>Owner: {matchedAdmin.owner_name}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Bilty List */}

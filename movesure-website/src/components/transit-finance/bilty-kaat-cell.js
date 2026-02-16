@@ -11,10 +11,15 @@ export default function BiltyKaatCell({
   biltyWeight,
   biltyPackages,
   biltyTransportGst,
+  paymentMode = '',
+  deliveryType = '',
   kaatData: initialKaatData = null,
   onKaatUpdate,
   onKaatDelete
 }) {
+  // Check if DD applies (payment mode contains dd or delivery type is door)
+  const isDDPayment = paymentMode?.toLowerCase().includes('paid') && deliveryType?.toLowerCase().includes('door') ||
+    paymentMode?.toLowerCase().includes('to-pay') && deliveryType?.toLowerCase().includes('door');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -25,7 +30,8 @@ export default function BiltyKaatCell({
     transport_hub_rate_id: '',
     rate_type: 'per_kg',
     rate_per_kg: '',
-    rate_per_pkg: ''
+    rate_per_pkg: '',
+    dd_chrg: ''
   });
 
   // Update local state when prop changes
@@ -36,7 +42,8 @@ export default function BiltyKaatCell({
         transport_hub_rate_id: initialKaatData.transport_hub_rate_id || '',
         rate_type: initialKaatData.rate_type || 'per_kg',
         rate_per_kg: initialKaatData.rate_per_kg || '',
-        rate_per_pkg: initialKaatData.rate_per_pkg || ''
+        rate_per_pkg: initialKaatData.rate_per_pkg || '',
+        dd_chrg: initialKaatData.dd_chrg || ''
       });
     }
   }, [initialKaatData]);
@@ -218,12 +225,13 @@ export default function BiltyKaatCell({
   const handleHubRateSelect = (rateId) => {
     const selectedRate = hubRates.find(r => r.id === rateId);
     if (selectedRate) {
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         transport_hub_rate_id: rateId,
         rate_type: selectedRate.pricing_mode,
         rate_per_kg: selectedRate.rate_per_kg || '',
         rate_per_pkg: selectedRate.rate_per_pkg || ''
-      });
+      }));
     }
   };
 
@@ -289,6 +297,8 @@ export default function BiltyKaatCell({
       // Calculate kaat, pf, and actual_kaat_rate
       const kaatCalc = calculateKaatDetails();
 
+      const ddCharge = isDDPayment && formData.dd_chrg ? parseFloat(formData.dd_chrg) : 0;
+
       const saveData = {
         gr_no: grNo,
         challan_no: challanNo,
@@ -300,6 +310,7 @@ export default function BiltyKaatCell({
         kaat: kaatCalc.kaat,
         pf: kaatCalc.pf,
         actual_kaat_rate: kaatCalc.actual_kaat_rate,
+        dd_chrg: ddCharge,
         updated_by: userId,
         updated_at: new Date().toISOString()
       };
@@ -346,14 +357,16 @@ export default function BiltyKaatCell({
         transport_hub_rate_id: kaatData.transport_hub_rate_id || '',
         rate_type: kaatData.rate_type || 'per_kg',
         rate_per_kg: kaatData.rate_per_kg || '',
-        rate_per_pkg: kaatData.rate_per_pkg || ''
+        rate_per_pkg: kaatData.rate_per_pkg || '',
+        dd_chrg: kaatData.dd_chrg || ''
       });
     } else {
       setFormData({
         transport_hub_rate_id: '',
         rate_type: 'per_kg',
         rate_per_kg: '',
-        rate_per_pkg: ''
+        rate_per_pkg: '',
+        dd_chrg: ''
       });
     }
     setIsEditing(false);
@@ -379,7 +392,8 @@ export default function BiltyKaatCell({
         transport_hub_rate_id: '',
         rate_type: 'per_kg',
         rate_per_kg: '',
-        rate_per_pkg: ''
+        rate_per_pkg: '',
+        dd_chrg: ''
       });
       
       if (onKaatDelete) onKaatDelete();
@@ -488,6 +502,26 @@ export default function BiltyKaatCell({
             Amount: ₹{calculateAmount()}
           </div>
 
+          {/* DD Charge Input - Only show when payment mode has DD */}
+          {isDDPayment && (
+            <div>
+              <label className="text-[9px] text-red-700 font-semibold mb-0.5 block">DD Charge (₹) - Deducted from Freight</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.dd_chrg}
+                onChange={(e) => setFormData(prev => ({ ...prev, dd_chrg: e.target.value }))}
+                className="w-full px-2 py-1 border border-red-300 rounded text-xs bg-red-50 focus:ring-2 focus:ring-red-400 focus:border-red-400"
+                placeholder="Enter DD charge..."
+              />
+              {formData.dd_chrg && parseFloat(formData.dd_chrg) > 0 && (
+                <div className="text-[9px] text-red-600 mt-0.5 font-semibold">
+                  DD Chrg: -₹{parseFloat(formData.dd_chrg).toFixed(2)}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-1">
             <button
@@ -543,6 +577,11 @@ export default function BiltyKaatCell({
               <div className="text-[9px] font-bold text-orange-700 mt-0.5">
                 K: ₹{kaatData.kaat != null ? parseFloat(kaatData.kaat).toFixed(2) : calculateAmount()}
               </div>
+              {kaatData.dd_chrg > 0 && (
+                <div className="text-[8px] font-semibold text-red-600 mt-0.5">
+                  DD: -₹{parseFloat(kaatData.dd_chrg).toFixed(2)}
+                </div>
+              )}
               {kaatData.actual_kaat_rate > 0 && (
                 <div className="text-[8px] text-gray-500">
                   Eff: ₹{parseFloat(kaatData.actual_kaat_rate).toFixed(2)}/kg

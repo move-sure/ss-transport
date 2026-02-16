@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Edit2, Save, X, Loader2, Plus, Trash2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
-export default function BiltyKaatCell({ 
+const BiltyKaatCell = memo(function BiltyKaatCell({ 
   grNo, 
   challanNo, 
   destinationCityId,
@@ -326,7 +326,7 @@ export default function BiltyKaatCell({
 
         if (error) throw error;
         setKaatData(data);
-        if (onKaatUpdate) onKaatUpdate(data);
+        if (onKaatUpdate) onKaatUpdate(grNo, data);
       } else {
         // Insert new
         saveData.created_by = userId;
@@ -338,7 +338,7 @@ export default function BiltyKaatCell({
 
         if (error) throw error;
         setKaatData(data);
-        if (onKaatUpdate) onKaatUpdate(data);
+        if (onKaatUpdate) onKaatUpdate(grNo, data);
       }
 
       setIsEditing(false);
@@ -396,7 +396,7 @@ export default function BiltyKaatCell({
         dd_chrg: ''
       });
       
-      if (onKaatDelete) onKaatDelete();
+      if (onKaatDelete) onKaatDelete(grNo);
     } catch (err) {
       console.error('Error deleting kaat:', err);
       alert('Failed to delete kaat: ' + err.message);
@@ -625,4 +625,6 @@ export default function BiltyKaatCell({
       </button>
     </div>
   );
-}
+});
+
+export default BiltyKaatCell;

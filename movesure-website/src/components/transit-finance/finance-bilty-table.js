@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FileText, DollarSign, Package, TrendingUp, Loader2, Save, XCircle, Zap, Search, Building2, Layers, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 import BiltyKaatCell from './bilty-kaat-cell';
@@ -79,6 +79,10 @@ export default function FinanceBiltyTable({
   const [bulkCreating, setBulkCreating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, results: [] });
   const [bulkAdminSearch, setBulkAdminSearch] = useState('');
+
+  // Pagination - show limited rows to prevent DOM overload
+  const PAGE_SIZE = 30;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Helper function to get transport for a bilty (handles both types)
   const getTransportForBilty = async (transit) => {
@@ -271,12 +275,13 @@ export default function FinanceBiltyTable({
   };
 
   // NEW: Batch load all kaat data for the challan
+  // Use stable dependencies instead of challanTransits (which returns new array ref each render)
   useEffect(() => {
-    if (challanTransits.length > 0) {
+    if (transitDetails?.length > 0 && selectedChallan?.challan_no) {
       loadAllKaatData();
       loadAllTransportData();
     }
-  }, [challanTransits]);
+  }, [transitDetails, selectedChallan?.challan_no]);
 
   const loadAllKaatData = async () => {
     try {
@@ -407,7 +412,7 @@ export default function FinanceBiltyTable({
     };
     
     fetchAlreadySavedBilties();
-  }, [selectedChallan?.challan_no, challanTransits]);
+  }, [selectedChallan?.challan_no]);
 
   // Load hub rates when city is selected
   useEffect(() => {
@@ -428,21 +433,21 @@ export default function FinanceBiltyTable({
     setLoadingRates(false);
   };
 
-  // NEW: Handler for kaat updates to refresh batch data
-  const handleKaatUpdated = async (grNo, newKaatData) => {
+  // NEW: Handler for kaat updates to refresh batch data (memoized for React.memo children)
+  const handleKaatUpdated = useCallback((grNo, newKaatData) => {
     setAllKaatData(prev => ({
       ...prev,
       [grNo]: newKaatData
     }));
-  };
+  }, []);
 
-  const handleKaatDeleted = async (grNo) => {
+  const handleKaatDeleted = useCallback((grNo) => {
     setAllKaatData(prev => {
       const updated = { ...prev };
       delete updated[grNo];
       return updated;
     });
-  };
+  }, []);
 
   // Apply selected hub rate to all filtered bilties
   const applyHubRateToAll = async () => {
@@ -599,12 +604,102 @@ export default function FinanceBiltyTable({
     return filtered;
   }, [challanTransits, filterPaymentMode, selectedTransports, selectedCityId, availableTransports, cities, selectedTransportAdmin, transportAdminSubTransports]);
 
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filterPaymentMode, selectedTransports, selectedCityId, selectedTransportAdmin]);
+
+  // Paginated slice of filtered transits for rendering
+  const visibleTransits = useMemo(() => {
+    return filteredTransits.slice(0, visibleCount);
+  }, [filteredTransits, visibleCount]);
+
+  const hasMoreToShow = filteredTransits.length > visibleCount;
+
   // Calculate financial summary
   const financialSummary = useMemo(() => {
     return calculateFinancialSummary(filteredTransits);
   }, [filteredTransits]);
 
+  // Pre-compute transport admin lookup map: { gst -> adminName, transportName -> adminName }
+  const transportAdminLookup = useMemo(() => {
+    const lookup = {};
+    for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
+      const admin = transportAdmins.find(a => a.transport_id === adminId);
+      if (!admin) continue;
+      for (const sub of subs) {
+        if (sub.gst_number?.trim()) {
+          lookup['gst:' + sub.gst_number.trim()] = admin.transport_name;
+        }
+        if (sub.transport_name?.trim()) {
+          lookup['name:' + sub.transport_name.toLowerCase().trim()] = admin.transport_name;
+        }
+      }
+    }
+    return lookup;
+  }, [transportAdminSubTransports, transportAdmins]);
 
+  // Helper to get admin name from lookup
+  const getAdminNameForBilty = (transportGst, transportName) => {
+    if (transportGst?.trim()) {
+      const byGst = transportAdminLookup['gst:' + transportGst.trim()];
+      if (byGst) return byGst;
+    }
+    if (transportName?.trim()) {
+      const byName = transportAdminLookup['name:' + transportName.toLowerCase().trim()];
+      if (byName) return byName;
+    }
+    return null;
+  };
+
+  // Pre-compute footer totals to avoid recalculating in every render
+  const footerTotals = useMemo(() => {
+    let totalAmount = 0;
+    let totalDdChrg = 0;
+    let totalKaat = 0;
+    let totalPf = 0;
+    let totalProfit = 0;
+
+    filteredTransits.forEach(transit => {
+      const bilty = transit.bilty;
+      const station = transit.station;
+      const kaatData = allKaatData[transit.gr_no];
+
+      const paymentMode = bilty?.payment_mode || station?.payment_status;
+      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+      const amt = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+      
+      totalAmount += amt;
+
+      const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
+      totalDdChrg += ddChrg;
+
+      if (kaatData) {
+        if (kaatData.pf != null) totalPf += parseFloat(kaatData.pf);
+
+        let kaatAmount = 0;
+        if (kaatData.kaat != null) {
+          kaatAmount = parseFloat(kaatData.kaat);
+        } else {
+          const weight = parseFloat(bilty?.wt || station?.weight || 0);
+          const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
+          const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+          const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+          const effectiveWeight = Math.max(weight, 50);
+
+          if (kaatData.rate_type === 'per_kg') kaatAmount = effectiveWeight * rateKg;
+          else if (kaatData.rate_type === 'per_pkg') kaatAmount = packages * ratePkg;
+          else if (kaatData.rate_type === 'hybrid') kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+        }
+        totalKaat += kaatAmount;
+        totalProfit += amt - kaatAmount - ddChrg;
+      } else {
+        totalProfit += amt - ddChrg;
+      }
+    });
+
+    return { totalAmount, totalDdChrg, totalKaat, totalPf, totalProfit };
+  }, [filteredTransits, allKaatData]);
 
   // Save Kaat Bill
   const handleSaveKaatBill = async () => {
@@ -1278,7 +1373,7 @@ export default function FinanceBiltyTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredTransits.map((transit, index) => {
+            {visibleTransits.map((transit, index) => {
               const bilty = transit.bilty;
               const station = transit.station;
               const data = bilty || station;
@@ -1365,25 +1460,15 @@ export default function FinanceBiltyTable({
                         {bilty.transport_gst && (
                           <div className="text-[8px] text-gray-500 truncate mt-0.5">{bilty.transport_gst}</div>
                         )}
-                        {/* Show transport admin name */}
+                        {/* Show transport admin name - uses pre-computed lookup */}
                         {(() => {
-                          const gst = bilty.transport_gst?.trim();
-                          const tName = bilty.transport_name?.toLowerCase().trim();
-                          for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
-                            const match = subs.find(s => 
-                              (gst && s.gst_number?.trim() === gst) ||
-                              (tName && s.transport_name?.toLowerCase().trim() === tName)
+                          const adminName = getAdminNameForBilty(bilty.transport_gst, bilty.transport_name);
+                          if (adminName) {
+                            return (
+                              <div className="text-[7px] text-teal-600 font-semibold truncate mt-0.5" title={`Admin: ${adminName}`}>
+                                🏢 {adminName}
+                              </div>
                             );
-                            if (match) {
-                              const admin = transportAdmins.find(a => a.transport_id === adminId);
-                              if (admin) {
-                                return (
-                                  <div className="text-[7px] text-teal-600 font-semibold truncate mt-0.5" title={`Admin: ${admin.transport_name}`}>
-                                    🏢 {admin.transport_name}
-                                  </div>
-                                );
-                              }
-                            }
                           }
                           return null;
                         })()}
@@ -1479,8 +1564,8 @@ export default function FinanceBiltyTable({
                       paymentMode={bilty?.payment_mode || station?.payment_status || ''}
                       deliveryType={bilty?.delivery_type || station?.delivery_type || ''}
                       kaatData={allKaatData[transit.gr_no] || null}
-                      onKaatUpdate={(newData) => handleKaatUpdated(transit.gr_no, newData)}
-                      onKaatDelete={() => handleKaatDeleted(transit.gr_no)}
+                      onKaatUpdate={handleKaatUpdated}
+                      onKaatDelete={handleKaatDeleted}
                     />
                   </td>
                   {/* PF Column */}
@@ -1582,6 +1667,28 @@ export default function FinanceBiltyTable({
             })}
           </tbody>
         </table>
+
+        {/* Load More Button */}
+        {hasMoreToShow && (
+          <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/80 py-3 px-4 border-t border-gray-200 flex items-center justify-center gap-3">
+            <span className="text-xs text-gray-500">
+              Showing {visibleCount} of {filteredTransits.length} bilties
+            </span>
+            <button
+              onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+            >
+              <Package className="w-3 h-3" />
+              Load {Math.min(PAGE_SIZE, filteredTransits.length - visibleCount)} More
+            </button>
+            <button
+              onClick={() => setVisibleCount(filteredTransits.length)}
+              className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-300 transition-colors"
+            >
+              Show All ({filteredTransits.length})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer - Sticky at bottom */}
@@ -1614,20 +1721,7 @@ export default function FinanceBiltyTable({
                 <div className="flex items-center justify-end gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200">
                   <span className="text-blue-700 font-bold">₹</span>
                   <span className="text-blue-800">
-                    {(() => {
-                      // Exclude Paid/DD amounts from total
-                      const total = filteredTransits.reduce((sum, transit) => {
-                        const bilty = transit.bilty;
-                        const station = transit.station;
-                        const paymentMode = bilty?.payment_mode || station?.payment_status;
-                        const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
-                        
-                        if (isPaidOrDD) return sum;
-                        
-                        return sum + parseFloat(bilty?.total || station?.amount || 0);
-                      }, 0);
-                      return total.toFixed(2);
-                    })()}
+                    {footerTotals.totalAmount.toFixed(2)}
                   </span>
                 </div>
               </td>
@@ -1636,14 +1730,7 @@ export default function FinanceBiltyTable({
               <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
                 <div className="flex items-center justify-end gap-1 bg-red-50 px-2 py-1 rounded border border-red-200">
                   <span className="text-red-700">
-                    {(() => {
-                      const totalDdChrg = filteredTransits.reduce((sum, transit) => {
-                        const kaatData = allKaatData[transit.gr_no];
-                        if (!kaatData || !kaatData.dd_chrg) return sum;
-                        return sum + parseFloat(kaatData.dd_chrg);
-                      }, 0);
-                      return totalDdChrg > 0 ? `-₹${totalDdChrg.toFixed(2)}` : '0.00';
-                    })()}
+                    {footerTotals.totalDdChrg > 0 ? `-₹${footerTotals.totalDdChrg.toFixed(2)}` : '0.00'}
                   </span>
                 </div>
               </td>
@@ -1651,61 +1738,15 @@ export default function FinanceBiltyTable({
                 <div className="flex items-center justify-center gap-1 bg-orange-50 px-2 py-1 rounded border border-orange-200">
                   <FileText className="w-3 h-3 text-orange-700" />
                   <span className="text-orange-800">
-                    {(() => {
-                      const total = filteredTransits.reduce((sum, transit) => {
-                        const kaatData = allKaatData[transit.gr_no];
-                        if (!kaatData) return sum;
-                        
-                        // Use stored kaat value if available, otherwise calculate
-                        if (kaatData.kaat != null) {
-                          return sum + parseFloat(kaatData.kaat);
-                        }
-                        
-                        const bilty = transit.bilty;
-                        const station = transit.station;
-                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
-                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
-                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
-                        
-                        // Apply 50kg minimum for per_kg rate type
-                        const effectiveWeight = Math.max(weight, 50);
-                        
-                        let kaatAmount = 0;
-                        if (kaatData.rate_type === 'per_kg') {
-                          kaatAmount = effectiveWeight * rateKg;
-                        } else if (kaatData.rate_type === 'per_pkg') {
-                          kaatAmount = packages * ratePkg;
-                        } else if (kaatData.rate_type === 'hybrid') {
-                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
-                        }
-                        
-                        return sum + kaatAmount;
-                      }, 0);
-                      return total.toFixed(2);
-                    })()}
+                    {footerTotals.totalKaat.toFixed(2)}
                   </span>
                 </div>
               </td>
               {/* PF Footer Total */}
               <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
                 <div className="flex items-center justify-end gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                  <span className={`${(() => {
-                    const totalPf = filteredTransits.reduce((sum, transit) => {
-                      const kaatData = allKaatData[transit.gr_no];
-                      if (!kaatData || kaatData.pf == null) return sum;
-                      return sum + parseFloat(kaatData.pf);
-                    }, 0);
-                    return totalPf >= 0 ? 'text-green-700' : 'text-red-700';
-                  })()}`}>
-                    {(() => {
-                      const totalPf = filteredTransits.reduce((sum, transit) => {
-                        const kaatData = allKaatData[transit.gr_no];
-                        if (!kaatData || kaatData.pf == null) return sum;
-                        return sum + parseFloat(kaatData.pf);
-                      }, 0);
-                      return totalPf.toFixed(2);
-                    })()}
+                  <span className={`${footerTotals.totalPf >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {footerTotals.totalPf.toFixed(2)}
                   </span>
                 </div>
               </td>
@@ -1714,86 +1755,8 @@ export default function FinanceBiltyTable({
               <td className="px-1.5 py-2.5 text-right text-gray-900 font-bold text-xs w-16">
                 <div className="flex items-center justify-end gap-1 bg-green-50 px-2 py-1 rounded border border-green-200">
                   <TrendingUp className="w-3 h-3 text-green-700" />
-                  <span className={`${(() => {
-                    const totalProfit = filteredTransits.reduce((sum, transit) => {
-                      const bilty = transit.bilty;
-                      const station = transit.station;
-                      const kaatData = allKaatData[transit.gr_no];
-                      
-                      const paymentMode = bilty?.payment_mode || station?.payment_status;
-                      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
-                      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-                      const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
-                      
-                      if (!kaatData) {
-                        return sum + totalAmount - ddChrg;
-                      }
-                      
-                      // Use stored kaat value if available
-                      let kaatAmount = 0;
-                      if (kaatData.kaat != null) {
-                        kaatAmount = parseFloat(kaatData.kaat);
-                      } else {
-                        const weight = parseFloat(bilty?.wt || station?.weight || 0);
-                        const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                        const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
-                        const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
-                        const effectiveWeight = Math.max(weight, 50);
-                        
-                        if (kaatData.rate_type === 'per_kg') {
-                          kaatAmount = effectiveWeight * rateKg;
-                        } else if (kaatData.rate_type === 'per_pkg') {
-                          kaatAmount = packages * ratePkg;
-                        } else if (kaatData.rate_type === 'hybrid') {
-                          kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
-                        }
-                      }
-                      
-                      const profit = totalAmount - kaatAmount - ddChrg;
-                      return sum + profit;
-                    }, 0);
-                    return totalProfit > 0 ? 'text-green-700 font-bold' : totalProfit < 0 ? 'text-red-700 font-bold' : 'text-gray-700';
-                  })()}`}>
-                    {(() => {
-                      const totalProfit = filteredTransits.reduce((sum, transit) => {
-                        const bilty = transit.bilty;
-                        const station = transit.station;
-                        const kaatData = allKaatData[transit.gr_no];
-                        
-                        const paymentMode = bilty?.payment_mode || station?.payment_status;
-                        const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
-                        const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-                        const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
-                        
-                        if (!kaatData) {
-                          return sum + totalAmount - ddChrg;
-                        }
-                        
-                        // Use stored kaat value if available
-                        let kaatAmount = 0;
-                        if (kaatData.kaat != null) {
-                          kaatAmount = parseFloat(kaatData.kaat);
-                        } else {
-                          const weight = parseFloat(bilty?.wt || station?.weight || 0);
-                          const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                          const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
-                          const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
-                          const effectiveWeight = Math.max(weight, 50);
-                          
-                          if (kaatData.rate_type === 'per_kg') {
-                            kaatAmount = effectiveWeight * rateKg;
-                          } else if (kaatData.rate_type === 'per_pkg') {
-                            kaatAmount = packages * ratePkg;
-                          } else if (kaatData.rate_type === 'hybrid') {
-                            kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
-                          }
-                        }
-                        
-                        const profit = totalAmount - kaatAmount - ddChrg;
-                        return sum + profit;
-                      }, 0);
-                      return totalProfit.toFixed(2);
-                    })()}
+                  <span className={`${footerTotals.totalProfit > 0 ? 'text-green-700 font-bold' : footerTotals.totalProfit < 0 ? 'text-red-700 font-bold' : 'text-gray-700'}`}>
+                    {footerTotals.totalProfit.toFixed(2)}
                   </span>
                 </div>
               </td>
@@ -1829,18 +1792,8 @@ export default function FinanceBiltyTable({
                   <div className="text-xs font-semibold mb-2 text-white/90">📦 Select Transport for this Bill (Optional):</div>
                   <div className="space-y-2">
                     {modalUniqueTransports.map((transport, idx) => {
-                      // Find admin for this transport
-                      let adminName = null;
-                      for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
-                        const match = subs.find(s => 
-                          (transport.gst && s.gst_number?.trim() === transport.gst) ||
-                          (transport.name && s.transport_name?.toLowerCase().trim() === transport.name?.toLowerCase().trim())
-                        );
-                        if (match) {
-                          adminName = transportAdmins.find(a => a.transport_id === adminId)?.transport_name;
-                          break;
-                        }
-                      }
+                      // Find admin for this transport using pre-computed lookup
+                      const adminName = getAdminNameForBilty(transport.gst, transport.name);
 
                       return (
                       <div
@@ -1889,24 +1842,13 @@ export default function FinanceBiltyTable({
 
               {/* Transport Admin Info */}
               {(() => {
-                // Auto-detect transport admin from selected transport
+                // Auto-detect transport admin from selected transport using pre-computed lookup
                 const selectedGst = selectedTransportForBill?.gst;
                 const selectedName = selectedTransportForBill?.name;
-                let matchedAdmin = null;
-
-                if (selectedGst || selectedName) {
-                  // Find sub-transport matching the selected transport
-                  for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
-                    const match = subs.find(s => 
-                      (selectedGst && s.gst_number?.trim() === selectedGst) ||
-                      (selectedName && s.transport_name?.toLowerCase().trim() === selectedName?.toLowerCase().trim())
-                    );
-                    if (match) {
-                      matchedAdmin = transportAdmins.find(a => a.transport_id === adminId);
-                      break;
-                    }
-                  }
-                }
+                const matchedAdminName = getAdminNameForBilty(selectedGst, selectedName);
+                const matchedAdmin = matchedAdminName 
+                  ? transportAdmins.find(a => a.transport_name === matchedAdminName) 
+                  : null;
 
                 if (matchedAdmin) {
                   return (

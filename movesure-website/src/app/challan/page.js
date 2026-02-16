@@ -309,7 +309,7 @@ export default function TransitManagement() {
             .select(`
               id, station, gr_no, consignor, consignee, contents,
               no_of_packets, weight, payment_status, amount, pvt_marks,
-              e_way_bill, created_at, updated_at
+              e_way_bill, delivery_type, created_at, updated_at
             `)
             .in('gr_no', summaryGrNumbers)
         );
@@ -353,6 +353,7 @@ export default function TransitManagement() {
             wt: stationBilty.weight,
             total: stationBilty.amount,
             payment_mode: stationBilty.payment_status,
+            delivery_type: stationBilty.delivery_type || '',
             to_city_name: city?.city_name || stationBilty.station,
             to_city_code: stationBilty.station,
             destination: city?.city_name || stationBilty.station,
@@ -360,7 +361,7 @@ export default function TransitManagement() {
             pvt_marks: stationBilty.pvt_marks,
             created_at: stationBilty.created_at,
             source: 'station_bilty_summary',
-            bilty_type: 'Station Summary'
+            bilty_type: stationBilty.delivery_type?.toLowerCase() === 'door' ? 'Station Summary/DD' : 'Station Summary'
           };
         });
       }).sort(sortByGRNumber);
@@ -436,7 +437,7 @@ export default function TransitManagement() {
           .select(`
             id, station, gr_no, consignor, consignee, contents,
             no_of_packets, weight, payment_status, amount, pvt_marks,
-            e_way_bill, created_at, updated_at
+            e_way_bill, delivery_type, created_at, updated_at
           `)
           .in('gr_no', grNumbers) : Promise.resolve({ data: [] })
       ]);
@@ -510,6 +511,7 @@ export default function TransitManagement() {
             consignor_name: stationBilty.consignor,
             consignee_name: stationBilty.consignee,
             payment_mode: stationBilty.payment_status,
+            delivery_type: stationBilty.delivery_type || '',
             no_of_pkg: stationBilty.no_of_packets,
             total: stationBilty.amount,
             wt: stationBilty.weight,

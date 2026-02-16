@@ -207,7 +207,7 @@ export default function ChallanDetailPage() {
             .select(`
               id, station, gr_no, consignor, consignee, contents,
               no_of_packets, weight, payment_status, amount, pvt_marks,
-              e_way_bill, created_at, updated_at
+              e_way_bill, delivery_type, created_at, updated_at
             `)
             .in('gr_no', batch)
         ]);

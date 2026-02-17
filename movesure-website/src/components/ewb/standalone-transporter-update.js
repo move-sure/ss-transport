@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Search, Truck, FileText, Hash, Loader2, X, AlertTriangle, CheckCircle, User, Send, Edit3, Download, ExternalLink, Package, Building, MapPin, Calendar, IndianRupee, RefreshCw } from 'lucide-react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Search, Truck, FileText, Hash, Loader2, X, AlertTriangle, CheckCircle, User, Send, Edit3, Download, ExternalLink, Package, Building, MapPin, Calendar, IndianRupee, RefreshCw, ChevronDown } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { formatEwbNumber } from '../../utils/ewbValidation';
 import { saveTransporterUpdate } from '../../utils/ewbValidationStorage';
@@ -43,6 +43,12 @@ export default function StandaloneTransporterUpdate() {
     match: null,
     error: null
   });
+  const [transporterSuggestions, setTransporterSuggestions] = useState([]);
+  const [transporterSearch, setTransporterSearch] = useState('');
+  const [showTransporterDropdown, setShowTransporterDropdown] = useState(false);
+  const [selectedTransporterIdx, setSelectedTransporterIdx] = useState(-1);
+  const transporterDropdownRef = useRef(null);
+  const transporterSearchRef = useRef(null);
 
   // Get the existing update for currently selected EWB
   const currentExistingUpdate = ewbNumbers[selectedEwbIndex] 
@@ -85,7 +91,55 @@ export default function StandaloneTransporterUpdate() {
       transporter_name: ''
     });
     setAutoFillStatus({ loading: false, match: null, error: null });
+    setTransporterSuggestions([]);
+    setTransporterSearch('');
+    setShowTransporterDropdown(false);
+    setSelectedTransporterIdx(-1);
   };
+
+  // Handle selecting a transporter from suggestions
+  const handleSelectTransporter = (transporter) => {
+    setFormData(prev => ({
+      ...prev,
+      transporter_id: transporter.gst ? transporter.gst.toUpperCase() : '',
+      transporter_name: transporter.name || ''
+    }));
+    setTransporterSearch('');
+    setShowTransporterDropdown(false);
+    setSelectedTransporterIdx(-1);
+    setAutoFillStatus(prev => ({
+      ...prev,
+      match: {
+        ...prev.match,
+        name: transporter.name,
+        gst: transporter.gst,
+        phone: transporter.phone || null
+      }
+    }));
+  };
+
+  // Filter suggestions based on search
+  const filteredTransporterSuggestions = useMemo(() => {
+    if (!transporterSearch.trim()) return transporterSuggestions;
+    const query = transporterSearch.toLowerCase();
+    return transporterSuggestions.filter(t =>
+      (t.name && t.name.toLowerCase().includes(query)) ||
+      (t.gst && t.gst.toLowerCase().includes(query)) ||
+      (t.city && t.city.toLowerCase().includes(query)) ||
+      (t.phone && t.phone.includes(query))
+    );
+  }, [transporterSuggestions, transporterSearch]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (transporterDropdownRef.current && !transporterDropdownRef.current.contains(e.target)) {
+        setShowTransporterDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Search for bilty by EWB or GR number
   const handleSearch = useCallback(async () => {
@@ -364,6 +418,7 @@ export default function StandaloneTransporterUpdate() {
   useEffect(() => {
     if (!biltyData) {
       setAutoFillStatus({ loading: false, match: null, error: null });
+      setTransporterSuggestions([]);
       return;
     }
 
@@ -371,6 +426,7 @@ export default function StandaloneTransporterUpdate() {
 
     const lookupTransporter = async () => {
       setAutoFillStatus({ loading: true, match: null, error: null });
+      setTransporterSuggestions([]);
 
       try {
         // Get city info from bilty data
@@ -383,11 +439,23 @@ export default function StandaloneTransporterUpdate() {
           cityName = biltyData.to_city.city_name;
           cityCode = biltyData.to_city.city_code;
         } else if (biltyData.station) {
-          // Parse station name for city
-          const stationName = biltyData.station;
-          const match = stationName.match(/^([^()]+?)(?:\(([^()]+)\))?$/);
-          cityName = match?.[1]?.trim() || stationName;
-          cityCode = match?.[2]?.trim() || null;
+          // station_bilty_summary: the "station" field is typically a city code (e.g. "LKO")
+          // It could also be in format "CityName(CODE)" or just the city name
+          const stationValue = biltyData.station.trim();
+          const match = stationValue.match(/^([^()]+?)(?:\(([^()]+)\))?$/);
+          const part1 = match?.[1]?.trim() || stationValue;
+          const part2 = match?.[2]?.trim() || null;
+          
+          if (part2) {
+            // Format: "CityName(CODE)" - part2 is the city code
+            cityName = part1;
+            cityCode = part2;
+          } else {
+            // Single value like "LKO" - could be city code or city name
+            // Treat it as city code first (most common for station_bilty_summary)
+            cityCode = part1;
+            cityName = part1; // fallback for display/fuzzy search
+          }
         }
 
         if (!cityName && !targetCityId) {
@@ -400,47 +468,117 @@ export default function StandaloneTransporterUpdate() {
         }
 
         // Lookup city ID if not available
-        if (!targetCityId && cityName) {
-          const { data: cityRows, error: cityError } = await supabase
-            .from('cities')
-            .select('id, city_name, city_code')
-            .ilike('city_name', cityName)
-            .limit(1);
-
-          if (cityError) throw cityError;
+        if (!targetCityId) {
+          // Strategy: try city_code first (exact), then city_code (case-insensitive), 
+          // then city_name (exact), then city_name (fuzzy)
           
-          if (cityRows?.[0]) {
-            targetCityId = cityRows[0].id;
-            cityName = cityRows[0].city_name;
-            cityCode = cityRows[0].city_code;
+          // 1. Try exact city_code match
+          if (cityCode) {
+            const { data: codeRows, error: codeError } = await supabase
+              .from('cities')
+              .select('id, city_name, city_code')
+              .eq('city_code', cityCode)
+              .limit(1);
+            if (!codeError && codeRows?.[0]) {
+              targetCityId = codeRows[0].id;
+              cityName = codeRows[0].city_name;
+              cityCode = codeRows[0].city_code;
+            }
+          }
+          
+          // 2. Try case-insensitive city_code match
+          if (!targetCityId && cityCode) {
+            const { data: codeIRows } = await supabase
+              .from('cities')
+              .select('id, city_name, city_code')
+              .ilike('city_code', cityCode)
+              .limit(1);
+            if (codeIRows?.[0]) {
+              targetCityId = codeIRows[0].id;
+              cityName = codeIRows[0].city_name;
+              cityCode = codeIRows[0].city_code;
+            }
+          }
+
+          // 3. Try exact city_name match
+          if (!targetCityId && cityName) {
+            const { data: nameRows } = await supabase
+              .from('cities')
+              .select('id, city_name, city_code')
+              .ilike('city_name', cityName)
+              .limit(1);
+            if (nameRows?.[0]) {
+              targetCityId = nameRows[0].id;
+              cityName = nameRows[0].city_name;
+              cityCode = nameRows[0].city_code;
+            }
+          }
+
+          // 4. Try fuzzy city_name match
+          if (!targetCityId && cityName) {
+            const { data: fuzzyRows } = await supabase
+              .from('cities')
+              .select('id, city_name, city_code')
+              .ilike('city_name', `%${cityName}%`)
+              .limit(1);
+            if (fuzzyRows?.[0]) {
+              targetCityId = fuzzyRows[0].id;
+              cityName = fuzzyRows[0].city_name;
+              cityCode = fuzzyRows[0].city_code;
+            }
+          }
+          
+          // 5. Last resort: try city_code as partial match on city_name
+          if (!targetCityId && cityCode && cityCode !== cityName) {
+            const { data: lastRows } = await supabase
+              .from('cities')
+              .select('id, city_name, city_code')
+              .ilike('city_name', `%${cityCode}%`)
+              .limit(1);
+            if (lastRows?.[0]) {
+              targetCityId = lastRows[0].id;
+              cityName = lastRows[0].city_name;
+              cityCode = lastRows[0].city_code;
+            }
           }
         }
 
         if (!targetCityId) {
+          const searchedFor = cityCode && cityName && cityCode !== cityName 
+            ? `${cityName} (code: ${cityCode})` 
+            : cityName || cityCode || 'unknown';
           setAutoFillStatus({
             loading: false,
             match: null,
-            error: `City not found: ${cityName}. Please enter transporter details manually.`
+            error: `City not found: ${searchedFor}. Please enter transporter details manually.`
           });
           return;
         }
 
-        // Fetch transporter for the city
+        // Fetch ALL transporters for the city
         const { data: transportRows, error: transportError } = await supabase
           .from('transports')
-          .select('id, transport_name, gst_number, city_id, city_name, mob_number')
+          .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name')
           .eq('city_id', targetCityId)
           .not('transport_name', 'is', null)
-          .not('gst_number', 'is', null)
-          .limit(1);
+          .order('transport_name', { ascending: true });
 
         if (transportError) throw transportError;
-
         if (cancelled) return;
 
-        const transportRecord = transportRows?.[0];
+        const allTransporters = (transportRows || []).map(t => ({
+          id: t.id,
+          name: t.transport_name,
+          gst: t.gst_number || '',
+          city: t.city_name || cityName || '',
+          phone: t.mob_number || '',
+          address: t.address || '',
+          branchOwner: t.branch_owner_name || ''
+        }));
 
-        if (!transportRecord) {
+        setTransporterSuggestions(allTransporters);
+
+        if (allTransporters.length === 0) {
           setAutoFillStatus({
             loading: false,
             match: null,
@@ -449,23 +587,23 @@ export default function StandaloneTransporterUpdate() {
           return;
         }
 
-        // Auto-fill the form
-        const newTransporterId = transportRecord.gst_number?.toUpperCase() || '';
-        const newTransporterName = transportRecord.transport_name || '';
+        // Auto-select the first transporter with GST
+        const firstWithGst = allTransporters.find(t => t.gst) || allTransporters[0];
 
         setFormData(prev => ({
           ...prev,
-          transporter_id: newTransporterId,
-          transporter_name: newTransporterName
+          transporter_id: firstWithGst.gst?.toUpperCase() || '',
+          transporter_name: firstWithGst.name || ''
         }));
 
         setAutoFillStatus({
           loading: false,
           match: {
-            name: transportRecord.transport_name,
-            gst: transportRecord.gst_number,
+            name: firstWithGst.name,
+            gst: firstWithGst.gst,
             city: cityName,
-            phone: transportRecord.mob_number || null
+            phone: firstWithGst.phone || null,
+            totalFound: allTransporters.length
           },
           error: null
         });
@@ -967,18 +1105,36 @@ export default function StandaloneTransporterUpdate() {
           {autoFillStatus.loading && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-              <span className="text-sm text-blue-700">Looking up transporter for destination city...</span>
+              <span className="text-sm text-blue-700">Fetching transporters for destination city...</span>
             </div>
           )}
 
           {autoFillStatus.match && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-green-700 text-sm">
-                <CheckCircle className="w-4 h-4" />
-                <span className="font-medium">Auto-filled transporter: {autoFillStatus.match.name}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="font-medium">Transporter auto-selected: {autoFillStatus.match.name}</span>
+                </div>
+                {transporterSuggestions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTransporterDropdown(true);
+                      setTimeout(() => transporterSearchRef.current?.focus(), 100);
+                    }}
+                    className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                  >
+                    <Search className="w-3 h-3" />
+                    Change
+                  </button>
+                )}
               </div>
               <p className="text-xs text-green-600 mt-1">
                 GST: {autoFillStatus.match.gst} | City: {autoFillStatus.match.city}
+                {autoFillStatus.match.totalFound > 1 && (
+                  <span className="ml-1 font-semibold">({autoFillStatus.match.totalFound} transporters available)</span>
+                )}
               </p>
             </div>
           )}
@@ -1027,6 +1183,140 @@ export default function StandaloneTransporterUpdate() {
                 />
               </div>
 
+              {/* Transporter Selector - Searchable Dropdown */}
+              {transporterSuggestions.length > 0 && (
+                <div ref={transporterDropdownRef}>
+                  <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-purple-500" />
+                    Select Transporter ({transporterSuggestions.length} available)
+                  </label>
+                  <div className="relative">
+                    <div
+                      className="w-full flex items-center border-2 border-purple-200 rounded-xl bg-white shadow-sm hover:border-purple-400 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setShowTransporterDropdown(!showTransporterDropdown);
+                        setTimeout(() => transporterSearchRef.current?.focus(), 100);
+                      }}
+                    >
+                      <div className="flex-1 px-3 py-2.5">
+                        {showTransporterDropdown ? (
+                          <input
+                            ref={transporterSearchRef}
+                            type="text"
+                            value={transporterSearch}
+                            onChange={(e) => {
+                              setTransporterSearch(e.target.value);
+                              setShowTransporterDropdown(true);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') {
+                                setShowTransporterDropdown(false);
+                                setTransporterSearch('');
+                              } else if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                setSelectedTransporterIdx(prev => 
+                                  prev < filteredTransporterSuggestions.length - 1 ? prev + 1 : 0
+                                );
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                setSelectedTransporterIdx(prev => 
+                                  prev > 0 ? prev - 1 : filteredTransporterSuggestions.length - 1
+                                );
+                              } else if (e.key === 'Enter' && selectedTransporterIdx >= 0) {
+                                e.preventDefault();
+                                handleSelectTransporter(filteredTransporterSuggestions[selectedTransporterIdx]);
+                              }
+                            }}
+                            className="w-full outline-none text-sm text-gray-900 placeholder-gray-400"
+                            placeholder="🔍 Search by name, GSTIN, or phone..."
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {formData.transporter_name ? (
+                              <>
+                                <span className="text-sm font-semibold text-gray-900">{formData.transporter_name}</span>
+                                {formData.transporter_id && (
+                                  <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded-md">
+                                    {formData.transporter_id}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-400">Click to select a transporter...</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-3 text-gray-400">
+                        <ChevronDown className={`w-5 h-5 transition-transform ${showTransporterDropdown ? 'rotate-180' : ''}`} />
+                      </div>
+                    </div>
+
+                    {showTransporterDropdown && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                        {filteredTransporterSuggestions.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                            No transporters match &quot;{transporterSearch}&quot;
+                          </div>
+                        ) : (
+                          filteredTransporterSuggestions.map((t, idx) => {
+                            const isCurrentlySelected = formData.transporter_id === (t.gst?.toUpperCase() || '') && 
+                                                        formData.transporter_name === t.name;
+                            const isKeyboardSelected = idx === selectedTransporterIdx;
+                            return (
+                              <div
+                                key={t.id || idx}
+                                onClick={() => handleSelectTransporter(t)}
+                                className={`px-4 py-3 cursor-pointer transition-all border-b border-gray-50 last:border-0 ${
+                                  isCurrentlySelected
+                                    ? 'bg-purple-50 border-l-4 border-l-purple-500'
+                                    : isKeyboardSelected
+                                    ? 'bg-gray-100'
+                                    : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <Truck className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                      <span className="text-sm font-semibold text-gray-900 truncate">{t.name}</span>
+                                      {isCurrentlySelected && (
+                                        <span className="flex-shrink-0 px-2 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">SELECTED</span>
+                                      )}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 ml-6">
+                                      {t.gst ? (
+                                        <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                                          GST: {t.gst}
+                                        </span>
+                                      ) : (
+                                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                                          No GSTIN
+                                        </span>
+                                      )}
+                                      {t.phone && (
+                                        <span className="text-xs text-gray-500">📞 {t.phone}</span>
+                                      )}
+                                      {t.city && (
+                                        <span className="text-xs text-gray-400">📍 {t.city}</span>
+                                      )}
+                                    </div>
+                                    {t.branchOwner && (
+                                      <div className="mt-0.5 ml-6 text-xs text-gray-400">Owner: {t.branchOwner}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Transporter ID */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1039,6 +1329,9 @@ export default function StandaloneTransporterUpdate() {
                   placeholder="Enter transporter GST number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 />
+                {transporterSuggestions.length > 0 && !formData.transporter_id && (
+                  <p className="mt-1 text-xs text-amber-600">💡 Select a transporter above to auto-fill</p>
+                )}
               </div>
 
               {/* Transporter Name */}
@@ -1053,6 +1346,9 @@ export default function StandaloneTransporterUpdate() {
                   placeholder="Enter transporter name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 />
+                {transporterSuggestions.length > 0 && !formData.transporter_name && (
+                  <p className="mt-1 text-xs text-amber-600">💡 Select a transporter above to auto-fill</p>
+                )}
               </div>
 
               {/* Error Display */}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Truck, User, Send, X, Loader2, CheckCircle, AlertTriangle, Edit3, Download, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Truck, User, Send, X, Loader2, CheckCircle, AlertTriangle, Edit3, Download, ExternalLink, Search, ChevronDown, MapPin } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { saveTransporterUpdate } from '../../utils/ewbValidationStorage';
 import { useAuth } from '../../app/utils/auth';
@@ -41,6 +41,12 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
   });
   const [showDebug, setShowDebug] = useState(false);
   const [selectedEwbIndex, setSelectedEwbIndex] = useState(0);
+  const [transporterSuggestions, setTransporterSuggestions] = useState([]);
+  const [transporterSearch, setTransporterSearch] = useState('');
+  const [showTransporterDropdown, setShowTransporterDropdown] = useState(false);
+  const [selectedTransporterIdx, setSelectedTransporterIdx] = useState(-1);
+  const transporterDropdownRef = useRef(null);
+  const transporterSearchRef = useRef(null);
   
   // Get current user from auth context
   const { user: currentUser } = useAuth();
@@ -88,6 +94,10 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
       setError(null);
       setAutoFillStatus({ loading: false, match: null, error: null });
       setSelectedEwbIndex(0);
+      setTransporterSuggestions([]);
+      setTransporterSearch('');
+      setShowTransporterDropdown(false);
+      setSelectedTransporterIdx(-1);
       return;
     }
 
@@ -181,25 +191,35 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
 
         console.log('🔍 Querying transports for city_id:', targetCityId, 'City:', resolvedCity);
         
-        // Step 2: Fetch transporter ONLY for the matched city (strict matching)
+        // Step 2: Fetch ALL transporters for the matched city
         let { data: transportRows, error: transportError } = await supabase
           .from('transports')
-          .select('id, transport_name, gst_number, city_id, city_name, mob_number')
+          .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name')
           .eq('city_id', targetCityId)
           .not('transport_name', 'is', null)
-          .not('gst_number', 'is', null)
-          .limit(1);
+          .order('transport_name', { ascending: true });
 
         if (transportError) throw transportError;
 
-        const transportRecord = transportRows?.[0];
-        
-        console.log('📦 Transport query result:', transportRecord);
+        console.log('📦 Transport query results:', transportRows?.length, 'transporters found');
 
         if (cancelled) return;
 
+        // Store all suggestions
+        const allTransporters = (transportRows || []).map(t => ({
+          id: t.id,
+          name: t.transport_name,
+          gst: t.gst_number || '',
+          city: t.city_name || resolvedCity?.city_name || '',
+          phone: t.mob_number || '',
+          address: t.address || '',
+          branchOwner: t.branch_owner_name || ''
+        }));
+        
+        setTransporterSuggestions(allTransporters);
+
         // If no transporter found for this city, show clear error
-        if (!transportRecord) {
+        if (allTransporters.length === 0) {
           setAutoFillStatus({ 
             loading: false, 
             match: null, 
@@ -208,20 +228,13 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
           return;
         }
 
-        // Success - populate form
-        console.log('✅ Found transporter:', {
-          name: transportRecord.transport_name,
-          gst: transportRecord.gst_number,
-          city: transportRecord.city_name
-        });
+        // Auto-select the first transporter with a GST number
+        const firstWithGst = allTransporters.find(t => t.gst) || allTransporters[0];
         
-        const newTransporterId = transportRecord.gst_number ? transportRecord.gst_number.toUpperCase() : '';
-        const newTransporterName = transportRecord.transport_name || '';
+        console.log('✅ Found transporters:', allTransporters.length, 'Auto-selecting:', firstWithGst.name);
         
-        console.log('📝 Setting form values:', {
-          transporter_id: newTransporterId,
-          transporter_name: newTransporterName
-        });
+        const newTransporterId = firstWithGst.gst ? firstWithGst.gst.toUpperCase() : '';
+        const newTransporterName = firstWithGst.name || '';
         
         setFormData(prev => ({
           ...prev,
@@ -232,10 +245,11 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
         setAutoFillStatus({
           loading: false,
           match: {
-            name: transportRecord.transport_name,
-            gst: transportRecord.gst_number,
+            name: firstWithGst.name,
+            gst: firstWithGst.gst,
             city: resolvedCity?.city_name || normalizedName,
-            phone: transportRecord.mob_number || null
+            phone: firstWithGst.phone || null,
+            totalFound: allTransporters.length
           },
           error: null
         });
@@ -460,7 +474,54 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
       match: null,
       error: null
     });
+    setTransporterSearch('');
+    setShowTransporterDropdown(false);
+    setSelectedTransporterIdx(-1);
   };
+
+  // Handle selecting a transporter from suggestions
+  const handleSelectTransporter = (transporter) => {
+    setFormData(prev => ({
+      ...prev,
+      transporter_id: transporter.gst ? transporter.gst.toUpperCase() : '',
+      transporter_name: transporter.name || ''
+    }));
+    setTransporterSearch('');
+    setShowTransporterDropdown(false);
+    setSelectedTransporterIdx(-1);
+    setAutoFillStatus(prev => ({
+      ...prev,
+      match: {
+        ...prev.match,
+        name: transporter.name,
+        gst: transporter.gst,
+        phone: transporter.phone || null
+      }
+    }));
+  };
+
+  // Filter suggestions based on search
+  const filteredSuggestions = useMemo(() => {
+    if (!transporterSearch.trim()) return transporterSuggestions;
+    const query = transporterSearch.toLowerCase();
+    return transporterSuggestions.filter(t =>
+      (t.name && t.name.toLowerCase().includes(query)) ||
+      (t.gst && t.gst.toLowerCase().includes(query)) ||
+      (t.city && t.city.toLowerCase().includes(query)) ||
+      (t.phone && t.phone.includes(query))
+    );
+  }, [transporterSuggestions, transporterSearch]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (transporterDropdownRef.current && !transporterDropdownRef.current.contains(e.target)) {
+        setShowTransporterDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -777,15 +838,38 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
                 {autoFillStatus.loading && (
                   <div className="mb-4 flex items-center gap-2 text-sm text-blue-700">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Matching saved transporter for this destination…</span>
+                    <span>Fetching transporters for this destination…</span>
                   </div>
                 )}
 
                 {!autoFillStatus.loading && autoFillStatus.match && (
                   <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                    <div className="font-medium text-emerald-800">Auto-filled transporter details</div>
-                    <div className="mt-1 text-xs text-emerald-700">
-                      {autoFillStatus.match.city ? `City: ${autoFillStatus.match.city}` : 'City matched'}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-emerald-800 flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4" />
+                          Transporter auto-selected
+                        </div>
+                        <div className="mt-1 text-xs text-emerald-700">
+                          {autoFillStatus.match.city ? `City: ${autoFillStatus.match.city}` : 'City matched'}
+                          {autoFillStatus.match.totalFound > 1 && (
+                            <span className="ml-2 font-semibold">({autoFillStatus.match.totalFound} transporters available)</span>
+                          )}
+                        </div>
+                      </div>
+                      {transporterSuggestions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowTransporterDropdown(true);
+                            setTimeout(() => transporterSearchRef.current?.focus(), 100);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                        >
+                          <Search className="w-3 h-3" />
+                          Change Transporter
+                        </button>
+                      )}
                     </div>
                     {autoFillStatus.match.gst && (
                       <div className="mt-1 text-xs text-emerald-700">
@@ -815,6 +899,143 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
                     <div className="text-xs">{autoFillStatus.error}</div>
                   </div>
                 )}
+
+                {/* Transporter Selector - Searchable Dropdown */}
+                {transporterSuggestions.length > 0 && (
+                  <div className="mb-5" ref={transporterDropdownRef}>
+                    <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-blue-500" />
+                      Select Transporter ({transporterSuggestions.length} available for {cityHints?.cityName || 'this city'})
+                    </label>
+                    <div className="relative">
+                      {/* Search Input / Selected Display */}
+                      <div
+                        className="w-full flex items-center border-2 border-blue-200 rounded-xl bg-white shadow-sm hover:border-blue-400 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setShowTransporterDropdown(!showTransporterDropdown);
+                          setTimeout(() => transporterSearchRef.current?.focus(), 100);
+                        }}
+                      >
+                        <div className="flex-1 px-4 py-3">
+                          {showTransporterDropdown ? (
+                            <input
+                              ref={transporterSearchRef}
+                              type="text"
+                              value={transporterSearch}
+                              onChange={(e) => {
+                                setTransporterSearch(e.target.value);
+                                setShowTransporterDropdown(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  setShowTransporterDropdown(false);
+                                  setTransporterSearch('');
+                                } else if (e.key === 'ArrowDown') {
+                                  e.preventDefault();
+                                  setSelectedTransporterIdx(prev => 
+                                    prev < filteredSuggestions.length - 1 ? prev + 1 : 0
+                                  );
+                                } else if (e.key === 'ArrowUp') {
+                                  e.preventDefault();
+                                  setSelectedTransporterIdx(prev => 
+                                    prev > 0 ? prev - 1 : filteredSuggestions.length - 1
+                                  );
+                                } else if (e.key === 'Enter' && selectedTransporterIdx >= 0) {
+                                  e.preventDefault();
+                                  handleSelectTransporter(filteredSuggestions[selectedTransporterIdx]);
+                                }
+                              }}
+                              className="w-full outline-none text-sm text-gray-900 placeholder-gray-400"
+                              placeholder="🔍 Search by name, GSTIN, or phone..."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {formData.transporter_name ? (
+                                <>
+                                  <span className="text-sm font-semibold text-gray-900">{formData.transporter_name}</span>
+                                  {formData.transporter_id && (
+                                    <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
+                                      {formData.transporter_id}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-sm text-gray-400">Click to select a transporter...</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="px-3 text-gray-400">
+                          <ChevronDown className={`w-5 h-5 transition-transform ${showTransporterDropdown ? 'rotate-180' : ''}`} />
+                        </div>
+                      </div>
+
+                      {/* Dropdown List */}
+                      {showTransporterDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-200 rounded-xl shadow-2xl max-h-72 overflow-y-auto">
+                          {filteredSuggestions.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                              No transporters match &quot;{transporterSearch}&quot;
+                            </div>
+                          ) : (
+                            filteredSuggestions.map((t, idx) => {
+                              const isCurrentlySelected = formData.transporter_id === (t.gst?.toUpperCase() || '') && 
+                                                          formData.transporter_name === t.name;
+                              const isKeyboardSelected = idx === selectedTransporterIdx;
+                              return (
+                                <div
+                                  key={t.id || idx}
+                                  onClick={() => handleSelectTransporter(t)}
+                                  className={`px-4 py-3 cursor-pointer transition-all border-b border-gray-50 last:border-0 ${
+                                    isCurrentlySelected
+                                      ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                                      : isKeyboardSelected
+                                      ? 'bg-gray-100'
+                                      : 'hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <Truck className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                        <span className="text-sm font-semibold text-gray-900 truncate">{t.name}</span>
+                                        {isCurrentlySelected && (
+                                          <span className="flex-shrink-0 px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">SELECTED</span>
+                                        )}
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 ml-6">
+                                        {t.gst && (
+                                          <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                                            GST: {t.gst}
+                                          </span>
+                                        )}
+                                        {!t.gst && (
+                                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                                            No GSTIN
+                                          </span>
+                                        )}
+                                        {t.phone && (
+                                          <span className="text-xs text-gray-500">📞 {t.phone}</span>
+                                        )}
+                                        {t.city && (
+                                          <span className="text-xs text-gray-400">📍 {t.city}</span>
+                                        )}
+                                      </div>
+                                      {t.branchOwner && (
+                                        <div className="mt-0.5 ml-6 text-xs text-gray-400">Owner: {t.branchOwner}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* GSTIN */}
@@ -835,7 +1056,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       <User className="w-4 h-4 inline mr-1" />
-                      Transporter ID *
+                      Transporter ID (GSTIN) *
                       {!formData.transporter_id && (
                         <span className="text-red-500 text-sm ml-2">(Required)</span>
                       )}
@@ -849,6 +1070,9 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
                       }`}
                       placeholder="05AAAAU6537D1ZO"
                     />
+                    {transporterSuggestions.length > 0 && !formData.transporter_id && (
+                      <p className="mt-1 text-xs text-amber-600">💡 Select a transporter above to auto-fill this field</p>
+                    )}
                   </div>
 
                   {/* Transporter Name */}
@@ -868,6 +1092,9 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
                       }`}
                       placeholder="MS Uttarayan"
                     />
+                    {transporterSuggestions.length > 0 && !formData.transporter_name && (
+                      <p className="mt-1 text-xs text-amber-600">💡 Select a transporter above to auto-fill this field</p>
+                    )}
                   </div>
                 </div>
               </div>

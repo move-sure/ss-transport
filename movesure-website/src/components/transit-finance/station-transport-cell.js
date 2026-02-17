@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 
-export default function StationTransportCell({ stationCode, cities, transportsByCity = {} }) {
+export default function StationTransportCell({ stationCode, cities, transportsByCity = {}, getAdminName }) {
   const transports = useMemo(() => {
     // Find city by station code
     const city = cities?.find(c => c.city_code === stationCode);
@@ -13,6 +13,17 @@ export default function StationTransportCell({ stationCode, cities, transportsBy
     // Get pre-loaded transports for this city
     return (transportsByCity[city.id] || []).slice(0, 3); // Show max 3 transports
   }, [stationCode, cities, transportsByCity]);
+
+  // Get admin name for the first transport (most relevant)
+  const adminName = useMemo(() => {
+    if (!getAdminName || transports.length === 0) return null;
+    // Check each transport for admin match, return first found
+    for (const t of transports) {
+      const name = getAdminName(t.gst_number, t.transport_name);
+      if (name) return name;
+    }
+    return null;
+  }, [transports, getAdminName]);
 
   const loading = false; // Data is pre-loaded
 
@@ -29,6 +40,12 @@ export default function StationTransportCell({ stationCode, cities, transportsBy
     return <span className="text-gray-400 text-xs">-</span>;
   }
 
+  const adminBadge = adminName ? (
+    <div className="text-[7px] text-teal-600 font-semibold truncate mt-0.5" title={`Admin: ${adminName}`}>
+      🏢 {adminName}
+    </div>
+  ) : null;
+
   if (transports.length === 1) {
     return (
       <div className="max-w-[150px]" title={transports[0].transport_name}>
@@ -36,6 +53,7 @@ export default function StationTransportCell({ stationCode, cities, transportsBy
         {transports[0].gst_number && (
           <div className="text-[8px] text-gray-500 truncate mt-0.5">{transports[0].gst_number}</div>
         )}
+        {adminBadge}
       </div>
     );
   }
@@ -45,6 +63,7 @@ export default function StationTransportCell({ stationCode, cities, transportsBy
     <div className="max-w-[150px]" title={transports.map(t => t.transport_name).join(', ')}>
       <div className="font-semibold text-indigo-700 text-[10px] break-words leading-tight">{transports[0].transport_name}</div>
       <div className="text-[8px] text-gray-500 mt-0.5">+{transports.length - 1} more</div>
+      {adminBadge}
     </div>
   );
 }

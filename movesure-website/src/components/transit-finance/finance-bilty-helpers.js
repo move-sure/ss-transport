@@ -114,42 +114,52 @@ export const applyPaymentModeFilter = (transits, filterPaymentMode) => {
  * Apply transport filter
  */
 export const applyTransportFilter = (transits, selectedTransports, availableTransports, cities) => {
-  if (selectedTransports.length === 0 || availableTransports.length === 0) {
+  if (selectedTransports.length === 0) {
     return transits;
   }
 
   return transits.filter(t => {
-    // Get destination city ID
-    let destinationCityId = null;
-    
-    if (t.bilty?.to_city_id) {
-      destinationCityId = t.bilty.to_city_id;
-    } else if (t.station?.station) {
-      const city = cities?.find(c => c.city_code === t.station.station);
-      destinationCityId = city?.id;
-    }
-    
-    if (!destinationCityId) return false;
-    
-    // Get all transports available for this destination city
-    const cityTransports = availableTransports.filter(at => at.city_id === destinationCityId);
-    
-    // Check if any of the city's transports match the selected transports
-    return cityTransports.some(cityTransport => {
-      return selectedTransports.some(selectedTransport => {
-        // Match by GST if available
-        if (selectedTransport.gst && cityTransport.gst_number) {
-          return cityTransport.gst_number.trim() === selectedTransport.gst;
+    const bilty = t.bilty;
+    const station = t.station;
+
+    // For regular bilties — match transport_name/transport_gst directly
+    if (bilty?.transport_name) {
+      const biltyGst = bilty.transport_gst?.trim() || null;
+      const biltyName = bilty.transport_name.toLowerCase().trim();
+
+      return selectedTransports.some(sel => {
+        // Match by GST if both have it
+        if (sel.gst && biltyGst) {
+          return sel.gst === biltyGst;
         }
-        
-        // Match by transport name (case-insensitive)
-        if (!selectedTransport.gst && !cityTransport.gst_number) {
-          return cityTransport.transport_name.toLowerCase().trim() === selectedTransport.name.toLowerCase().trim();
-        }
-        
-        return false;
+        // Match by name (case-insensitive)
+        return sel.name.toLowerCase().trim() === biltyName;
       });
-    });
+    }
+
+    // For station bilties — match via destination city transports from DB
+    if (station?.station) {
+      const city = cities?.find(c => c.city_code === station.station);
+      const destinationCityId = city?.id;
+      if (!destinationCityId) return false;
+
+      // Get transports available for this city (station-sourced from DB)
+      const cityTransports = (availableTransports || []).filter(at => at.city_id === destinationCityId);
+
+      return cityTransports.some(cityTransport => {
+        return selectedTransports.some(sel => {
+          if (sel.gst && cityTransport.gst_number) {
+            return cityTransport.gst_number.trim() === sel.gst;
+          }
+          if (!sel.gst && !cityTransport.gst_number) {
+            return cityTransport.transport_name.toLowerCase().trim() === sel.name.toLowerCase().trim();
+          }
+          return false;
+        });
+      });
+    }
+
+    return false;
   });
 };
 

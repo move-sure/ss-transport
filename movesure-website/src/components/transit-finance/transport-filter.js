@@ -15,146 +15,188 @@ export default function TransportFilter({
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [availableTransports, setAvailableTransports] = useState([]);
+  const [stationTransports, setStationTransports] = useState([]);
 
-  // Get unique destination city IDs from bilties
-  const destinationCityIds = useMemo(() => {
+  // Separate: for regular bilties use transport_name/gst directly,
+  // for station bilties collect city IDs for DB lookup
+  const { biltyTransportMap, stationCityIds } = useMemo(() => {
+    const transportMap = new Map();
     const cityIds = new Set();
-    
+    const processedGrNos = new Set();
+
     challanTransits.forEach(transit => {
-      // From regular bilty
-      if (transit.bilty?.to_city_id) {
-        cityIds.add(transit.bilty.to_city_id);
+      const bilty = transit.bilty;
+      const station = transit.station;
+      const grNo = transit.gr_no;
+
+      // Skip duplicate GR numbers
+      if (processedGrNos.has(grNo)) return;
+      processedGrNos.add(grNo);
+
+      // Regular bilty — use transport_name/transport_gst directly (1 transport per bilty)
+      if (bilty?.transport_name) {
+        const transportName = bilty.transport_name.trim();
+        const transportGst = bilty.transport_gst?.trim() || null;
+
+        const key = transportGst 
+          ? `gst_${transportGst}` 
+          : `name_${transportName.toLowerCase()}`;
+
+        if (!transportMap.has(key)) {
+          transportMap.set(key, {
+            name: transportName,
+            gst: transportGst,
+            count: 0,
+            type: 'bilty',
+            cityBreakdown: {}
+          });
+        }
+
+        const entry = transportMap.get(key);
+        entry.count++;
+
+        let cityName = 'Unknown';
+        if (bilty.to_city_id) {
+          const city = cities?.find(c => c.id === bilty.to_city_id);
+          cityName = city?.city_name || 'Unknown';
+        }
+        entry.cityBreakdown[cityName] = (entry.cityBreakdown[cityName] || 0) + 1;
+        return;
       }
-      // From station bilty - convert station code to city_id
-      if (transit.station?.station) {
-        const city = cities?.find(c => c.city_code === transit.station.station);
+
+      // Station bilty without transport — need DB lookup by city
+      if (station?.station) {
+        const city = cities?.find(c => c.city_code === station.station);
         if (city?.id) {
           cityIds.add(city.id);
         }
       }
     });
-    
-    return Array.from(cityIds);
+
+    return { biltyTransportMap: transportMap, stationCityIds: Array.from(cityIds) };
   }, [challanTransits, cities]);
 
-  // Fetch transports from database for destination cities
+  // Fetch transports from DB only for station bilties' destination cities
   useEffect(() => {
-    if (destinationCityIds.length > 0) {
-      fetchTransportsForCities();
+    if (stationCityIds.length > 0) {
+      fetchStationTransports();
     } else {
-      setAvailableTransports([]);
+      setStationTransports([]);
     }
-  }, [destinationCityIds]);
+  }, [stationCityIds]);
 
-  const fetchTransportsForCities = async () => {
+  const fetchStationTransports = async () => {
     try {
       setLoading(true);
       
       const { data, error } = await supabase
         .from('transports')
         .select('id, transport_name, gst_number, city_id')
-        .in('city_id', destinationCityIds);
+        .in('city_id', stationCityIds);
 
       if (error) throw error;
-
-      const transports = data || [];
-      setAvailableTransports(transports);
-      
-      // Notify parent component about available transports
-      if (onAvailableTransportsUpdate) {
-        onAvailableTransportsUpdate(transports);
-      }
+      setStationTransports(data || []);
     } catch (err) {
-      console.error('Error fetching transports:', err);
-      setAvailableTransports([]);
-      if (onAvailableTransportsUpdate) {
-        onAvailableTransportsUpdate([]);
-      }
+      console.error('Error fetching station transports:', err);
+      setStationTransports([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Build unique transport list with city breakdown
+  // Build combined transport list: bilty transports + station transports
   const uniqueTransports = useMemo(() => {
-    const transportMap = new Map();
+    const transportMap = new Map(biltyTransportMap);
+    const processedGrNos = new Set();
 
+    // Track GR numbers already counted from bilty transports
     challanTransits.forEach(transit => {
-      const bilty = transit.bilty;
-      const station = transit.station;
-      
-      let destinationCityId = null;
-      let destinationCityName = 'Unknown';
-
-      // Get destination city from bilty or station
-      if (bilty?.to_city_id) {
-        destinationCityId = bilty.to_city_id;
-        const city = cities?.find(c => c.id === destinationCityId);
-        destinationCityName = city?.city_name || 'Unknown';
-      } else if (station?.station) {
-        const city = cities?.find(c => c.city_code === station.station);
-        if (city) {
-          destinationCityId = city.id;
-          destinationCityName = city.city_name;
-        }
+      if (transit.bilty?.transport_name) {
+        processedGrNos.add(transit.gr_no);
       }
+    });
 
-      if (!destinationCityId) return;
+    // Add station transports (only for bilties without transport_name)
+    challanTransits.forEach(transit => {
+      const grNo = transit.gr_no;
+      if (processedGrNos.has(grNo)) return;
 
-      // Find all transports for this destination city from database
-      const cityTransports = availableTransports.filter(t => t.city_id === destinationCityId);
+      const station = transit.station;
+      if (!station?.station) return;
+
+      const city = cities?.find(c => c.city_code === station.station);
+      if (!city?.id) return;
+
+      processedGrNos.add(grNo);
+
+      const cityTransports = stationTransports.filter(t => t.city_id === city.id);
 
       cityTransports.forEach(dbTransport => {
         const transportName = dbTransport.transport_name.trim();
         const transportGst = dbTransport.gst_number?.trim() || null;
-        
-        // Create unique key based on GST if available, otherwise just name
+
         const key = transportGst 
           ? `gst_${transportGst}` 
           : `name_${transportName.toLowerCase()}`;
-        
-        // Initialize transport entry if not exists
+
         if (!transportMap.has(key)) {
           transportMap.set(key, {
             name: transportName,
             gst: transportGst,
             count: 0,
-            type: 'regular',
+            type: 'station',
             cityBreakdown: {}
           });
         }
-        
-        const transport = transportMap.get(key);
-        transport.count++;
-        
-        // Track city-wise count
-        if (!transport.cityBreakdown[destinationCityName]) {
-          transport.cityBreakdown[destinationCityName] = 0;
-        }
-        transport.cityBreakdown[destinationCityName]++;
+
+        const entry = transportMap.get(key);
+        entry.count++;
+        const cityName = city.city_name || 'Unknown';
+        entry.cityBreakdown[cityName] = (entry.cityBreakdown[cityName] || 0) + 1;
       });
     });
 
-    // Convert to array and add formatted city breakdown text
     const transportsArray = Array.from(transportMap.values()).map(transport => {
       const breakdownText = Object.entries(transport.cityBreakdown)
         .sort((a, b) => b[1] - a[1])
         .map(([city, count]) => `${count} ${city}`)
         .join(', ');
       
-      return {
-        ...transport,
-        breakdownText
-      };
+      return { ...transport, breakdownText };
     });
 
-    // Sort by count (highest first), then by name
     return transportsArray.sort((a, b) => {
       if (b.count !== a.count) return b.count - a.count;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [challanTransits, cities, availableTransports]);
+  }, [biltyTransportMap, challanTransits, cities, stationTransports]);
+
+  // Notify parent about available transports for filtering
+  useEffect(() => {
+    if (onAvailableTransportsUpdate) {
+      const allTransports = [];
+
+      // Bilty-derived transports as virtual entries
+      challanTransits.forEach(transit => {
+        if (transit.bilty?.transport_name) {
+          allTransports.push({
+            id: `bilty_${transit.bilty.id}`,
+            transport_name: transit.bilty.transport_name.trim(),
+            gst_number: transit.bilty.transport_gst?.trim() || null,
+            city_id: transit.bilty.to_city_id,
+            source: 'bilty'
+          });
+        }
+      });
+
+      // Station transports from DB
+      stationTransports.forEach(t => {
+        allTransports.push({ ...t, source: 'station' });
+      });
+
+      onAvailableTransportsUpdate(allTransports);
+    }
+  }, [stationTransports, challanTransits]);
 
   const filteredTransports = useMemo(() => {
     if (!searchQuery.trim()) return uniqueTransports;
@@ -270,7 +312,12 @@ export default function TransportFilter({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-xs text-gray-900 truncate">{transport.name}</div>
+                      <div className="font-bold text-xs text-gray-900 truncate">
+                        {transport.name}
+                        {transport.type === 'bilty' && (
+                          <span className="ml-1 text-[8px] text-green-600 font-normal">(bilty)</span>
+                        )}
+                      </div>
                       <div className="flex flex-col gap-0.5 mt-0.5">
                         {transport.gst && (
                           <div className="text-[9px] text-gray-500 truncate">{transport.gst}</div>

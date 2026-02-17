@@ -14,9 +14,14 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [billForPrint, setBillForPrint] = useState(null);
   const [printFormData, setPrintFormData] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBillIds, setSelectedBillIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     if (isOpen && selectedChallan?.challan_no) {
+      setSelectedBillIds([]);
+      setSearchQuery('');
       fetchKaatBills();
     }
   }, [isOpen, selectedChallan?.challan_no]);
@@ -187,6 +192,64 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
     }
   };
 
+  // Search filter
+  const filteredBills = kaatBills.filter(bill => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      bill.transport_name?.toLowerCase().includes(q) ||
+      bill.transport_gst?.toLowerCase().includes(q) ||
+      bill.transport_admin_name?.toLowerCase().includes(q) ||
+      bill.gr_numbers?.some(gr => gr.toLowerCase().includes(q))
+    );
+  });
+
+  // Select / deselect
+  const toggleBillSelect = (billId) => {
+    setSelectedBillIds(prev => 
+      prev.includes(billId) ? prev.filter(id => id !== billId) : [...prev, billId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedBillIds.length === filteredBills.length) {
+      setSelectedBillIds([]);
+    } else {
+      setSelectedBillIds(filteredBills.map(b => b.id));
+    }
+  };
+
+  // Bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedBillIds.length === 0) return;
+
+    const selectedBills = kaatBills.filter(b => selectedBillIds.includes(b.id));
+    const names = selectedBills.map(b => b.transport_name || 'Unknown').join(', ');
+
+    if (!window.confirm(
+      `Delete ${selectedBillIds.length} kaat bill(s)?\n\nTransports: ${names}\n\nThis action cannot be undone.`
+    )) return;
+
+    setBulkDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('kaat_bill_master')
+        .delete()
+        .in('id', selectedBillIds);
+
+      if (error) throw error;
+
+      alert(`✅ ${selectedBillIds.length} kaat bill(s) deleted successfully!`);
+      setSelectedBillIds([]);
+      fetchKaatBills();
+    } catch (err) {
+      console.error('Error bulk deleting:', err);
+      alert('Failed to delete: ' + err.message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -212,6 +275,37 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
             </button>
           </div>
 
+          {/* Search & Bulk Actions Bar */}
+          <div className="px-6 pt-4 pb-2 border-b border-gray-200 bg-gray-50 flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSelectedBillIds([]); }}
+                placeholder="Search by transport name, GST, admin, GR..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            {filteredBills.length > 0 && (
+              <button
+                onClick={toggleSelectAll}
+                className="px-3 py-2 border border-indigo-300 text-indigo-700 bg-indigo-50 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition-colors"
+              >
+                {selectedBillIds.length === filteredBills.length ? 'Deselect All' : `Select All (${filteredBills.length})`}
+              </button>
+            )}
+            {selectedBillIds.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="px-3 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Delete Selected ({selectedBillIds.length})
+              </button>
+            )}
+          </div>
+
           {/* Content */}
           <div className="flex-1 overflow-auto p-6">
             {loading ? (
@@ -227,13 +321,27 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
               </div>
             ) : (
               <div className="space-y-4">
-                {kaatBills.map((bill) => (
+                {filteredBills.map((bill) => {
+                  const isSelected = selectedBillIds.includes(bill.id);
+                  return (
                   <div
                     key={bill.id}
-                    className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white"
+                    className={`border rounded-lg p-5 hover:shadow-md transition-shadow bg-white cursor-pointer ${
+                      isSelected ? 'border-red-400 bg-red-50 ring-1 ring-red-300' : 'border-gray-200'
+                    }`}
+                    onClick={() => toggleBillSelect(bill.id)}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleBillSelect(bill.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-3">
                           <h4 className="font-bold text-gray-900 text-xl truncate">
                             {bill.transport_name || 'Unknown Transport'}
@@ -338,8 +446,9 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
                           <span className="font-medium">GR Numbers:</span> {Array.isArray(bill.gr_numbers) ? bill.gr_numbers.join(', ') : 'None'}
                         </div>
                       </div>
+                      </div>
 
-                      <div className="flex flex-col gap-2 flex-shrink-0">
+                      <div className="flex flex-col gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handlePrint(bill)}
                           className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-semibold"
@@ -367,15 +476,24 @@ export default function KaatBillListModal({ isOpen, onClose, selectedChallan, on
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Footer */}
           <div className="border-t border-gray-200 p-4 bg-gray-50 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-900">{kaatBills.length}</span> kaat bill{kaatBills.length !== 1 ? 's' : ''} found
+            <div className="text-sm text-gray-600 flex items-center gap-3">
+              <span>
+                <span className="font-semibold text-gray-900">{filteredBills.length}</span>
+                {filteredBills.length !== kaatBills.length && ` of ${kaatBills.length}`} bill{kaatBills.length !== 1 ? 's' : ''}
+              </span>
+              {selectedBillIds.length > 0 && (
+                <span className="text-red-600 font-semibold">
+                  ({selectedBillIds.length} selected)
+                </span>
+              )}
             </div>
             <button
               onClick={onClose}

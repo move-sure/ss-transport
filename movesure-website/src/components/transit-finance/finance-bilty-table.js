@@ -624,12 +624,22 @@ export default function FinanceBiltyTable({
   // Pre-compute transport admin lookup map: { gst -> adminName, transportName -> adminName }
   const transportAdminLookup = useMemo(() => {
     const lookup = {};
+    // Index admin's own name and gstin so bilties referencing the admin directly also match
+    for (const admin of transportAdmins) {
+      if (admin.gstin?.trim()) {
+        lookup['gst:' + admin.gstin.toLowerCase().trim()] = admin.transport_name;
+      }
+      if (admin.transport_name?.trim()) {
+        lookup['name:' + admin.transport_name.toLowerCase().trim()] = admin.transport_name;
+      }
+    }
+    // Index all sub-transports
     for (const [adminId, subs] of Object.entries(transportAdminSubTransports)) {
       const admin = transportAdmins.find(a => a.transport_id === adminId);
       if (!admin) continue;
       for (const sub of subs) {
         if (sub.gst_number?.trim()) {
-          lookup['gst:' + sub.gst_number.trim()] = admin.transport_name;
+          lookup['gst:' + sub.gst_number.toLowerCase().trim()] = admin.transport_name;
         }
         if (sub.transport_name?.trim()) {
           lookup['name:' + sub.transport_name.toLowerCase().trim()] = admin.transport_name;
@@ -642,7 +652,7 @@ export default function FinanceBiltyTable({
   // Helper to get admin name from lookup
   const getAdminNameForBilty = (transportGst, transportName) => {
     if (transportGst?.trim()) {
-      const byGst = transportAdminLookup['gst:' + transportGst.trim()];
+      const byGst = transportAdminLookup['gst:' + transportGst.toLowerCase().trim()];
       if (byGst) return byGst;
     }
     if (transportName?.trim()) {
@@ -876,16 +886,20 @@ export default function FinanceBiltyTable({
       const subTransports = transportAdminSubTransports[adminId] || [];
       if (!admin || subTransports.length === 0) continue;
 
-      const subGsts = subTransports.map(t => t.gst_number?.trim()).filter(Boolean);
+      // Collect all matchable GSTs/names: sub-transports + the admin itself
+      const subGsts = subTransports.map(t => t.gst_number?.toLowerCase().trim()).filter(Boolean);
       const subNames = subTransports.map(t => t.transport_name?.toLowerCase().trim()).filter(Boolean);
       const subCityIds = subTransports.map(t => t.city_id).filter(Boolean);
+      // Also include admin's own gstin and name for matching
+      if (admin.gstin?.trim()) subGsts.push(admin.gstin.toLowerCase().trim());
+      if (admin.transport_name?.trim()) subNames.push(admin.transport_name.toLowerCase().trim());
 
       // Find matching bilties from challanTransits that are NOT already saved
       const matchingBilties = challanTransits.filter(t => {
         const normalizedGrNo = String(t.gr_no).trim().toUpperCase();
         if (alreadySavedGrNos.includes(normalizedGrNo)) return false;
 
-        const biltyGst = t.bilty?.transport_gst?.trim();
+        const biltyGst = t.bilty?.transport_gst?.toLowerCase().trim();
         const biltyName = t.bilty?.transport_name?.toLowerCase().trim();
         const stationCode = t.station?.station;
         const stationCityId = stationCode ? cities?.find(c => c.city_code === stationCode)?.id : null;
@@ -900,9 +914,16 @@ export default function FinanceBiltyTable({
 
       if (matchingBilties.length > 0) {
         // Group by unique transport (name + gst)
+        // ONLY use bilties that have a proper transport_name from bilty table
         const transportMap = {};
+        let skippedCount = 0;
         matchingBilties.forEach(t => {
-          const tName = t.bilty?.transport_name || 'Station Bilty';
+          const tName = t.bilty?.transport_name?.trim();
+          if (!tName) {
+            // Station bilty without transport_name - skip it
+            skippedCount++;
+            return;
+          }
           const tGst = t.bilty?.transport_gst || '';
           const key = `${tName}|||${tGst}`;
           if (!transportMap[key]) {
@@ -911,13 +932,19 @@ export default function FinanceBiltyTable({
           transportMap[key].bilties.push(t);
         });
 
-        groups.push({
-          adminId,
-          adminName: admin.transport_name,
-          adminGstin: admin.gstin,
-          transports: Object.values(transportMap),
-          totalBilties: matchingBilties.length
-        });
+        const validTransports = Object.values(transportMap).filter(tp => tp.bilties.length > 0);
+        const validBiltyCount = validTransports.reduce((sum, tp) => sum + tp.bilties.length, 0);
+
+        if (validTransports.length > 0) {
+          groups.push({
+            adminId,
+            adminName: admin.transport_name,
+            adminGstin: admin.gstin,
+            transports: validTransports,
+            totalBilties: validBiltyCount,
+            skippedBilties: skippedCount
+          });
+        }
       }
     }
 
@@ -934,9 +961,19 @@ export default function FinanceBiltyTable({
     // Count total bills to create (one per transport per admin)
     const totalBills = groups.reduce((sum, g) => sum + g.transports.length, 0);
 
+    const totalSkipped = groups.reduce((sum, g) => sum + (g.skippedBilties || 0), 0);
+    const skippedMsg = totalSkipped > 0 
+      ? `\n\n⚠️ ${totalSkipped} station bilty(ies) skipped (no transport name on bilty).` 
+      : '';
+
     if (!window.confirm(
       `This will create ${totalBills} kaat bill(s) for ${groups.length} transport admin(s).\n\n` +
-      groups.map(g => `🏢 ${g.adminName}: ${g.transports.length} bill(s), ${g.totalBilties} bilties`).join('\n') +
+      groups.map(g => {
+        let msg = `🏢 ${g.adminName}: ${g.transports.length} bill(s), ${g.totalBilties} bilties`;
+        if (g.skippedBilties > 0) msg += ` (${g.skippedBilties} skipped)`;
+        return msg;
+      }).join('\n') +
+      skippedMsg +
       '\n\nContinue?'
     )) return;
 
@@ -1478,6 +1515,7 @@ export default function FinanceBiltyTable({
                         stationCode={station.station} 
                         cities={cities}
                         transportsByCity={transportsByCity}
+                        getAdminName={getAdminNameForBilty}
                       />
                     ) : (
                       <span className="text-gray-400 text-[10px]">-</span>

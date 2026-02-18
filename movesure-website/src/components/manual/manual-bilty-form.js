@@ -545,8 +545,16 @@ const ManualBiltyForm = ({
       );
       if (city) {
         const cityTransports = transports.filter(t => t.city_id === city.id);
-        if (cityTransports.length > 1) {
-          setAvailableTransports(cityTransports);
+        setAvailableTransports(cityTransports);
+        // If no transport was saved, auto-select the first available one
+        if (!formData.transport_name && cityTransports.length > 0) {
+          const first = cityTransports[0];
+          setFormData(prev => ({
+            ...prev,
+            transport_id: first.id,
+            transport_name: first.transport_name || '',
+            transport_gst: first.gst_number || ''
+          }));
         }
       }
     }

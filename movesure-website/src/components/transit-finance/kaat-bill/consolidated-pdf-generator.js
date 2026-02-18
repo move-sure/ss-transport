@@ -136,13 +136,14 @@ const addSubsequentPageHeader = (doc, pageNum) => {
 // ============================================================
 // HELPER: Add challan section header
 // ============================================================
-const addChallanHeader = (doc, yPos, kaatBill, challanInfo) => {
+const addChallanHeader = (doc, yPos, kaatBill, challanInfo, showTransport = false) => {
   const pageWidth = doc.internal.pageSize.width;
   const margin = PDF_CONFIG.margins.left;
+  const headerHeight = showTransport ? 16 : 10;
   
   // Challan header background
   doc.setFillColor(...PDF_CONFIG.colors.secondary);
-  doc.rect(margin, yPos, pageWidth - margin * 2, 10, 'F');
+  doc.rect(margin, yPos, pageWidth - margin * 2, headerHeight, 'F');
   
   // Format dispatch date
   let dispatchDateStr = 'Not Dispatched';
@@ -152,7 +153,7 @@ const addChallanHeader = (doc, yPos, kaatBill, challanInfo) => {
     dispatchDateStr = format(new Date(challanInfo.date), 'dd/MM/yyyy');
   }
   
-  // Challan info - NO transport name/GST, WITH dispatch date
+  // Row 1: Challan info
   doc.setTextColor(...PDF_CONFIG.colors.white);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
@@ -160,9 +161,17 @@ const addChallanHeader = (doc, yPos, kaatBill, challanInfo) => {
   doc.text(`Bilties: ${kaatBill.total_bilty_count}`, margin + 55, yPos + 6);
   doc.text(`Dispatch: ${dispatchDateStr}`, pageWidth - margin - 3, yPos + 6, { align: 'right' });
   
+  // Row 2: Per-bill transport name & GST (from kaat_bill_master)
+  if (showTransport && (kaatBill.transport_name || kaatBill.transport_gst)) {
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    const transportLine = `${kaatBill.transport_name || 'N/A'}${kaatBill.transport_gst ? '  |  GST: ' + kaatBill.transport_gst : ''}`;
+    doc.text(transportLine, margin + 3, yPos + 12.5);
+  }
+  
   doc.setTextColor(...PDF_CONFIG.colors.black);
   
-  return yPos + 13;
+  return yPos + headerHeight + 3;
 };
 
 // ============================================================
@@ -198,15 +207,33 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     let grandTotalDD = 0;
     let grandTotalProfit = 0;
     
-    // Sort bills by challan number (ascending)
-    const sortedBills = [...selectedBills].sort((a, b) => {
-      // Extract numeric part from challan_no for proper sorting
-      const numA = parseInt(a.challan_no?.replace(/\D/g, '') || '0', 10);
-      const numB = parseInt(b.challan_no?.replace(/\D/g, '') || '0', 10);
-      return numA - numB;
-    });
+    // Sort bills based on settings
+    let sortedBills;
+    if (settings.sortOrder === 'city') {
+      // Sort alphabetically by transport_name (city/destination) from kaat_bill_master
+      sortedBills = [...selectedBills].sort((a, b) => {
+        const nameA = (a.transport_name || '').toLowerCase();
+        const nameB = (b.transport_name || '').toLowerCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        // Secondary sort by challan_no within same transport
+        const numA = parseInt(a.challan_no?.replace(/\D/g, '') || '0', 10);
+        const numB = parseInt(b.challan_no?.replace(/\D/g, '') || '0', 10);
+        return numA - numB;
+      });
+      console.log('📊 Bills sorted by city name (A-Z):', sortedBills.map(b => `${b.transport_name} - ${b.challan_no}`));
+    } else {
+      // Default: sort by challan number ascending
+      sortedBills = [...selectedBills].sort((a, b) => {
+        const numA = parseInt(a.challan_no?.replace(/\D/g, '') || '0', 10);
+        const numB = parseInt(b.challan_no?.replace(/\D/g, '') || '0', 10);
+        return numA - numB;
+      });
+      console.log('📊 Bills sorted by challan number:', sortedBills.map(b => b.challan_no));
+    }
     
-    console.log('📊 Bills sorted by challan number:', sortedBills.map(b => b.challan_no));
+    const showPerBillTransport = settings.showPerBillTransport || false;
+    const showRemarkColumn = settings.showRemarkColumn || false;
     
     // Add first page header (full header with company name, title, GST, customer care)
     yPosition = addFirstPageHeader(doc, settings);
@@ -229,8 +256,8 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
         yPosition = addSubsequentPageHeader(doc, currentPage);
       }
       
-      // Add challan header (without transport name/GST, with dispatch date)
-      yPosition = addChallanHeader(doc, yPosition, kaatBill, challanInfo);
+      // Add challan header (optionally with per-bill transport name/GST)
+      yPosition = addChallanHeader(doc, yPosition, kaatBill, challanInfo, showPerBillTransport);
       
       // Calculate totals for this bill
       let billTotalPackages = 0;
@@ -277,7 +304,7 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
           station?.payment_status
         );
         
-        return [
+        const row = [
           (index + 1).toString(),
           item.gr_no || 'N/A',
           bilty?.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
@@ -293,6 +320,8 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
           kaatAmount.toFixed(0),
           profit.toFixed(0)
         ];
+        if (showRemarkColumn) row.push('');
+        return row;
       });
       
       // Accumulate grand totals
@@ -306,23 +335,28 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       
       // Table headers - with Dest and DD columns
       const headers = ['#', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Station', 'Pay', 'Pkg', 'Wt', 'Amt', 'DD', 'Kaat', 'PF'];
+      if (showRemarkColumn) headers.push('Remark');
       
-      // Column styles
+      // Column styles — adjust widths when remark col is present to fit A4
+      const hasRemark = showRemarkColumn;
       const columnStyles = {
         0: { halign: 'center', cellWidth: 6 },
-        1: { halign: 'center', cellWidth: 15 },
-        2: { halign: 'center', cellWidth: 11 },
+        1: { halign: 'center', cellWidth: hasRemark ? 13 : 15 },
+        2: { halign: 'center', cellWidth: hasRemark ? 10 : 11 },
         3: { cellWidth: 'auto' },
         4: { cellWidth: 'auto' },
         5: { cellWidth: 'auto' },
-        6: { halign: 'center', cellWidth: 12 },
+        6: { halign: 'center', cellWidth: hasRemark ? 10 : 12 },
         7: { halign: 'center', cellWidth: 8 },
-        8: { halign: 'right', cellWidth: 10 },
-        9: { halign: 'right', cellWidth: 12 },
-        10: { halign: 'right', cellWidth: 10 },
-        11: { halign: 'right', cellWidth: 12 },
-        12: { halign: 'right', cellWidth: 12, fontStyle: 'bold' }
+        8: { halign: 'right', cellWidth: hasRemark ? 9 : 10 },
+        9: { halign: 'right', cellWidth: hasRemark ? 10 : 12 },
+        10: { halign: 'right', cellWidth: hasRemark ? 8 : 10 },
+        11: { halign: 'right', cellWidth: hasRemark ? 10 : 12 },
+        12: { halign: 'right', cellWidth: hasRemark ? 10 : 12, fontStyle: 'bold' }
       };
+      if (hasRemark) {
+        columnStyles[13] = { cellWidth: 18, halign: 'left' };
+      }
       
       // Generate table
       autoTable(doc, {

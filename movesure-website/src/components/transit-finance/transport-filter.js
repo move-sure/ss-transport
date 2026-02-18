@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Truck, X, Loader2 } from 'lucide-react';
+import { Truck, X, Loader2, CheckCircle } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 export default function TransportFilter({ 
@@ -10,7 +10,8 @@ export default function TransportFilter({
   onTransportSelect,
   onTransportClear,
   cities,
-  onAvailableTransportsUpdate
+  onAvailableTransportsUpdate,
+  alreadySavedGrNos = []
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -107,12 +108,25 @@ export default function TransportFilter({
   // Build combined transport list: bilty transports + station transports
   const uniqueTransports = useMemo(() => {
     const transportMap = new Map(biltyTransportMap);
+    // Track GR numbers per transport key for isDone calculation
+    const grNosMap = new Map();
     const processedGrNos = new Set();
 
-    // Track GR numbers already counted from bilty transports
+    // Collect GR numbers from bilty transports
     challanTransits.forEach(transit => {
       if (transit.bilty?.transport_name) {
-        processedGrNos.add(transit.gr_no);
+        const grNo = transit.gr_no;
+        if (processedGrNos.has(grNo)) return;
+        processedGrNos.add(grNo);
+
+        const transportName = transit.bilty.transport_name.trim();
+        const transportGst = transit.bilty.transport_gst?.trim() || null;
+        const key = transportGst 
+          ? `gst_${transportGst}` 
+          : `name_${transportName.toLowerCase()}`;
+
+        if (!grNosMap.has(key)) grNosMap.set(key, []);
+        grNosMap.get(key).push(String(grNo).trim().toUpperCase());
       }
     });
 
@@ -153,23 +167,35 @@ export default function TransportFilter({
         entry.count++;
         const cityName = city.city_name || 'Unknown';
         entry.cityBreakdown[cityName] = (entry.cityBreakdown[cityName] || 0) + 1;
+
+        if (!grNosMap.has(key)) grNosMap.set(key, []);
+        grNosMap.get(key).push(String(grNo).trim().toUpperCase());
       });
     });
 
-    const transportsArray = Array.from(transportMap.values()).map(transport => {
+    // Normalize saved GR numbers for comparison
+    const savedSet = new Set(alreadySavedGrNos.map(gr => String(gr).trim().toUpperCase()));
+
+    const transportsArray = Array.from(transportMap.entries()).map(([key, transport]) => {
       const breakdownText = Object.entries(transport.cityBreakdown)
         .sort((a, b) => b[1] - a[1])
         .map(([city, count]) => `${count} ${city}`)
         .join(', ');
+
+      // A transport is "done" if ALL its GR numbers are in the saved set
+      const transportGrNos = grNosMap.get(key) || [];
+      const isDone = transportGrNos.length > 0 && transportGrNos.every(gr => savedSet.has(gr));
       
-      return { ...transport, breakdownText };
+      return { ...transport, breakdownText, isDone };
     });
 
     return transportsArray.sort((a, b) => {
+      // Sort done transports to bottom so pending ones appear first
+      if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
       if (b.count !== a.count) return b.count - a.count;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [biltyTransportMap, challanTransits, cities, stationTransports]);
+  }, [biltyTransportMap, challanTransits, cities, stationTransports, alreadySavedGrNos]);
 
   // Notify parent about available transports for filtering
   useEffect(() => {
@@ -226,26 +252,42 @@ export default function TransportFilter({
         {/* Selected Transports Chips */}
         {selectedTransports.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {selectedTransports.map((transport, idx) => (
-              <div key={idx} className="flex items-center gap-1 px-2 py-1 bg-indigo-600 text-white rounded-full">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-semibold leading-tight">{transport.name}</span>
-                  <div className="text-[8px] opacity-90 leading-tight">
-                    {transport.gst && <span>{transport.gst} • </span>}
-                    <span>{transport.count} bilties</span>
+            {selectedTransports.map((transport, idx) => {
+              // Check if this selected transport is done
+              const matchedTransport = uniqueTransports.find(t => {
+                if (t.gst && transport.gst) return t.gst === transport.gst;
+                return t.name.toLowerCase() === transport.name.toLowerCase();
+              });
+              const chipDone = matchedTransport?.isDone || false;
+
+              return (
+                <div key={idx} className={`flex items-center gap-1 px-2 py-1 rounded-full ${
+                  chipDone 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-indigo-600 text-white'
+                }`}>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold leading-tight">
+                      {chipDone && <CheckCircle className="w-2.5 h-2.5 inline mr-0.5" />}
+                      {transport.name}
+                    </span>
+                    <div className="text-[8px] opacity-90 leading-tight">
+                      {transport.gst && <span>{transport.gst} • </span>}
+                      <span>{transport.count} bilties</span>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      const updated = selectedTransports.filter((_, i) => i !== idx);
+                      onTransportSelect(updated);
+                    }}
+                    className="hover:bg-white/20 rounded-full p-0.5 ml-1"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    const updated = selectedTransports.filter((_, i) => i !== idx);
-                    onTransportSelect(updated);
-                  }}
-                  className="hover:bg-white/20 rounded-full p-0.5 ml-1"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
             <button
               onClick={onTransportClear}
               className="px-2 py-0.5 bg-red-600 text-white rounded-full text-[10px] font-semibold hover:bg-red-700"
@@ -307,12 +349,19 @@ export default function TransportFilter({
                     setSearchQuery('');
                   }}
                   className={`w-full px-3 py-2 transition-colors text-left border-b border-gray-100 last:border-b-0 ${
-                    isSelected ? 'bg-indigo-100 hover:bg-indigo-300' : 'hover:bg-indigo-100'
+                    isSelected 
+                      ? 'bg-indigo-100 hover:bg-indigo-300' 
+                      : transport.isDone 
+                        ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' 
+                        : 'hover:bg-indigo-100'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-xs text-gray-900 truncate">
+                        {transport.isDone && (
+                          <CheckCircle className="w-3 h-3 inline mr-1 text-green-600" />
+                        )}
                         {transport.name}
                         {transport.type === 'bilty' && (
                           <span className="ml-1 text-[8px] text-green-600 font-normal">(bilty)</span>
@@ -328,7 +377,16 @@ export default function TransportFilter({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[9px] font-bold flex-shrink-0">
+                      {transport.isDone && (
+                        <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full text-[8px] font-bold flex-shrink-0">
+                          DONE
+                        </span>
+                      )}
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold flex-shrink-0 ${
+                        transport.isDone 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-indigo-100 text-indigo-700'
+                      }`}>
                         {transport.count}
                       </span>
                       {isSelected && (

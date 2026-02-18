@@ -1285,6 +1285,7 @@ export default function FinanceBiltyTable({
               onTransportClear={() => setSelectedTransports([])}
               cities={cities}
               onAvailableTransportsUpdate={setAvailableTransports}
+              alreadySavedGrNos={alreadySavedGrNos}
             />
           </div>
           {/* Payment Mode */}

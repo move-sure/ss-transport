@@ -1071,6 +1071,7 @@ export default function TransitBillPage() {
           onClose={() => setShowSettings(false)}
           onProceed={handleGeneratePDF}
           firstBill={selectedBills[0]}
+          selectedBills={selectedBills}
           selectedBillsCount={selectedBills.length}
         />
 

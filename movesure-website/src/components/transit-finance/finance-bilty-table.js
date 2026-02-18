@@ -914,17 +914,42 @@ export default function FinanceBiltyTable({
 
       if (matchingBilties.length > 0) {
         // Group by unique transport (name + gst)
-        // ONLY use bilties that have a proper transport_name from bilty table
+        // Handle both bilty table entries AND station bilty entries
         const transportMap = {};
         let skippedCount = 0;
         matchingBilties.forEach(t => {
-          const tName = t.bilty?.transport_name?.trim();
+          let tName = t.bilty?.transport_name?.trim();
+          let tGst = t.bilty?.transport_gst || '';
+
+          // If no transport_name (station bilty), resolve via station → city → transports
+          if (!tName && t.station?.station) {
+            const stationCity = cities?.find(c => c.city_code === t.station.station);
+            if (stationCity?.id) {
+              const cityTransports = transportsByCity[stationCity.id] || [];
+              // Find the transport that matches this admin's sub-transports
+              const matchingTransport = cityTransports.find(ct => {
+                const ctGst = ct.gst_number?.toLowerCase().trim();
+                const ctName = ct.transport_name?.toLowerCase().trim();
+                if (ctGst && subGsts.includes(ctGst)) return true;
+                if (ctName && subNames.includes(ctName)) return true;
+                return false;
+              });
+              if (matchingTransport) {
+                tName = matchingTransport.transport_name?.trim();
+                tGst = matchingTransport.gst_number || '';
+              } else if (cityTransports.length === 1) {
+                // Only one transport for this city, use it
+                tName = cityTransports[0].transport_name?.trim();
+                tGst = cityTransports[0].gst_number || '';
+              }
+            }
+          }
+
           if (!tName) {
-            // Station bilty without transport_name - skip it
+            // Still no transport name found - skip it
             skippedCount++;
             return;
           }
-          const tGst = t.bilty?.transport_gst || '';
           const key = `${tName}|||${tGst}`;
           if (!transportMap[key]) {
             transportMap[key] = { name: tName, gst: tGst || null, bilties: [] };

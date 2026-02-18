@@ -173,6 +173,7 @@ const CityTransportSection = ({
       transport_name: transport?.transport_name || '',
       transport_gst: transport?.gst_number || '',
       transport_number: transport?.mob_number || '',
+      transport_id: transport?.id || null,
       rate: selectedRate || prev.rate || 0
     }));
   };
@@ -192,7 +193,8 @@ const CityTransportSection = ({
         ...prev,
         transport_name: transport.transport_name || '',
         transport_gst: transport.gst_number || '',
-        transport_number: transport.mob_number || ''
+        transport_number: transport.mob_number || '',
+        transport_id: transport.id || null
       }));
     }
     console.log('✅ Selected transport:', transport.transport_name);
@@ -219,7 +221,8 @@ const CityTransportSection = ({
         to_city_id: city.id,
         transport_name: '',
         transport_gst: '',
-        transport_number: ''
+        transport_number: '',
+        transport_id: null
       }));
 
       // Still fetch rate in the background (rate depends on city, not transport)

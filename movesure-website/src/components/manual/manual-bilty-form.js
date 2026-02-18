@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   FileText, Package, Weight, DollarSign, X, Save, Building2,
-  CheckCircle, XCircle, Plus, AlertTriangle
+  CheckCircle, XCircle, Plus, AlertTriangle, Truck, ChevronDown
 } from 'lucide-react';
 
 // Combined Payment and Delivery options
@@ -389,6 +389,7 @@ const ManualBiltyForm = ({
   branches = [],
   onBranchChange,
   cities,
+  transports = [],
   loadingReferenceData
 }) => {
   // Multi-EWB state
@@ -397,6 +398,12 @@ const ManualBiltyForm = ({
   // Station validation state
   const [stationError, setStationError] = useState('');
   const [isValidStation, setIsValidStation] = useState(true);
+
+  // Transport dropdown state
+  const [availableTransports, setAvailableTransports] = useState([]);
+  const [showTransportDropdown, setShowTransportDropdown] = useState(false);
+  const [transportSelectedIndex, setTransportSelectedIndex] = useState(-1);
+  const transportDropdownRef = useRef(null);
   // Format E-way bill number (1234-1234-1234 format)
   const formatEwayBill = (value) => {
     const digitsOnly = value.replace(/\D/g, '');
@@ -434,11 +441,116 @@ const ManualBiltyForm = ({
       return false;
     }
   };
-  // Handle station change with validation
+  // Handle station change with validation and transport lookup
   const handleStationChange = (value) => {
-    setFormData({ ...formData, station: value });
-    validateStationCode(value);
+    setFormData(prev => ({ ...prev, station: value }));
+    const isValid = validateStationCode(value);
+    
+    // Look up transports for this station's city
+    if (isValid && value.trim()) {
+      const trimmedCode = value.trim().toUpperCase();
+      const city = cities.find(c => 
+        c.city_code?.toUpperCase() === trimmedCode || 
+        c.city_name?.toUpperCase() === trimmedCode
+      );
+      
+      if (city) {
+        const cityTransports = transports.filter(t => t.city_id === city.id);
+        
+        if (cityTransports.length === 1) {
+          // Auto-fill single transport
+          const transport = cityTransports[0];
+          setAvailableTransports([]);
+          setShowTransportDropdown(false);
+          setFormData(prev => ({
+            ...prev,
+            station: value,
+            transport_id: transport.id,
+            transport_name: transport.transport_name || '',
+            transport_gst: transport.gst_number || ''
+          }));
+          console.log('✅ Auto-selected transport:', transport.transport_name);
+        } else if (cityTransports.length > 1) {
+          // Show dropdown for multiple transports
+          setAvailableTransports(cityTransports);
+          setShowTransportDropdown(true);
+          setTransportSelectedIndex(-1);
+          // Clear transport fields until user picks
+          setFormData(prev => ({
+            ...prev,
+            station: value,
+            transport_id: null,
+            transport_name: '',
+            transport_gst: ''
+          }));
+          console.log(`🚛 ${cityTransports.length} transports found, showing selector`);
+        } else {
+          // No transports for this city
+          setAvailableTransports([]);
+          setShowTransportDropdown(false);
+          setFormData(prev => ({
+            ...prev,
+            station: value,
+            transport_id: null,
+            transport_name: '',
+            transport_gst: ''
+          }));
+        }
+      }
+    } else {
+      // Invalid or empty station - clear transport
+      setAvailableTransports([]);
+      setShowTransportDropdown(false);
+      setFormData(prev => ({
+        ...prev,
+        station: value,
+        transport_id: null,
+        transport_name: '',
+        transport_gst: ''
+      }));
+    }
   };
+
+  // Handle transport selection from dropdown
+  const handleTransportSelect = (transport) => {
+    setShowTransportDropdown(false);
+    setTransportSelectedIndex(-1);
+    setFormData(prev => ({
+      ...prev,
+      transport_id: transport.id,
+      transport_name: transport.transport_name || '',
+      transport_gst: transport.gst_number || ''
+    }));
+    console.log('✅ Selected transport:', transport.transport_name);
+  };
+
+  // Close transport dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (transportDropdownRef.current && !transportDropdownRef.current.contains(event.target)) {
+        setShowTransportDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Re-populate transport dropdown when editing and transports load
+  useEffect(() => {
+    if (editingId && formData.station && transports.length > 0 && cities.length > 0) {
+      const trimmedCode = formData.station.trim().toUpperCase();
+      const city = cities.find(c => 
+        c.city_code?.toUpperCase() === trimmedCode || 
+        c.city_name?.toUpperCase() === trimmedCode
+      );
+      if (city) {
+        const cityTransports = transports.filter(t => t.city_id === city.id);
+        if (cityTransports.length > 1) {
+          setAvailableTransports(cityTransports);
+        }
+      }
+    }
+  }, [editingId, transports, cities]);
 
   // Enhanced form submission with station validation
   const handleFormSubmit = (e) => {
@@ -765,7 +877,7 @@ const ManualBiltyForm = ({
             {/* Branch Selector */}
             {branches.length > 0 && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                <label className="block text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                <label className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-2">
                   <Building2 className="w-4 h-4" />
                   Select Branch {editingId && <span className="text-xs font-normal text-purple-600">(You can change branch while editing)</span>}
                 </label>
@@ -866,9 +978,9 @@ const ManualBiltyForm = ({
                       isValid={isValidStation}
                       errorMessage={stationError}
                       onTabPress={() => {
-                        const consignorInput = document.querySelector('[data-tab-target="consignor"]');
-                        if (consignorInput) {
-                          consignorInput.focus();
+                        const transportInput = document.querySelector('[data-tab-target="transport_name"]');
+                        if (transportInput) {
+                          transportInput.focus();
                         }
                       }}
                     />
@@ -878,6 +990,137 @@ const ManualBiltyForm = ({
                         : 'Search by city name or code from available cities'
                       }
                     </p>
+                  </div>
+
+                  {/* Transport Name with dropdown */}
+                  <div ref={transportDropdownRef} className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      Transport Name
+                      {availableTransports.length > 1 && !formData.transport_name && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full animate-pulse">
+                          {availableTransports.length} available
+                        </span>
+                      )}
+                      {formData.transport_name && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">✓</span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.transport_name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
+                        onFocus={() => { if (availableTransports.length > 1) setShowTransportDropdown(true); }}
+                        onKeyDown={(e) => {
+                          if (showTransportDropdown && availableTransports.length > 1) {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setTransportSelectedIndex(prev => prev < availableTransports.length - 1 ? prev + 1 : 0);
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setTransportSelectedIndex(prev => prev > 0 ? prev - 1 : availableTransports.length - 1);
+                            } else if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (transportSelectedIndex >= 0 && availableTransports[transportSelectedIndex]) {
+                                handleTransportSelect(availableTransports[transportSelectedIndex]);
+                              }
+                            } else if (e.key === 'Escape') {
+                              setShowTransportDropdown(false);
+                            }
+                          }
+                          if (e.key === 'Tab' && !e.shiftKey) {
+                            e.preventDefault();
+                            // If dropdown is open and a transport is highlighted, select it first
+                            if (showTransportDropdown && availableTransports.length > 1 && transportSelectedIndex >= 0 && availableTransports[transportSelectedIndex]) {
+                              handleTransportSelect(availableTransports[transportSelectedIndex]);
+                            }
+                            setShowTransportDropdown(false);
+                            const gstInput = document.querySelector('[data-tab-target="transport_gst"]');
+                            if (gstInput) gstInput.focus();
+                          }
+                        }}
+                        className={`w-full px-3 py-2 text-sm font-semibold border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 ${
+                          availableTransports.length > 1 && !formData.transport_name
+                            ? 'border-amber-400 focus:ring-amber-500 focus:border-amber-500 bg-amber-50'
+                            : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500 bg-white'
+                        } text-black`}
+                        placeholder={availableTransports.length > 1 ? `⬇ Select from ${availableTransports.length} transports...` : formData.station ? 'No transport found' : 'Select station first'}
+                        data-tab-target="transport_name"
+                      />
+                      {availableTransports.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowTransportDropdown(!showTransportDropdown)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-amber-600 hover:text-amber-800"
+                        >
+                          <ChevronDown className={`w-4 h-4 transition-transform ${showTransportDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Transport Dropdown */}
+                    {showTransportDropdown && availableTransports.length > 1 && (
+                      <div className="absolute z-40 mt-1 w-full bg-white border border-amber-300 rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                        <div className="p-2 bg-amber-500 text-white text-xs font-semibold rounded-t-lg flex items-center justify-between">
+                          <span>🚛 SELECT TRANSPORT ({availableTransports.length} available)</span>
+                          <button type="button" onClick={() => setShowTransportDropdown(false)} className="hover:bg-amber-600 rounded px-1">✕</button>
+                        </div>
+                        {availableTransports.map((t, index) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => handleTransportSelect(t)}
+                            className={`w-full px-3 py-2.5 text-left hover:bg-amber-50 border-b border-gray-100 transition-colors ${
+                              index === transportSelectedIndex ? 'bg-amber-100' : ''
+                            } ${
+                              formData.transport_name === t.transport_name ? 'bg-green-50 border-l-4 border-l-green-500' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-sm text-slate-900">{t.transport_name}</div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {t.gst_number && (
+                                    <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1 rounded">GST: {t.gst_number}</span>
+                                  )}
+                                  {t.mob_number && (
+                                    <span className="text-xs text-gray-600">📱 {t.mob_number}</span>
+                                  )}
+                                </div>
+                                {t.address && (
+                                  <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[280px]">{t.address}</div>
+                                )}
+                              </div>
+                              {formData.transport_name === t.transport_name && (
+                                <span className="text-green-600 text-sm">✓</span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Transport GST */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Transport GST
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.transport_gst}
+                      onChange={(e) => setFormData(prev => ({ ...prev, transport_gst: e.target.value.toUpperCase() }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab' && !e.shiftKey) {
+                          e.preventDefault();
+                          const consignorInput = document.querySelector('[data-tab-target="consignor"]');
+                          if (consignorInput) consignorInput.focus();
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black bg-white text-sm font-semibold"
+                      placeholder="Transport GST number"
+                      data-tab-target="transport_gst"
+                    />
                   </div>
 
                   {/* Consignor */}

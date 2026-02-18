@@ -15,6 +15,7 @@ export const useStationBiltySummary = () => {
   
   // Reference data states
   const [cities, setCities] = useState([]);
+  const [transports, setTransports] = useState([]);
   const [loadingReferenceData, setLoadingReferenceData] = useState(false);
   
   // Form data state
@@ -32,21 +33,26 @@ export const useStationBiltySummary = () => {
     delivery_type: 'godown',
     e_way_bill: '',
     staff_id: null,
-    branch_id: null
+    branch_id: null,
+    transport_id: null,
+    transport_name: '',
+    transport_gst: ''
   });
 
   // Load reference data (cities only)
   const loadReferenceData = useCallback(async () => {
     try {
       setLoadingReferenceData(true);
-      const { data: citiesData, error: citiesError } = await supabase
-        .from('cities')
-        .select('*')
-        .order('city_name');
+      const [citiesRes, transportsRes] = await Promise.all([
+        supabase.from('cities').select('*').order('city_name'),
+        supabase.from('transports').select('*')
+      ]);
 
-      if (citiesError) throw citiesError;
+      if (citiesRes.error) throw citiesRes.error;
+      if (transportsRes.error) throw transportsRes.error;
 
-      setCities(citiesData || []);
+      setCities(citiesRes.data || []);
+      setTransports(transportsRes.data || []);
     } catch (error) {
       console.error('Error loading reference data:', error);
       throw error;
@@ -100,7 +106,10 @@ export const useStationBiltySummary = () => {
       delivery_type: 'godown',
       e_way_bill: '',
       staff_id: null,
-      branch_id: null
+      branch_id: null,
+      transport_id: null,
+      transport_name: '',
+      transport_gst: ''
     });
     setEditingId(null);
   }, []);  // Load all summary data with pagination support
@@ -471,6 +480,9 @@ export const useStationBiltySummary = () => {
         e_way_bill: formData.e_way_bill?.toString().trim() || null,
         staff_id: actualStaffId, // This remains the creator's ID
         branch_id: actualBranchId,
+        transport_id: formData.transport_id || null,
+        transport_name: formData.transport_name?.toString().trim() || null,
+        transport_gst: formData.transport_gst?.toString().trim() || null,
         updated_at: new Date().toISOString()
       };
 
@@ -545,7 +557,10 @@ export const useStationBiltySummary = () => {
       delivery_type: summary.delivery_type || 'godown',
       e_way_bill: summary.e_way_bill || '',
       staff_id: summary.staff_id || null,
-      branch_id: summary.branch_id || null
+      branch_id: summary.branch_id || null,
+      transport_id: summary.transport_id || null,
+      transport_name: summary.transport_name || '',
+      transport_gst: summary.transport_gst || ''
     });
     setEditingId(summary.id);
   }, []);
@@ -680,6 +695,7 @@ export const useStationBiltySummary = () => {
     editingId,
     formData,
     cities,
+    transports,
     loadingReferenceData,
 
     // Actions

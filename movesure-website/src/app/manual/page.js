@@ -31,6 +31,7 @@ export default function StationBiltySummaryPage() {
     editingId,
     formData,
     cities,
+    transports,
     loadingReferenceData,
     setFormData,
     setSearchTerm,
@@ -444,6 +445,7 @@ export default function StationBiltySummaryPage() {
         branches={branches}
         onBranchChange={setSelectedBranch}
         cities={cities}
+        transports={transports}
         loadingReferenceData={loadingReferenceData}
       />
 

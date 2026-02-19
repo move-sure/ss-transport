@@ -61,7 +61,8 @@ const ManualLoadingChallan = ({ userBranch, branches = [] }) => {
           .eq('branch_id', userBranch.id)
           .eq('is_active', true)
           .order('is_dispatched', { ascending: true })
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(10),
         supabase
           .from('cities')
           .select('*')

@@ -58,7 +58,6 @@ const ManualLoadingChallan = ({ userBranch, branches = [] }) => {
             owner:staff!challan_details_owner_id_fkey(id, name, mobile_number),
             driver:staff!challan_details_driver_id_fkey(id, name, mobile_number, license_number)
           `)
-          .eq('branch_id', userBranch.id)
           .eq('is_active', true)
           .order('is_dispatched', { ascending: true })
           .order('created_at', { ascending: false })

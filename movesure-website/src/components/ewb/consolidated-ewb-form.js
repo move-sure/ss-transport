@@ -566,6 +566,51 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
               </details>
             )}
             
+            {/* Invalid EWB - Transfer Hint */}
+            {error.message && (error.message.toLowerCase().includes('invalid eway bill') || error.message.toLowerCase().includes('invalid e-way bill')) && (
+              <div className="p-4 bg-amber-50 rounded-lg border-2 border-amber-400">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <AlertTriangle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-amber-900 mb-2">⚠️ E-Way Bill Not Found on Your GSTIN</p>
+                    <p className="text-sm text-amber-800 mb-3">
+                      The selected E-Way Bill(s) are not linked to your GSTIN. Please <strong>transfer the E-Way Bill</strong> to the following GSTIN first, then retry.
+                    </p>
+                    <div className="flex items-center gap-2 bg-white border-2 border-amber-300 rounded-lg px-4 py-3 w-fit">
+                      <span className="text-xs font-semibold text-amber-700 uppercase">Transfer To:</span>
+                      <span className="text-base font-bold font-mono text-gray-900 tracking-wide">09COVPS5556J1ZT</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText('09COVPS5556J1ZT');
+                          const btn = document.getElementById('gstin-copy-btn');
+                          if (btn) {
+                            btn.textContent = '✓ Copied!';
+                            btn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+                            btn.classList.add('bg-green-600');
+                            setTimeout(() => {
+                              btn.textContent = 'Copy';
+                              btn.classList.remove('bg-green-600');
+                              btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+                            }, 2000);
+                          }
+                        }}
+                        id="gstin-copy-btn"
+                        className="ml-2 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md transition-colors flex items-center gap-1"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-xs text-amber-600 mt-2">
+                      Go to the E-Way Bill portal → Transfer EWB → Enter above GSTIN → Come back and retry.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Common Issues */}
             <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <p className="text-xs font-semibold text-yellow-800 uppercase tracking-wide mb-2">💡 Common Issues</p>
@@ -575,6 +620,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, onBack }) => {
                 <li>• Verify transporter document date is not in future</li>
                 <li>• Confirm all required fields are filled correctly</li>
                 <li>• Check if the EWB numbers belong to the same GSTIN</li>
+                <li>• If EWB shows &quot;Invalid&quot;, transfer it to <strong>09COVPS5556J1ZT</strong> on the EWB portal</li>
               </ul>
             </div>
             

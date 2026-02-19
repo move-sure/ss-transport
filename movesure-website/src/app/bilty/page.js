@@ -39,6 +39,9 @@ export default function BiltyForm() {
   // Add reset key to force component re-renders
   const [resetKey, setResetKey] = useState(0);
   
+  // GR Sequence validation - check if bill book current_number matches last bilty gr_no
+  const [grSequenceError, setGrSequenceError] = useState(null);
+  
   // State for dropdown data
   const [billBooks, setBillBooks] = useState([]);
   const [cities, setCities] = useState([]);
@@ -109,7 +112,76 @@ export default function BiltyForm() {
     if (!loading && cities.length > 0) {
       checkForEditData();
     }
-  }, [loading, cities]);  // Keyboard shortcuts
+  }, [loading, cities]);
+
+  // ⭐ GR SEQUENCE VALIDATION - Check if bill book current_number is ahead of last bilty gr_no
+  useEffect(() => {
+    if (!selectedBillBook || isEditMode || loading) {
+      setGrSequenceError(null);
+      return;
+    }
+
+    const currentGR = generateGRNumber(selectedBillBook);
+    if (!currentGR) {
+      setGrSequenceError(null);
+      return;
+    }
+
+    // Check if any existing bilty already has this GR number (for this branch)
+    const duplicateGR = existingBilties.find(b => 
+      b.gr_no && b.gr_no.trim().toLowerCase() === currentGR.trim().toLowerCase()
+    );
+
+    if (duplicateGR) {
+      const errorMsg = `⚠️ GR SEQUENCE ERROR: Bill book current number generates "${currentGR}" which already exists as a saved bilty (${duplicateGR.consignor_name || 'N/A'} → ${duplicateGR.consignee_name || 'N/A'}, ${duplicateGR.saving_option}). Bill book current_number (${selectedBillBook.current_number}) must be incremented to avoid duplicate. Please fix the bill book sequence.`;
+      console.error('🚨 ' + errorMsg);
+      setGrSequenceError({
+        message: errorMsg,
+        currentGR,
+        existingBilty: duplicateGR,
+        currentNumber: selectedBillBook.current_number
+      });
+    } else {
+      setGrSequenceError(null);
+    }
+  }, [selectedBillBook, existingBilties, isEditMode, loading]);
+
+  // ⭐ Fix GR sequence - update bill book current_number in DB
+  const fixGRSequence = async (newCurrentNumber) => {
+    if (!selectedBillBook) return;
+    
+    const num = parseInt(newCurrentNumber);
+    if (isNaN(num) || num < selectedBillBook.from_number || num > selectedBillBook.to_number) {
+      alert(`❌ Invalid number! Must be between ${selectedBillBook.from_number} and ${selectedBillBook.to_number}`);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('bill_books')
+        .update({ current_number: num })
+        .eq('id', selectedBillBook.id);
+
+      if (error) {
+        console.error('❌ Error fixing GR sequence:', error);
+        alert('❌ Failed to update bill book: ' + error.message);
+        return;
+      }
+
+      // Update local state
+      const updatedBook = { ...selectedBillBook, current_number: num };
+      setSelectedBillBook(updatedBook);
+      const newGR = generateGRNumber(updatedBook);
+      setFormData(prev => ({ ...prev, gr_no: newGR }));
+      setGrSequenceError(null);
+      console.log(`✅ Bill book current_number fixed to ${num}, new GR: ${newGR}`);
+    } catch (err) {
+      console.error('❌ Error fixing GR sequence:', err);
+      alert('❌ Failed to update: ' + err.message);
+    }
+  };
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Alt') setShowShortcuts(true);      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -404,6 +476,13 @@ export default function BiltyForm() {
     // Prevent multiple simultaneous saves
     if (saving) {
       console.log('⚠️ Save already in progress, ignoring duplicate request');
+      return;
+    }
+
+    // ⭐ BLOCK SAVE if GR sequence error detected (only for new bilties)
+    if (grSequenceError && !isEditMode) {
+      console.error('🚨 SAVE BLOCKED: GR sequence error -', grSequenceError.message);
+      alert(`❌ SAVE BLOCKED!\n\nGR Number "${grSequenceError.currentGR}" already exists as a saved bilty.\n\nBill book current_number (${grSequenceError.currentNumber}) is NOT ahead of the last bilty.\n\nPlease fix the bill book sequence before creating new bilties.`);
       return;
     }
 
@@ -1130,6 +1209,8 @@ export default function BiltyForm() {
             existingBilties={existingBilties}
             showShortcuts={showShortcuts}
             cities={cities}
+            grSequenceError={grSequenceError}
+            onFixGRSequence={fixGRSequence}
           />          {/* Row 2: City & Transport */}
           <CityTransportSection
             key={`city-transport-${resetKey}`}

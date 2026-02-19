@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Edit3, Search, Plus, TrendingUp } from 'lucide-react';
+import { ChevronDown, Edit3, Search, Plus, TrendingUp, AlertTriangle, Wrench } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
 import RateSearchModal from './rate-search-modal';
 
@@ -18,7 +18,9 @@ const GRNumberSection = ({
   resetForm,
   existingBilties,
   showShortcuts,
-  cities = [] // Add cities prop
+  cities = [],
+  grSequenceError = null,
+  onFixGRSequence = null
 }) => {
   const [showGRDropdown, setShowGRDropdown] = useState(false);
   const [grSearch, setGrSearch] = useState('');
@@ -27,6 +29,7 @@ const GRNumberSection = ({
   const [displayLimit, setDisplayLimit] = useState(50); // Start with 50 bilties
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showRateSearchModal, setShowRateSearchModal] = useState(false);
+  const [fixNumber, setFixNumber] = useState('');
   
   const grRef = useRef(null);
   const grInputRef = useRef(null);
@@ -228,6 +231,74 @@ const GRNumberSection = ({
 
   return (
   <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm">
+      {/* ⚠️ GR SEQUENCE ERROR WARNING */}
+      {grSequenceError && !isEditMode && (
+        <div className="mb-3 p-3 bg-red-50 border-2 border-red-400 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5 animate-pulse" />
+            <div className="flex-1">
+              <div className="text-red-700 font-bold text-sm">
+                ⚠️ GR SEQUENCE ERROR — SAVE & PRINT BLOCKED
+              </div>
+              <div className="text-red-600 text-xs mt-1">
+                GR <span className="font-bold bg-red-100 px-1 rounded">"{grSequenceError.currentGR}"</span> already exists → {grSequenceError.existingBilty?.consignor_name || 'N/A'} → {grSequenceError.existingBilty?.consignee_name || 'N/A'} ({grSequenceError.existingBilty?.saving_option})
+              </div>
+              <div className="text-red-700 text-xs mt-1">
+                Current bill book number: <span className="font-bold">{grSequenceError.currentNumber}</span> {selectedBillBook && <span className="text-red-500">(range: {selectedBillBook.from_number} - {selectedBillBook.to_number})</span>}
+              </div>
+              
+              {/* FIX SECTION */}
+              <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Wrench className="w-3.5 h-3.5 text-red-600" />
+                  <span className="text-red-700 text-xs font-semibold">Fix — Set new current number:</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    value={fixNumber}
+                    onChange={(e) => setFixNumber(e.target.value)}
+                    placeholder={String((grSequenceError.currentNumber || 0) + 1)}
+                    min={selectedBillBook?.from_number || 1}
+                    max={selectedBillBook?.to_number || 9999}
+                    className="w-24 px-2 py-1 text-xs font-bold border-2 border-red-400 rounded-md bg-white text-red-800 placeholder-red-300 focus:border-red-600 focus:ring-0 focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const num = fixNumber || String((grSequenceError.currentNumber || 0) + 1);
+                        onFixGRSequence && onFixGRSequence(num);
+                        setFixNumber('');
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const num = fixNumber || String((grSequenceError.currentNumber || 0) + 1);
+                      onFixGRSequence && onFixGRSequence(num);
+                      setFixNumber('');
+                    }}
+                    className="px-3 py-1 text-xs font-bold bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1"
+                  >
+                    <Wrench className="w-3 h-3" />
+                    FIX NOW
+                  </button>
+                  <button
+                    onClick={() => {
+                      onFixGRSequence && onFixGRSequence(String((grSequenceError.currentNumber || 0) + 1));
+                      setFixNumber('');
+                    }}
+                    className="px-3 py-1 text-xs font-semibold bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors shadow-sm"
+                    title={`Quick fix: Set to ${(grSequenceError.currentNumber || 0) + 1}`}
+                  >
+                    +1 Quick Fix
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Responsive layout for edit mode */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
         {/* Main form controls */}
@@ -311,7 +382,11 @@ const GRNumberSection = ({
               ) : (                <input
                   type="text"
                   value={formData.gr_no}
-                  className="w-full sm:w-40 px-2 py-1.5 text-black text-sm font-bold border-2 border-gray-300 rounded-lg bg-gray-100 shadow-md transition-all duration-200"
+                  className={`w-full sm:w-40 px-2 py-1.5 text-sm font-bold border-2 rounded-lg shadow-md transition-all duration-200 ${
+                    grSequenceError 
+                      ? 'text-red-700 border-red-500 bg-red-50' 
+                      : 'text-black border-gray-300 bg-gray-100'
+                  }`}
                   readOnly
                   tabIndex={-1}
                 />

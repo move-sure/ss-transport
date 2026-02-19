@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { 
   FileText, Plus, Download, Building2, ChevronDown, Check, Users, Calendar, Archive, X, AlertCircle
 } from 'lucide-react';
-import SampleLoadingChallan from '../transit/SampleLoadingChallan';
 import ManualLoadingChallan from './manual-loading-challan';
 
 const ManualBiltyHeader = ({
@@ -181,12 +180,6 @@ const ManualBiltyHeader = ({
               {/* Divider */}
               <div className="w-px h-5 bg-white/20 mx-0.5"></div>
 
-              {/* Challan Actions Group */}
-              <SampleLoadingChallan 
-                userBranch={selectedBranch}
-                permanentDetails={null}
-              />
-              
               <ManualLoadingChallan
                 userBranch={selectedBranch}
                 branches={branches}

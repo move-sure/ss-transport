@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, AlertTriangle, Search, X } from 'lucide-react';
+import { Plus, AlertTriangle, Search, X, CheckCircle } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
 import { 
   useConsignorConsigneeSearch,
@@ -55,6 +55,12 @@ const ConsignorConsigneeSection = ({
   
   // Last city for consignee (from most recent bilty)
   const [consigneeLastCity, setConsigneeLastCity] = useState(null);
+  
+  // New entry tracking
+  const [isNewConsignor, setIsNewConsignor] = useState(false);
+  const [isNewConsignee, setIsNewConsignee] = useState(false);
+  const [newConsignorSaved, setNewConsignorSaved] = useState(false);
+  const [newConsigneeSaved, setNewConsigneeSaved] = useState(false);
     const consignorRef = useRef(null);
   const consigneeRef = useRef(null);
   const consignorInputRef = useRef(null);
@@ -63,6 +69,10 @@ const ConsignorConsigneeSection = ({
   const consignorPhoneRef = useRef(null);
   const consigneeGstRef = useRef(null);
   const consigneePhoneRef = useRef(null);
+  
+  // Refs to store the selected name from dropdown (for auto-correction when moving to GST)
+  const selectedConsignorNameRef = useRef(null);
+  const selectedConsigneeNameRef = useRef(null);
   
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
@@ -117,10 +127,19 @@ const ConsignorConsigneeSection = ({
     if (formData.consignee_name && consigneeSearch !== formData.consignee_name) {
       setConsigneeSearch(formData.consignee_name);
     }
-    // Clear last city when consignee name is cleared (e.g., form reset)
+    // Clear states when names are cleared (e.g., form reset)
     if (!formData.consignee_name) {
       setConsigneeLastCity(null);
       setConsigneeSearch('');
+      selectedConsigneeNameRef.current = null;
+      setIsNewConsignee(false);
+      setNewConsigneeSaved(false);
+    }
+    if (!formData.consignor_name) {
+      setConsignorSearch('');
+      selectedConsignorNameRef.current = null;
+      setIsNewConsignor(false);
+      setNewConsignorSaved(false);
     }
   }, [formData.consignor_name, formData.consignee_name]);
   // Simple tab navigation using standard tabIndex
@@ -185,6 +204,27 @@ const ConsignorConsigneeSection = ({
     const upperValue = value.toUpperCase();
     console.log('🎯 Consignor search changed:', upperValue);
     
+    // If user types after selecting from dropdown, clear the selected ref
+    // (they are intentionally changing the name)
+    if (selectedConsignorNameRef.current && upperValue !== selectedConsignorNameRef.current) {
+      selectedConsignorNameRef.current = null;
+      setIsNewConsignor(false);
+      setNewConsignorSaved(false);
+      // Clear GST and phone since name is changing
+      setFormData(prev => ({
+        ...prev,
+        consignor_name: upperValue,
+        consignor_gst: '',
+        consignor_number: ''
+      }));
+      setConsignorSearch(upperValue);
+      if (upperValue.length >= 1) {
+        searchDatabase(upperValue, 'consignors');
+      }
+      setConsignorSelectedIndex(-1);
+      return;
+    }
+    
     // Update search state immediately
     setConsignorSearch(upperValue);
     
@@ -223,6 +263,26 @@ const ConsignorConsigneeSection = ({
     
     // Clear last city when user is typing (not when selecting)
     setConsigneeLastCity(null);
+    
+    // If user types after selecting from dropdown, clear the selected ref
+    if (selectedConsigneeNameRef.current && upperValue !== selectedConsigneeNameRef.current) {
+      selectedConsigneeNameRef.current = null;
+      setIsNewConsignee(false);
+      setNewConsigneeSaved(false);
+      // Clear GST and phone since name is changing
+      setFormData(prev => ({
+        ...prev,
+        consignee_name: upperValue,
+        consignee_gst: '',
+        consignee_number: ''
+      }));
+      setConsigneeSearch(upperValue);
+      if (upperValue.length >= 1) {
+        searchDatabase(upperValue, 'consignees');
+      }
+      setConsigneeSelectedIndex(-1);
+      return;
+    }
     
     // Update search state immediately
     setConsigneeSearch(upperValue);
@@ -301,6 +361,11 @@ const ConsignorConsigneeSection = ({
     setConsignorSelectedIndex(-1);
     clearResults();
     
+    // Remember the selected name for auto-correction
+    selectedConsignorNameRef.current = consignor.company_name;
+    setIsNewConsignor(false);
+    setNewConsignorSaved(false);
+    
     // Focus back to the input to maintain navigation flow
     if (consignorInputRef.current) {
       consignorInputRef.current.focus();
@@ -335,6 +400,11 @@ const ConsignorConsigneeSection = ({
     });setShowConsigneeDropdown(false);
     setConsigneeSelectedIndex(-1);
     clearResults();
+    
+    // Remember the selected name for auto-correction
+    selectedConsigneeNameRef.current = consignee.company_name;
+    setIsNewConsignee(false);
+    setNewConsigneeSaved(false);
     
     // Focus back to the input to maintain navigation flow
     if (consigneeInputRef.current) {
@@ -716,67 +786,186 @@ const ConsignorConsigneeSection = ({
       setAddingConsignee(false);
     }
   };
+  // Auto-correct consignor name when user moves to GST field
+  // If a consignor was selected from dropdown but user typed extra chars, revert to selected name
+  const autoCorrectConsignorName = () => {
+    if (selectedConsignorNameRef.current && consignorSearch !== selectedConsignorNameRef.current) {
+      console.log('🔧 Auto-correcting consignor name from', consignorSearch, 'to', selectedConsignorNameRef.current);
+      setConsignorSearch(selectedConsignorNameRef.current);
+      setFormData(prev => ({
+        ...prev,
+        consignor_name: selectedConsignorNameRef.current
+      }));
+    }
+  };
+
+  // Auto-correct consignee name when user moves to GST field
+  const autoCorrectConsigneeName = () => {
+    if (selectedConsigneeNameRef.current && consigneeSearch !== selectedConsigneeNameRef.current) {
+      console.log('🔧 Auto-correcting consignee name from', consigneeSearch, 'to', selectedConsigneeNameRef.current);
+      setConsigneeSearch(selectedConsigneeNameRef.current);
+      setFormData(prev => ({
+        ...prev,
+        consignee_name: selectedConsigneeNameRef.current
+      }));
+    }
+  };
+
+  // Auto-save new consignor to database (called when user leaves name and goes to GST)
+  const autoSaveNewConsignor = async (nameToSave) => {
+    const name = nameToSave || consignorSearch;
+    if (!name || !name.trim() || name.trim().length < 2) return;
+    // Don't auto-save if a consignor was selected from dropdown
+    if (selectedConsignorNameRef.current) return;
+    
+    try {
+      // Check if already exists (exact match)
+      const isDuplicate = await checkDuplicateConsignor(name);
+      if (isDuplicate) {
+        setIsNewConsignor(false);
+        return;
+      }
+      
+      const result = await addNewConsignor({
+        company_name: name.trim(),
+        gst_num: null,
+        number: null
+      });
+      
+      if (result.success) {
+        console.log('✅ New consignor auto-saved:', name);
+        selectedConsignorNameRef.current = name.trim();
+        setIsNewConsignor(true);
+        setNewConsignorSaved(true);
+        
+        if (onDataUpdate) onDataUpdate();
+        
+        // Auto-hide the saved indicator after 8 seconds
+        setTimeout(() => setNewConsignorSaved(false), 8000);
+      }
+    } catch (error) {
+      console.error('Error auto-saving new consignor:', error);
+    }
+  };
+
+  // Auto-save new consignee to database (called when user leaves name and goes to GST)
+  const autoSaveNewConsignee = async (nameToSave) => {
+    const name = nameToSave || consigneeSearch;
+    if (!name || !name.trim() || name.trim().length < 2) return;
+    // Don't auto-save if a consignee was selected from dropdown
+    if (selectedConsigneeNameRef.current) return;
+    
+    try {
+      // Check if already exists (exact match)
+      const isDuplicate = await checkDuplicateConsignee(name);
+      if (isDuplicate) {
+        setIsNewConsignee(false);
+        return;
+      }
+      
+      const result = await addNewConsignee({
+        company_name: name.trim(),
+        gst_num: null,
+        number: null
+      });
+      
+      if (result.success) {
+        console.log('✅ New consignee auto-saved:', name);
+        selectedConsigneeNameRef.current = name.trim();
+        setIsNewConsignee(true);
+        setNewConsigneeSaved(true);
+        
+        if (onDataUpdate) onDataUpdate();
+        
+        // Auto-hide the saved indicator after 8 seconds
+        setTimeout(() => setNewConsigneeSaved(false), 8000);
+      }
+    } catch (error) {
+      console.error('Error auto-saving new consignee:', error);
+    }
+  };
+
   return (
     <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm space-y-3">
       {/* Consignor Section - Single Row */}
       <div className="grid grid-cols-12 gap-2 items-center">
-        {/* Consignor Label */}
+        {/* Consignor Label + Status Badge */}
         <div className="col-span-1">
           <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
             CONSIGNOR
           </span>
+          {newConsignorSaved && (
+            <span className="mt-1 flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5 animate-pulse">
+              <CheckCircle className="w-3 h-3" /> NEW ✓
+            </span>
+          )}
         </div>
         
         {/* Consignor Name */}
         <div className="col-span-5 relative" ref={consignorRef}>
-          <input
-            type="text"
-            ref={consignorInputRef}
-            value={consignorSearch || ''}
-            onChange={(e) => {
-              console.log('🎯 Consignor input onChange triggered with value:', e.target.value);
-              handleConsignorSearchChange(e.target.value);
-            }}
-            onFocus={() => {
-              console.log('🎯 Consignor input focused');
-              setTimeout(() => {
-                const element = consignorInputRef.current;
-                if (element) {
-                  element.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start',
-                    inline: 'nearest'
-                  });
+          <div className="relative">
+            <input
+              type="text"
+              ref={consignorInputRef}
+              value={consignorSearch || ''}
+              onChange={(e) => {
+                console.log('🎯 Consignor input onChange triggered with value:', e.target.value);
+                handleConsignorSearchChange(e.target.value);
+              }}
+              onFocus={() => {
+                console.log('🎯 Consignor input focused');
+                setTimeout(() => {
+                  const element = consignorInputRef.current;
+                  if (element) {
+                    element.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'start',
+                      inline: 'nearest'
+                    });
+                  }
+                }, 100);
+                
+                if (consignorSearch && consignorSearch.length >= 2) {
+                  searchDatabase(consignorSearch, 'consignors');
                 }
-              }, 100);
-              
-              if (consignorSearch && consignorSearch.length >= 2) {
-                searchDatabase(consignorSearch, 'consignors');
-              }
-            }}
-            onBlur={() => {
-              console.log('🎯 Consignor input blurred');
-              setTimeout(() => {
-                setShowConsignorDropdown(false);
-                setConsignorSelectedIndex(-1);
-              }, 150);
-            }}
-            onKeyDown={handleConsignorKeyDown}
-            placeholder="Name..."
-            className="w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 uppercase"
-            tabIndex={5}
-            aria-expanded={showConsignorDropdown ? 'true' : 'false'}
-            role="combobox"
-            style={{ textTransform: 'uppercase' }}
-          />
-          {isSearching && (
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-              <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          )}
-          {!isSearching && consignorSearch && (
-            <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500" />
-          )}
+              }}
+              onBlur={() => {
+                console.log('🎯 Consignor input blurred');
+                const currentSearch = consignorSearch;
+                setTimeout(async () => {
+                  setShowConsignorDropdown(false);
+                  setConsignorSelectedIndex(-1);
+                  
+                  // Auto-correct: if a consignor was selected from dropdown but user typed extra chars, revert
+                  autoCorrectConsignorName();
+                  
+                  // If name is typed and not from dropdown, auto-save as new consignor
+                  if (currentSearch && currentSearch.trim() && !selectedConsignorNameRef.current) {
+                    await autoSaveNewConsignor(currentSearch);
+                  }
+                }, 250);
+              }}
+              onKeyDown={handleConsignorKeyDown}
+              placeholder="Name..."
+              className={`w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border rounded-lg shadow-sm placeholder-slate-400 focus:ring-0 transition-colors duration-200 uppercase ${
+                newConsignorSaved
+                  ? 'border-emerald-400 bg-emerald-50'
+                  : 'border-slate-300 bg-white focus:border-indigo-400 hover:border-indigo-300'
+              }`}
+              tabIndex={5}
+              aria-expanded={showConsignorDropdown ? 'true' : 'false'}
+              role="combobox"
+              style={{ textTransform: 'uppercase' }}
+            />
+            {isSearching && (
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+            {!isSearching && consignorSearch && (
+              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500" />
+            )}
+          </div>
             {showConsignorDropdown && (
                 <div className="absolute z-30 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {/* Add New Consignor Button - Always at top */}
@@ -852,6 +1041,10 @@ const ConsignorConsigneeSection = ({
             ref={consignorGstRef}
             value={formData.consignor_gst || ''}
             onChange={handleConsignorGSTChange}
+            onFocus={() => {
+              // Auto-correct consignor name when user moves to GST field
+              autoCorrectConsignorName();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -889,52 +1082,72 @@ const ConsignorConsigneeSection = ({
 
       {/* Consignee Section - Single Row */}
       <div className="grid grid-cols-12 gap-2 items-center">
-        {/* Consignee Label */}
+        {/* Consignee Label + Status Badge */}
         <div className="col-span-1">
           <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
             CONSIGNEE
           </span>
+          {newConsigneeSaved && (
+            <span className="mt-1 flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5 animate-pulse">
+              <CheckCircle className="w-3 h-3" /> NEW ✓
+            </span>
+          )}
         </div>
         
         {/* Consignee Name */}
         <div className="col-span-5 relative" ref={consigneeRef}>
-          <input
-            type="text"
-            ref={consigneeInputRef}
-            value={consigneeSearch || ''}
-            onChange={(e) => {
-              console.log('🎯 Consignee input onChange triggered with value:', e.target.value);
-              handleConsigneeSearchChange(e.target.value);
-            }}
-            onFocus={() => {
-              console.log('🎯 Consignee input focused');
-              if (consigneeSearch && consigneeSearch.length >= 2) {
-                searchDatabase(consigneeSearch, 'consignees');
-              }
-            }}
-            onBlur={() => {
-              console.log('🎯 Consignee input blurred');
-              setTimeout(() => {
-                setShowConsigneeDropdown(false);
-                setConsigneeSelectedIndex(-1);
-              }, 150);
-            }}
-            onKeyDown={handleConsigneeKeyDown}
-            placeholder="Name..."
-            className="w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300 dropdown-input uppercase"
-            tabIndex={8}
-            aria-expanded={showConsigneeDropdown}
-            role="combobox"
-            style={{ textTransform: 'uppercase' }}
-          />
-          {isSearching && (
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-              <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          )}
-          {!isSearching && consigneeSearch && (
-            <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-600" />
-          )}
+          <div className="relative">
+            <input
+              type="text"
+              ref={consigneeInputRef}
+              value={consigneeSearch || ''}
+              onChange={(e) => {
+                console.log('🎯 Consignee input onChange triggered with value:', e.target.value);
+                handleConsigneeSearchChange(e.target.value);
+              }}
+              onFocus={() => {
+                console.log('🎯 Consignee input focused');
+                if (consigneeSearch && consigneeSearch.length >= 2) {
+                  searchDatabase(consigneeSearch, 'consignees');
+                }
+              }}
+              onBlur={() => {
+                console.log('🎯 Consignee input blurred');
+                const currentSearch = consigneeSearch;
+                setTimeout(async () => {
+                  setShowConsigneeDropdown(false);
+                  setConsigneeSelectedIndex(-1);
+                  
+                  // Auto-correct: if a consignee was selected from dropdown but user typed extra chars, revert
+                  autoCorrectConsigneeName();
+                  
+                  // If name is typed and not from dropdown, auto-save as new consignee
+                  if (currentSearch && currentSearch.trim() && !selectedConsigneeNameRef.current) {
+                    await autoSaveNewConsignee(currentSearch);
+                  }
+                }, 250);
+              }}
+              onKeyDown={handleConsigneeKeyDown}
+              placeholder="Name..."
+              className={`w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border rounded-lg shadow-sm placeholder-slate-400 focus:ring-0 transition-colors duration-200 uppercase ${
+                newConsigneeSaved
+                  ? 'border-emerald-400 bg-emerald-50'
+                  : 'border-slate-300 bg-white focus:border-indigo-400 hover:border-indigo-300'
+              }`}
+              tabIndex={8}
+              aria-expanded={showConsigneeDropdown}
+              role="combobox"
+              style={{ textTransform: 'uppercase' }}
+            />
+            {isSearching && (
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+            {!isSearching && consigneeSearch && (
+              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-600" />
+            )}
+          </div>
               {showConsigneeDropdown && (
               <div className="absolute z-30 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto dropdown-open autocomplete-open">
                 {/* Add New Consignee Button - Always at top */}
@@ -1010,6 +1223,10 @@ const ConsignorConsigneeSection = ({
             ref={consigneeGstRef}
             value={formData.consignee_gst || ''}
             onChange={handleConsigneeGSTChange}
+            onFocus={() => {
+              // Auto-correct consignee name when user moves to GST field
+              autoCorrectConsigneeName();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();

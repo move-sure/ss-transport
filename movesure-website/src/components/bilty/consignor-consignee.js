@@ -15,7 +15,9 @@ import {
   checkDuplicateConsignee,
   getSimilarConsignors,
   getSimilarConsignees,
-  getConsigneeLastCity
+  getConsigneeLastCity,
+  findConsignorByGST,
+  findConsigneeByGST
 } from './consignor-consignee-helper';
 
 const ConsignorConsigneeSection = ({ 
@@ -460,49 +462,100 @@ const ConsignorConsigneeSection = ({
   };
   // Handle GST updates for existing consignors/consignees
   const handleConsignorGSTChange = async (e) => {
-    const newGST = e.target.value;
+    const newGST = e.target.value.toUpperCase();
     console.log('🎯 Consignor GST changed:', newGST);
     
     // Update form data immediately
     setFormData(prev => {
       const updated = { ...prev, consignor_gst: newGST };
-      console.log('🔄 Updated formData.consignor_gst:', updated.consignor_gst);
       return updated;
     });
     
-    // If consignor exists and GST is being updated, save to database
-    if (formData.consignor_name && newGST && newGST.length >= 15) {
+    // When GST is 15 chars (valid GSTIN length), check if another consignor already has this GST
+    if (newGST && newGST.trim().length >= 15) {
       try {
-        const result = await updateConsignorGST(formData.consignor_name, newGST);
-        if (result.success) {
-          console.log('Consignor GST updated successfully');
+        const existingConsignor = await findConsignorByGST(newGST);
+        if (existingConsignor && existingConsignor.company_name.trim().toUpperCase() !== (formData.consignor_name || '').trim().toUpperCase()) {
+          // Found a different consignor with same GST - auto-switch to existing one
+          console.log('🔄 GST duplicate found! Switching consignor from', formData.consignor_name, 'to', existingConsignor.company_name);
+          
+          setConsignorSearch(existingConsignor.company_name);
+          selectedConsignorNameRef.current = existingConsignor.company_name;
+          setIsNewConsignor(false);
+          setNewConsignorSaved(false);
+          
+          setFormData(prev => ({
+            ...prev,
+            consignor_name: existingConsignor.company_name,
+            consignor_gst: existingConsignor.gst_num || newGST,
+            consignor_number: existingConsignor.number || prev.consignor_number
+          }));
+          
+          // Dispatch event for rate lookup with new consignor
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('consignorSelected', {
+              detail: { consignor: existingConsignor, cityId: formData.to_city_id }
+            }));
+          }
+          return;
+        }
+        // GST doesn't belong to another consignor - update the current consignor's GST in DB
+        if (formData.consignor_name) {
+          const result = await updateConsignorGST(formData.consignor_name, newGST);
+          if (result.success) {
+            console.log('Consignor GST updated successfully');
+          }
         }
       } catch (error) {
-        console.error('Error updating consignor GST:', error);
+        console.error('Error checking/updating consignor GST:', error);
       }
     }
   };
 
   const handleConsigneeGSTChange = async (e) => {
-    const newGST = e.target.value;
+    const newGST = e.target.value.toUpperCase();
     console.log('🎯 Consignee GST changed:', newGST);
     
     // Update form data immediately
     setFormData(prev => {
       const updated = { ...prev, consignee_gst: newGST };
-      console.log('🔄 Updated formData.consignee_gst:', updated.consignee_gst);
       return updated;
     });
     
-    // If consignee exists and GST is being updated, save to database
-    if (formData.consignee_name && newGST && newGST.length >= 15) {
+    // When GST is 15 chars (valid GSTIN length), check if another consignee already has this GST
+    if (newGST && newGST.trim().length >= 15) {
       try {
-        const result = await updateConsigneeGST(formData.consignee_name, newGST);
-        if (result.success) {
-          console.log('Consignee GST updated successfully');
+        const existingConsignee = await findConsigneeByGST(newGST);
+        if (existingConsignee && existingConsignee.company_name.trim().toUpperCase() !== (formData.consignee_name || '').trim().toUpperCase()) {
+          // Found a different consignee with same GST - auto-switch to existing one
+          console.log('🔄 GST duplicate found! Switching consignee from', formData.consignee_name, 'to', existingConsignee.company_name);
+          
+          setConsigneeSearch(existingConsignee.company_name);
+          selectedConsigneeNameRef.current = existingConsignee.company_name;
+          setIsNewConsignee(false);
+          setNewConsigneeSaved(false);
+          
+          // Fetch last city for the switched consignee
+          const lastCity = await getConsigneeLastCity(existingConsignee.company_name);
+          setConsigneeLastCity(lastCity);
+          
+          setFormData(prev => ({
+            ...prev,
+            consignee_name: existingConsignee.company_name,
+            consignee_gst: existingConsignee.gst_num || newGST,
+            consignee_number: existingConsignee.number || prev.consignee_number
+          }));
+          return;
+        }
+        // GST doesn't belong to another consignee - update the current consignee's GST in DB
+        if (formData.consignee_name) {
+          const result = await updateConsigneeGST(formData.consignee_name, newGST);
+          if (result.success) {
+            console.log('Consignee GST updated successfully');
+          }
         }
       } catch (error) {
-        console.error('Error updating consignee GST:', error);
+        console.error('Error checking/updating consignee GST:', error);
       }
     }
   };  // Keyboard navigation with Enter and Tab support
@@ -692,6 +745,30 @@ const ConsignorConsigneeSection = ({
       return;
     }
 
+    // Check if GST already exists for another consignor
+    if (newConsignorData.gst_num && newConsignorData.gst_num.trim().length >= 15) {
+      const existingByGST = await findConsignorByGST(newConsignorData.gst_num);
+      if (existingByGST) {
+        // GST already belongs to another consignor - use existing one
+        console.log('🔄 GST already exists for consignor:', existingByGST.company_name);
+        setFormData(prev => ({
+          ...prev,
+          consignor_name: existingByGST.company_name,
+          consignor_gst: existingByGST.gst_num || '',
+          consignor_number: existingByGST.number || ''
+        }));
+        setConsignorSearch(existingByGST.company_name);
+        selectedConsignorNameRef.current = existingByGST.company_name;
+        setNewConsignorData({ company_name: '', gst_num: '', number: '' });
+        setConsignorSuggestions([]);
+        setConsignorExists(false);
+        setShowAddConsignor(false);
+        setShowConsignorDropdown(false);
+        alert(`GST ${newConsignorData.gst_num} already belongs to "${existingByGST.company_name}". Using existing consignor.`);
+        return;
+      }
+    }
+
     try {
       setAddingConsignor(true);
       
@@ -743,6 +820,30 @@ const ConsignorConsigneeSection = ({
     if (consigneeExists) {
       alert('This company name already exists! Please select from suggestions or use a different name.');
       return;
+    }
+
+    // Check if GST already exists for another consignee
+    if (newConsigneeData.gst_num && newConsigneeData.gst_num.trim().length >= 15) {
+      const existingByGST = await findConsigneeByGST(newConsigneeData.gst_num);
+      if (existingByGST) {
+        // GST already belongs to another consignee - use existing one
+        console.log('🔄 GST already exists for consignee:', existingByGST.company_name);
+        setFormData(prev => ({
+          ...prev,
+          consignee_name: existingByGST.company_name,
+          consignee_gst: existingByGST.gst_num || '',
+          consignee_number: existingByGST.number || ''
+        }));
+        setConsigneeSearch(existingByGST.company_name);
+        selectedConsigneeNameRef.current = existingByGST.company_name;
+        setNewConsigneeData({ company_name: '', gst_num: '', number: '' });
+        setConsigneeSuggestions([]);
+        setConsigneeExists(false);
+        setShowAddConsignee(false);
+        setShowConsigneeDropdown(false);
+        alert(`GST ${newConsigneeData.gst_num} already belongs to "${existingByGST.company_name}". Using existing consignee.`);
+        return;
+      }
     }
 
     try {
@@ -819,11 +920,30 @@ const ConsignorConsigneeSection = ({
     if (selectedConsignorNameRef.current) return;
     
     try {
-      // Check if already exists (exact match)
+      // Check if already exists (exact name match)
       const isDuplicate = await checkDuplicateConsignor(name);
       if (isDuplicate) {
         setIsNewConsignor(false);
         return;
+      }
+      
+      // Also check if current GST already belongs to an existing consignor
+      if (formData.consignor_gst && formData.consignor_gst.trim().length >= 15) {
+        const existingByGST = await findConsignorByGST(formData.consignor_gst);
+        if (existingByGST) {
+          console.log('🔄 GST already exists for consignor:', existingByGST.company_name, '- skipping auto-save');
+          // Auto-switch to the existing consignor
+          setConsignorSearch(existingByGST.company_name);
+          selectedConsignorNameRef.current = existingByGST.company_name;
+          setIsNewConsignor(false);
+          setFormData(prev => ({
+            ...prev,
+            consignor_name: existingByGST.company_name,
+            consignor_gst: existingByGST.gst_num || prev.consignor_gst,
+            consignor_number: existingByGST.number || prev.consignor_number
+          }));
+          return;
+        }
       }
       
       const result = await addNewConsignor({
@@ -856,11 +976,30 @@ const ConsignorConsigneeSection = ({
     if (selectedConsigneeNameRef.current) return;
     
     try {
-      // Check if already exists (exact match)
+      // Check if already exists (exact name match)
       const isDuplicate = await checkDuplicateConsignee(name);
       if (isDuplicate) {
         setIsNewConsignee(false);
         return;
+      }
+      
+      // Also check if current GST already belongs to an existing consignee
+      if (formData.consignee_gst && formData.consignee_gst.trim().length >= 15) {
+        const existingByGST = await findConsigneeByGST(formData.consignee_gst);
+        if (existingByGST) {
+          console.log('🔄 GST already exists for consignee:', existingByGST.company_name, '- skipping auto-save');
+          // Auto-switch to the existing consignee
+          setConsigneeSearch(existingByGST.company_name);
+          selectedConsigneeNameRef.current = existingByGST.company_name;
+          setIsNewConsignee(false);
+          setFormData(prev => ({
+            ...prev,
+            consignee_name: existingByGST.company_name,
+            consignee_gst: existingByGST.gst_num || prev.consignee_gst,
+            consignee_number: existingByGST.number || prev.consignee_number
+          }));
+          return;
+        }
       }
       
       const result = await addNewConsignee({

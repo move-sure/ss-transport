@@ -245,6 +245,46 @@ export const checkDuplicateConsignee = async (companyName) => {
   }
 };
 
+// Find consignor by GST number (for duplicate prevention)
+export const findConsignorByGST = async (gstNumber) => {
+  try {
+    if (!gstNumber || gstNumber.trim().length < 15) return null;
+    
+    const { data, error } = await supabase
+      .from('consignors')
+      .select('id, company_name, gst_num, number')
+      .ilike('gst_num', gstNumber.trim())
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+    return data;
+  } catch (error) {
+    console.error('Error finding consignor by GST:', error);
+    return null;
+  }
+};
+
+// Find consignee by GST number (for duplicate prevention)
+export const findConsigneeByGST = async (gstNumber) => {
+  try {
+    if (!gstNumber || gstNumber.trim().length < 15) return null;
+    
+    const { data, error } = await supabase
+      .from('consignees')
+      .select('id, company_name, gst_num, number')
+      .ilike('gst_num', gstNumber.trim())
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+    return data;
+  } catch (error) {
+    console.error('Error finding consignee by GST:', error);
+    return null;
+  }
+};
+
 // Get suggestions for similar names
 export const getSimilarConsignors = async (searchTerm, limit = 5) => {
   try {

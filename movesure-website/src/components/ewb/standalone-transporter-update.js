@@ -47,6 +47,8 @@ export default function StandaloneTransporterUpdate() {
   const [transporterSearch, setTransporterSearch] = useState('');
   const [showTransporterDropdown, setShowTransporterDropdown] = useState(false);
   const [selectedTransporterIdx, setSelectedTransporterIdx] = useState(-1);
+  const [searchAllTransports, setSearchAllTransports] = useState(false);
+  const [loadingAllTransports, setLoadingAllTransports] = useState(false);
   const transporterDropdownRef = useRef(null);
   const transporterSearchRef = useRef(null);
 
@@ -95,6 +97,8 @@ export default function StandaloneTransporterUpdate() {
     setTransporterSearch('');
     setShowTransporterDropdown(false);
     setSelectedTransporterIdx(-1);
+    setSearchAllTransports(false);
+    setLoadingAllTransports(false);
   };
 
   // Handle selecting a transporter from suggestions
@@ -116,6 +120,50 @@ export default function StandaloneTransporterUpdate() {
         phone: transporter.phone || null
       }
     }));
+  };
+
+  // Fetch ALL transporters across all cities
+  const fetchAllTransporters = async () => {
+    setLoadingAllTransports(true);
+    try {
+      const { data: transportRows, error: transportError } = await supabase
+        .from('transports')
+        .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name')
+        .not('transport_name', 'is', null)
+        .order('transport_name', { ascending: true });
+
+      if (transportError) throw transportError;
+
+      const allTransporters = (transportRows || []).map(t => ({
+        id: t.id,
+        name: t.transport_name,
+        gst: t.gst_number || '',
+        city: t.city_name || '',
+        phone: t.mob_number || '',
+        address: t.address || '',
+        branchOwner: t.branch_owner_name || ''
+      }));
+
+      setTransporterSuggestions(allTransporters);
+      setShowTransporterDropdown(true);
+      setTimeout(() => transporterSearchRef.current?.focus(), 100);
+    } catch (err) {
+      console.error('Error fetching all transporters:', err);
+    } finally {
+      setLoadingAllTransports(false);
+    }
+  };
+
+  // Toggle search all transports
+  const handleToggleSearchAll = async () => {
+    const newVal = !searchAllTransports;
+    setSearchAllTransports(newVal);
+    if (newVal) {
+      await fetchAllTransporters();
+    } else {
+      setShowTransporterDropdown(false);
+      setTransporterSearch('');
+    }
   };
 
   // Filter suggestions based on search
@@ -1141,9 +1189,19 @@ export default function StandaloneTransporterUpdate() {
 
           {autoFillStatus.error && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-amber-700 text-sm">
-                <AlertTriangle className="w-4 h-4" />
-                <span>{autoFillStatus.error}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-amber-700 text-sm">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>{autoFillStatus.error}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleSearchAll}
+                  disabled={loadingAllTransports}
+                  className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-1 whitespace-nowrap ml-3"
+                >
+                  {loadingAllTransports ? '⏳' : '🌐'} Search All
+                </button>
               </div>
             </div>
           )}
@@ -1184,12 +1242,29 @@ export default function StandaloneTransporterUpdate() {
               </div>
 
               {/* Transporter Selector - Searchable Dropdown */}
-              {transporterSuggestions.length > 0 && (
+              {(transporterSuggestions.length > 0 || searchAllTransports) && (
                 <div ref={transporterDropdownRef}>
-                  <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-purple-500" />
-                    Select Transporter ({transporterSuggestions.length} available)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-purple-500" />
+                      {searchAllTransports
+                        ? `Select Transporter (${transporterSuggestions.length} from all cities)`
+                        : `Select Transporter (${transporterSuggestions.length} available)`
+                      }
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleToggleSearchAll}
+                      disabled={loadingAllTransports}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                        searchAllTransports
+                          ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700'
+                          : 'bg-white text-purple-600 border-purple-300 hover:bg-purple-50'
+                      } ${loadingAllTransports ? 'opacity-50 cursor-wait' : ''}`}
+                    >
+                      {loadingAllTransports ? '⏳ Loading...' : searchAllTransports ? '📍 City Only' : '🌐 Search All'}
+                    </button>
+                  </div>
                   <div className="relative">
                     <div
                       className="w-full flex items-center border-2 border-purple-200 rounded-xl bg-white shadow-sm hover:border-purple-400 transition-colors cursor-pointer"

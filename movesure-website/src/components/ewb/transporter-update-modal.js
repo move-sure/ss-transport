@@ -45,6 +45,8 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
   const [transporterSearch, setTransporterSearch] = useState('');
   const [showTransporterDropdown, setShowTransporterDropdown] = useState(false);
   const [selectedTransporterIdx, setSelectedTransporterIdx] = useState(-1);
+  const [searchAllTransports, setSearchAllTransports] = useState(false);
+  const [loadingAllTransports, setLoadingAllTransports] = useState(false);
   const transporterDropdownRef = useRef(null);
   const transporterSearchRef = useRef(null);
   
@@ -98,6 +100,8 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
       setTransporterSearch('');
       setShowTransporterDropdown(false);
       setSelectedTransporterIdx(-1);
+      setSearchAllTransports(false);
+      setLoadingAllTransports(false);
       return;
     }
 
@@ -500,6 +504,52 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
     }));
   };
 
+  // Fetch ALL transporters across all cities
+  const fetchAllTransporters = async () => {
+    setLoadingAllTransports(true);
+    try {
+      const { data: transportRows, error: transportError } = await supabase
+        .from('transports')
+        .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name')
+        .not('transport_name', 'is', null)
+        .order('transport_name', { ascending: true });
+
+      if (transportError) throw transportError;
+
+      const allTransporters = (transportRows || []).map(t => ({
+        id: t.id,
+        name: t.transport_name,
+        gst: t.gst_number || '',
+        city: t.city_name || '',
+        phone: t.mob_number || '',
+        address: t.address || '',
+        branchOwner: t.branch_owner_name || ''
+      }));
+
+      setTransporterSuggestions(allTransporters);
+      setShowTransporterDropdown(true);
+      setTimeout(() => transporterSearchRef.current?.focus(), 100);
+    } catch (err) {
+      console.error('Error fetching all transporters:', err);
+    } finally {
+      setLoadingAllTransports(false);
+    }
+  };
+
+  // Toggle search all transports
+  const handleToggleSearchAll = async () => {
+    const newVal = !searchAllTransports;
+    setSearchAllTransports(newVal);
+    if (newVal) {
+      await fetchAllTransporters();
+    } else {
+      // Re-trigger city-specific lookup by toggling the effect deps
+      // Simply close dropdown - the existing useEffect will handle city-specific fetch
+      setShowTransporterDropdown(false);
+      setTransporterSearch('');
+    }
+  };
+
   // Filter suggestions based on search
   const filteredSuggestions = useMemo(() => {
     if (!transporterSearch.trim()) return transporterSuggestions;
@@ -886,27 +936,68 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
 
                 {!autoFillStatus.loading && !autoFillStatus.match && !autoFillStatus.error && (
                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                    <div className="font-medium text-amber-800 mb-1">No saved transporter found</div>
-                    <div className="text-xs">
-                      No transporter details found for {cityHints?.cityName || 'this city'}. Please enter the transporter information manually below.
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-amber-800 mb-1">No saved transporter found</div>
+                        <div className="text-xs">
+                          No transporter details found for {cityHints?.cityName || 'this city'}. Please enter manually or search all.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleSearchAll}
+                        disabled={loadingAllTransports}
+                        className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-1 whitespace-nowrap ml-3"
+                      >
+                        {loadingAllTransports ? '⏳' : '🌐'} Search All
+                      </button>
                     </div>
                   </div>
                 )}
 
                 {!autoFillStatus.loading && autoFillStatus.error && (
                   <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    <div className="font-medium text-red-800 mb-1">⚠️ Auto-fill Failed</div>
-                    <div className="text-xs">{autoFillStatus.error}</div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-red-800 mb-1">⚠️ Auto-fill Failed</div>
+                        <div className="text-xs">{autoFillStatus.error}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleSearchAll}
+                        disabled={loadingAllTransports}
+                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1 whitespace-nowrap ml-3"
+                      >
+                        {loadingAllTransports ? '⏳' : '🌐'} Search All
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Transporter Selector - Searchable Dropdown */}
-                {transporterSuggestions.length > 0 && (
+                {(transporterSuggestions.length > 0 || searchAllTransports) && (
                   <div className="mb-5" ref={transporterDropdownRef}>
-                    <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4 text-blue-500" />
-                      Select Transporter ({transporterSuggestions.length} available for {cityHints?.cityName || 'this city'})
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-blue-500" />
+                        {searchAllTransports 
+                          ? `Select Transporter (${transporterSuggestions.length} from all cities)`
+                          : `Select Transporter (${transporterSuggestions.length} available for ${cityHints?.cityName || 'this city'})`
+                        }
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleToggleSearchAll}
+                        disabled={loadingAllTransports}
+                        className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors ${
+                          searchAllTransports
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                            : 'bg-white text-blue-600 border-blue-300 hover:bg-blue-50'
+                        } ${loadingAllTransports ? 'opacity-50 cursor-wait' : ''}`}
+                      >
+                        {loadingAllTransports ? '⏳ Loading...' : searchAllTransports ? '📍 City Only' : '🌐 Search All'}
+                      </button>
+                    </div>
                     <div className="relative">
                       {/* Search Input / Selected Display */}
                       <div

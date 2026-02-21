@@ -33,6 +33,10 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     rate_per_kg: '',
     rate_per_pkg: '',
     min_charge: '0',
+    bilty_chrg: '',
+    ewb_chrg: '',
+    labour_chrg: '',
+    other_chrg: '',
     transit_days: '',
     notes: ''
   });
@@ -122,6 +126,10 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       rate_per_kg: rate.rate_per_kg || '',
       rate_per_pkg: rate.rate_per_pkg || '',
       min_charge: rate.min_charge || '0',
+      bilty_chrg: rate.bilty_chrg || '',
+      ewb_chrg: rate.ewb_chrg || '',
+      labour_chrg: rate.labour_chrg || '',
+      other_chrg: rate.other_chrg || '',
       transit_days: rate.metadata?.transit_days || '',
       notes: rate.metadata?.notes || ''
     });
@@ -156,6 +164,10 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
         rate_per_kg: editExistingForm.rate_per_kg ? parseFloat(editExistingForm.rate_per_kg) : null,
         rate_per_pkg: editExistingForm.rate_per_pkg ? parseFloat(editExistingForm.rate_per_pkg) : null,
         min_charge: editExistingForm.min_charge ? parseFloat(editExistingForm.min_charge) : 0,
+        bilty_chrg: editExistingForm.bilty_chrg ? parseFloat(editExistingForm.bilty_chrg) : null,
+        ewb_chrg: editExistingForm.ewb_chrg ? parseFloat(editExistingForm.ewb_chrg) : null,
+        labour_chrg: editExistingForm.labour_chrg ? parseFloat(editExistingForm.labour_chrg) : null,
+        other_chrg: editExistingForm.other_chrg ? parseFloat(editExistingForm.other_chrg) : null,
         metadata: Object.keys(metadata).length > 0 ? metadata : null,
         updated_by: updatedBy,
         updated_at: new Date().toISOString()
@@ -259,6 +271,10 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       rate_per_kg: '',
       rate_per_pkg: '',
       min_charge: '0',
+      bilty_chrg: '',
+      ewb_chrg: '',
+      labour_chrg: '',
+      other_chrg: '',
       transit_days: '',
       notes: ''
     });
@@ -348,6 +364,10 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
         rate_per_kg: formData.rate_per_kg ? parseFloat(formData.rate_per_kg) : null,
         rate_per_pkg: formData.rate_per_pkg ? parseFloat(formData.rate_per_pkg) : null,
         min_charge: formData.min_charge ? parseFloat(formData.min_charge) : 0,
+        bilty_chrg: formData.bilty_chrg ? parseFloat(formData.bilty_chrg) : null,
+        ewb_chrg: formData.ewb_chrg ? parseFloat(formData.ewb_chrg) : null,
+        labour_chrg: formData.labour_chrg ? parseFloat(formData.labour_chrg) : null,
+        other_chrg: formData.other_chrg ? parseFloat(formData.other_chrg) : null,
         metadata: Object.keys(metadata).length > 0 ? metadata : null,
         created_by: createdBy,
         is_active: true
@@ -560,6 +580,53 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
                               </div>
                             </div>
                             
+                            <div className="grid grid-cols-4 gap-2">
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Bilty ₹</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editExistingForm.bilty_chrg}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, bilty_chrg: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">EWB ₹</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editExistingForm.ewb_chrg}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, ewb_chrg: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Labour ₹</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editExistingForm.labour_chrg}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, labour_chrg: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-semibold text-gray-700">Other ₹</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editExistingForm.other_chrg}
+                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, other_chrg: e.target.value }))}
+                                  className="w-full px-2 py-1 border rounded text-[11px]"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+
                             <div>
                               <label className="text-[9px] font-semibold text-gray-700">Notes</label>
                               <input
@@ -612,6 +679,14 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
                               {rate.goods_type && (
                                 <div className="text-[10px] text-gray-600 mt-0.5">
                                   Goods: {rate.goods_type}
+                                </div>
+                              )}
+                              {(rate.bilty_chrg || rate.ewb_chrg || rate.labour_chrg || rate.other_chrg) && (
+                                <div className="text-[10px] text-teal-700 mt-0.5 flex items-center gap-1 flex-wrap">
+                                  {rate.bilty_chrg > 0 && <span className="bg-teal-100 px-1 rounded">Bilty: ₹{parseFloat(rate.bilty_chrg).toFixed(0)}</span>}
+                                  {rate.ewb_chrg > 0 && <span className="bg-teal-100 px-1 rounded">EWB: ₹{parseFloat(rate.ewb_chrg).toFixed(0)}</span>}
+                                  {rate.labour_chrg > 0 && <span className="bg-teal-100 px-1 rounded">Labour: ₹{parseFloat(rate.labour_chrg).toFixed(0)}</span>}
+                                  {rate.other_chrg > 0 && <span className="bg-teal-100 px-1 rounded">Other: ₹{parseFloat(rate.other_chrg).toFixed(0)}</span>}
                                 </div>
                               )}
                             </div>
@@ -896,6 +971,60 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
                       onChange={(e) => handleInputChange('min_charge', e.target.value)}
                       placeholder="0.00"
                       className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Per Bilty Charges */}
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                <label className="flex items-center gap-1 text-xs font-bold text-gray-900 mb-1.5">
+                  <DollarSign className="w-4 h-4 text-teal-600" />
+                  Per Bilty Charges (Optional)
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-semibold text-gray-700 mb-0.5">Bilty Chrg ₹</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.bilty_chrg}
+                      onChange={(e) => handleInputChange('bilty_chrg', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-semibold text-gray-700 mb-0.5">E-Way Bill ₹</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.ewb_chrg}
+                      onChange={(e) => handleInputChange('ewb_chrg', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-semibold text-gray-700 mb-0.5">Labour Chrg ₹</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.labour_chrg}
+                      onChange={(e) => handleInputChange('labour_chrg', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-semibold text-gray-700 mb-0.5">Other Chrg ₹</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.other_chrg}
+                      onChange={(e) => handleInputChange('other_chrg', e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
                     />
                   </div>
                 </div>

@@ -98,6 +98,10 @@ export default function KaatListModal({ isOpen, onClose, cities }) {
       rate_per_kg: rate.rate_per_kg || '',
       rate_per_pkg: rate.rate_per_pkg || '',
       min_charge: rate.min_charge || '0',
+      bilty_chrg: rate.bilty_chrg || '',
+      ewb_chrg: rate.ewb_chrg || '',
+      labour_chrg: rate.labour_chrg || '',
+      other_chrg: rate.other_chrg || '',
       transit_days: rate.metadata?.transit_days || '',
       notes: rate.metadata?.notes || ''
     });
@@ -136,6 +140,10 @@ export default function KaatListModal({ isOpen, onClose, cities }) {
         rate_per_kg: editForm.rate_per_kg ? parseFloat(editForm.rate_per_kg) : null,
         rate_per_pkg: editForm.rate_per_pkg ? parseFloat(editForm.rate_per_pkg) : null,
         min_charge: editForm.min_charge ? parseFloat(editForm.min_charge) : 0,
+        bilty_chrg: editForm.bilty_chrg ? parseFloat(editForm.bilty_chrg) : null,
+        ewb_chrg: editForm.ewb_chrg ? parseFloat(editForm.ewb_chrg) : null,
+        labour_chrg: editForm.labour_chrg ? parseFloat(editForm.labour_chrg) : null,
+        other_chrg: editForm.other_chrg ? parseFloat(editForm.other_chrg) : null,
         metadata: Object.keys(metadata).length > 0 ? metadata : null,
         updated_by: updatedBy,
         updated_at: new Date().toISOString()
@@ -342,6 +350,10 @@ export default function KaatListModal({ isOpen, onClose, cities }) {
                   <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">₹/KG</th>
                   <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">₹/Pkg</th>
                   <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">Min ₹</th>
+                  <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">Bilty ₹</th>
+                  <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">EWB ₹</th>
+                  <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">Labour ₹</th>
+                  <th className="px-3 py-2 text-right font-semibold text-gray-900 text-xs">Other ₹</th>
                   <th className="px-3 py-2 text-center font-semibold text-gray-900 text-xs">Days</th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-900 text-xs">Notes</th>
                   <th className="px-3 py-2 text-center font-semibold text-gray-900 text-xs">Actions</th>
@@ -466,6 +478,42 @@ export default function KaatListModal({ isOpen, onClose, cities }) {
                           <span className="text-xs text-gray-700">
                             ₹{parseFloat(rate.min_charge || 0).toFixed(0)}
                           </span>
+                        )}
+                      </td>
+
+                      {/* Bilty Charge */}
+                      <td className="px-3 py-2 text-right">
+                        {isEditing ? (
+                          <input type="number" step="0.01" value={editForm.bilty_chrg} onChange={(e) => setEditForm(prev => ({ ...prev, bilty_chrg: e.target.value }))} className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="0" />
+                        ) : (
+                          <span className="text-xs text-gray-700">{rate.bilty_chrg ? `₹${parseFloat(rate.bilty_chrg).toFixed(0)}` : '-'}</span>
+                        )}
+                      </td>
+
+                      {/* EWB Charge */}
+                      <td className="px-3 py-2 text-right">
+                        {isEditing ? (
+                          <input type="number" step="0.01" value={editForm.ewb_chrg} onChange={(e) => setEditForm(prev => ({ ...prev, ewb_chrg: e.target.value }))} className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="0" />
+                        ) : (
+                          <span className="text-xs text-gray-700">{rate.ewb_chrg ? `₹${parseFloat(rate.ewb_chrg).toFixed(0)}` : '-'}</span>
+                        )}
+                      </td>
+
+                      {/* Labour Charge */}
+                      <td className="px-3 py-2 text-right">
+                        {isEditing ? (
+                          <input type="number" step="0.01" value={editForm.labour_chrg} onChange={(e) => setEditForm(prev => ({ ...prev, labour_chrg: e.target.value }))} className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="0" />
+                        ) : (
+                          <span className="text-xs text-gray-700">{rate.labour_chrg ? `₹${parseFloat(rate.labour_chrg).toFixed(0)}` : '-'}</span>
+                        )}
+                      </td>
+
+                      {/* Other Charge */}
+                      <td className="px-3 py-2 text-right">
+                        {isEditing ? (
+                          <input type="number" step="0.01" value={editForm.other_chrg} onChange={(e) => setEditForm(prev => ({ ...prev, other_chrg: e.target.value }))} className="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-right" placeholder="0" />
+                        ) : (
+                          <span className="text-xs text-gray-700">{rate.other_chrg ? `₹${parseFloat(rate.other_chrg).toFixed(0)}` : '-'}</span>
                         )}
                       </td>
 

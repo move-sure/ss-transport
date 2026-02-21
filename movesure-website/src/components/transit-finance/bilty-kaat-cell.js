@@ -31,7 +31,11 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
     rate_type: 'per_kg',
     rate_per_kg: '',
     rate_per_pkg: '',
-    dd_chrg: ''
+    dd_chrg: '',
+    bilty_chrg: '',
+    ewb_chrg: '',
+    labour_chrg: '',
+    other_chrg: ''
   });
 
   // Update local state when prop changes
@@ -43,7 +47,11 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         rate_type: initialKaatData.rate_type || 'per_kg',
         rate_per_kg: initialKaatData.rate_per_kg || '',
         rate_per_pkg: initialKaatData.rate_per_pkg || '',
-        dd_chrg: initialKaatData.dd_chrg || ''
+        dd_chrg: initialKaatData.dd_chrg || '',
+        bilty_chrg: initialKaatData.bilty_chrg || '',
+        ewb_chrg: initialKaatData.ewb_chrg || '',
+        labour_chrg: initialKaatData.labour_chrg || '',
+        other_chrg: initialKaatData.other_chrg || ''
       });
     }
   }, [initialKaatData]);
@@ -92,7 +100,7 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
       // Fetch rates by destination city with minimal fields first
       const { data: ratesByCity, error: cityError } = await supabase
         .from('transport_hub_rates')
-        .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
+        .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active, bilty_chrg, ewb_chrg, labour_chrg, other_chrg')
         .eq('destination_city_id', destinationCityId)
         .eq('is_active', true)
         .limit(50); // Limit to prevent over-fetching
@@ -116,7 +124,7 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
           // Fetch rates for these transports
           const { data: gstRates, error: gstRatesError } = await supabase
             .from('transport_hub_rates')
-            .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
+            .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active, bilty_chrg, ewb_chrg, labour_chrg, other_chrg')
             .in('transport_id', transportIds)
             .eq('is_active', true)
             .limit(20);
@@ -230,13 +238,17 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         transport_hub_rate_id: rateId,
         rate_type: selectedRate.pricing_mode,
         rate_per_kg: selectedRate.rate_per_kg || '',
-        rate_per_pkg: selectedRate.rate_per_pkg || ''
+        rate_per_pkg: selectedRate.rate_per_pkg || '',
+        bilty_chrg: selectedRate.bilty_chrg || '',
+        ewb_chrg: selectedRate.ewb_chrg || '',
+        labour_chrg: selectedRate.labour_chrg || '',
+        other_chrg: selectedRate.other_chrg || ''
       }));
     }
   };
 
   // Calculate kaat amount with 50kg minimum weight rule
-  const calculateKaatDetails = (rateData = formData, totalAmountOverride = null) => {
+  const calculateKaatDetails = (rateData = formData) => {
     const rateKg = parseFloat(rateData.rate_per_kg) || 0;
     const ratePkg = parseFloat(rateData.rate_per_pkg) || 0;
     const weight = parseFloat(biltyWeight) || 0;
@@ -262,10 +274,15 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
       kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
     }
 
-    // Calculate PF (profit) = Total Amount - Kaat Amount
-    // For Paid/DD bilties, total is 0 so pf will be negative
-    const totalAmount = totalAmountOverride !== null ? totalAmountOverride : 0;
-    const pf = totalAmount - kaatAmount;
+    // Add per-bilty charges to total kaat
+    const biltyChrg = parseFloat(rateData.bilty_chrg) || 0;
+    const ewbChrg = parseFloat(rateData.ewb_chrg) || 0;
+    const labourChrg = parseFloat(rateData.labour_chrg) || 0;
+    const otherChrg = parseFloat(rateData.other_chrg) || 0;
+    kaatAmount += biltyChrg + ewbChrg + labourChrg + otherChrg;
+
+    // PF = total kaat amount (the deduction amount)
+    const pf = kaatAmount;
 
     return {
       kaat: parseFloat(kaatAmount.toFixed(4)),
@@ -311,6 +328,10 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         pf: kaatCalc.pf,
         actual_kaat_rate: kaatCalc.actual_kaat_rate,
         dd_chrg: ddCharge,
+        bilty_chrg: formData.bilty_chrg ? parseFloat(formData.bilty_chrg) : 0,
+        ewb_chrg: formData.ewb_chrg ? parseFloat(formData.ewb_chrg) : 0,
+        labour_chrg: formData.labour_chrg ? parseFloat(formData.labour_chrg) : 0,
+        other_chrg: formData.other_chrg ? parseFloat(formData.other_chrg) : 0,
         updated_by: userId,
         updated_at: new Date().toISOString()
       };
@@ -358,7 +379,11 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         rate_type: kaatData.rate_type || 'per_kg',
         rate_per_kg: kaatData.rate_per_kg || '',
         rate_per_pkg: kaatData.rate_per_pkg || '',
-        dd_chrg: kaatData.dd_chrg || ''
+        dd_chrg: kaatData.dd_chrg || '',
+        bilty_chrg: kaatData.bilty_chrg || '',
+        ewb_chrg: kaatData.ewb_chrg || '',
+        labour_chrg: kaatData.labour_chrg || '',
+        other_chrg: kaatData.other_chrg || ''
       });
     } else {
       setFormData({
@@ -366,7 +391,11 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         rate_type: 'per_kg',
         rate_per_kg: '',
         rate_per_pkg: '',
-        dd_chrg: ''
+        dd_chrg: '',
+        bilty_chrg: '',
+        ewb_chrg: '',
+        labour_chrg: '',
+        other_chrg: ''
       });
     }
     setIsEditing(false);
@@ -393,7 +422,11 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         rate_type: 'per_kg',
         rate_per_kg: '',
         rate_per_pkg: '',
-        dd_chrg: ''
+        dd_chrg: '',
+        bilty_chrg: '',
+        ewb_chrg: '',
+        labour_chrg: '',
+        other_chrg: ''
       });
       
       if (onKaatDelete) onKaatDelete(grNo);
@@ -522,6 +555,37 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
             </div>
           )}
 
+          {/* Per Bilty Charges */}
+          <div>
+            <label className="text-[8px] text-teal-700 font-bold mb-0.5 block">Per Bilty Charges</label>
+            <div className="grid grid-cols-4 gap-1">
+              <div>
+                <label className="text-[7px] text-teal-600 font-semibold">Bilty ₹</label>
+                <input type="number" step="0.01" value={formData.bilty_chrg}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bilty_chrg: e.target.value }))}
+                  className="w-full px-1 py-0.5 border border-teal-200 rounded text-[10px] bg-teal-50" placeholder="0" />
+              </div>
+              <div>
+                <label className="text-[7px] text-blue-600 font-semibold">EWB ₹</label>
+                <input type="number" step="0.01" value={formData.ewb_chrg}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ewb_chrg: e.target.value }))}
+                  className="w-full px-1 py-0.5 border border-blue-200 rounded text-[10px] bg-blue-50" placeholder="0" />
+              </div>
+              <div>
+                <label className="text-[7px] text-orange-600 font-semibold">Labour ₹</label>
+                <input type="number" step="0.01" value={formData.labour_chrg}
+                  onChange={(e) => setFormData(prev => ({ ...prev, labour_chrg: e.target.value }))}
+                  className="w-full px-1 py-0.5 border border-orange-200 rounded text-[10px] bg-orange-50" placeholder="0" />
+              </div>
+              <div>
+                <label className="text-[7px] text-gray-600 font-semibold">Other ₹</label>
+                <input type="number" step="0.01" value={formData.other_chrg}
+                  onChange={(e) => setFormData(prev => ({ ...prev, other_chrg: e.target.value }))}
+                  className="w-full px-1 py-0.5 border border-gray-200 rounded text-[10px] bg-gray-50" placeholder="0" />
+              </div>
+            </div>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-1">
             <button
@@ -580,6 +644,14 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
               {kaatData.dd_chrg > 0 && (
                 <div className="text-[8px] font-semibold text-red-600 mt-0.5">
                   DD: -₹{parseFloat(kaatData.dd_chrg).toFixed(2)}
+                </div>
+              )}
+              {(kaatData.bilty_chrg > 0 || kaatData.ewb_chrg > 0 || kaatData.labour_chrg > 0 || kaatData.other_chrg > 0) && (
+                <div className="flex flex-wrap gap-0.5 mt-0.5">
+                  {kaatData.bilty_chrg > 0 && <span className="text-[7px] px-1 rounded bg-teal-100 text-teal-700 font-semibold">B:₹{parseFloat(kaatData.bilty_chrg).toFixed(0)}</span>}
+                  {kaatData.ewb_chrg > 0 && <span className="text-[7px] px-1 rounded bg-blue-100 text-blue-700 font-semibold">E:₹{parseFloat(kaatData.ewb_chrg).toFixed(0)}</span>}
+                  {kaatData.labour_chrg > 0 && <span className="text-[7px] px-1 rounded bg-orange-100 text-orange-700 font-semibold">L:₹{parseFloat(kaatData.labour_chrg).toFixed(0)}</span>}
+                  {kaatData.other_chrg > 0 && <span className="text-[7px] px-1 rounded bg-gray-200 text-gray-700 font-semibold">O:₹{parseFloat(kaatData.other_chrg).toFixed(0)}</span>}
                 </div>
               )}
               {kaatData.actual_kaat_rate > 0 && (

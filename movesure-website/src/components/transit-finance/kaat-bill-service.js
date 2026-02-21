@@ -18,10 +18,10 @@ export const loadHubRatesForCity = async (selectedCityId) => {
       }
     }
 
-    // Get rates with minimal necessary fields
+    // Get rates with necessary fields including per-bilty charges
     const { data: rates, error: fetchError } = await supabase
       .from('transport_hub_rates')
-      .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
+      .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active, bilty_chrg, ewb_chrg, labour_chrg, other_chrg')
       .eq('destination_city_id', selectedCityId)
       .eq('is_active', true)
       .order('transport_name')
@@ -135,17 +135,21 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
         kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
       }
 
+      // Add per-bilty charges to total kaat
+      const biltyChrg = parseFloat(selectedRate.bilty_chrg || 0);
+      const ewbChrg = parseFloat(selectedRate.ewb_chrg || 0);
+      const labourChrg = parseFloat(selectedRate.labour_chrg || 0);
+      const otherChrg = parseFloat(selectedRate.other_chrg || 0);
+      kaatAmount += biltyChrg + ewbChrg + labourChrg + otherChrg;
+
       // Calculate actual_kaat_rate (effective rate considering 50kg minimum)
       let actualKaatRate = rateKg;
       if (rateType === 'per_kg' && weight > 0 && weight < 50) {
         actualKaatRate = (effectiveWeight * rateKg) / weight;
       }
 
-      // Calculate PF (profit) = Total - Kaat
-      const paymentMode = bilty?.payment_mode || station?.payment_status;
-      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
-      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-      const pf = totalAmount - kaatAmount;
+      // PF = total kaat amount (the deduction amount)
+      const pf = kaatAmount;
 
       return {
         gr_no: transit.gr_no,
@@ -158,6 +162,10 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
         kaat: parseFloat(kaatAmount.toFixed(4)),
         pf: parseFloat(pf.toFixed(4)),
         actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
+        bilty_chrg: parseFloat(selectedRate.bilty_chrg || 0),
+        ewb_chrg: parseFloat(selectedRate.ewb_chrg || 0),
+        labour_chrg: parseFloat(selectedRate.labour_chrg || 0),
+        other_chrg: parseFloat(selectedRate.other_chrg || 0),
         created_by: userId,
         updated_by: userId,
         updated_at: new Date().toISOString()
@@ -192,10 +200,10 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
   try {
     const grNumbers = biltiesWithKaat.map(t => t.gr_no);
     
-    // Fetch kaat data
+    // Fetch kaat data including per-bilty charges
     const { data: kaatData, error: kaatError } = await supabase
       .from('bilty_wise_kaat')
-      .select('gr_no, rate_per_kg, rate_per_pkg, rate_type, transport_hub_rate_id')
+      .select('gr_no, rate_per_kg, rate_per_pkg, rate_type, transport_hub_rate_id, bilty_chrg, ewb_chrg, labour_chrg, other_chrg')
       .in('gr_no', grNumbers);
 
     if (kaatError) throw kaatError;
@@ -247,6 +255,13 @@ export const calculateTotalKaatAmount = async (biltiesWithKaat) => {
         }
         
         calculatedAmount = Math.max(calculatedAmount, minCharge);
+
+        // Add per-bilty charges to total kaat
+        const biltyChrg = parseFloat(kaat.bilty_chrg || 0);
+        const ewbChrg = parseFloat(kaat.ewb_chrg || 0);
+        const labourChrg = parseFloat(kaat.labour_chrg || 0);
+        const otherChrg = parseFloat(kaat.other_chrg || 0);
+        calculatedAmount += biltyChrg + ewbChrg + labourChrg + otherChrg;
         
         // Calculate actual_kaat_rate (effective rate considering 50kg minimum)
         let actualKaatRate = rateKg;
@@ -454,7 +469,7 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
     // Fetch all kaat rates for these cities
     const { data: allRates, error: ratesError } = await supabase
       .from('transport_hub_rates')
-      .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active')
+      .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active, bilty_chrg, ewb_chrg, labour_chrg, other_chrg')
       .in('destination_city_id', allCityIds)
       .eq('is_active', true);
     
@@ -550,17 +565,21 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
         kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
       }
 
+      // Add per-bilty charges to total kaat
+      const biltyChrg = parseFloat(selectedRate.bilty_chrg || 0);
+      const ewbChrg = parseFloat(selectedRate.ewb_chrg || 0);
+      const labourChrg = parseFloat(selectedRate.labour_chrg || 0);
+      const otherChrg = parseFloat(selectedRate.other_chrg || 0);
+      kaatAmount += biltyChrg + ewbChrg + labourChrg + otherChrg;
+
       // Calculate actual_kaat_rate
       let actualKaatRate = rateKg;
       if (rateType === 'per_kg' && weight > 0 && weight < 50) {
         actualKaatRate = (effectiveWeight * rateKg) / weight;
       }
 
-      // Calculate PF
-      const paymentMode = bilty?.payment_mode || station?.payment_status;
-      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
-      const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-      const pf = totalAmount - kaatAmount;
+      // PF = total kaat amount (the deduction amount)
+      const pf = kaatAmount;
       
       upsertData.push({
         gr_no: transit.gr_no,
@@ -573,6 +592,10 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
         kaat: parseFloat(kaatAmount.toFixed(4)),
         pf: parseFloat(pf.toFixed(4)),
         actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
+        bilty_chrg: parseFloat(selectedRate.bilty_chrg || 0),
+        ewb_chrg: parseFloat(selectedRate.ewb_chrg || 0),
+        labour_chrg: parseFloat(selectedRate.labour_chrg || 0),
+        other_chrg: parseFloat(selectedRate.other_chrg || 0),
         created_by: userId,
         updated_by: userId,
         updated_at: new Date().toISOString()

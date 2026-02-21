@@ -8,16 +8,33 @@ import { format } from 'date-fns';
 // PDF CONFIGURATION
 // ============================================================
 const PDF_CONFIG = {
-  margins: { left: 10, right: 10 },
+  margins: { left: 8, right: 8, top: 8, bottom: 15 },
   colors: {
     emerald: [16, 185, 129],
+    emeraldDark: [5, 150, 105],
     purple: [139, 92, 246],
     blue: [59, 130, 246],
-    gray: [100, 100, 100],
-    darkGray: [60, 60, 60],
-    black: [0, 0, 0],
+    gray: [120, 120, 120],
+    darkGray: [55, 55, 55],
+    lightGray: [160, 160, 160],
+    black: [30, 30, 30],
     white: [255, 255, 255],
-    altRow: [245, 247, 250]
+    altRow: [248, 250, 252],
+    headerBg: [15, 118, 110],
+    headerText: [255, 255, 255],
+    borderColor: [209, 213, 219]
+  },
+  // Landscape A4 = 297 x 210 mm
+  // Table width = 297 - 8 - 8 = 281mm
+  columns: {
+    sr:          10,
+    transport:   60,
+    gst:         40,
+    destination: 35,
+    pricing:     22,
+    rate:        30,
+    minCharge:   27,
+    remarks:     57
   }
 };
 
@@ -25,57 +42,62 @@ const PDF_CONFIG = {
 // HELPER: Build a single table row
 // ============================================================
 const buildTableRow = (serialNo, transportName, gstNumber, cityName, cityCode, rate) => {
-  // Pricing mode
   let pricingMode = '-';
   let rateDetails = '-';
   let minCharge = '-';
-  
+  let remarks = '';
+
   if (rate) {
-    // Pricing mode
     if (rate.pricing_mode === 'per_kg') {
       pricingMode = 'PER KG';
-      rateDetails = `Rs.${parseFloat(rate.rate_per_kg || 0).toFixed(2)}/kg`;
+      rateDetails = `Rs. ${parseFloat(rate.rate_per_kg || 0).toFixed(2)} /kg`;
     } else if (rate.pricing_mode === 'per_pkg') {
       pricingMode = 'PER PKG';
-      rateDetails = `Rs.${parseFloat(rate.rate_per_pkg || 0).toFixed(2)}/pkg`;
+      rateDetails = `Rs. ${parseFloat(rate.rate_per_pkg || 0).toFixed(2)} /pkg`;
     } else {
       pricingMode = 'HYBRID';
-      rateDetails = `KG: Rs.${parseFloat(rate.rate_per_kg || 0).toFixed(2)}\nPKG: Rs.${parseFloat(rate.rate_per_pkg || 0).toFixed(2)}`;
+      rateDetails = `Rs. ${parseFloat(rate.rate_per_kg || 0).toFixed(2)}/kg\nRs. ${parseFloat(rate.rate_per_pkg || 0).toFixed(2)}/pkg`;
     }
-    minCharge = `Rs.${parseFloat(rate.min_charge || 0).toFixed(0)}`;
+    minCharge = `Rs. ${parseFloat(rate.min_charge || 0).toLocaleString('en-IN')}`;
+
+    // Build remarks from per-bilty charges
+    const chrgParts = [];
+    if (rate.bilty_chrg && parseFloat(rate.bilty_chrg) > 0) chrgParts.push(`Bilty: Rs.${parseFloat(rate.bilty_chrg).toFixed(0)}`);
+    if (rate.ewb_chrg && parseFloat(rate.ewb_chrg) > 0) chrgParts.push(`EWB: Rs.${parseFloat(rate.ewb_chrg).toFixed(0)}`);
+    if (rate.labour_chrg && parseFloat(rate.labour_chrg) > 0) chrgParts.push(`Labour: Rs.${parseFloat(rate.labour_chrg).toFixed(0)}`);
+    if (rate.other_chrg && parseFloat(rate.other_chrg) > 0) chrgParts.push(`Other: Rs.${parseFloat(rate.other_chrg).toFixed(0)}`);
+    if (chrgParts.length > 0) remarks = chrgParts.join(' | ');
   }
-  
+
+  const destination = cityCode
+    ? `${cityName || '-'} (${cityCode})`
+    : (cityName || '-');
+
   return [
-    serialNo,
-    transportName || '-',
+    String(serialNo),
+    (transportName || '-').toUpperCase(),
     gstNumber || '-',
-    `${cityName || '-'}\n(${cityCode || '-'})`,
+    destination.toUpperCase(),
     pricingMode,
     rateDetails,
     minCharge,
-    '' // Remarks - empty for manual notes
+    remarks
   ];
 };
 
 // ============================================================
-// HELPER: Find transport by ID from transports array
+// HELPERS: Find transport / city
 // ============================================================
 const findTransport = (transports, transportId) => {
   if (!transportId || !transports) return null;
   return transports.find(t => String(t.id) === String(transportId));
 };
 
-// ============================================================
-// HELPER: Find city by ID from cities array
-// ============================================================
 const findCity = (cities, cityId) => {
   if (!cityId || !cities) return null;
   return cities.find(c => String(c.id) === String(cityId));
 };
 
-// ============================================================
-// HELPER: Find city by name from cities array
-// ============================================================
 const findCityByName = (cities, cityName) => {
   if (!cityName || !cities) return null;
   return cities.find(c => c.city_name?.toLowerCase() === cityName?.toLowerCase());
@@ -87,68 +109,32 @@ const findCityByName = (cities, cityName) => {
 const buildDataForAllTransports = (kaatRates, cities, transports, includeInactive) => {
   const tableData = [];
   let serialNo = 1;
-  
-  console.log('📦 Building data for ALL TRANSPORTS mode');
-  console.log('📦 Transports count:', transports?.length || 0);
-  
+
   transports?.forEach((transport) => {
-    // Find all rates for this transport
-    const transportRates = kaatRates?.filter(r => 
+    const transportRates = kaatRates?.filter(r =>
       r.transport_id && String(r.transport_id) === String(transport.id)
     ) || [];
-    
-    console.log(`📦 Transport: ${transport.transport_name}, Rates: ${transportRates.length}`);
-    
+
     if (transportRates.length > 0) {
-      // Transport has kaat rates - add each rate as a row
       transportRates.forEach(rate => {
-        // Skip inactive if not included
         if (!includeInactive && !rate.is_active) return;
-        
-        // Find destination city for this rate
         const destCity = findCity(cities, rate.destination_city_id);
-        
         tableData.push(buildTableRow(
-          serialNo++,
-          transport.transport_name,
-          transport.gst_number,
-          destCity?.city_name,
-          destCity?.city_code,
-          rate
+          serialNo++, transport.transport_name, transport.gst_number,
+          destCity?.city_name, destCity?.city_code, rate
         ));
       });
     } else {
-      // Transport has NO kaat rates - show transport with its own city
-      // The transport's city_name is where the transport is based
       let transportCityObj = null;
-      
-      // Try to find city by city_id first
-      if (transport.city_id) {
-        transportCityObj = findCity(cities, transport.city_id);
-      }
-      
-      // If not found, try by city_name
-      if (!transportCityObj && transport.city_name) {
-        transportCityObj = findCityByName(cities, transport.city_name);
-      }
-      
-      // Build the row - use city object if found, else use transport's city_name directly
-      const cityName = transportCityObj?.city_name || transport.city_name;
-      const cityCode = transportCityObj?.city_code || null;
-      
-      console.log(`📦 No rates for ${transport.transport_name}, showing city: ${cityName}`);
-      
+      if (transport.city_id) transportCityObj = findCity(cities, transport.city_id);
+      if (!transportCityObj && transport.city_name) transportCityObj = findCityByName(cities, transport.city_name);
       tableData.push(buildTableRow(
-        serialNo++,
-        transport.transport_name,
-        transport.gst_number,
-        cityName,
-        cityCode,
-        null // No rate
+        serialNo++, transport.transport_name, transport.gst_number,
+        transportCityObj?.city_name || transport.city_name, transportCityObj?.city_code || null, null
       ));
     }
   });
-  
+
   return tableData;
 };
 
@@ -158,78 +144,41 @@ const buildDataForAllTransports = (kaatRates, cities, transports, includeInactiv
 const buildDataForAllCities = (kaatRates, cities, transports, includeInactive) => {
   const tableData = [];
   let serialNo = 1;
-  
-  console.log('🏙️ Building data for ALL CITIES mode');
-  console.log('🏙️ Cities count:', cities?.length || 0);
-  
+
   cities?.forEach((city) => {
-    // Find all rates for this destination city
-    const cityRates = kaatRates?.filter(r => 
+    const cityRates = kaatRates?.filter(r =>
       String(r.destination_city_id) === String(city.id)
     ) || [];
-    
-    console.log(`🏙️ City: ${city.city_name}, Rates: ${cityRates.length}`);
-    
+
     if (cityRates.length > 0) {
-      // City has kaat rates - add each transport serving this city
       cityRates.forEach(rate => {
-        // Skip inactive if not included
         if (!includeInactive && !rate.is_active) return;
-        
-        // Find transport for this rate
         const transport = findTransport(transports, rate.transport_id);
-        
-        // Use transport from lookup or fallback to rate's transport_name
-        const transportName = transport?.transport_name || rate.transport_name;
-        const gstNumber = transport?.gst_number || null;
-        
         tableData.push(buildTableRow(
-          serialNo++,
-          transportName,
-          gstNumber,
-          city.city_name,
-          city.city_code,
-          rate
+          serialNo++, transport?.transport_name || rate.transport_name,
+          transport?.gst_number || null, city.city_name, city.city_code, rate
         ));
       });
     } else {
-      // City has NO kaat rates - find transports based in this city
       const transportsInCity = transports?.filter(t => {
-        // Match by city_id
         if (t.city_id && String(t.city_id) === String(city.id)) return true;
-        // Match by city_name
         if (t.city_name?.toLowerCase() === city.city_name?.toLowerCase()) return true;
         return false;
       }) || [];
-      
-      console.log(`🏙️ No rates for ${city.city_name}, transports in city: ${transportsInCity.length}`);
-      
+
       if (transportsInCity.length > 0) {
-        // Show each transport based in this city
         transportsInCity.forEach(transport => {
           tableData.push(buildTableRow(
-            serialNo++,
-            transport.transport_name,
-            transport.gst_number,
-            city.city_name,
-            city.city_code,
-            null // No rate
+            serialNo++, transport.transport_name, transport.gst_number,
+            city.city_name, city.city_code, null
           ));
         });
       } else {
-        // No transports in this city - show city row with empty transport
-        tableData.push(buildTableRow(
-          serialNo++,
-          null,
-          null,
-          city.city_name,
-          city.city_code,
-          null // No rate
-        ));
+        tableData.push(buildTableRow(serialNo++, null, null, city.city_name, city.city_code, null));
       }
     }
   });
-  
+
   return tableData;
 };
 
@@ -239,35 +188,21 @@ const buildDataForAllCities = (kaatRates, cities, transports, includeInactive) =
 const buildDataForFilteredRates = (kaatRates, cities, transports, settings) => {
   const tableData = [];
   let filteredRates = [...(kaatRates || [])];
-  
-  console.log('📋 Building data for FILTERED mode');
-  console.log('📋 Initial rates count:', filteredRates.length);
-  
-  // Filter by transport
+
   if (settings.filterType === 'transport' && settings.selectedTransport) {
     const transportId = String(settings.selectedTransport);
-    filteredRates = filteredRates.filter(r => 
-      r.transport_id && String(r.transport_id) === transportId
-    );
-    console.log('📋 After transport filter:', filteredRates.length);
+    filteredRates = filteredRates.filter(r => r.transport_id && String(r.transport_id) === transportId);
   }
-  
-  // Filter by city
+
   if (settings.filterType === 'city' && settings.selectedCity) {
     const cityId = String(settings.selectedCity);
-    filteredRates = filteredRates.filter(r => 
-      String(r.destination_city_id) === cityId
-    );
-    console.log('📋 After city filter:', filteredRates.length);
+    filteredRates = filteredRates.filter(r => String(r.destination_city_id) === cityId);
   }
-  
-  // Filter by status
+
   if (!settings.includeInactive) {
     filteredRates = filteredRates.filter(r => r.is_active === true);
-    console.log('📋 After active filter:', filteredRates.length);
   }
-  
-  // Sort rates
+
   filteredRates.sort((a, b) => {
     if (settings.sortBy === 'transport') {
       return (a.transport_name || '').toLowerCase().localeCompare((b.transport_name || '').toLowerCase());
@@ -276,83 +211,108 @@ const buildDataForFilteredRates = (kaatRates, cities, transports, settings) => {
       const cityB = findCity(cities, b.destination_city_id);
       return (cityA?.city_name || '').toLowerCase().localeCompare((cityB?.city_name || '').toLowerCase());
     } else if (settings.sortBy === 'rate') {
-      const rateA = parseFloat(a.rate_per_kg || a.rate_per_pkg || 0);
-      const rateB = parseFloat(b.rate_per_kg || b.rate_per_pkg || 0);
-      return rateA - rateB;
+      return parseFloat(a.rate_per_kg || a.rate_per_pkg || 0) - parseFloat(b.rate_per_kg || b.rate_per_pkg || 0);
     }
     return 0;
   });
-  
-  // Build table data
+
   filteredRates.forEach((rate, index) => {
     const transport = findTransport(transports, rate.transport_id);
     const city = findCity(cities, rate.destination_city_id);
-    
     tableData.push(buildTableRow(
-      index + 1,
-      transport?.transport_name || rate.transport_name,
-      transport?.gst_number,
-      city?.city_name,
-      city?.city_code,
-      rate
+      index + 1, transport?.transport_name || rate.transport_name,
+      transport?.gst_number, city?.city_name, city?.city_code, rate
     ));
   });
-  
+
   return tableData;
 };
 
 // ============================================================
 // PDF BUILDER: Add header
 // ============================================================
-const addPDFHeader = (doc, subtitle) => {
+const addPDFHeader = (doc, subtitle, filterInfo) => {
   const pageWidth = doc.internal.pageSize.width;
-  
+  const centerX = pageWidth / 2;
+  const { left: mL, right: mR } = PDF_CONFIG.margins;
+
   // Company name
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...PDF_CONFIG.colors.black);
-  doc.text('SS TRANSPORT CORPORATION', pageWidth / 2, 15, { align: 'center' });
-  
+  doc.text('SS TRANSPORT CORPORATION', centerX, 16, { align: 'center' });
+
   // Subtitle
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...PDF_CONFIG.colors.emerald);
-  doc.text(subtitle || 'KAAT RATE LIST', pageWidth / 2, 25, { align: 'center' });
-  
-  // Date
-  doc.setFontSize(9);
+  doc.setTextColor(...PDF_CONFIG.colors.headerBg);
+  doc.text(subtitle || 'KAAT RATE LIST', centerX, 24, { align: 'center' });
+
+  // Date - right aligned
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...PDF_CONFIG.colors.gray);
-  doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, pageWidth / 2, 32, { align: 'center' });
-  
-  // Line
+  doc.setTextColor(...PDF_CONFIG.colors.lightGray);
+  doc.text(
+    `Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`,
+    pageWidth - mR, 30, { align: 'right' }
+  );
+
+  // Filter info - left aligned
+  if (filterInfo) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...PDF_CONFIG.colors.purple);
+    doc.text(filterInfo, mL, 30);
+  }
+
+  // Separator line
+  doc.setDrawColor(...PDF_CONFIG.colors.headerBg);
+  doc.setLineWidth(0.8);
+  doc.line(mL, 33, pageWidth - mR, 33);
+
+  // Thin accent line
   doc.setDrawColor(...PDF_CONFIG.colors.emerald);
-  doc.setLineWidth(0.5);
-  doc.line(10, 35, pageWidth - 10, 35);
+  doc.setLineWidth(0.3);
+  doc.line(mL, 34, pageWidth - mR, 34);
 };
 
 // ============================================================
-// PDF BUILDER: Add footer
+// PDF BUILDER: Add footer to all pages
 // ============================================================
-const addPDFFooter = (doc) => {
+const addPDFFooter = (doc, totalEntries) => {
   const pageCount = doc.internal.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
-  
+  const { left: mL, right: mR } = PDF_CONFIG.margins;
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    
-    // Page number
-    doc.setFontSize(9);
+    const footerY = pageHeight - 8;
+
+    // Thin line above footer
+    doc.setDrawColor(...PDF_CONFIG.colors.borderColor);
+    doc.setLineWidth(0.2);
+    doc.line(mL, footerY - 3, pageWidth - mR, footerY - 3);
+
+    // Left: page number
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...PDF_CONFIG.colors.gray);
-    doc.text(`Page ${i} of ${pageCount}`, 20, pageHeight - 10);
-    
-    // Generated by
-    doc.setFontSize(10);
+    doc.setTextColor(...PDF_CONFIG.colors.lightGray);
+    doc.text(`Page ${i} of ${pageCount}`, mL, footerY);
+
+    // Center: brand
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-    doc.text('Generated by MoveSure', pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.setTextColor(...PDF_CONFIG.colors.gray);
+    doc.text('Generated by MoveSure', pageWidth / 2, footerY, { align: 'center' });
+
+    // Right: total entries
+    if (totalEntries) {
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...PDF_CONFIG.colors.lightGray);
+      doc.text(`Total: ${totalEntries} entries`, pageWidth - mR, footerY, { align: 'right' });
+    }
   }
 };
 
@@ -361,160 +321,170 @@ const addPDFFooter = (doc) => {
 // ============================================================
 export const generateKaatRatesPDF = (kaatRates, cities, transports, settings, previewMode = false) => {
   try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📊 PDF GENERATION STARTED');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📊 Data Summary:', {
-      rates: kaatRates?.length || 0,
-      cities: cities?.length || 0,
-      transports: transports?.length || 0
-    });
-    console.log('📊 Settings:', settings);
+    console.log('PDF GENERATION STARTED');
 
-    // Create PDF document (landscape A4)
+    // Landscape A4
     const doc = new jsPDF('landscape', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.width; // 297mm
-    const { left: marginLeft, right: marginRight } = PDF_CONFIG.margins;
-    const tableWidth = pageWidth - marginLeft - marginRight; // 277mm
-    
-    // Add header
-    addPDFHeader(doc, settings.subtitle);
-    
-    // Build table data based on settings
+    const { left: mL, right: mR } = PDF_CONFIG.margins;
+    const cols = PDF_CONFIG.columns;
+
+    // Build filter info text
+    let filterInfo = null;
+    if (settings.filterType === 'transport' && settings.selectedTransport) {
+      const t = findTransport(transports, settings.selectedTransport);
+      filterInfo = `Transport: ${t?.transport_name || 'Unknown'}`;
+    } else if (settings.filterType === 'city' && settings.selectedCity) {
+      const c = findCity(cities, settings.selectedCity);
+      filterInfo = `Destination: ${c?.city_name || 'Unknown'}`;
+    } else if (settings.includeAllTransports) {
+      filterInfo = 'All Transports (with & without rates)';
+    } else if (settings.includeAllCities) {
+      filterInfo = 'All Cities (with & without rates)';
+    }
+
+    // Header
+    addPDFHeader(doc, settings.subtitle, filterInfo);
+
+    // Build table data
     let tableData = [];
-    
     if (settings.includeAllTransports) {
-      console.log('📊 Mode: INCLUDE ALL TRANSPORTS');
       tableData = buildDataForAllTransports(kaatRates, cities, transports, settings.includeInactive);
     } else if (settings.includeAllCities) {
-      console.log('📊 Mode: INCLUDE ALL CITIES');
       tableData = buildDataForAllCities(kaatRates, cities, transports, settings.includeInactive);
     } else {
-      console.log('📊 Mode: STANDARD FILTERED');
       tableData = buildDataForFilteredRates(kaatRates, cities, transports, settings);
     }
-    
-    console.log('📊 Table rows built:', tableData.length);
-    
-    // Add filter info
-    let yPosition = 40;
-    if (settings.filterType === 'transport' && settings.selectedTransport) {
-      const transport = findTransport(transports, settings.selectedTransport);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...PDF_CONFIG.colors.purple);
-      doc.text(`Filtered by Transport: ${transport?.transport_name || 'Unknown'}`, marginLeft, yPosition);
-      yPosition += 5;
-    }
-    
-    if (settings.filterType === 'city' && settings.selectedCity) {
-      const city = findCity(cities, settings.selectedCity);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...PDF_CONFIG.colors.blue);
-      doc.text(`Filtered by Destination: ${city?.city_name || 'Unknown'}`, marginLeft, yPosition);
-      yPosition += 5;
-    }
-    
-    // Column widths
-    const serialColWidth = 12;
-    const remainingWidth = tableWidth - serialColWidth;
-    
-    const colWidths = {
-      serial: serialColWidth,
-      transport: remainingWidth * 0.27,
-      gst: remainingWidth * 0.20,
-      destination: remainingWidth * 0.18,
-      pricing: remainingWidth * 0.11,
-      rate: remainingWidth * 0.14,
-      minCharge: remainingWidth * 0.08,
-      remarks: remainingWidth * 0.02
-    };
-    
-    // Generate table
+
+    console.log('Table rows:', tableData.length);
+
+    // Table
+    const startY = 37;
+
     autoTable(doc, {
-      startY: yPosition + 3,
-      margin: { left: marginLeft, right: marginRight },
-      tableWidth: tableWidth,
+      startY,
+      margin: { left: mL, right: mR, top: 37, bottom: PDF_CONFIG.margins.bottom },
+      tableWidth: 'auto',
+
       head: [[
-        'Sr.',
-        'Transport Name',
-        'GST Number',
-        'Destination',
-        'Pricing',
-        'Rate',
-        'Min Charge',
-        'Remarks'
+        { content: 'Sr.', styles: { halign: 'center' } },
+        { content: 'Transport Name', styles: { halign: 'left' } },
+        { content: 'GST Number', styles: { halign: 'left' } },
+        { content: 'Destination', styles: { halign: 'center' } },
+        { content: 'Pricing', styles: { halign: 'center' } },
+        { content: 'Rate', styles: { halign: 'right' } },
+        { content: 'Min Charge', styles: { halign: 'right' } },
+        { content: 'Remarks', styles: { halign: 'center' } }
       ]],
       body: tableData,
+
       theme: 'grid',
+
       headStyles: {
-        fillColor: PDF_CONFIG.colors.emerald,
+        fillColor: PDF_CONFIG.colors.headerBg,
         textColor: PDF_CONFIG.colors.white,
         fontStyle: 'bold',
-        fontSize: 8,
-        halign: 'center',
-        cellPadding: 1.5,
-        minCellHeight: 6
+        fontSize: 8.5,
+        cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+        lineWidth: 0.2,
+        lineColor: [255, 255, 255],
+        minCellHeight: 10
       },
+
       bodyStyles: {
         fontSize: 7.5,
-        cellPadding: 1.2,
-        minCellHeight: 5
+        textColor: PDF_CONFIG.colors.darkGray,
+        cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 },
+        lineWidth: 0.15,
+        lineColor: PDF_CONFIG.colors.borderColor,
+        minCellHeight: 8,
+        valign: 'middle'
       },
+
       columnStyles: {
-        0: { halign: 'center', cellWidth: colWidths.serial },
-        1: { cellWidth: colWidths.transport },
-        2: { cellWidth: colWidths.gst, fontSize: 7 },
-        3: { cellWidth: colWidths.destination },
-        4: { halign: 'center', cellWidth: colWidths.pricing },
-        5: { halign: 'right', cellWidth: colWidths.rate },
-        6: { halign: 'right', cellWidth: colWidths.minCharge },
-        7: { cellWidth: colWidths.remarks, halign: 'center' }
+        0: { cellWidth: cols.sr, halign: 'center', fontStyle: 'bold', textColor: PDF_CONFIG.colors.gray },
+        1: { cellWidth: cols.transport, fontStyle: 'bold' },
+        2: { cellWidth: cols.gst, fontSize: 6.5, font: 'courier' },
+        3: { cellWidth: cols.destination, halign: 'center', fontStyle: 'bold' },
+        4: { cellWidth: cols.pricing, halign: 'center', fontSize: 7 },
+        5: { cellWidth: cols.rate, halign: 'right', fontStyle: 'bold', textColor: [5, 100, 80] },
+        6: { cellWidth: cols.minCharge, halign: 'right', fontSize: 7 },
+        7: { cellWidth: cols.remarks, halign: 'left', fontSize: 7, textColor: PDF_CONFIG.colors.lightGray }
       },
+
       alternateRowStyles: {
         fillColor: PDF_CONFIG.colors.altRow
+      },
+
+      didParseCell: function(data) {
+        if (data.section === 'body' && data.column.index === 4) {
+          const val = data.cell.raw;
+          if (val === 'PER KG') {
+            data.cell.styles.textColor = [5, 150, 105];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val === 'PER PKG') {
+            data.cell.styles.textColor = [139, 92, 246];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val === 'HYBRID') {
+            data.cell.styles.textColor = [59, 130, 246];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        if (data.section === 'body' && data.column.index === 5) {
+          if (data.cell.raw === '-') {
+            data.cell.styles.textColor = [200, 200, 200];
+          }
+        }
+      },
+
+      didDrawPage: function(data) {
+        if (data.pageNumber > 1) {
+          addPDFHeader(doc, settings.subtitle, filterInfo);
+        }
       }
     });
-    
-    // Summary
+
+    // Summary below table
     const finalY = doc.lastAutoTable.finalY || 100;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...PDF_CONFIG.colors.black);
-    doc.text('Summary:', marginLeft, finalY + 10);
-    
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...PDF_CONFIG.colors.darkGray);
-    doc.text(`Total Entries: ${tableData.length}`, marginLeft, finalY + 16);
-    
+    const pageHeight = doc.internal.pageSize.height;
+
+    if (finalY + 12 < pageHeight - PDF_CONFIG.margins.bottom) {
+      doc.setDrawColor(...PDF_CONFIG.colors.headerBg);
+      doc.setLineWidth(0.4);
+      doc.line(mL, finalY + 3, mL + 60, finalY + 3);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...PDF_CONFIG.colors.darkGray);
+      doc.text(`Total Entries: ${tableData.length}`, mL, finalY + 8);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...PDF_CONFIG.colors.gray);
+      doc.text(`|  Generated on ${format(new Date(), 'dd MMM yyyy')}`, mL + 32, finalY + 8);
+    }
+
     // Footer
-    addPDFFooter(doc);
-    
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('✅ PDF GENERATED SUCCESSFULLY');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    // Return or save
+    addPDFFooter(doc, tableData.length);
+
+    console.log('PDF GENERATED SUCCESSFULLY');
+
     if (previewMode) {
       return doc.output('bloburl');
     } else {
       let filename = 'kaat-rates';
       if (settings.filterType === 'transport' && settings.selectedTransport) {
-        const transport = findTransport(transports, settings.selectedTransport);
-        filename = `kaat-${(transport?.transport_name || 'transport').toLowerCase().replace(/\s+/g, '-')}`;
+        const t = findTransport(transports, settings.selectedTransport);
+        filename = `kaat-${(t?.transport_name || 'transport').toLowerCase().replace(/\s+/g, '-')}`;
       } else if (settings.filterType === 'city' && settings.selectedCity) {
-        const city = findCity(cities, settings.selectedCity);
-        filename = `kaat-${(city?.city_name || 'city').toLowerCase().replace(/\s+/g, '-')}`;
+        const c = findCity(cities, settings.selectedCity);
+        filename = `kaat-${(c?.city_name || 'city').toLowerCase().replace(/\s+/g, '-')}`;
       }
       filename += `-${format(new Date(), 'dd-MMM-yyyy')}.pdf`;
       doc.save(filename);
       return null;
     }
-    
+
   } catch (error) {
-    console.error('❌ PDF Generation Error:', error);
+    console.error('PDF Generation Error:', error);
     throw error;
   }
 };

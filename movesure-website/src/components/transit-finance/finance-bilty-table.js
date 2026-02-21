@@ -700,6 +700,9 @@ export default function FinanceBiltyTable({
           if (kaatData.rate_type === 'per_kg') kaatAmount = effectiveWeight * rateKg;
           else if (kaatData.rate_type === 'per_pkg') kaatAmount = packages * ratePkg;
           else if (kaatData.rate_type === 'hybrid') kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+
+          // Add per-bilty charges
+          kaatAmount += parseFloat(kaatData.bilty_chrg || 0) + parseFloat(kaatData.ewb_chrg || 0) + parseFloat(kaatData.labour_chrg || 0) + parseFloat(kaatData.other_chrg || 0);
         }
         totalKaat += kaatAmount;
         totalProfit += amt - kaatAmount - ddChrg;
@@ -1708,6 +1711,8 @@ export default function FinanceBiltyTable({
                         } else if (kaatData.rate_type === 'hybrid') {
                           kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
                         }
+                        // Add per-bilty charges
+                        kaatAmount += parseFloat(kaatData.bilty_chrg || 0) + parseFloat(kaatData.ewb_chrg || 0) + parseFloat(kaatData.labour_chrg || 0) + parseFloat(kaatData.other_chrg || 0);
                       }
                       
                       // Profit = Total Amount - Kaat Amount - DD Charge (can be negative for Paid/DD bilties)

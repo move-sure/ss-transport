@@ -424,8 +424,9 @@ const ConsignorConsigneeSection = ({
       return updated;
     });
     
-    // If consignor exists and number is being updated, save to database
-    if (formData.consignor_name && newNumber && newNumber.length >= 10) {
+    // If consignor exists in DB and number is being updated, save to database
+    // Skip for new consignors (not yet saved) - will be saved with bilty
+    if (formData.consignor_name && newNumber && newNumber.length >= 10 && !isNewConsignor) {
       try {
         const result = await updateConsignorNumber(formData.consignor_name, newNumber);
         if (result.success) {
@@ -448,8 +449,9 @@ const ConsignorConsigneeSection = ({
       return updated;
     });
     
-    // If consignee exists and number is being updated, save to database
-    if (formData.consignee_name && newNumber && newNumber.length >= 10) {
+    // If consignee exists in DB and number is being updated, save to database
+    // Skip for new consignees (not yet saved) - will be saved with bilty
+    if (formData.consignee_name && newNumber && newNumber.length >= 10 && !isNewConsignee) {
       try {
         const result = await updateConsigneeNumber(formData.consignee_name, newNumber);
         if (result.success) {
@@ -500,7 +502,8 @@ const ConsignorConsigneeSection = ({
           return;
         }
         // GST doesn't belong to another consignor - update the current consignor's GST in DB
-        if (formData.consignor_name) {
+        // Skip for new consignors (not yet saved) - will be saved with bilty
+        if (formData.consignor_name && !isNewConsignor) {
           const result = await updateConsignorGST(formData.consignor_name, newGST);
           if (result.success) {
             console.log('Consignor GST updated successfully');
@@ -548,7 +551,8 @@ const ConsignorConsigneeSection = ({
           return;
         }
         // GST doesn't belong to another consignee - update the current consignee's GST in DB
-        if (formData.consignee_name) {
+        // Skip for new consignees (not yet saved) - will be saved with bilty
+        if (formData.consignee_name && !isNewConsignee) {
           const result = await updateConsigneeGST(formData.consignee_name, newGST);
           if (result.success) {
             console.log('Consignee GST updated successfully');
@@ -913,10 +917,11 @@ const ConsignorConsigneeSection = ({
   };
 
   // Auto-save new consignor to database (called when user leaves name and goes to GST)
+  // Detect new consignor (does NOT save to DB - saved only when bilty is created)
   const autoSaveNewConsignor = async (nameToSave) => {
     const name = nameToSave || consignorSearch;
     if (!name || !name.trim() || name.trim().length < 2) return;
-    // Don't auto-save if a consignor was selected from dropdown
+    // Don't detect if a consignor was selected from dropdown
     if (selectedConsignorNameRef.current) return;
     
     try {
@@ -946,33 +951,20 @@ const ConsignorConsigneeSection = ({
         }
       }
       
-      const result = await addNewConsignor({
-        company_name: name.trim(),
-        gst_num: null,
-        number: null
-      });
-      
-      if (result.success) {
-        console.log('✅ New consignor auto-saved:', name);
-        selectedConsignorNameRef.current = name.trim();
-        setIsNewConsignor(true);
-        setNewConsignorSaved(true);
-        
-        if (onDataUpdate) onDataUpdate();
-        
-        // Auto-hide the saved indicator after 8 seconds
-        setTimeout(() => setNewConsignorSaved(false), 8000);
-      }
+      // Mark as new consignor - will be saved to DB when bilty is created
+      console.log('📋 New consignor detected (will save with bilty):', name);
+      selectedConsignorNameRef.current = name.trim();
+      setIsNewConsignor(true);
     } catch (error) {
-      console.error('Error auto-saving new consignor:', error);
+      console.error('Error detecting new consignor:', error);
     }
   };
 
-  // Auto-save new consignee to database (called when user leaves name and goes to GST)
+  // Detect new consignee (does NOT save to DB - saved only when bilty is created)
   const autoSaveNewConsignee = async (nameToSave) => {
     const name = nameToSave || consigneeSearch;
     if (!name || !name.trim() || name.trim().length < 2) return;
-    // Don't auto-save if a consignee was selected from dropdown
+    // Don't detect if a consignee was selected from dropdown
     if (selectedConsigneeNameRef.current) return;
     
     try {
@@ -1002,25 +994,12 @@ const ConsignorConsigneeSection = ({
         }
       }
       
-      const result = await addNewConsignee({
-        company_name: name.trim(),
-        gst_num: null,
-        number: null
-      });
-      
-      if (result.success) {
-        console.log('✅ New consignee auto-saved:', name);
-        selectedConsigneeNameRef.current = name.trim();
-        setIsNewConsignee(true);
-        setNewConsigneeSaved(true);
-        
-        if (onDataUpdate) onDataUpdate();
-        
-        // Auto-hide the saved indicator after 8 seconds
-        setTimeout(() => setNewConsigneeSaved(false), 8000);
-      }
+      // Mark as new consignee - will be saved to DB when bilty is created
+      console.log('📋 New consignee detected (will save with bilty):', name);
+      selectedConsigneeNameRef.current = name.trim();
+      setIsNewConsignee(true);
     } catch (error) {
-      console.error('Error auto-saving new consignee:', error);
+      console.error('Error detecting new consignee:', error);
     }
   };
 

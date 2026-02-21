@@ -13,10 +13,13 @@ import Navbar from '../../components/dashboard/navbar';
 import GRNumberSection from '../../components/bilty/grnumber-manager';
 import CityTransportSection from '../../components/bilty/city-transport';
 import ConsignorConsigneeSection from '../../components/bilty/consignor-consignee';
+import { addNewConsignor, addNewConsignee, checkDuplicateConsignor, checkDuplicateConsignee } from '../../components/bilty/consignor-consignee-helper';
 import InvoiceDetailsSection from '../../components/bilty/invoice';
 import PackageChargesSection from '../../components/bilty/charges';
 import PrintModal from '../../components/bilty/print-model';
 import PrintBilty from '../../components/bilty/print-bilty';
+import { useGRReservation } from '../../utils/grReservation';
+import GRLiveStatus from '../../components/bilty/gr-live-status';
 
 export default function BiltyForm() {
   const { user } = useAuth();
@@ -55,6 +58,17 @@ export default function BiltyForm() {
   
   // Selected bill book
   const [selectedBillBook, setSelectedBillBook] = useState(null);
+
+  // ⭐ GR RESERVATION SYSTEM - Multi-user concurrent bilty creation
+  const grReservation = useGRReservation({
+    userId: user?.id,
+    userName: user?.name || user?.username,
+    branchId: user?.branch_id,
+    selectedBillBook: selectedBillBook,
+    isEditMode: isEditMode,
+    enabled: !loading && !!user?.id && !!user?.branch_id
+  });
+
     // Form data
   const [formData, setFormData] = useState({
     gr_no: '',
@@ -146,6 +160,38 @@ export default function BiltyForm() {
     }
   }, [selectedBillBook, existingBilties, isEditMode, loading]);
 
+  // ⭐ SYNC RESERVED GR NUMBER into form data
+  // When reservation system provides a GR number, use it instead of the local generateGRNumber
+  useEffect(() => {
+    if (grReservation.reservedGRNo && !isEditMode && !loading) {
+      console.log('🎫 Syncing reserved GR into form:', grReservation.reservedGRNo);
+      setFormData(prev => ({
+        ...prev,
+        gr_no: grReservation.reservedGRNo
+      }));
+      // Clear any sequence error since reservation system handles conflicts
+      setGrSequenceError(null);
+    }
+  }, [grReservation.reservedGRNo, isEditMode, loading]);
+
+  // ⭐ RECALCULATE SUGGESTED GR when branch reservations change (via Realtime)
+  // Only when user has NO active reservation and is in NEW mode
+  // This ensures that if another user reserves A08044, this user sees A08048 instead
+  useEffect(() => {
+    if (isEditMode || loading || grReservation.hasReservation || !selectedBillBook) return;
+
+    const smartGR = getNextAvailableGR(selectedBillBook);
+    if (smartGR) {
+      setFormData(prev => {
+        if (prev.gr_no !== smartGR) {
+          console.log('📊 Smart GR recalculated:', smartGR, '(was:', prev.gr_no, ')');
+          return { ...prev, gr_no: smartGR };
+        }
+        return prev;
+      });
+    }
+  }, [grReservation.branchReservations, selectedBillBook, isEditMode, loading, grReservation.hasReservation, existingBilties]);
+
   // ⭐ Fix GR sequence - update bill book current_number in DB
   const fixGRSequence = async (newCurrentNumber) => {
     if (!selectedBillBook) return;
@@ -171,7 +217,7 @@ export default function BiltyForm() {
       // Update local state
       const updatedBook = { ...selectedBillBook, current_number: num };
       setSelectedBillBook(updatedBook);
-      const newGR = generateGRNumber(updatedBook);
+      const newGR = getNextAvailableGR(updatedBook);
       setFormData(prev => ({ ...prev, gr_no: newGR }));
       setGrSequenceError(null);
       console.log(`✅ Bill book current_number fixed to ${num}, new GR: ${newGR}`);
@@ -397,7 +443,9 @@ export default function BiltyForm() {
           : booksRes.data[0];
         
         setSelectedBillBook(defaultBook);
-        const grNo = generateGRNumber(defaultBook);
+        // Use smart GR that skips reserved/used numbers (branchReservations may be empty at this point,
+        // the recalculate useEffect will update once data arrives)
+        const grNo = getNextAvailableGR(defaultBook);
         setFormData(prev => ({ ...prev, gr_no: grNo }));
         
         // Ensure we're in new mode
@@ -423,6 +471,44 @@ export default function BiltyForm() {
     const { prefix, current_number, digits, postfix } = billBook;
     const paddedNumber = String(current_number).padStart(digits, '0');
     return `${prefix || ''}${paddedNumber}${postfix || ''}`;
+  };
+
+  // Format a GR string from a bill book and a specific number
+  const formatGRFromNumber = (billBook, num) => {
+    if (!billBook) return '';
+    const paddedNumber = String(num).padStart(billBook.digits, '0');
+    return `${billBook.prefix || ''}${paddedNumber}${billBook.postfix || ''}`;
+  };
+
+  // ⭐ SMART GR: Get next available GR number, skipping reserved and used numbers
+  // This shows the user the NEXT number they can reserve, not one that's already taken
+  const getNextAvailableGR = (billBook) => {
+    if (!billBook) return '';
+    let num = billBook.current_number;
+
+    // Collect all reserved GR numbers for this bill book (by ANYONE)
+    const reservedNumbers = new Set(
+      (grReservation.branchReservations || [])
+        .filter(r => r.bill_book_id === billBook.id)
+        .map(r => r.gr_number)
+    );
+
+    // Collect all used GR strings from existing bilties
+    const usedGRs = new Set(
+      (existingBilties || []).map(b => b.gr_no?.trim().toLowerCase())
+    );
+
+    const maxNum = billBook.to_number;
+    while (num <= maxNum) {
+      const grStr = formatGRFromNumber(billBook, num);
+      if (!reservedNumbers.has(num) && !usedGRs.has(grStr.trim().toLowerCase())) {
+        return grStr;
+      }
+      num++;
+    }
+
+    // All numbers exhausted - return formatted current_number as fallback
+    return generateGRNumber(billBook);
   };
 
   const loadExistingBilty = async (bilty) => {
@@ -499,7 +585,56 @@ export default function BiltyForm() {
         to_city_id: formData.to_city_id
       });
       
-      // No validation - allow direct save// Prepare save data with explicit type conversion and null handling
+      // No validation - allow direct save
+      
+      // 🆕 Save new consignor/consignee to DB if they were typed (not selected from dropdown)
+      // This ensures new entries are only created when the bilty is actually saved
+      if (formData.consignor_name && formData.consignor_name.trim()) {
+        const consignorName = formData.consignor_name.trim().toUpperCase();
+        const consignorExists = consignors.some(c => 
+          c.company_name.trim().toUpperCase() === consignorName
+        );
+        if (!consignorExists) {
+          const isDup = await checkDuplicateConsignor(consignorName);
+          if (!isDup) {
+            console.log('🆕 Saving new consignor with bilty:', consignorName);
+            const result = await addNewConsignor({
+              company_name: consignorName,
+              gst_num: formData.consignor_gst?.trim() || null,
+              number: formData.consignor_number?.trim() || null
+            });
+            if (result.success) {
+              console.log('✅ New consignor saved:', consignorName);
+            }
+          }
+        }
+      }
+      
+      if (formData.consignee_name && formData.consignee_name.trim()) {
+        const consigneeName = formData.consignee_name.trim().toUpperCase();
+        const consigneeExists = consignees.some(c => 
+          c.company_name.trim().toUpperCase() === consigneeName
+        );
+        if (!consigneeExists) {
+          const isDup = await checkDuplicateConsignee(consigneeName);
+          if (!isDup) {
+            console.log('🆕 Saving new consignee with bilty:', consigneeName);
+            const result = await addNewConsignee({
+              company_name: consigneeName,
+              gst_num: formData.consignee_gst?.trim() || null,
+              number: formData.consignee_number?.trim() || null
+            });
+            if (result.success) {
+              console.log('✅ New consignee saved:', consigneeName);
+            }
+          }
+        }
+      }
+
+      // Refresh consignor/consignee lists after saving new entries
+      await refreshConsignorConsigneeData();
+
+// Prepare save data with explicit type conversion and null handling
       const saveData = {
         gr_no: formData.gr_no?.toString().trim(),
         branch_id: user.branch_id,
@@ -903,33 +1038,45 @@ export default function BiltyForm() {
         }          // ⭐ CRITICAL FIX: Update bill book current number ONLY for GENUINELY NEW bilties
         // This prevents bill book increment on duplicate GR number attempts
         if (selectedBillBook && !isEditMode && isActuallyNewBilty) {
-          console.log('📈 Updating bill book current number for GENUINELY NEW bilty...');
-          let newCurrentNumber = selectedBillBook.current_number + 1;
-          
-          if (newCurrentNumber > selectedBillBook.to_number) {
-            if (selectedBillBook.auto_continue) {
-              newCurrentNumber = selectedBillBook.from_number;            } else {              await supabase
-                .from('bill_books')
-                .update({ is_completed: true, current_number: selectedBillBook.to_number })
-                .eq('id', selectedBillBook.id);
-              
-              console.log('Bill book completed, loading initial data...');
-              loadInitialData();
-              return;
+          // ⭐ If reservation system is active, complete the reservation and check pending
+          if (grReservation.hasReservation) {
+            console.log('🎫 Completing GR reservation:', grReservation.reservedGRNo);
+            const nextRes = await grReservation.completeAndReserveNext();
+            if (!nextRes) {
+              // No pending reservations — show local GR (user must click Reserve to lock it)
+              console.log('ℹ️ No pending. User will click Reserve for next GR.');
             }
+          } else {
+            // Fallback: legacy bill book increment for cases without reservation
+            console.log('📈 Updating bill book current number for GENUINELY NEW bilty (no reservation)...');
+            let newCurrentNumber = selectedBillBook.current_number + 1;
+            
+            if (newCurrentNumber > selectedBillBook.to_number) {
+              if (selectedBillBook.auto_continue) {
+                newCurrentNumber = selectedBillBook.from_number;
+              } else {
+                await supabase
+                  .from('bill_books')
+                  .update({ is_completed: true, current_number: selectedBillBook.to_number })
+                  .eq('id', selectedBillBook.id);
+                
+                console.log('Bill book completed, loading initial data...');
+                loadInitialData();
+                return;
+              }
+            }
+            
+            const { error: billBookError } = await supabase
+              .from('bill_books')
+              .update({ current_number: newCurrentNumber })
+              .eq('id', selectedBillBook.id);
+            
+            if (billBookError) {
+              console.error('Bill book update error:', billBookError);
+            }
+            
+            setSelectedBillBook(prev => ({ ...prev, current_number: newCurrentNumber }));
           }
-          
-          const { error: billBookError } = await supabase
-            .from('bill_books')
-            .update({ current_number: newCurrentNumber })
-            .eq('id', selectedBillBook.id);
-          
-          if (billBookError) {
-            console.error('Bill book update error:', billBookError);
-            // Don't throw here, bilty was saved successfully
-          }
-          
-          setSelectedBillBook(prev => ({ ...prev, current_number: newCurrentNumber }));
         } else if (isEditMode) {
           console.log('✅ Skipping bill book update - this is an EDIT, not a new bilty');
         } else if (!isActuallyNewBilty) {
@@ -976,8 +1123,10 @@ export default function BiltyForm() {
     }
   };
 
-  const resetForm = () => {
-    const newGrNo = selectedBillBook ? generateGRNumber(selectedBillBook) : '';
+  const resetForm = async () => {
+    // If user has a reservation, keep it. Otherwise show next AVAILABLE GR (skips reserved/used).
+    const currentReservedGR = grReservation.reservedGRNo;
+    const newGrNo = currentReservedGR || (selectedBillBook ? getNextAvailableGR(selectedBillBook) : '');
     
     setFormData({
       gr_no: newGrNo,
@@ -1041,7 +1190,7 @@ export default function BiltyForm() {
     // Clear any remaining localStorage data
     localStorage.removeItem('editBiltyData');
     
-    console.log('Form reset to new mode');
+    console.log('Form reset to new mode, keeping reserved GR:', currentReservedGR || 'none');
   };
   const toggleEditMode = () => {
     if (!isEditMode) {
@@ -1065,7 +1214,7 @@ export default function BiltyForm() {
   const handleBillBookSelect = (book) => {
     setSelectedBillBook(book);
     if (!isEditMode) {
-      const grNo = generateGRNumber(book);
+      const grNo = getNextAvailableGR(book);
       setFormData(prev => ({ ...prev, gr_no: grNo }));
     }
     setShowBillBookDropdown(false);
@@ -1211,7 +1360,25 @@ export default function BiltyForm() {
             cities={cities}
             grSequenceError={grSequenceError}
             onFixGRSequence={fixGRSequence}
-          />          {/* Row 2: City & Transport */}
+            grReservation={grReservation}
+          />
+
+          {/* ⭐ Live GR Reservation Status - Multi-user */}
+          <GRLiveStatus
+            branchReservations={grReservation.branchReservations}
+            recentBilties={grReservation.recentBilties}
+            currentUserId={user?.id}
+            currentReservation={grReservation.reservation}
+            reserving={grReservation.reserving}
+            onRefresh={grReservation.refreshStatus}
+            onReleaseById={grReservation.releaseById}
+            onSwitchToReservation={grReservation.switchToReservation}
+            onReserveRange={grReservation.reserveRange}
+            myPendingReservations={grReservation.myPendingReservations}
+            enabled={!isEditMode}
+          />
+
+          {/* Row 2: City & Transport */}
           <CityTransportSection
             key={`city-transport-${resetKey}`}
             formData={formData}

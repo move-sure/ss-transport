@@ -20,7 +20,8 @@ const GRNumberSection = ({
   showShortcuts,
   cities = [],
   grSequenceError = null,
-  onFixGRSequence = null
+  onFixGRSequence = null,
+  grReservation = null
 }) => {
   const [showGRDropdown, setShowGRDropdown] = useState(false);
   const [grSearch, setGrSearch] = useState('');
@@ -204,9 +205,14 @@ const GRNumberSection = ({
       }
     }
   };
-  const filteredBilties = existingBilties.filter(b => 
-    b.gr_no.toLowerCase().includes(grSearch.toLowerCase())
-  );
+  const filteredBilties = existingBilties
+    .filter(b => b.gr_no.toLowerCase().includes(grSearch.toLowerCase()))
+    .sort((a, b) => {
+      // Extract numeric part from GR number for proper numeric sorting
+      const numA = parseInt(a.gr_no.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.gr_no.replace(/\D/g, '')) || 0;
+      return numB - numA; // Descending: newest/highest first
+    });
 
   // Implement pagination for display
   const displayedBilties = filteredBilties.slice(0, displayLimit);
@@ -299,6 +305,46 @@ const GRNumberSection = ({
         </div>
       )}
 
+      {/* ⚠️ UNUSED GR NUMBERS WARNING - Gaps in sequence */}
+      {!isEditMode && grReservation?.unusedGRNumbers?.length > 0 && !grReservation?.hasReservation && (
+        <div className="mb-3 p-2.5 bg-amber-50 border-2 border-amber-300 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="text-amber-800 font-bold text-xs mb-1">
+                ⚠️ {grReservation.unusedGRNumbers.length} UNUSED GR{grReservation.unusedGRNumbers.length > 1 ? 's' : ''} FOUND — Sequence gaps detected!
+              </div>
+              <div className="text-amber-700 text-[11px] mb-1.5">
+                These GR numbers were skipped/released and never saved. Use them to avoid gaps in your sequence:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {grReservation.unusedGRNumbers.slice(0, 5).map((unused) => (
+                  <button
+                    key={unused.gr_number}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (grReservation.reserveSpecific) {
+                        grReservation.reserveSpecific(unused.gr_number);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors shadow-sm"
+                    title={`Reserve and use GR ${unused.gr_no}`}
+                  >
+                    🎫 USE {unused.gr_no}
+                  </button>
+                ))}
+                {grReservation.unusedGRNumbers.length > 5 && (
+                  <span className="text-[10px] font-semibold text-amber-600 px-2 py-1 bg-amber-100 rounded-md border border-amber-200">
+                    +{grReservation.unusedGRNumbers.length - 5} more
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Responsive layout for edit mode */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
         {/* Main form controls */}
@@ -379,17 +425,72 @@ const GRNumberSection = ({
                     />
                   )}
                 </>
-              ) : (                <input
-                  type="text"
-                  value={formData.gr_no}
-                  className={`w-full sm:w-40 px-2 py-1.5 text-sm font-bold border-2 rounded-lg shadow-md transition-all duration-200 ${
-                    grSequenceError 
-                      ? 'text-red-700 border-red-500 bg-red-50' 
-                      : 'text-black border-gray-300 bg-gray-100'
-                  }`}
-                  readOnly
-                  tabIndex={-1}
-                />
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  {/* GR Number display */}
+                  <input
+                    type="text"
+                    value={formData.gr_no}
+                    className={`w-28 sm:w-36 px-2 py-1.5 text-sm font-bold border-2 rounded-lg shadow-sm transition-all duration-200 ${
+                      grSequenceError 
+                        ? 'text-red-700 border-red-500 bg-red-50' 
+                        : grReservation?.hasReservation
+                          ? 'text-green-800 border-green-500 bg-green-50'
+                          : 'text-slate-600 border-slate-300 bg-slate-50'
+                    }`}
+                    readOnly
+                    tabIndex={-1}
+                  />
+                  {/* Reserve / Status buttons */}
+                  {grReservation?.reserving ? (
+                    <div className="flex items-center gap-1 text-xs text-indigo-600">
+                      <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="font-medium whitespace-nowrap">Reserving...</span>
+                    </div>
+                  ) : grReservation?.hasReservation ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-green-700 bg-green-100 border border-green-300 px-1.5 py-0.5 rounded whitespace-nowrap">
+                        🔒 RESERVED
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (grReservation.release && window.confirm(`Release GR ${grReservation.reservedGRNo}?`)) {
+                            grReservation.release();
+                          }
+                        }}
+                        className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded whitespace-nowrap hover:bg-red-100 transition-colors cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                      {grReservation?.myPendingReservations?.length > 0 && (
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                          +{grReservation.myPendingReservations.length}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (grReservation?.reserveNext) {
+                          grReservation.reserveNext();
+                        }
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+                      title="Reserve this GR number so no one else can use it"
+                    >
+                      🎫 RESERVE
+                    </button>
+                  )}
+                  {grReservation?.reservationError && (
+                    <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded whitespace-nowrap" title={grReservation.reservationError}>
+                      ⚠️
+                    </span>
+                  )}
+                </div>
               )}
                 {showGRDropdown && isEditMode && !currentEditingGR && (
                 <div className="absolute z-30 mt-2 w-full sm:w-96 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"

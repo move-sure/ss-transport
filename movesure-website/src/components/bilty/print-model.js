@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Printer, X, FileText, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import PDFGenerator from './pdf-generation';
+import supabase from '../../app/utils/supabase';
 
 const PrintModal = ({ 
   isOpen, 
@@ -60,7 +61,7 @@ const PrintModal = ({
     }
   }, [isOpen]);
 
-  // Send WhatsApp message function
+  // Send WhatsApp message function - NEW 9-variable template
   const sendWhatsAppMessage = async () => {
     if (!biltyData?.consignor_number || !biltyData?.gr_no || !biltyData?.consignor_name) {
       console.error('❌ Missing required data for WhatsApp');
@@ -79,31 +80,85 @@ const PrintModal = ({
       setWhatsappSending(true);
       setLastSendTime(currentTime);
 
-      const promises = [];
+      // Fetch pdf_bucket from DB (background upload may have completed)
+      let pdfBucketLink = biltyData.pdf_bucket || '';
+      if (!pdfBucketLink && biltyData.id) {
+        const { data: freshBilty } = await supabase
+          .from('bilty')
+          .select('pdf_bucket')
+          .eq('id', biltyData.id)
+          .single();
+        pdfBucketLink = freshBilty?.pdf_bucket || '';
+      }
+      // Fallback to print URL if PDF not yet uploaded
+      if (!pdfBucketLink) {
+        pdfBucketLink = `https://console.movesure.io/print/${biltyData.gr_no}`;
+      }
 
-      // Send to consignor (always send if we reach this function)
+      // Get destination city name
+      let destinationCityName = toCityName || '';
+      if (!destinationCityName && biltyData.to_city_id) {
+        const toCity = cities.find(c => c.id === biltyData.to_city_id);
+        destinationCityName = toCity?.city_name || '';
+        if (!destinationCityName) {
+          const { data: cityRow } = await supabase
+            .from('cities')
+            .select('city_name')
+            .eq('id', biltyData.to_city_id)
+            .single();
+          destinationCityName = cityRow?.city_name || 'N/A';
+        }
+      }
+
+      // Format date
+      const biltyDate = biltyData.bilty_date
+        ? format(new Date(biltyData.bilty_date), 'dd/MM/yyyy')
+        : 'N/A';
+
+      // Format delivery type
+      const deliveryType = biltyData.delivery_type
+        ? biltyData.delivery_type.replace(/-/g, ' ').toUpperCase()
+        : 'N/A';
+
+      // Format payment mode
+      const paymentMode = biltyData.payment_mode
+        ? biltyData.payment_mode.replace(/-/g, ' ').toUpperCase()
+        : 'N/A';
+
+      // Clean consignor mobile number
       let consignorMobile = biltyData.consignor_number.toString().replace(/\D/g, '');
       if (consignorMobile.length === 10) {
         consignorMobile = '91' + consignorMobile;
       }
 
+      // Build 9-variable payload for new template
       const consignorPayload = {
         receiver: consignorMobile,
         values: {
-          "1": biltyData.consignor_name,
-          "2": biltyData.gr_no,
-          "3": biltyData.gr_no
+          "1": biltyData.gr_no || 'N/A',
+          "2": biltyData.consignor_name || 'N/A',
+          "3": pdfBucketLink,
+          "4": biltyDate,
+          "5": destinationCityName || 'N/A',
+          "6": deliveryType,
+          "7": paymentMode,
+          "8": biltyData.consignee_name || 'N/A',
+          "9": biltyData.gr_no || 'N/A'
         }
       };
 
+      console.log('📱 Sending WhatsApp (new template) to consignor:', consignorPayload);
+
+      const promises = [];
+
       promises.push(
-        fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/4091xkylvs/process', {
+        fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/j2s96opcd7/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(consignorPayload)
         }).then(response => {
           if (response.ok) {
-            console.log('✅ WhatsApp sent successfully to consignor');
+            console.log('✅ WhatsApp sent successfully to consignor (new template)');
             return { success: true, type: 'consignor' };
           } else {
             console.error('❌ WhatsApp failed for consignor:', response.status);
@@ -115,7 +170,7 @@ const PrintModal = ({
         })
       );
 
-      // Send to consignee (only if consignee has mobile number)
+      // Send to consignee (only if consignee has mobile number) - same new template
       if (biltyData?.consignee_number && biltyData?.consignee_name) {
         let consigneeMobile = biltyData.consignee_number.toString().replace(/\D/g, '');
         if (consigneeMobile.length === 10) {
@@ -125,20 +180,28 @@ const PrintModal = ({
           const consigneePayload = {
             receiver: consigneeMobile,
             values: {
-              "1": biltyData.consignee_name,
-              "2": biltyData.gr_no,
-              "3": biltyData.gr_no
+              "1": biltyData.gr_no || 'N/A',
+              "2": biltyData.consignor_name || 'N/A',
+              "3": pdfBucketLink,
+              "4": biltyDate,
+              "5": destinationCityName || 'N/A',
+              "6": deliveryType,
+              "7": paymentMode,
+              "8": biltyData.consignee_name || 'N/A',
+              "9": biltyData.gr_no || 'N/A'
             }
           };
 
+          console.log('📱 Sending WhatsApp (new template) to consignee:', consigneePayload);
+
           promises.push(
-            fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/q09vgfk1r4/process', {
+            fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/j2s96opcd7/process', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(consigneePayload)
             }).then(response => {
               if (response.ok) {
-                console.log('✅ WhatsApp sent successfully to consignee');
+                console.log('✅ WhatsApp sent successfully to consignee (new template)');
                 return { success: true, type: 'consignee' };
               } else {
                 console.error('❌ WhatsApp failed for consignee:', response.status);
@@ -158,12 +221,12 @@ const PrintModal = ({
       const consignorSent = results.find(r => r.type === 'consignor')?.success;
 
       if (allSuccess) {
-        console.log('✅ All WhatsApp messages sent successfully');
+        console.log('✅ All WhatsApp messages sent successfully (new template)');
         setWhatsappSent(true);
         return true;
       } else if (consignorSent) {
         console.log('⚠️ Consignor message sent, but consignee failed');
-        setWhatsappSent(true); // Still show as sent if consignor got it
+        setWhatsappSent(true);
         return true;
       } else {
         console.log('❌ Failed to send WhatsApp to consignor');

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import supabase from '../../app/utils/supabase';
 
 const WhatsAppNotification = ({ 
   biltyData, 
@@ -119,25 +120,61 @@ const WhatsAppNotification = ({
       return;
     }
 
-      console.log('📱 Sending WhatsApp message:', {
+      // Fetch pdf_bucket from DB (background upload may have completed)
+      let pdfBucketLink = biltyData.pdf_bucket || '';
+      if (!pdfBucketLink && biltyData.id) {
+        const { data: freshBilty } = await supabase
+          .from('bilty')
+          .select('pdf_bucket')
+          .eq('id', biltyData.id)
+          .single();
+        pdfBucketLink = freshBilty?.pdf_bucket || '';
+      }
+      if (!pdfBucketLink) {
+        pdfBucketLink = `https://console.movesure.io/print/${biltyData.gr_no}`;
+      }
+
+      // Format date
+      const biltyDate = biltyData.bilty_date
+        ? new Date(biltyData.bilty_date).toLocaleDateString('en-GB')
+        : 'N/A';
+
+      // Format delivery type
+      const deliveryType = biltyData.delivery_type
+        ? biltyData.delivery_type.replace(/-/g, ' ').toUpperCase()
+        : 'N/A';
+
+      // Format payment mode
+      const paymentMode = biltyData.payment_mode
+        ? biltyData.payment_mode.replace(/-/g, ' ').toUpperCase()
+        : 'N/A';
+
+      console.log('📱 Sending WhatsApp message (new template):', {
         receiver: mobileNumber,
         consignorName: biltyData.consignor_name,
         grNo: biltyData.gr_no,
-        toCityName: toCityName
+        toCityName: toCityName,
+        pdfBucket: pdfBucketLink
       });
 
-      // Prepare WhatsApp payload
+      // Prepare WhatsApp payload - 9 variable template
       const payload = {
         receiver: mobileNumber,
         values: {
-          "1": biltyData.consignor_name || 'N/A',  // Fixed: Send consignor name to consignor number
-          "2": biltyData.gr_no || 'N/A', 
-          "3": toCityName
+          "1": biltyData.gr_no || 'N/A',
+          "2": biltyData.consignor_name || 'N/A',
+          "3": pdfBucketLink,
+          "4": biltyDate,
+          "5": toCityName || 'N/A',
+          "6": deliveryType,
+          "7": paymentMode,
+          "8": biltyData.consignee_name || 'N/A',
+          "9": biltyData.gr_no || 'N/A'
         }
       };
 
-      // Send WhatsApp message
-      const response = await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/3cfm9toz45/process', {
+      // Send WhatsApp message via new template
+      const response = await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/j2s96opcd7/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

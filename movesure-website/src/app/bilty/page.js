@@ -20,6 +20,7 @@ import PrintModal from '../../components/bilty/print-model';
 import PrintBilty from '../../components/bilty/print-bilty';
 import { useGRReservation } from '../../utils/grReservation';
 import GRLiveStatus from '../../components/bilty/gr-live-status';
+import { uploadBiltyPdf } from '../../utils/biltyPdfUpload';
 
 export default function BiltyForm() {
   const { user } = useAuth();
@@ -681,10 +682,21 @@ export default function BiltyForm() {
       
       let savedData;
       let isActuallyNewBilty = false; // Track if this is genuinely a new bilty creation
+      let oldPdfBucketUrl = null; // Track old PDF URL for deletion on update
       
       if (isEditMode && currentBiltyId) {
         console.log('Updating existing bilty:', currentBiltyId);
         
+        // ⭐ Fetch old pdf_bucket URL before update (for deletion during re-upload)
+        {
+          const { data: oldBilty } = await supabase
+            .from('bilty')
+            .select('pdf_bucket')
+            .eq('id', currentBiltyId)
+            .single();
+          oldPdfBucketUrl = oldBilty?.pdf_bucket || null;
+        }
+
         // For updates, check if GR number conflicts with other bilties (not the current one)
         const { data: conflictingBilty, error: conflictError } = await supabase
           .from('bilty')
@@ -1096,6 +1108,17 @@ export default function BiltyForm() {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
         setExistingBilties(updatedBilties || []);
+
+      // ⭐ BACKGROUND PDF UPLOAD – generate PDF and save to Supabase bucket
+      // Runs async in background so it doesn't block the UI
+      if (savedData && savedData.id) {
+        uploadBiltyPdf(savedData, oldPdfBucketUrl)
+          .then((url) => {
+            if (url) console.log('📄 [Background] PDF uploaded:', url);
+            else console.warn('📄 [Background] PDF upload returned null');
+          })
+          .catch((err) => console.error('📄 [Background] PDF upload error:', err));
+      }
       
       // Show print modal if not draft
       if (!isDraft) {

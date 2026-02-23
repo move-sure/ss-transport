@@ -17,7 +17,12 @@ export default function KaatPDFSettingsModal({ isOpen, onClose, cities, transpor
     includeInactive: false,
     includeAllTransports: false,
     includeAllCities: false,
-    sortBy: 'transport' // 'transport', 'city', 'rate'
+    sortBy: 'transport', // 'transport', 'city', 'rate'
+    // Column visibility
+    showTransportName: true,
+    showGst: true,
+    showMobile: false,
+    showRemarks: true
   });
 
   useEffect(() => {
@@ -31,7 +36,11 @@ export default function KaatPDFSettingsModal({ isOpen, onClose, cities, transpor
         includeInactive: false,
         includeAllTransports: false,
         includeAllCities: false,
-        sortBy: 'transport'
+        sortBy: 'transport',
+        showTransportName: true,
+        showGst: true,
+        showMobile: false,
+        showRemarks: true
       });
     }
   }, [isOpen]);
@@ -163,6 +172,36 @@ export default function KaatPDFSettingsModal({ isOpen, onClose, cities, transpor
                 onChange={(e) => setSettings(prev => ({ ...prev, includeAllCities: e.target.checked }))}
                 color="blue"
               />
+            </div>
+          </div>
+
+          {/* Column Visibility */}
+          <div className="mb-6">
+            <label className="block text-sm font-bold text-gray-700 mb-3">
+              📋 PDF Columns (Show / Hide)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: 'showTransportName', label: 'Transport Name', desc: 'Transport company name column', color: 'emerald' },
+                { key: 'showGst', label: 'GST Number', desc: 'GST / Tax ID column', color: 'purple' },
+                { key: 'showMobile', label: 'Mobile Number', desc: 'Transport mobile/contact column', color: 'blue' },
+                { key: 'showRemarks', label: 'Remarks / Charges', desc: 'Per-bilty charges info column', color: 'emerald' }
+              ].map(col => (
+                <label key={col.key} className={`flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                  settings[col.key] ? 'bg-emerald-50 border-2 border-emerald-300' : 'bg-gray-50 border-2 border-gray-200'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={settings[col.key]}
+                    onChange={(e) => setSettings(prev => ({ ...prev, [col.key]: e.target.checked }))}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-gray-800">{col.label}</span>
+                    <p className="text-[10px] text-gray-500 leading-tight">{col.desc}</p>
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
 

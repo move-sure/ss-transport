@@ -39,6 +39,13 @@ export default function PDFPreviewInfo({ settings, cities, transports }) {
         {settings.includeAllTransports && <p><span className="font-semibold">Scope:</span> All Transports (including without rates)</p>}
         {settings.includeAllCities && <p><span className="font-semibold">Scope:</span> All Cities (including without rates)</p>}
         <p><span className="font-semibold">Sort Order:</span> {getSortLabel()}</p>
+        <p><span className="font-semibold">Columns:</span> Sr, {[
+          settings.showTransportName && 'Transport',
+          settings.showGst && 'GST',
+          settings.showMobile && 'Mobile',
+          'Destination', 'Pricing', 'Rate', 'Min Charge',
+          settings.showRemarks && 'Remarks'
+        ].filter(Boolean).join(', ')}</p>
       </div>
     </div>
   );

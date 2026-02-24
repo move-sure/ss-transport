@@ -369,6 +369,15 @@ export default function LoginPage() {
 
               <div className="mt-8 flex flex-col gap-4 text-sm text-slate-500">
                 <div>
+                  Forgot your password?{' '}
+                  <button
+                    onClick={() => router.push('/login/forgot-password')}
+                    className="font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Reset it here
+                  </button>
+                </div>
+                <div>
                   Need help?{' '}
                   <a
                     href="mailto:support@movesure.io"

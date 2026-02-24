@@ -44,7 +44,7 @@ function LayoutContent({ children }) {
   
   // Routes where navbar should not be shown
   const noNavbarRoutes = ['/login', '/register', '/404', '/403', '/station-list'];
-  const showNavbar = !noNavbarRoutes.includes(pathname);
+  const showNavbar = !noNavbarRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
 
   return (
     <div className="min-h-screen bg-gray-50">

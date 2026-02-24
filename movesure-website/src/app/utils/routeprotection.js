@@ -39,6 +39,7 @@ const ROUTE_MODULE_MAP = {
 const PUBLIC_ROUTES = [
   '/',
   '/login',
+  '/login/forgot-password',
   '/register',
   '/about',
   '/contact',

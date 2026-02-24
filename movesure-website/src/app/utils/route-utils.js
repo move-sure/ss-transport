@@ -86,6 +86,7 @@ export const PUBLIC_ROUTES = [
   '/',
   '/dashboard',
   '/login',
+  '/login/forgot-password',
   '/register',
   '/profile',
   '/help',

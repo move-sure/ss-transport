@@ -83,10 +83,12 @@ export default function LoginPage() {
 
       console.log('Starting login process for username:', formData.username);
 
+      const normalizedUsername = formData.username.trim().toLowerCase();
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('username', formData.username.trim())
+        .ilike('username', normalizedUsername)
         .eq('is_active', true)
         .single();
 
@@ -300,6 +302,9 @@ export default function LoginPage() {
                         value={formData.username}
                         onChange={handleInputChange}
                         autoComplete="username"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck="false"
                         className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                         placeholder="Enter your username"
                       />
@@ -322,6 +327,9 @@ export default function LoginPage() {
                         value={formData.password}
                         onChange={handleInputChange}
                         autoComplete="current-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck="false"
                         className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                         placeholder="Enter your password"
                       />

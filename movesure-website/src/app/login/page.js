@@ -86,16 +86,46 @@ export default function LoginPage() {
       const normalizedUsername = formData.username.trim().toLowerCase();
       const trimmedPassword = formData.password.trim();
 
-      // Use limit(1) instead of .single() to avoid PGRST errors
-      const { data: users, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .ilike('username', normalizedUsername)
-        .eq('is_active', true)
-        .limit(1);
+      // Retry wrapper for old/slow devices with flaky connections
+      const queryWithRetry = async (retries = 2) => {
+        for (let i = 0; i <= retries; i++) {
+          try {
+            const { data, error } = await supabase
+              .from('users')
+              .select('*')
+              .ilike('username', normalizedUsername)
+              .eq('is_active', true)
+              .limit(1);
+            
+            if (error) {
+              console.error(`Supabase query error (attempt ${i + 1}):`, JSON.stringify(error));
+              if (i === retries) return { data: null, error };
+              await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+              continue;
+            }
+            return { data, error: null };
+          } catch (networkErr) {
+            console.error(`Network error (attempt ${i + 1}):`, networkErr?.message || networkErr);
+            if (i === retries) return { data: null, error: networkErr };
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+        return { data: null, error: new Error('Connection failed') };
+      };
+
+      const { data: users, error: userError } = await queryWithRetry();
 
       if (userError) {
-        console.error('User fetch error:', userError);
+        console.error('User fetch error details:', JSON.stringify(userError));
+        console.error('Error type:', typeof userError);
+        console.error('Error message:', userError?.message);
+        console.error('Error code:', userError?.code);
+        
+        // Show specific message based on error type
+        const errMsg = userError?.message || '';
+        if (errMsg.includes('fetch') || errMsg.includes('network') || errMsg.includes('Failed') || errMsg.includes('CORS') || userError?.code === 'PGRST') {
+          throw new Error('Connection failed. Please check your internet and try again.');
+        }
         throw new Error('Something went wrong. Please try again.');
       }
 

@@ -84,22 +84,30 @@ export default function LoginPage() {
       console.log('Starting login process for username:', formData.username);
 
       const normalizedUsername = formData.username.trim().toLowerCase();
+      const trimmedPassword = formData.password.trim();
 
-      const { data: userData, error: userError } = await supabase
+      // Use limit(1) instead of .single() to avoid PGRST errors
+      const { data: users, error: userError } = await supabase
         .from('users')
         .select('*')
         .ilike('username', normalizedUsername)
         .eq('is_active', true)
-        .single();
+        .limit(1);
 
-      if (userError || !userData) {
+      if (userError) {
         console.error('User fetch error:', userError);
+        throw new Error('Something went wrong. Please try again.');
+      }
+
+      if (!users || users.length === 0) {
+        console.error('No user found for username:', normalizedUsername);
         throw new Error('Invalid username or password');
       }
 
+      const userData = users[0];
       console.log('User found:', userData.username);
 
-      const passwordMatch = await bcrypt.compare(formData.password, userData.password_hash);
+      const passwordMatch = await bcrypt.compare(trimmedPassword, userData.password_hash);
       if (!passwordMatch) {
         console.log('Password verification failed');
         throw new Error('Invalid username or password');

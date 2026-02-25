@@ -296,7 +296,6 @@ export default function TransitManagement() {
               toll_charge, dd_charge, other_charge, remark
             `)
             .in('gr_no', biltyGrNumbers)
-            .eq('branch_id', user.branch_id)
             .eq('is_active', true)
             .eq('saving_option', 'SAVE')
         );
@@ -326,11 +325,13 @@ export default function TransitManagement() {
         if (response.error) throw response.error;
         return (response.data || []).map(bilty => {
           const city = cities.find(c => c.id === bilty.to_city_id);
+          const branch = branches.find(b => b.id === bilty.branch_id);
           return {
             ...bilty,
             to_city_name: city?.city_name || 'Unknown',
             to_city_code: city?.city_code || 'N/A',
             destination: city?.city_name || 'Unknown',
+            branch_name: branch?.branch_name || 'Unknown',
             source: 'bilty',
             bilty_type: bilty.delivery_type || 'Regular'
           };
@@ -342,6 +343,7 @@ export default function TransitManagement() {
         if (response.error) throw response.error;
         return (response.data || []).map(stationBilty => {
           const city = cities.find(c => c.city_code === stationBilty.station);
+          const branch = branches.find(b => b.id === stationBilty.branch_id);
           return {
             id: stationBilty.id,
             gr_no: stationBilty.gr_no,
@@ -357,6 +359,7 @@ export default function TransitManagement() {
             to_city_name: city?.city_name || stationBilty.station,
             to_city_code: stationBilty.station,
             destination: city?.city_name || stationBilty.station,
+            branch_name: branch?.branch_name || 'Unknown',
             e_way_bill: stationBilty.e_way_bill,
             pvt_marks: stationBilty.pvt_marks,
             created_at: stationBilty.created_at,
@@ -952,6 +955,7 @@ export default function TransitManagement() {
               totalAvailableCount={totalAvailableCount}
               onFilteredCountChange={setFilteredAvailableCount}
               cities={cities}
+              branches={branches}
             />
           </div>
         </div>

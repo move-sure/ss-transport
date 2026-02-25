@@ -80,6 +80,12 @@ const ChallanPDFPreview = ({
     });// Calculate totals once
     const totalPackages = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
     const totalWeight = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
+    const headerRegularCount = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').length;
+    const headerManualCount = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').length;
+    const regularWeight = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').reduce((sum, b) => sum + (b.wt || 0), 0);
+    const manualWeight = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').reduce((sum, b) => sum + (b.wt || 0), 0);
+    const regularPackages = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').reduce((sum, b) => sum + (b.no_of_pkg || 0), 0);
+    const manualPackages = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').reduce((sum, b) => sum + (b.no_of_pkg || 0), 0);
     
     for (let pageStart = 0; pageStart < sortedBiltiesData.length; pageStart += itemsPerPage) {
       if (pageStart > 0) {
@@ -116,8 +122,8 @@ const ChallanPDFPreview = ({
         doc.text(`DATE: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - margin, 14, { align: 'right' });
           // Add totals below date
         doc.setFontSize(7);
-        doc.text(`TOTAL PACKAGES: ${totalPackages}`, pageWidth - margin, 18, { align: 'right' });
-        doc.text(`TOTAL WEIGHT: ${Math.round(totalWeight)} KG`, pageWidth - margin, 22, { align: 'right' });
+        doc.text(`TOTAL BILTIES: ${sortedBiltiesData.length} (REG: ${headerRegularCount} | MNL: ${headerManualCount})`, pageWidth - margin, 18, { align: 'right' });
+        doc.text(`PKG: ${totalPackages} (R:${regularPackages} | M:${manualPackages}) | WT: ${Math.round(totalWeight)} KG (R:${Math.round(regularWeight)} | M:${Math.round(manualWeight)})`, pageWidth - margin, 22, { align: 'right' });
         
         // Driver & Truck Info (Top Left)
         doc.setFontSize(7);
@@ -431,19 +437,30 @@ const ChallanPDFPreview = ({
       return total;
     }, 0);
     
+    // Calculate regular and manual bilty counts
+    const regularBiltyCount = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').length;
+    const manualBiltyCount = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').length;
+
     // Add totals section
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('SUMMARY:', margin, lastPageBottomY);
-      doc.setFontSize(9);
+      doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Total Packages: ${totalPackages}`, margin, lastPageBottomY + 6);
-    doc.text(`Total Weight: ${Math.round(totalWeight)} KG`, margin, lastPageBottomY + 12);
-    doc.text(`Total E-way Bills: ${totalEwayBills}`, margin, lastPageBottomY + 18);
-    doc.text(`Total W (Missing Info): ${totalWCount}`, margin, lastPageBottomY + 24);
+    doc.text(`Total Bilties: ${sortedBiltiesData.length}  (Regular: ${regularBiltyCount} | Manual: ${manualBiltyCount})`, margin, lastPageBottomY + 5);
+    doc.text(`Packages: ${totalPackages} (Reg: ${regularPackages} | Mnl: ${manualPackages})  |  Weight: ${Math.round(totalWeight)} KG (Reg: ${Math.round(regularWeight)} KG | Mnl: ${Math.round(manualWeight)} KG)`, margin, lastPageBottomY + 10);
+    doc.text(`E-way Bills: ${totalEwayBills}  |  W (Missing Info): ${totalWCount}`, margin, lastPageBottomY + 15);
+    
+    // Loaded in truck fill-in lines
+    doc.setFont('helvetica', 'bold');
+    doc.text('LOADED IN TRUCK:', margin, lastPageBottomY + 22);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Regular = __________ / ${regularBiltyCount}`, margin + 35, lastPageBottomY + 22);
+    doc.text(`Manual = __________ / ${manualBiltyCount}`, margin + 80, lastPageBottomY + 22);
+    doc.text(`Total = __________ / ${sortedBiltiesData.length}`, margin + 122, lastPageBottomY + 22);
     
     // Add signature area
-    doc.text('Authorized Signatory: ____________________', pageWidth - margin - 80, lastPageBottomY + 6);
+    doc.text('Authorized Signatory: ____________________', pageWidth - margin - 80, lastPageBottomY + 5);
     
     return doc;
   };

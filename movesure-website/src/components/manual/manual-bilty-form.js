@@ -729,6 +729,17 @@ const ManualBiltyForm = ({
     };
 
     const handleKeyDown = (e) => {
+      // Handle Tab key - auto-add EWB if 12 digits present, then let focus move naturally
+      if (e.key === 'Tab') {
+        const digits = localInputValue.replace(/\D/g, '');
+        
+        if (digits.length === 12 && localInputValue.trim()) {
+          console.log('⇥ Tab pressed, auto-adding EWB:', localInputValue);
+          addToListAndClear();
+          // Don't prevent default - let Tab move focus to the next input naturally
+        }
+      }
+
       // Handle Enter key
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -809,7 +820,7 @@ const ManualBiltyForm = ({
           
           {/* Helper text */}
           <div className="mt-1 text-xs text-gray-600">
-            💡 Type 12-digit E-way bill number and press <kbd className="bg-gray-100 px-1 rounded">comma</kbd>, <kbd className="bg-gray-100 px-1 rounded">+</kbd>, <kbd className="bg-gray-100 px-1 rounded">Enter</kbd> or click <kbd className="bg-gray-100 px-1 rounded">+</kbd> button to add
+            💡 Type 12-digit E-way bill number and press <kbd className="bg-gray-100 px-1 rounded">Tab</kbd>, <kbd className="bg-gray-100 px-1 rounded">comma</kbd>, <kbd className="bg-gray-100 px-1 rounded">+</kbd>, <kbd className="bg-gray-100 px-1 rounded">Enter</kbd> or click <kbd className="bg-gray-100 px-1 rounded">+</kbd> button to add
           </div>
         </div>
 

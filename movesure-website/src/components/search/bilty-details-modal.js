@@ -233,7 +233,7 @@ const BiltyDetailsModal = memo(({
                   <>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Station:</span>
-                      <span className="font-semibold text-slate-900">{bilty.station || 'N/A'}</span>
+                      <span className="font-semibold text-slate-900">{bilty.destination || bilty.station || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Contents:</span>
@@ -337,7 +337,7 @@ const BiltyDetailsModal = memo(({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Weight:</span>
-                  <span className="font-semibold text-slate-900">{bilty.wt || 0} kg</span>
+                  <span className="font-semibold text-slate-900">{bilty.wt || bilty.weight || 0} kg</span>
                 </div>                <div className="flex justify-between">
                   <span className="text-slate-600">Rate per kg:</span>
                   <span className="font-semibold text-slate-900">₹{bilty.rate || 0}</span>

@@ -523,6 +523,7 @@ export default function BiltySearch() {
           consignor: item.consignor || '',
           consignee: item.consignee || '',
           station: item.station || '',
+          destination: item.destination || item.station || '',
           payment_status: item.payment_status || 'to-pay',
           delivery_type: item.delivery_type || '',
           no_of_packets: item.no_of_packets || 0,
@@ -945,6 +946,10 @@ export default function BiltySearch() {
       const challanNo = transitDetailsMap.get(stationBilty.gr_no);
       const challanDetail = challanNo ? challanDetailsMap.get(challanNo) : null;
 
+      // Resolve station code to city name using cities array
+      const resolvedCity = cities.find(c => c.city_code?.toLowerCase() === stationBilty.station?.toLowerCase());
+      const destination = resolvedCity ? resolvedCity.city_name : (stationBilty.station || '');
+
       return {
         ...stationBilty,
         created_by_user: usersData.find(user => user.id === stationBilty.staff_id) || null,
@@ -960,6 +965,7 @@ export default function BiltySearch() {
         contents: stationBilty.contents || '',
         pvt_marks: stationBilty.pvt_marks || '',
         created_at: stationBilty.created_at,
+        destination: destination,
         // Enhanced transit_details with proper challan information
         transit_details: challanNo ? [{
           id: `${stationBilty.id}_transit`,

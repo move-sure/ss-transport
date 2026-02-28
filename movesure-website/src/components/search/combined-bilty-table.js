@@ -15,7 +15,8 @@ import {
   Package,
   MapPin,
   Building,
-  Tag
+  Tag,
+  Weight
 } from 'lucide-react';
 
 const CombinedBiltySearchTable = memo(({ 
@@ -273,10 +274,13 @@ const CombinedBiltySearchTable = memo(({
                 Consignee
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
-                Content & Pvt Marks
+                Cont. & Pvt Marks
               </th>
-              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-40">
-                Route/Station
+              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
+                Destination
+              </th>
+              <th className="px-3 py-2 text-center text-xs font-bold text-white uppercase tracking-wider w-20">
+                Wt
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
                 Amount
@@ -419,24 +423,15 @@ const CombinedBiltySearchTable = memo(({
                     </div>
                   </td>
 
-                  {/* Route/Station */}
+                  {/* Destination */}
                   <td className="px-3 py-2">
                     <div className="space-y-1">
-                      {isStation ? (
-                        <div className="flex items-center gap-1">
-                          <Building className="w-3 h-3 text-purple-600" />
-                          <span className="text-sm text-slate-900 font-medium">
-                            {bilty.station || 'N/A'}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-blue-600" />
-                          <span className="text-sm text-slate-900 font-medium">
-                            {getFromCityName()} → {getCityName(bilty.to_city_id)}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isStation ? <Building className="w-3 h-3 text-purple-600" /> : <MapPin className="w-3 h-3 text-blue-600" />}
+                        <span className="text-sm text-slate-900 font-medium">
+                          {isStation ? (bilty.destination || bilty.station || 'N/A') : getCityName(bilty.to_city_id)}
+                        </span>
+                      </div>
                       {bilty.e_way_bill ? (
                         <span className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
                           E-Way
@@ -447,6 +442,17 @@ const CombinedBiltySearchTable = memo(({
                         </span>
                       )}
                     </div>
+                  </td>
+
+                  {/* Weight */}
+                  <td className="px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Weight className="w-3 h-3 text-slate-500" />
+                      <span className="text-sm font-semibold text-slate-800">
+                        {isStation ? (parseFloat(bilty.weight || 0).toFixed(1)) : (parseFloat(bilty.wt || bilty.weight || 0).toFixed(1))}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">kg</div>
                   </td>
 
                   {/* Amount */}

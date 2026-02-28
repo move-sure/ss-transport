@@ -12,7 +12,8 @@ import {
   Search,
   CheckSquare,
   Square,
-  Package
+  Package,
+  Weight
 } from 'lucide-react';
 
 const BiltySearchTable = ({ 
@@ -191,8 +192,11 @@ const BiltySearchTable = ({
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-48">
                 Consignee
               </th>
-              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-40">
-                Route
+              <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
+                Destination
+              </th>
+              <th className="px-3 py-2 text-center text-xs font-bold text-white uppercase tracking-wider w-20">
+                Wt
               </th>
               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider w-32">
                 Amount
@@ -275,11 +279,11 @@ const BiltySearchTable = ({
                     </div>
                   </td>
 
-                  {/* Route */}
+                  {/* Destination */}
                   <td className="px-3 py-2">
                     <div className="space-y-1">
                       <div className="text-sm text-slate-900 font-medium">
-                        {getFromCityName()} → {getCityName(bilty.to_city_id)}
+                        {getCityName(bilty.to_city_id)}
                       </div>
                       {bilty.e_way_bill ? (
                         <span className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
@@ -291,6 +295,17 @@ const BiltySearchTable = ({
                         </span>
                       )}
                     </div>
+                  </td>
+
+                  {/* Weight */}
+                  <td className="px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Weight className="w-3 h-3 text-slate-500" />
+                      <span className="text-sm font-semibold text-slate-800">
+                        {parseFloat(bilty.wt || bilty.weight || 0).toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">kg</div>
                   </td>
 
                   {/* Amount */}

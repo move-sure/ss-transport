@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Package, User, Users, Truck, FileText, IndianRupee, Info, UserCircle, Clock, Search, AlertTriangle, CheckCircle2, Shield, History, ExternalLink, Calculator, Phone, Edit3, Save, X, Building2, Globe, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, User, Users, Truck, FileText, IndianRupee, Info, UserCircle, Clock, Search, AlertTriangle, CheckCircle2, Shield, History, ExternalLink, Calculator, Phone, Edit3, Save, X, Building2, Globe, MapPin, Loader2 } from 'lucide-react';
 import MobileNumberEditor from './mobile-number-editor';
 import supabase from '../../app/utils/supabase';
 
@@ -14,6 +14,73 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
   const [editingTransportNum, setEditingTransportNum] = useState(false);
   const [tempTransportNum, setTempTransportNum] = useState('');
   const [savingTransportNum, setSavingTransportNum] = useState(false);
+  const [localTransit, setLocalTransit] = useState(transitDetails);
+  const [transitUpdating, setTransitUpdating] = useState(null);
+
+  useEffect(() => { setLocalTransit(transitDetails); }, [transitDetails]);
+
+  // Determine if destination is Kanpur
+  const dest = (bilty?.destination || '').toLowerCase();
+  const isKnp = dest.includes('kanpur') || dest.includes('knp') || bilty?.source_type === 'MNL';
+
+  const updateTransitField = async (field, dateField) => {
+    if (!localTransit?.id || !user) return;
+    const currentVal = localTransit[field];
+    const action = currentVal ? 'undo' : 'mark';
+    const label = field.replace(/_/g, ' ').replace(/^is /, '');
+    if (!confirm(`${action === 'mark' ? '✅ Mark' : '↩️ Undo'} "${label}"?`)) return;
+    setTransitUpdating(field);
+    try {
+      const now = new Date().toISOString();
+      const updateData = {
+        [field]: !currentVal,
+        [dateField]: !currentVal ? now : null,
+        updated_by: user.id
+      };
+      // Auto-fill all previous steps when marking (not undoing)
+      if (!currentVal) {
+        if (field === 'is_delivered_at_destination') {
+          if (!localTransit.is_out_of_delivery_from_branch1) {
+            updateData.is_out_of_delivery_from_branch1 = true;
+            updateData.out_of_delivery_from_branch1_date = now;
+          }
+          if (!localTransit.is_delivered_at_branch2) {
+            updateData.is_delivered_at_branch2 = true;
+            updateData.delivered_at_branch2_date = now;
+          }
+          if (!localTransit.is_out_of_delivery_from_branch2) {
+            updateData.is_out_of_delivery_from_branch2 = true;
+            updateData.out_of_delivery_from_branch2_date = now;
+          }
+        } else if (field === 'is_out_of_delivery_from_branch2') {
+          if (!localTransit.is_out_of_delivery_from_branch1) {
+            updateData.is_out_of_delivery_from_branch1 = true;
+            updateData.out_of_delivery_from_branch1_date = now;
+          }
+          if (!localTransit.is_delivered_at_branch2) {
+            updateData.is_delivered_at_branch2 = true;
+            updateData.delivered_at_branch2_date = now;
+          }
+        } else if (field === 'is_delivered_at_branch2') {
+          if (!localTransit.is_out_of_delivery_from_branch1) {
+            updateData.is_out_of_delivery_from_branch1 = true;
+            updateData.out_of_delivery_from_branch1_date = now;
+          }
+        }
+      }
+      const { error } = await supabase
+        .from('transit_details')
+        .update(updateData)
+        .eq('id', localTransit.id);
+      if (error) throw error;
+      setLocalTransit(prev => ({ ...prev, ...updateData }));
+    } catch (err) {
+      console.error('Error updating transit:', err);
+      alert('Failed to update transit status');
+    } finally {
+      setTransitUpdating(null);
+    }
+  };
 
   const handleEditTransportNumber = () => {
     setTempTransportNum(bilty.transport_number || '');
@@ -414,6 +481,214 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Transit Status */}
+        {localTransit && (
+          <div className="p-3 bg-gradient-to-r from-slate-50 to-blue-50 rounded-lg border-2 border-slate-200">
+            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Truck className="w-4 h-4 text-indigo-600" />
+              Transit Status
+              <span className="text-[9px] px-2 py-0.5 bg-indigo-100 text-indigo-700 font-bold rounded-full">
+                {localTransit.challan_no}
+              </span>
+            </h3>
+            <div className={`grid gap-2 ${isKnp ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}>
+              {/* --- Kanpur destination: show Delivered at Branch 2 --- */}
+              {isKnp && (
+                <div className={`p-3 rounded-lg border-2 transition-all ${
+                  localTransit.is_delivered_at_branch2
+                    ? 'bg-emerald-50 border-emerald-300'
+                    : 'bg-white border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                        localTransit.is_delivered_at_branch2 ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-400'
+                      }`}>
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-800">Delivered at Branch (KNP)</div>
+                        {localTransit.delivered_at_branch2_date && (
+                          <div className="text-[10px] text-emerald-600 font-semibold">
+                            {new Date(localTransit.delivered_at_branch2_date).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updateTransitField('is_delivered_at_branch2', 'delivered_at_branch2_date')}
+                      disabled={transitUpdating === 'is_delivered_at_branch2'}
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 ${
+                        localTransit.is_delivered_at_branch2
+                          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                      }`}
+                    >
+                      {transitUpdating === 'is_delivered_at_branch2'
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : localTransit.is_delivered_at_branch2 ? '↩️ Undo' : '✅ Mark Delivered'
+                      }
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Non-Kanpur: show Out of Delivery from Branch 2 --- */}
+              {!isKnp && (
+                <div className={`p-3 rounded-lg border-2 transition-all ${
+                  localTransit.is_out_of_delivery_from_branch2
+                    ? 'bg-blue-50 border-blue-300'
+                    : 'bg-white border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                        localTransit.is_out_of_delivery_from_branch2 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-400'
+                      }`}>
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-800">Out for Delivery</div>
+                        {localTransit.out_of_delivery_from_branch2_date && (
+                          <div className="text-[10px] text-blue-600 font-semibold">
+                            {new Date(localTransit.out_of_delivery_from_branch2_date).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updateTransitField('is_out_of_delivery_from_branch2', 'out_of_delivery_from_branch2_date')}
+                      disabled={transitUpdating === 'is_out_of_delivery_from_branch2'}
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 ${
+                        localTransit.is_out_of_delivery_from_branch2
+                          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
+                          : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                      }`}
+                    >
+                      {transitUpdating === 'is_out_of_delivery_from_branch2'
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : localTransit.is_out_of_delivery_from_branch2 ? '↩️ Undo' : '🚚 Mark Out'
+                      }
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Delivered at Destination (shown for all) --- */}
+              <div className={`p-3 rounded-lg border-2 transition-all ${
+                localTransit.is_delivered_at_destination
+                  ? 'bg-green-50 border-green-300'
+                  : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                      localTransit.is_delivered_at_destination ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400'
+                    }`}>
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-gray-800">Delivered at Destination</div>
+                      {localTransit.delivered_at_destination_date && (
+                        <div className="text-[10px] text-green-600 font-semibold">
+                          {new Date(localTransit.delivered_at_destination_date).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => updateTransitField('is_delivered_at_destination', 'delivered_at_destination_date')}
+                    disabled={transitUpdating === 'is_delivered_at_destination'}
+                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 ${
+                      localTransit.is_delivered_at_destination
+                        ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
+                        : 'bg-green-600 text-white hover:bg-green-700 shadow-sm'
+                    }`}
+                  >
+                    {transitUpdating === 'is_delivered_at_destination'
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : localTransit.is_delivered_at_destination ? '↩️ Undo' : '📍 Mark Delivered'
+                    }
+                  </button>
+                </div>
+              </div>
+
+              {/* --- Door Delivery (shown for non-KNP when out for delivery) --- */}
+              {!isKnp && localTransit.is_out_of_delivery_from_branch2 && (
+                <div className={`p-3 rounded-lg border-2 transition-all ${
+                  localTransit.out_for_door_delivery
+                    ? 'bg-amber-50 border-amber-300'
+                    : 'bg-white border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                        localTransit.out_for_door_delivery ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-400'
+                      }`}>
+                        <Package className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-800">Door Delivery</div>
+                        {localTransit.out_for_door_delivery_date && (
+                          <div className="text-[10px] text-amber-600 font-semibold">
+                            {new Date(localTransit.out_for_door_delivery_date).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updateTransitField('out_for_door_delivery', 'out_for_door_delivery_date')}
+                      disabled={transitUpdating === 'out_for_door_delivery'}
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 ${
+                        localTransit.out_for_door_delivery
+                          ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
+                          : 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
+                      }`}
+                    >
+                      {transitUpdating === 'out_for_door_delivery'
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : localTransit.out_for_door_delivery ? '↩️ Undo' : '🚪 Door Delivery'
+                      }
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Delivery Agent Info */}
+            {(localTransit.delivery_agent_name || localTransit.delivery_agent_phone || localTransit.vehicle_number) && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] p-2 bg-white rounded border border-slate-200">
+                {localTransit.delivery_agent_name && (
+                  <div className="flex items-center gap-1">
+                    <User className="w-3 h-3 text-indigo-600" />
+                    <span className="font-semibold text-gray-500">Agent:</span>
+                    <span className="font-bold text-gray-900">{localTransit.delivery_agent_name}</span>
+                  </div>
+                )}
+                {localTransit.delivery_agent_phone && (
+                  <>
+                    <span className="text-gray-300">|</span>
+                    <div className="flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-indigo-600" />
+                      <span className="font-bold text-gray-900">{localTransit.delivery_agent_phone}</span>
+                    </div>
+                  </>
+                )}
+                {localTransit.vehicle_number && (
+                  <>
+                    <span className="text-gray-300">|</span>
+                    <div className="flex items-center gap-1">
+                      <Truck className="w-3 h-3 text-indigo-600" />
+                      <span className="font-semibold text-gray-500">Vehicle:</span>
+                      <span className="font-bold text-gray-900">{localTransit.vehicle_number}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 

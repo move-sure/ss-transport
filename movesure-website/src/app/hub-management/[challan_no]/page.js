@@ -10,7 +10,7 @@ import {
   Warehouse, Truck, Package, CheckCircle2, Clock, AlertCircle, RefreshCw,
   ArrowLeft, MapPin, User, CircleDot, CheckCircle, Navigation, Box,
   Building2, ClipboardList, ShieldCheck, Filter, X, Loader2,
-  Search, Edit3, Save, ArrowRight,
+  Search, Edit3, Save, ArrowRight, Square, CheckSquare, Image, ImageOff,
 } from 'lucide-react';
 
 export default function ChallanDetailPage() {
@@ -39,6 +39,13 @@ export default function ChallanDetailPage() {
   const [editingKaat, setEditingKaat] = useState(null);
   const [kaatForm, setKaatForm] = useState({});
   const [savingKaat, setSavingKaat] = useState(false);
+
+  // Bulk selection
+  const [selectedGrs, setSelectedGrs] = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState(null);
+
+  // Bilty image preview
+  const [previewImage, setPreviewImage] = useState(null);
 
   /* ========== DATA FETCHING ========== */
   const fetchKaatData = async (grNumbers) => {
@@ -102,12 +109,12 @@ export default function ChallanDetailPage() {
           no_of_pkg, total, to_city_id, wt, rate, freight_amount, contain,
           e_way_bill, pvt_marks, consignor_number, consignee_number,
           transport_name, delivery_type, invoice_no, invoice_value,
-          labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark
+          labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark, bilty_image
         `).in('gr_no', grNos).eq('is_active', true) : Promise.resolve({ data: [] }),
         grNos.length ? supabase.from('station_bilty_summary').select(`
           id, station, gr_no, consignor, consignee, contents, no_of_packets,
           weight, payment_status, amount, pvt_marks, e_way_bill, delivery_type,
-          created_at, w_name, transport_name, transport_gst
+          created_at, w_name, transport_name, transport_gst, bilty_image
         `).in('gr_no', grNos) : Promise.resolve({ data: [] }),
       ]);
 
@@ -130,7 +137,7 @@ export default function ChallanDetailPage() {
             bilty_date:r.bilty_date, consignor_number:r.consignor_number||'',
             consignee_number:r.consignee_number||'', transport_name:r.transport_name||'',
             freight_amount:r.freight_amount||0, labour_charge:r.labour_charge||0,
-            remark:r.remark||t.remarks||'' };
+            remark:r.remark||t.remarks||'', bilty_image:r.bilty_image||null };
         } else if (s) {
           const c = cList.find(x => x.city_code === s.station);
           return { ...t, idx:i+1, source:'station_bilty_summary', from_branch_name:fb, to_branch_name:tb,
@@ -141,13 +148,13 @@ export default function ChallanDetailPage() {
             contain:s.contents||'-', e_way_bill:s.e_way_bill||'', pvt_marks:s.pvt_marks||'',
             bilty_date:s.created_at, consignor_number:'', consignee_number:'',
             transport_name:s.transport_name||'', freight_amount:s.amount||0,
-            labour_charge:0, remark:t.remarks||'', w_name:s.w_name||'' };
+            labour_charge:0, remark:t.remarks||'', w_name:s.w_name||'', bilty_image:s.bilty_image||null };
         }
         return { ...t, idx:i+1, source:'unknown', from_branch_name:fb, to_branch_name:tb,
           consignor:'-', consignee:'-', destination:'-', destination_code:'', to_city_id:null,
           packets:0, weight:0, amount:0, payment:'-', delivery_type:'-', contain:'-',
           e_way_bill:'', pvt_marks:'', bilty_date:null, consignor_number:'', consignee_number:'',
-          transport_name:'', freight_amount:0, labour_charge:0, remark:t.remarks||'' };
+          transport_name:'', freight_amount:0, labour_charge:0, remark:t.remarks||'', bilty_image:null };
       });
 
       setEnrichedBilties(merged);
@@ -207,10 +214,37 @@ export default function ChallanDetailPage() {
     if (!confirm(`Mark GR ${t.gr_no} as "Out for Delivery"?`)) return;
     updateTransitStatus(t.id, t.gr_no, 'is_out_of_delivery_from_branch2', 'out_of_delivery_from_branch2_date');
   };
-  const handleDeliveredAtDestination = (t) => {
+  const handleDeliveredAtDestination = async (t) => {
     if (t.is_delivered_at_destination) return;
-    if (!confirm(`Mark GR ${t.gr_no} as "Delivered at Destination"?`)) return;
-    updateTransitStatus(t.id, t.gr_no, 'is_delivered_at_destination', 'delivered_at_destination_date');
+    if (!confirm(`Mark GR ${t.gr_no} as "Delivered at Destination"? This will also auto-fill previous steps.`)) return;
+    if (!user?.id) return;
+    const key = `${t.id}-is_delivered_at_destination`;
+    if (updatingTransit[key]) return;
+    try {
+      setUpdatingTransit(p => ({ ...p, [key]: true }));
+      const now = new Date().toISOString();
+      const updateData = {
+        is_delivered_at_destination: true, delivered_at_destination_date: now,
+        updated_by: user.id
+      };
+      if (!t.is_out_of_delivery_from_branch1) {
+        updateData.is_out_of_delivery_from_branch1 = true;
+        updateData.out_of_delivery_from_branch1_date = now;
+      }
+      if (!t.is_delivered_at_branch2) {
+        updateData.is_delivered_at_branch2 = true;
+        updateData.delivered_at_branch2_date = now;
+      }
+      if (!t.is_out_of_delivery_from_branch2) {
+        updateData.is_out_of_delivery_from_branch2 = true;
+        updateData.out_of_delivery_from_branch2_date = now;
+      }
+      const { error: e } = await supabase.from('transit_details').update(updateData).eq('id', t.id);
+      if (e) throw e;
+      setEnrichedBilties(p => p.map(b => b.id === t.id ? { ...b, ...updateData } : b));
+      setTransitDetails(p => p.map(x => x.id === t.id ? { ...x, ...updateData } : x));
+    } catch (e) { console.error(e); alert('Failed to update.'); }
+    finally { setUpdatingTransit(p => ({ ...p, [key]: false })); }
   };
   const handleOutForDoorDelivery = (t) => {
     if (t.out_for_door_delivery) return;
@@ -229,6 +263,61 @@ export default function ChallanDetailPage() {
       setChallan(p => ({ ...p, is_received_at_hub: true, received_at_hub_timing: now }));
     } catch (e) { console.error(e); alert('Failed.'); }
     finally { setReceivingAtHub(false); }
+  };
+
+  /* ========== BULK ACTIONS ========== */
+  const toggleSelect = (id) => setSelectedGrs(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => {
+    if (selectedGrs.size === displayed.length) setSelectedGrs(new Set());
+    else setSelectedGrs(new Set(displayed.map(b => b.id)));
+  };
+
+  const bulkAction = async (type) => {
+    if (!selectedGrs.size || !user?.id) return;
+    const selected = displayed.filter(b => selectedGrs.has(b.id));
+    const actionLabels = { branch: 'Delivered at Branch', out: 'Out for Delivery', delivered: 'Delivered at Destination' };
+    if (!confirm(`Mark ${selected.length} bilties as "${actionLabels[type]}"?`)) return;
+    setBulkLoading(type);
+    const now = new Date().toISOString();
+    try {
+      const transitIds = selected.map(b => b.id);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('bulk_update_transit_status', {
+        p_transit_ids: transitIds,
+        p_action: type,
+        p_user_id: user.id
+      });
+      if (rpcError) throw rpcError;
+      if (rpcResult && !rpcResult.success) throw new Error(rpcResult.error);
+      // Build local update fields based on action type
+      const localUpdate = { updated_by: user.id };
+      if (type === 'branch') {
+        localUpdate.is_out_of_delivery_from_branch1 = true;
+        localUpdate.out_of_delivery_from_branch1_date = now;
+        localUpdate.is_delivered_at_branch2 = true;
+        localUpdate.delivered_at_branch2_date = now;
+      } else if (type === 'out') {
+        localUpdate.is_out_of_delivery_from_branch1 = true;
+        localUpdate.out_of_delivery_from_branch1_date = now;
+        localUpdate.is_delivered_at_branch2 = true;
+        localUpdate.delivered_at_branch2_date = now;
+        localUpdate.is_out_of_delivery_from_branch2 = true;
+        localUpdate.out_of_delivery_from_branch2_date = now;
+      } else if (type === 'delivered') {
+        localUpdate.is_out_of_delivery_from_branch1 = true;
+        localUpdate.out_of_delivery_from_branch1_date = now;
+        localUpdate.is_delivered_at_branch2 = true;
+        localUpdate.delivered_at_branch2_date = now;
+        localUpdate.is_out_of_delivery_from_branch2 = true;
+        localUpdate.out_of_delivery_from_branch2_date = now;
+        localUpdate.is_delivered_at_destination = true;
+        localUpdate.delivered_at_destination_date = now;
+      }
+      const idSet = new Set(transitIds);
+      setEnrichedBilties(p => p.map(x => idSet.has(x.id) ? { ...x, ...localUpdate } : x));
+      setTransitDetails(p => p.map(x => idSet.has(x.id) ? { ...x, ...localUpdate } : x));
+      setSelectedGrs(new Set());
+    } catch (e) { console.error(e); alert('Bulk action failed.'); }
+    finally { setBulkLoading(null); }
   };
 
   /* ========== KAAT MANAGEMENT ========== */
@@ -464,6 +553,34 @@ export default function ChallanDetailPage() {
             </div>
           </div>
 
+          {/* BULK ACTION BAR */}
+          {selectedGrs.size > 0 && (
+            <div className="px-3 py-2 bg-indigo-50 border-b border-indigo-200 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-indigo-600"/>
+                <span className="text-xs font-bold text-indigo-800">{selectedGrs.size} selected</span>
+                <button onClick={() => setSelectedGrs(new Set())} className="text-[10px] px-2 py-0.5 bg-white border border-gray-200 rounded hover:bg-gray-50">Clear</button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => bulkAction('branch')} disabled={!!bulkLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-40 shadow-sm transition-all">
+                  {bulkLoading === 'branch' ? <Loader2 className="h-3 w-3 animate-spin"/> : <span className="w-3 h-3 rounded-full bg-white/30 inline-block"/>}
+                  Delivered at Branch
+                </button>
+                <button onClick={() => bulkAction('out')} disabled={!!bulkLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 shadow-sm transition-all">
+                  {bulkLoading === 'out' ? <Loader2 className="h-3 w-3 animate-spin"/> : <span className="w-3 h-3 rounded-full bg-white/30 inline-block"/>}
+                  Out for Delivery
+                </button>
+                <button onClick={() => bulkAction('delivered')} disabled={!!bulkLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-green-500 hover:bg-green-600 disabled:opacity-40 shadow-sm transition-all">
+                  {bulkLoading === 'delivered' ? <Loader2 className="h-3 w-3 animate-spin"/> : <span className="w-3 h-3 rounded-full bg-white/30 inline-block"/>}
+                  Delivered at Destination
+                </button>
+              </div>
+            </div>
+          )}
+
           {displayed.length === 0 ? (
             <div className="p-10 text-center">
               <Box className="h-8 w-8 text-gray-300 mx-auto mb-2"/>
@@ -477,7 +594,13 @@ export default function ChallanDetailPage() {
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
+                      <th className="px-2 py-2.5 text-center w-8">
+                        <button onClick={toggleSelectAll} className="text-indigo-600 hover:text-indigo-800">
+                          {selectedGrs.size === displayed.length && displayed.length > 0 ? <CheckSquare className="h-4 w-4"/> : <Square className="h-4 w-4"/>}
+                        </button>
+                      </th>
                       <th className="px-2 py-2.5 text-left font-bold text-gray-700 w-8">#</th>
+                      <th className="px-2 py-2.5 text-center font-bold text-gray-700 w-8">Img</th>
                       <th className="px-2 py-2.5 text-left font-bold text-gray-700">GR No</th>
                       <th className="px-2 py-2.5 text-left font-bold text-gray-700">Dest</th>
                       <th className="px-2 py-2.5 text-left font-bold text-gray-700">Consignor</th>
@@ -489,7 +612,7 @@ export default function ChallanDetailPage() {
                       <th className="px-2 py-2.5 text-center font-bold text-gray-700">Pohonch / Bilty#</th>
                       <th className="px-2 py-2.5 text-center font-bold text-gray-700">Kaat</th>
                       <th className="px-2 py-2.5 text-center font-bold text-gray-700">Status</th>
-                      <th className="px-2 py-2.5 text-center font-bold text-gray-700">Actions</th>
+                      <th className="px-2 py-2.5 text-center font-bold text-gray-700">Transit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -501,8 +624,22 @@ export default function ChallanDetailPage() {
                       const isMNL = b.source !== 'bilty';
                       const pohonchVal = isMNL ? (kd?.pohonch_no || '') : (kd?.bilty_number || '');
                       return (
-                        <tr key={b.id} className={`hover:bg-blue-50/40 ${isKnp && !kanpurFilter ? 'border-l-2 border-l-orange-400 bg-orange-50/30' : ''}`}>
+                        <tr key={b.id} className={`hover:bg-blue-50/40 ${selectedGrs.has(b.id) ? 'bg-indigo-50/60' : ''} ${isKnp && !kanpurFilter ? 'border-l-2 border-l-orange-400 bg-orange-50/30' : ''}`}>
+                          <td className="px-2 py-2 text-center">
+                            <button onClick={() => toggleSelect(b.id)} className="text-indigo-600 hover:text-indigo-800">
+                              {selectedGrs.has(b.id) ? <CheckSquare className="h-4 w-4"/> : <Square className="h-4 w-4 text-gray-300"/>}
+                            </button>
+                          </td>
                           <td className="px-2 py-2 text-gray-500 font-medium">{b.idx}</td>
+                          <td className="px-2 py-2 text-center">
+                            <button
+                              onClick={() => b.bilty_image ? setPreviewImage({ url: b.bilty_image, gr: b.gr_no, type: b.source !== 'bilty' ? 'MNL' : 'REG' }) : null}
+                              title={b.bilty_image ? `View bilty image - ${b.gr_no}` : 'No bilty image'}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${b.bilty_image ? 'bg-green-100 text-green-600 hover:bg-green-200 hover:scale-110 cursor-pointer ring-1 ring-green-300' : 'bg-red-100 text-red-400 cursor-default ring-1 ring-red-200'}`}
+                            >
+                              {b.bilty_image ? <Image className="h-3 w-3"/> : <ImageOff className="h-3 w-3"/>}
+                            </button>
+                          </td>
                           <td className="px-2 py-2">
                             <div className="font-bold text-indigo-700">{b.gr_no}</div>
                             <div className="text-[10px] text-gray-500 mt-0.5">{isMNL?'MNL':'REG'}{isKnp && <span className="ml-1 text-orange-600 font-bold">• KNP</span>}</div>
@@ -510,8 +647,8 @@ export default function ChallanDetailPage() {
                           <td className="px-2 py-2">
                             <div className="font-semibold text-black truncate max-w-[90px]" title={b.destination}>{b.destination}</div>
                           </td>
-                          <td className="px-2 py-2"><div className="text-black truncate max-w-[110px]" title={b.consignor}>{b.consignor}</div></td>
-                          <td className="px-2 py-2"><div className="text-black truncate max-w-[110px]" title={b.consignee}>{b.consignee}</div></td>
+                          <td className="px-2 py-2"><div className="text-[11px] text-gray-700 truncate max-w-[100px]" title={b.consignor}>{b.consignor}</div></td>
+                          <td className="px-2 py-2"><div className="text-[11px] text-gray-700 truncate max-w-[100px]" title={b.consignee}>{b.consignee}</div></td>
                           <td className="px-2 py-2 text-center font-bold text-black">{b.packets}</td>
                           <td className="px-2 py-2 text-center font-medium text-black">{parseFloat(b.weight||0).toFixed(1)}</td>
                           <td className="px-2 py-2 text-right font-bold text-black">₹{parseFloat(b.amount||0).toLocaleString('en-IN')}</td>
@@ -542,16 +679,12 @@ export default function ChallanDetailPage() {
                             </span>
                           </td>
                           <td className="px-2 py-2">
-                            <div className="flex items-center justify-center gap-1 flex-wrap">
-                              {isKnp ? (
-                                <>
-                                  <ActionBtn done={b.is_delivered_at_branch2} loading={updatingTransit[`${b.id}-is_delivered_at_branch2`]} onClick={() => handleDeliveredAtBranch2(b)} label="Dlvrd" doneLabel="✓ Dlvrd" color="green"/>
-                                  {(b.delivery_type||'').toLowerCase()==='door' && <ActionBtn done={b.out_for_door_delivery} loading={updatingTransit[`${b.id}-out_for_door_delivery`]} onClick={() => handleOutForDoorDelivery(b)} label="DD" doneLabel="✓ DD" color="blue"/>}
-                                </>
-                              ) : (
-                                <ActionBtn done={b.is_out_of_delivery_from_branch2} loading={updatingTransit[`${b.id}-is_out_of_delivery_from_branch2`]} onClick={() => handleOutFromBranch2(b)} label="Out" doneLabel="✓ Out" color="cyan"/>
-                              )}
-                            </div>
+                            <TransitCircles b={b} updatingTransit={updatingTransit}
+                              onBranch={() => handleDeliveredAtBranch2(b)}
+                              onOut={() => handleOutFromBranch2(b)}
+                              onDelivered={() => handleDeliveredAtDestination(b)}
+                              userName={user?.name || user?.username || ''}
+                            />
                           </td>
                         </tr>
                       );
@@ -559,7 +692,7 @@ export default function ChallanDetailPage() {
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                     <tr className="font-bold text-xs text-black">
-                      <td className="px-2 py-2.5" colSpan={5}>TOTAL ({displayed.length} GR)</td>
+                      <td className="px-2 py-2.5" colSpan={7}>TOTAL ({displayed.length} GR)</td>
                       <td className="px-2 py-2.5 text-center">{displayed.reduce((s,b)=>s+(b.packets||0),0)}</td>
                       <td className="px-2 py-2.5 text-center">{displayed.reduce((s,b)=>s+(parseFloat(b.weight)||0),0).toFixed(1)}</td>
                       <td className="px-2 py-2.5 text-right">₹{displayed.reduce((s,b)=>s+(parseFloat(b.amount)||0),0).toLocaleString('en-IN')}</td>
@@ -581,11 +714,21 @@ export default function ChallanDetailPage() {
                   const isMNL = b.source !== 'bilty';
                   const pohonchVal = isMNL ? (kd?.pohonch_no || '') : (kd?.bilty_number || '');
                   return (
-                    <div key={b.id} className={`p-3 ${isKnp && !kanpurFilter ? 'border-l-3 border-l-orange-400 bg-orange-50/30' : ''}`}>
+                    <div key={b.id} className={`p-3 ${selectedGrs.has(b.id) ? 'bg-indigo-50/60' : ''} ${isKnp && !kanpurFilter ? 'border-l-3 border-l-orange-400 bg-orange-50/30' : ''}`}>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
+                          <button onClick={() => toggleSelect(b.id)} className="text-indigo-600">
+                            {selectedGrs.has(b.id) ? <CheckSquare className="h-4 w-4"/> : <Square className="h-4 w-4 text-gray-300"/>}
+                          </button>
                           <span className="w-5 h-5 bg-indigo-100 rounded text-indigo-700 text-[10px] font-bold flex items-center justify-center">{b.idx}</span>
                           <span className="font-bold text-indigo-700 text-sm">{b.gr_no}</span>
+                          <button
+                            onClick={() => b.bilty_image ? setPreviewImage({ url: b.bilty_image, gr: b.gr_no, type: isMNL ? 'MNL' : 'REG' }) : null}
+                            className={`w-5 h-5 rounded-full flex items-center justify-center ${b.bilty_image ? 'bg-green-100 text-green-600 ring-1 ring-green-300' : 'bg-red-100 text-red-400 ring-1 ring-red-200'}`}
+                            title={b.bilty_image ? 'View bilty image' : 'No image'}
+                          >
+                            {b.bilty_image ? <Image className="h-2.5 w-2.5"/> : <ImageOff className="h-2.5 w-2.5"/>}
+                          </button>
                           {isKnp && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-orange-100 text-orange-700">KNP</span>}
                           <span className="text-[9px] text-gray-500 font-medium">{isMNL?'MNL':'REG'}</span>
                         </div>
@@ -594,31 +737,22 @@ export default function ChallanDetailPage() {
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs mb-2">
                         <div><span className="text-gray-500">Dest:</span> <span className="font-bold text-black">{b.destination}</span></div>
                         <div><span className="text-gray-500">Pay:</span> <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${payBadge(b.payment)}`}>{b.payment}</span></div>
-                        <div><span className="text-gray-500">Consignor:</span> <span className="font-semibold text-black truncate">{b.consignor}</span></div>
-                        <div><span className="text-gray-500">Consignee:</span> <span className="font-semibold text-black truncate">{b.consignee}</span></div>
+                        <div><span className="text-gray-500">Consignor:</span> <span className="font-medium text-gray-700 text-[11px] truncate">{b.consignor}</span></div>
+                        <div><span className="text-gray-500">Consignee:</span> <span className="font-medium text-gray-700 text-[11px] truncate">{b.consignee}</span></div>
                         <div><span className="text-gray-500">Pkts:</span> <b className="text-black">{b.packets}</b> | <span className="text-gray-500">Wt:</span> <b className="text-black">{parseFloat(b.weight||0).toFixed(1)}</b></div>
                         <div><span className="text-gray-500">Amt:</span> <b className="text-black">₹{parseFloat(b.amount||0).toLocaleString('en-IN')}</b></div>
                         {pohonchVal && <div><span className="text-gray-500">{isMNL ? 'Pohonch:' : 'Bilty#:'}</span> <b className="text-black text-sm">{pohonchVal}</b></div>}
                         {kt > 0 && <div><span className="text-gray-500">Kaat:</span> <b className="text-violet-700">₹{kt.toFixed(0)}</b></div>}
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
                         <button onClick={() => openKaatModal(b.gr_no)} className="px-2.5 py-1 rounded-md text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"><Edit3 className="h-3 w-3 inline mr-0.5"/>Kaat</button>
-                        {isKnp ? (
-                          <>
-                            <ActionBtn done={b.is_delivered_at_branch2} loading={updatingTransit[`${b.id}-is_delivered_at_branch2`]} onClick={() => handleDeliveredAtBranch2(b)} label="Dlvrd" doneLabel="✓Dlvrd" color="green"/>
-                            {(b.delivery_type||'').toLowerCase()==='door' && <ActionBtn done={b.out_for_door_delivery} loading={updatingTransit[`${b.id}-out_for_door_delivery`]} onClick={() => handleOutForDoorDelivery(b)} label="DD" doneLabel="✓DD" color="blue"/>}
-                          </>
-                        ) : (
-                          <ActionBtn done={b.is_out_of_delivery_from_branch2} loading={updatingTransit[`${b.id}-is_out_of_delivery_from_branch2`]} onClick={() => handleOutFromBranch2(b)} label="Out" doneLabel="✓Out" color="cyan"/>
-                        )}
                       </div>
-                      {(b.delivered_at_branch2_date || b.out_of_delivery_from_branch2_date || b.delivered_at_destination_date) && (
-                        <div className="mt-1.5 flex flex-wrap gap-1 text-[9px]">
-                          {b.delivered_at_branch2_date && <span className="bg-purple-50 text-purple-600 px-1 py-0.5 rounded">B2: {format(new Date(b.delivered_at_branch2_date), 'dd/MM HH:mm')}</span>}
-                          {b.out_of_delivery_from_branch2_date && <span className="bg-cyan-50 text-cyan-600 px-1 py-0.5 rounded">Out: {format(new Date(b.out_of_delivery_from_branch2_date), 'dd/MM HH:mm')}</span>}
-                          {b.delivered_at_destination_date && <span className="bg-green-50 text-green-600 px-1 py-0.5 rounded">Dlvd: {format(new Date(b.delivered_at_destination_date), 'dd/MM HH:mm')}</span>}
-                        </div>
-                      )}
+                      <TransitCircles b={b} updatingTransit={updatingTransit}
+                        onBranch={() => handleDeliveredAtBranch2(b)}
+                        onOut={() => handleOutFromBranch2(b)}
+                        onDelivered={() => handleDeliveredAtDestination(b)}
+                        userName={user?.name || user?.username || ''}
+                      />
                     </div>
                   );
                 })}
@@ -635,6 +769,41 @@ export default function ChallanDetailPage() {
           )}
         </div>
       </div>
+
+      {/* BILTY IMAGE PREVIEW MODAL */}
+      {previewImage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-blue-50">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-100 rounded-lg"><Image className="h-4 w-4 text-indigo-600"/></div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Bilty Image</h3>
+                  <p className="text-[10px] text-gray-500">GR: <b className="text-indigo-700">{previewImage.gr}</b> <span className={`ml-1 px-1 py-0.5 rounded text-[8px] font-bold ${previewImage.type === 'MNL' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{previewImage.type}</span></p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={previewImage.url} target="_blank" rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Open Full</a>
+                <button onClick={() => setPreviewImage(null)} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500"/></button>
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 flex items-center justify-center" style={{ maxHeight: 'calc(90vh - 60px)' }}>
+              <img
+                src={previewImage.url}
+                alt={`Bilty ${previewImage.gr}`}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-sm"
+                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+              />
+              <div className="hidden flex-col items-center justify-center py-10 text-gray-400">
+                <ImageOff className="h-12 w-12 mb-2"/>
+                <p className="text-sm font-semibold">Image could not be loaded</p>
+                <a href={previewImage.url} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs text-indigo-600 underline">Try opening directly</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KAAT MODAL */}
       {editingKaat && (
@@ -717,18 +886,70 @@ function KF({ label, value, onChange, type = 'number', big, disabled }) {
   );
 }
 
-/* ===== ACTION BUTTON ===== */
-function ActionBtn({ done, loading, onClick, label, doneLabel, color }) {
-  if (done) {
-    const dc = { purple:'bg-purple-100 text-purple-800', cyan:'bg-cyan-100 text-cyan-800', green:'bg-green-100 text-green-800', blue:'bg-blue-100 text-blue-800' };
-    return <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${dc[color]||'bg-gray-100 text-gray-800'}`}>{doneLabel}</span>;
-  }
-  const bc = { purple:'bg-purple-600 hover:bg-purple-700', cyan:'bg-cyan-600 hover:bg-cyan-700', green:'bg-green-600 hover:bg-green-700', blue:'bg-blue-600 hover:bg-blue-700' };
+/* ===== TRANSIT CIRCLES COMPONENT ===== */
+function TransitCircles({ b, updatingTransit, onBranch, onOut, onDelivered, userName }) {
+  const fmt = (d) => {
+    if (!d) return '';
+    try { return format(new Date(d), 'dd MMM, HH:mm'); } catch { return ''; }
+  };
+  const circles = [
+    {
+      key: 'branch', done: b.is_delivered_at_branch2, loading: updatingTransit[`${b.id}-is_delivered_at_branch2`],
+      onClick: onBranch, label: 'Branch', date: b.delivered_at_branch2_date,
+      activeColor: 'bg-red-500 ring-red-300 shadow-red-200', pendingColor: 'bg-red-200 hover:bg-red-400 hover:ring-red-200',
+      doneText: 'text-red-700', doneBg: 'bg-red-50',
+    },
+    {
+      key: 'out', done: b.is_out_of_delivery_from_branch2, loading: updatingTransit[`${b.id}-is_out_of_delivery_from_branch2`],
+      onClick: onOut, label: 'Out', date: b.out_of_delivery_from_branch2_date,
+      activeColor: 'bg-orange-500 ring-orange-300 shadow-orange-200', pendingColor: 'bg-orange-200 hover:bg-orange-400 hover:ring-orange-200',
+      doneText: 'text-orange-700', doneBg: 'bg-orange-50',
+    },
+    {
+      key: 'delivered', done: b.is_delivered_at_destination, loading: updatingTransit[`${b.id}-is_delivered_at_destination`],
+      onClick: onDelivered, label: 'Delivered', date: b.delivered_at_destination_date,
+      activeColor: 'bg-green-500 ring-green-300 shadow-green-200', pendingColor: 'bg-green-200 hover:bg-green-400 hover:ring-green-200',
+      doneText: 'text-green-700', doneBg: 'bg-green-50',
+    },
+  ];
+
   return (
-    <button onClick={onClick} disabled={loading}
-      className={`px-2.5 py-1 text-[10px] font-bold text-white rounded-md shadow-sm transition-all disabled:opacity-40 ${bc[color]||'bg-gray-600'}`}>
-      {loading ? <Loader2 className="h-3 w-3 animate-spin inline mr-0.5"/> : null}{label}
-    </button>
+    <div className="flex items-start gap-1">
+      {circles.map((c, i) => (
+        <React.Fragment key={c.key}>
+          <div className="flex flex-col items-center gap-0.5 min-w-[48px]">
+            <button
+              onClick={c.done ? undefined : c.onClick}
+              disabled={c.loading || c.done}
+              title={c.done ? `${c.label}: ${fmt(c.date)}` : `Mark as ${c.label}`}
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ring-2 shadow-sm ${
+                c.loading ? 'bg-gray-300 ring-gray-200 cursor-wait'
+                : c.done ? `${c.activeColor} cursor-default ring-offset-1`
+                : `${c.pendingColor} cursor-pointer ring-transparent hover:ring-2 hover:scale-110`
+              }`}
+            >
+              {c.loading ? (
+                <Loader2 className="h-3.5 w-3.5 text-white animate-spin"/>
+              ) : c.done ? (
+                <CheckCircle2 className="h-4 w-4 text-white"/>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-white/60"/>
+              )}
+            </button>
+            <span className={`text-[8px] font-bold leading-tight ${c.done ? c.doneText : 'text-gray-400'}`}>{c.label}</span>
+            {c.done && c.date && (
+              <span className={`text-[7px] font-semibold ${c.doneText} ${c.doneBg} px-1 py-0.5 rounded leading-tight text-center`}>{fmt(c.date)}</span>
+            )}
+            {c.done && userName && (
+              <span className="text-[7px] text-gray-400 leading-tight truncate max-w-[52px]" title={userName}>{userName}</span>
+            )}
+          </div>
+          {i < circles.length - 1 && (
+            <div className={`mt-3 w-3 h-0.5 rounded-full flex-shrink-0 ${c.done ? c.activeColor.split(' ')[0] : 'bg-gray-200'}`}/>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
   );
 }
 

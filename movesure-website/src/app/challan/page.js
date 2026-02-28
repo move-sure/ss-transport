@@ -624,11 +624,46 @@ export default function TransitManagement() {
       // Get the destination branch from challan book
       const toBranchId = selectedChallanBook.to_branch_id;
 
-      // NOTE: The schema for transit_details table needs bilty_id to allow NULL
-      // for station bilties. Update schema: ALTER TABLE transit_details ALTER COLUMN bilty_id DROP NOT NULL;
+      // STEP 1: Deduplicate by gr_no — prefer 'bilty' source over 'station_bilty_summary'
+      const grMap = new Map();
+      biltiesArray.forEach(bilty => {
+        const existing = grMap.get(bilty.gr_no);
+        if (!existing || (bilty.source === 'bilty' && existing.source !== 'bilty')) {
+          grMap.set(bilty.gr_no, bilty);
+        }
+      });
+      const uniqueBilties = Array.from(grMap.values());
+
+      // STEP 2: Check which GR numbers already exist in transit_details to skip them
+      const grNumbers = uniqueBilties.map(b => b.gr_no).filter(Boolean);
+      let newBilties = uniqueBilties;
+      
+      if (grNumbers.length > 0) {
+        const { data: existingTransits } = await supabase
+          .from('transit_details')
+          .select('gr_no')
+          .in('gr_no', grNumbers);
+        
+        if (existingTransits && existingTransits.length > 0) {
+          const existingGRs = new Set(existingTransits.map(t => t.gr_no));
+          newBilties = uniqueBilties.filter(b => !existingGRs.has(b.gr_no));
+          
+          const skippedCount = uniqueBilties.length - newBilties.length;
+          if (skippedCount > 0) {
+            console.warn(`⚠️ Skipped ${skippedCount} bilties already in transit:`, 
+              [...existingGRs].filter(gr => grNumbers.includes(gr)));
+          }
+        }
+      }
+
+      if (newBilties.length === 0) {
+        alert('All selected bilties are already in transit. No new bilties to add.');
+        setSaving(false);
+        return;
+      }
 
       // Prepare transit details data
-      const transitData = biltiesArray.map(bilty => ({
+      const transitData = newBilties.map(bilty => ({
         challan_no: selectedChallan.challan_no,
         gr_no: bilty.gr_no,
         bilty_id: bilty.source === 'bilty' ? bilty.id : null, // Use source instead of bilty_type
@@ -671,8 +706,8 @@ export default function TransitManagement() {
         biltyIds: transitData.map(t => t.bilty_id).filter(Boolean)
       });
 
-      // Update challan bilty count only
-      const newBiltyCount = selectedChallan.total_bilty_count + biltiesArray.length;
+      // Update challan bilty count only (use actual inserted count, not original array length)
+      const newBiltyCount = selectedChallan.total_bilty_count + newBilties.length;
       await supabase
         .from('challan_details')
         .update({ total_bilty_count: newBiltyCount })
@@ -681,7 +716,10 @@ export default function TransitManagement() {
       // Note: We don't update challan book current number here
       // Challan book is only for creating new challans, not for managing bilties
 
-      alert(`Successfully added ${biltiesArray.length} bilty(s) to challan ${selectedChallan.challan_no}`);
+      const skipped = biltiesArray.length - newBilties.length;
+      const msg = `Successfully added ${newBilties.length} bilty(s) to challan ${selectedChallan.challan_no}` + 
+        (skipped > 0 ? ` (${skipped} already in transit, skipped)` : '');
+      alert(msg);
       
       // Clear selections and refresh data in proper order
       setSelectedBilties([]);

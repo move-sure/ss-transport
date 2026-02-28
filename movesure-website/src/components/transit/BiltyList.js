@@ -389,11 +389,18 @@ const BiltyList = ({
   const handleSelectAll = () => {
     if (selectedChallan?.is_dispatched) return;
     
-    if (selectedBilties.length === filteredBilties.length && filteredBilties.length > 0) {
+    // Use fullyFilteredBilties (which excludes GRs already in transit) to avoid duplicate key errors
+    if (selectedBilties.length === fullyFilteredBilties.length && fullyFilteredBilties.length > 0) {
       setSelectedBilties([]);
     } else {
-      // Set selected bilties to all filtered bilties (already sorted)
-      setSelectedBilties([...filteredBilties]);
+      // Deduplicate by gr_no — prefer 'bilty' source over 'station_bilty_summary'
+      const seen = new Set();
+      const uniqueBilties = fullyFilteredBilties.filter(b => {
+        if (seen.has(b.gr_no)) return false;
+        seen.add(b.gr_no);
+        return true;
+      });
+      setSelectedBilties(uniqueBilties);
     }
   };
   // Get unique cities and bilty types for filter options

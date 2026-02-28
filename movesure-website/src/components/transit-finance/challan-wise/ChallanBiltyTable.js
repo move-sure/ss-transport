@@ -31,6 +31,7 @@ import ChallanTableRow from './ChallanTableRow';
 import ChallanTableFooter from './ChallanTableFooter';
 import BiltySelectorModal from './BiltySelectorModal';
 import BulkCreateModal from './BulkCreateModal';
+import KaatFinancePDFPreview from './KaatFinancePDFPreview';
 
 const TABLE_HEADERS = [
   { key: '#', label: '#', align: 'center' },
@@ -96,6 +97,8 @@ export default function ChallanBiltyTable({
   const [preloadedHubRates, setPreloadedHubRates] = useState({});
   // User names for created_by/updated_by display
   const [userNamesMap, setUserNamesMap] = useState({});
+  // Transport lookup: id -> {transport_name, gst_number, city_id, ...}
+  const [transportLookup, setTransportLookup] = useState({});
 
   // Transport Admin states
   const [transportAdmins, setTransportAdmins] = useState([]);
@@ -370,21 +373,37 @@ export default function ChallanBiltyTable({
 
   const loadAllTransportData = async () => {
     try {
-      const stationCodes = [...new Set(challanTransits.filter(t => t.station?.station).map(t => t.station.station))];
-      if (stationCodes.length === 0) { setTransportsByCity({}); return; }
-      const cityIds = stationCodes.map(code => cities?.find(c => c.city_code === code)?.id).filter(Boolean);
-      if (cityIds.length === 0) { setTransportsByCity({}); return; }
-      const { data, error } = await supabase.from('transports').select('id, transport_name, gst_number, city_id').in('city_id', cityIds);
-      if (error) throw error;
+      // Get ALL destination city IDs (bilty + station)
+      const allDestCityIds = [...new Set(challanTransits.map(t => {
+        if (t.bilty?.to_city_id) return t.bilty.to_city_id;
+        if (t.station?.station) {
+          const city = cities?.find(c => c.city_code === t.station.station);
+          return city?.id;
+        }
+        return null;
+      }).filter(Boolean))];
+      if (allDestCityIds.length === 0) { setTransportsByCity({}); setTransportLookup({}); return; }
+      // Batch fetch
+      let allTransports = [];
+      const batchSize = 50;
+      for (let i = 0; i < allDestCityIds.length; i += batchSize) {
+        const batch = allDestCityIds.slice(i, i + batchSize);
+        const { data, error } = await supabase.from('transports').select('id, transport_name, gst_number, city_id, transport_admin_id').in('city_id', batch);
+        if (!error && data) allTransports = [...allTransports, ...data];
+      }
       const transportMap = {};
-      (data || []).forEach(t => {
+      const lookup = {};
+      allTransports.forEach(t => {
         if (!transportMap[t.city_id]) transportMap[t.city_id] = [];
         transportMap[t.city_id].push(t);
+        lookup[t.id] = t;
       });
       setTransportsByCity(transportMap);
+      setTransportLookup(lookup);
     } catch (err) {
       console.error('Error batch loading transports:', err);
       setTransportsByCity({});
+      setTransportLookup({});
     }
   };
 
@@ -511,10 +530,58 @@ export default function ChallanBiltyTable({
     setAllKaatData(prev => { const updated = { ...prev }; delete updated[grNo]; return updated; });
   }, []);
 
-  const handleTransportChanged = useCallback((grNo, transportInfo) => {
-    loadAllTransportData();
-    loadAllHubRatesPreload();
-  }, []);
+  const handleTransportChanged = useCallback(async (grNo, transportId) => {
+    try {
+      let userId = null;
+      if (typeof window !== 'undefined') {
+        const s = localStorage.getItem('userSession');
+        if (s) userId = JSON.parse(s).user?.id || null;
+      }
+      const transport = transportLookup[transportId];
+      const transportName = transport?.transport_name || null;
+      const transportGst = transport?.gst_number || null;
+
+      // 1. Save to bilty_wise_kaat
+      const existing = allKaatData[grNo];
+      if (existing) {
+        const { data, error } = await supabase
+          .from('bilty_wise_kaat')
+          .update({ transport_id: transportId, updated_by: userId, updated_at: new Date().toISOString() })
+          .eq('gr_no', grNo)
+          .select()
+          .single();
+        if (error) throw error;
+        setAllKaatData(prev => ({ ...prev, [grNo]: data }));
+      } else {
+        const { data, error } = await supabase
+          .from('bilty_wise_kaat')
+          .insert([{ gr_no: grNo, challan_no: selectedChallan.challan_no, transport_id: transportId, created_by: userId, updated_by: userId }])
+          .select()
+          .single();
+        if (error) throw error;
+        setAllKaatData(prev => ({ ...prev, [grNo]: data }));
+      }
+
+      // 2. Also update bilty or station_bilty_summary table
+      const transit = challanTransits.find(t => t.gr_no === grNo);
+      if (transit?.bilty) {
+        await supabase.from('bilty').update({
+          transport_name: transportName,
+          transport_gst: transportGst,
+          transport_id: transportId,
+        }).eq('id', transit.bilty.id);
+      } else if (transit?.station) {
+        await supabase.from('station_bilty_summary').update({
+          transport_name: transportName,
+          transport_gst: transportGst,
+          transport_id: transportId,
+        }).eq('id', transit.station.id);
+      }
+    } catch (err) {
+      console.error('Error saving transport to kaat:', err);
+      alert('Failed to save transport: ' + err.message);
+    }
+  }, [allKaatData, selectedChallan?.challan_no, transportLookup, challanTransits]);
 
   const handleInlineFieldSave = useCallback(async (grNo, field, value) => {
     try {
@@ -546,6 +613,51 @@ export default function ChallanBiltyTable({
       console.error(`Error saving ${field}:`, err);
     }
   }, [allKaatData, selectedChallan?.challan_no]);
+
+  // ========== AUTO ASSIGN TRANSPORT (single-transport cities auto, multi lets user pick) ==========
+  const [autoAssigningTransport, setAutoAssigningTransport] = useState(false);
+  const [showKaatPDF, setShowKaatPDF] = useState(false);
+
+  const handleAutoAssignTransport = useCallback(async () => {
+    if (Object.keys(transportsByCity).length === 0) {
+      alert('Transport data not loaded yet. Please wait.');
+      return;
+    }
+    setAutoAssigningTransport(true);
+    let assigned = 0, skipped = 0, multiCity = 0;
+    try {
+      for (const transit of challanTransits) {
+        // Skip if already has a kaat transport_id
+        if (allKaatData[transit.gr_no]?.transport_id) { skipped++; continue; }
+
+        // Determine dest city
+        let destCityId = null;
+        if (transit.bilty?.to_city_id) destCityId = transit.bilty.to_city_id;
+        else if (transit.station?.station) {
+          const city = cities?.find(c => c.city_code === transit.station.station);
+          destCityId = city?.id || null;
+        }
+        if (!destCityId) { skipped++; continue; }
+
+        const cityTransports = transportsByCity[destCityId] || [];
+        if (cityTransports.length === 1) {
+          // Auto-assign the only transport
+          await handleTransportChanged(transit.gr_no, cityTransports[0].id);
+          assigned++;
+        } else if (cityTransports.length === 0) {
+          skipped++;
+        } else {
+          multiCity++;
+        }
+      }
+      alert(`✅ Transport Update Complete!\nAuto-assigned: ${assigned}\nMultiple choices (pick manually): ${multiCity}\nSkipped (already set): ${skipped}`);
+    } catch (err) {
+      console.error('Auto assign transport error:', err);
+      alert('Error during auto-assign: ' + err.message);
+    } finally {
+      setAutoAssigningTransport(false);
+    }
+  }, [challanTransits, allKaatData, transportsByCity, cities, handleTransportChanged]);
 
   const handleToggleSelect = useCallback((normalizedGrNo) => {
     setSelectedBiltiesForSave(prev =>
@@ -826,6 +938,9 @@ export default function ChallanBiltyTable({
         onCancelEdit={onCancelEdit}
         onViewKaatBills={onViewKaatBills}
         challanTransitsCount={challanTransits.length}
+        onAutoAssignTransport={handleAutoAssignTransport}
+        autoAssigningTransport={autoAssigningTransport}
+        onShowKaatPDF={() => setShowKaatPDF(true)}
       />
 
       {/* Filters */}
@@ -914,6 +1029,7 @@ export default function ChallanBiltyTable({
                     onKaatDelete={handleKaatDeleted}
                     onTransportChanged={handleTransportChanged}
                     onInlineFieldSave={handleInlineFieldSave}
+                    transportLookup={transportLookup}
                   />
                 );
               })}
@@ -981,6 +1097,18 @@ export default function ChallanBiltyTable({
         transportsByCity={transportsByCity}
         onCreateBills={handleBulkCreateKaatBills}
         getBulkAdminBiltyGroups={getBulkAdminBiltyGroups}
+      />
+
+      <KaatFinancePDFPreview
+        isOpen={showKaatPDF}
+        onClose={() => setShowKaatPDF(false)}
+        challanTransits={filteredTransits}
+        allKaatData={allKaatData}
+        transportLookup={transportLookup}
+        cities={cities}
+        selectedChallan={selectedChallan}
+        footerTotals={footerTotals}
+        getAdminNameForBilty={getAdminNameForBilty}
       />
     </div>
   );

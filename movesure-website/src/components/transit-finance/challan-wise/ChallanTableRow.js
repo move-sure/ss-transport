@@ -74,6 +74,7 @@ function ChallanTableRow({
   onKaatDelete,
   onTransportChanged,
   onInlineFieldSave,
+  transportLookup,
 }) {
   const bilty = transit.bilty;
   const station = transit.station;
@@ -188,6 +189,9 @@ function ChallanTableRow({
           preloadedHubRates={preloadedHubRates}
           getAdminNameForBilty={getAdminNameForBilty}
           onTransportChanged={onTransportChanged}
+          kaatData={kaatData}
+          transportLookup={transportLookup}
+          challanNo={selectedChallan.challan_no}
         />
       </td>
 
@@ -332,6 +336,7 @@ export default memo(ChallanTableRow, (prev, next) => {
     prev.editMode === next.editMode &&
     prev.allKaatData[prev.transit.gr_no] === next.allKaatData[next.transit.gr_no] &&
     prev.preloadedHubRates === next.preloadedHubRates &&
-    prev.userNamesMap === next.userNamesMap
+    prev.userNamesMap === next.userNamesMap &&
+    prev.transportLookup === next.transportLookup
   );
 });

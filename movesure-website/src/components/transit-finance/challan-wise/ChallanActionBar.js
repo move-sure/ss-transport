@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Zap, Save, Layers, XCircle, FileText, Loader2 } from 'lucide-react';
+import { Zap, Save, Layers, XCircle, FileText, Loader2, Truck, Download } from 'lucide-react';
 
 export default function ChallanActionBar({
   editMode,
@@ -15,6 +15,9 @@ export default function ChallanActionBar({
   onCancelEdit,
   onViewKaatBills,
   challanTransitsCount,
+  onAutoAssignTransport,
+  autoAssigningTransport,
+  onShowKaatPDF,
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-2.5 mb-3">
@@ -31,6 +34,16 @@ export default function ChallanActionBar({
         <div className="flex items-center gap-1.5">
           {!editMode && (
             <>
+              <button
+                onClick={onAutoAssignTransport}
+                disabled={autoAssigningTransport || challanTransitsCount === 0}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Auto-assign transport for cities with only 1 transport. Multi-transport cities need manual pick."
+              >
+                {autoAssigningTransport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                {autoAssigningTransport ? 'Assigning...' : 'Transport Update'}
+              </button>
+
               <button
                 onClick={onAutoKaatAll}
                 disabled={autoApplyingKaat || challanTransitsCount === 0}
@@ -61,6 +74,17 @@ export default function ChallanActionBar({
                 >
                   <FileText className="w-3.5 h-3.5" />
                   Kaat Bills
+                </button>
+              )}
+
+              {onShowKaatPDF && (
+                <button
+                  onClick={onShowKaatPDF}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                  title="Download Kaat Finance PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Kaat PDF
                 </button>
               )}
             </>

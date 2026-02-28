@@ -8,3 +8,4 @@ export { default as ChallanTableFooter } from './ChallanTableFooter';
 export { default as ChallanBiltyTable } from './ChallanBiltyTable';
 export { default as BiltySelectorModal } from './BiltySelectorModal';
 export { default as BulkCreateModal } from './BulkCreateModal';
+export { default as KaatFinancePDFPreview } from './KaatFinancePDFPreview';

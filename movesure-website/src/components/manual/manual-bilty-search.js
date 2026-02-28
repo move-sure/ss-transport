@@ -1,7 +1,8 @@
 'use client';
 
-import { Search, RefreshCw, Filter, X, Calendar, FileText, Building2, MapPin, Sparkles } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Search, RefreshCw, Filter, X, Calendar, FileText, Building2, MapPin, Sparkles, Truck, Hash } from 'lucide-react';
+import { useState } from 'react';
+import { TRANSIT_STATUS_OPTIONS, TRANSIT_STATUS_CONFIG } from './manual-helper';
 
 const ManualBiltySearch = ({
   searchTerm,
@@ -12,7 +13,9 @@ const ManualBiltySearch = ({
   totalRecords = 0,
   branches = []
 }) => {
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);  const [advancedFilters, setAdvancedFilters] = useState({
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  const [advancedFilters, setAdvancedFilters] = useState({
     fromDate: '',
     toDate: '',
     grNumber: '',
@@ -21,21 +24,22 @@ const ManualBiltySearch = ({
     pvtMarks: '',
     paymentStatus: '',
     branchId: '',
-    station: ''
+    station: '',
+    transitStatus: '',
+    challanNo: ''
   });
 
   const handleAdvancedFilterChange = (field, value) => {
-    setAdvancedFilters(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setAdvancedFilters(prev => ({ ...prev, [field]: value }));
   };
 
   const handleApplyAdvancedSearch = () => {
     if (onAdvancedSearch) {
       onAdvancedSearch(advancedFilters);
     }
-  };  const handleClearAdvancedFilters = () => {
+  };
+
+  const handleClearAdvancedFilters = () => {
     setAdvancedFilters({
       fromDate: '',
       toDate: '',
@@ -45,7 +49,9 @@ const ManualBiltySearch = ({
       pvtMarks: '',
       paymentStatus: '',
       branchId: '',
-      station: ''
+      station: '',
+      transitStatus: '',
+      challanNo: ''
     });
     if (onAdvancedSearch) {
       onAdvancedSearch({});
@@ -53,6 +59,16 @@ const ManualBiltySearch = ({
   };
 
   const hasActiveFilters = Object.values(advancedFilters).some(value => value !== '');
+  const activeFilterCount = Object.values(advancedFilters).filter(v => v !== '').length;
+
+  // Quick filter buttons for transit status
+  const handleQuickTransitFilter = (status) => {
+    const newFilters = { ...advancedFilters, transitStatus: status };
+    setAdvancedFilters(newFilters);
+    if (onAdvancedSearch) {
+      onAdvancedSearch(newFilters);
+    }
+  };
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 rounded-3xl shadow-xl border border-blue-100/50 mb-8">
@@ -60,67 +76,71 @@ const ManualBiltySearch = ({
       <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
       <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full -translate-y-32 translate-x-32"></div>
       
-      {/* Basic Search Header */}
-      <div className="relative p-8 border-b border-blue-100/50">
-        <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
-          <div className="flex-1 max-w-2xl">
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-blue-400 group-focus-within:text-blue-600 transition-colors" />
-              </div>              
-              <input
-                type="text"
-                placeholder="Quick search by station, GR no, consignor, consignee, or PVT marks..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-12 pr-4 py-4 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 placeholder-gray-500 shadow-lg transition-all duration-300 focus:shadow-xl focus:bg-white"
-              />
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
+      {/* Basic Search + Quick Filters */}
+      <div className="relative p-6 lg:p-8 border-b border-blue-100/50">
+        <div className="flex flex-col gap-4">
+          {/* Search Row */}
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 max-w-2xl w-full">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-blue-400 group-focus-within:text-blue-600 transition-colors" />
+                </div>              
+                <input
+                  type="text"
+                  placeholder="Search by station, GR, consignor, consignee, challan no..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full pl-12 pr-4 py-3.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 placeholder-gray-500 shadow-lg transition-all duration-300 focus:shadow-xl focus:bg-white"
+                />
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                <p className="text-sm text-blue-600 font-medium flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  {totalRecords > 0 ? `${totalRecords.toLocaleString()} total records` : 'Enter search terms above'}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-4 mt-3">
-              <p className="text-sm text-blue-600 font-medium flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                {totalRecords > 0 ? `${totalRecords.toLocaleString()} records found` : 'Enter search terms above'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className={`flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-                showAdvancedFilters || hasActiveFilters
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700'
-                  : 'bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white border border-blue-200/50'
-              }`}
-            >
-              <Filter className="w-5 h-5" />
-              Advanced
-              {hasActiveFilters && (
-                <span className="bg-white/20 text-white text-xs px-2 py-1 rounded-full font-bold">
-                  {Object.values(advancedFilters).filter(v => v !== '').length}
-                </span>
-              )}
-            </button>
             
-            <button
-              onClick={handleLoadData}
-              disabled={loading}
-              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-300 disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:hover:scale-100"
-            >
-              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2.5 px-5 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                  showAdvancedFilters || hasActiveFilters
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700'
+                    : 'bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white border border-blue-200/50'
+                }`}
+              >
+                <Filter className="w-5 h-5" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold min-w-[20px] text-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+              
+              <button
+                onClick={handleLoadData}
+                disabled={loading}
+                className="flex items-center gap-2.5 px-5 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-300 disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:hover:scale-100"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
+
+
         </div>
       </div>
 
       {/* Advanced Filters Panel */}
       {showAdvancedFilters && (
-        <div className="relative p-8 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-b border-blue-100/50">
+        <div className="relative p-6 lg:p-8 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-b border-blue-100/50">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
                   <Filter className="w-4 h-4 text-white" />
                 </div>
@@ -134,45 +154,102 @@ const ManualBiltySearch = ({
               </button>
             </div>
 
-            {/* Filter Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Transit-specific Filters Row */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-200/50">
+              <h4 className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-4">
+                <Truck className="w-4 h-4" />
+                Transit & Challan Filters
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Transit Status */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <Truck className="w-3.5 h-3.5 text-blue-500" />
+                    Transit Status
+                  </label>
+                  <select
+                    value={advancedFilters.transitStatus}
+                    onChange={(e) => handleAdvancedFilterChange('transitStatus', e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm"
+                  >
+                    <option value="">All Status</option>
+                    {TRANSIT_STATUS_OPTIONS.filter(o => o.value !== 'all').map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Challan Number */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <Hash className="w-3.5 h-3.5 text-blue-500" />
+                    Challan Number
+                  </label>
+                  <input
+                    type="text"
+                    value={advancedFilters.challanNo}
+                    onChange={(e) => handleAdvancedFilterChange('challanNo', e.target.value)}
+                    placeholder="Search challan no..."
+                    className="w-full px-3 py-2.5 bg-white border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
+                  />
+                </div>
+
+                {/* Station */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                    Station
+                  </label>
+                  <input
+                    type="text"
+                    value={advancedFilters.station}
+                    onChange={(e) => handleAdvancedFilterChange('station', e.target.value)}
+                    placeholder="Enter station name"
+                    className="w-full px-3 py-2.5 bg-white border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* General Filters Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {/* Date Range */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Calendar className="w-4 h-4 text-blue-500" />
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <Calendar className="w-3.5 h-3.5 text-blue-500" />
                   From Date
                 </label>
                 <input
                   type="date"
                   value={advancedFilters.fromDate}
                   onChange={(e) => handleAdvancedFilterChange('fromDate', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Calendar className="w-4 h-4 text-blue-500" />
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <Calendar className="w-3.5 h-3.5 text-blue-500" />
                   To Date
                 </label>
                 <input
                   type="date"
                   value={advancedFilters.toDate}
                   onChange={(e) => handleAdvancedFilterChange('toDate', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm"
                 />
               </div>
 
-              {/* Branch Selection */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Building2 className="w-4 h-4 text-blue-500" />
+              {/* Branch */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <Building2 className="w-3.5 h-3.5 text-blue-500" />
                   Branch
                 </label>
                 <select
                   value={advancedFilters.branchId}
                   onChange={(e) => handleAdvancedFilterChange('branchId', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm"
                 >
                   <option value="">All Branches</option>
                   {branches.map(branch => (
@@ -184,9 +261,9 @@ const ManualBiltySearch = ({
               </div>
 
               {/* GR Number */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <FileText className="w-4 h-4 text-blue-500" />
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <FileText className="w-3.5 h-3.5 text-blue-500" />
                   GR Number
                 </label>
                 <input
@@ -194,29 +271,14 @@ const ManualBiltySearch = ({
                   value={advancedFilters.grNumber}
                   onChange={(e) => handleAdvancedFilterChange('grNumber', e.target.value)}
                   placeholder="Enter GR number"
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg placeholder-gray-500"
-                />
-              </div>
-
-              {/* Station */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <MapPin className="w-4 h-4 text-blue-500" />
-                  Station
-                </label>
-                <input
-                  type="text"
-                  value={advancedFilters.station}
-                  onChange={(e) => handleAdvancedFilterChange('station', e.target.value)}
-                  placeholder="Enter station name"
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg placeholder-gray-500"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
                 />
               </div>
 
               {/* Consignor */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <span className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">C</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <span className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">C</span>
                   Consignor
                 </label>
                 <input
@@ -224,14 +286,14 @@ const ManualBiltySearch = ({
                   value={advancedFilters.consignor}
                   onChange={(e) => handleAdvancedFilterChange('consignor', e.target.value)}
                   placeholder="Enter consignor name"
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg placeholder-gray-500"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
                 />
               </div>
 
               {/* Consignee */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <span className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">C</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <span className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">C</span>
                   Consignee
                 </label>
                 <input
@@ -239,14 +301,14 @@ const ManualBiltySearch = ({
                   value={advancedFilters.consignee}
                   onChange={(e) => handleAdvancedFilterChange('consignee', e.target.value)}
                   placeholder="Enter consignee name"
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg placeholder-gray-500"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
                 />
               </div>
 
               {/* PVT Marks */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <span className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">P</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <span className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">P</span>
                   PVT Marks
                 </label>
                 <input
@@ -254,20 +316,20 @@ const ManualBiltySearch = ({
                   value={advancedFilters.pvtMarks}
                   onChange={(e) => handleAdvancedFilterChange('pvtMarks', e.target.value)}
                   placeholder="Enter PVT marks"
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg placeholder-gray-500"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
                 />
               </div>
 
               {/* Payment Status */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <span className="w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">$</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <span className="w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">₹</span>
                   Payment Status
                 </label>
                 <select
                   value={advancedFilters.paymentStatus}
                   onChange={(e) => handleAdvancedFilterChange('paymentStatus', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 shadow-sm transition-all duration-300 focus:shadow-lg"
+                  className="w-full px-3 py-2.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm"
                 >
                   <option value="">All Payments</option>
                   <option value="paid">Paid</option>
@@ -277,11 +339,51 @@ const ManualBiltySearch = ({
               </div>
             </div>
 
+            {/* Active Filter Tags */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <span className="text-xs font-semibold text-gray-500">Active:</span>
+                {Object.entries(advancedFilters)
+                  .filter(([_, value]) => value !== '')
+                  .map(([key, value]) => {
+                    const labels = {
+                      fromDate: 'From', toDate: 'To', grNumber: 'GR', consignor: 'Consignor',
+                      consignee: 'Consignee', pvtMarks: 'PVT', paymentStatus: 'Payment',
+                      branchId: 'Branch', station: 'Station', transitStatus: 'Transit', challanNo: 'Challan'
+                    };
+                    const displayValue = key === 'branchId' 
+                      ? branches.find(b => b.id === value)?.branch_name || value
+                      : key === 'transitStatus'
+                        ? TRANSIT_STATUS_OPTIONS.find(o => o.value === value)?.label || value
+                        : value;
+                    return (
+                      <span
+                        key={key}
+                        className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-200"
+                      >
+                        {labels[key]}: {displayValue}
+                        <button
+                          onClick={() => {
+                            handleAdvancedFilterChange(key, '');
+                            // Re-apply filters
+                            const newFilters = { ...advancedFilters, [key]: '' };
+                            if (onAdvancedSearch) onAdvancedSearch(newFilters);
+                          }}
+                          className="ml-0.5 hover:text-blue-900"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+              </div>
+            )}
+
             {/* Action Buttons */}
-            <div className="flex items-center gap-4 pt-6 border-t border-blue-100">
+            <div className="flex items-center gap-4 pt-4 border-t border-blue-100">
               <button
                 onClick={handleApplyAdvancedSearch}
-                className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                className="flex items-center gap-2.5 px-7 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 <Search className="w-5 h-5" />
                 Apply Filters
@@ -290,7 +392,7 @@ const ManualBiltySearch = ({
               {hasActiveFilters && (
                 <button
                   onClick={handleClearAdvancedFilters}
-                  className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl font-semibold hover:from-gray-600 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl font-semibold hover:from-gray-600 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   <X className="w-5 h-5" />
                   Clear All

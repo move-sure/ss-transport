@@ -80,15 +80,7 @@ export default function StationBiltySummaryPage() {
     }
   }, [user?.id, currentPage]);
   
-  // Search when searchTerm changes
-  useEffect(() => {
-    if (searchTerm.length >= 2) {
-      searchSummaries(searchTerm);
-    } else if (searchTerm === '') {
-      // Clear search results when search term is empty
-      handleLoadData();
-    }
-  }, [searchTerm, searchSummaries]);
+  // Note: Search is handled by debounced effect inside useStationBiltySummary hook
   
   // Keyboard shortcuts
   useEffect(() => {

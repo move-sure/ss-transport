@@ -30,7 +30,8 @@ const AVAILABLE_MODULES = [
   { name: 'transit-finance', label: 'Transit Finance', description: 'Transit financial operations' },
   { name: 'analytics', label: 'Analytics', description: 'Business insights and metrics' },
   { name: 'company-profile', label: 'Company Profile', description: 'Manage company profile and settings' },
-  { name: 'company-ledger', label: 'Company Ledger', description: 'View and manage company financial records' }
+  { name: 'company-ledger', label: 'Company Ledger', description: 'View and manage company financial records' },
+  { name: 'hub-management', label: 'Hub Management', description: 'Monitor challans, dispatch status & transit operations' }
 ];
 
 export default function UserModulesPage() {

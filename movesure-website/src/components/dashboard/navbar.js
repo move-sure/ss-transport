@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3, Building2 } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3, Building2, Warehouse } from 'lucide-react';
 
 // Module configuration - MUST match routeprotection.js ROUTE_MODULE_MAP
 const MODULE_CONFIG = {
@@ -143,6 +143,12 @@ const MODULE_CONFIG = {
     path: '/company-ledger',
     icon: 'BookOpen',
     shortcut: 'Alt+L'
+  },
+  'hub-management': {
+    name: 'Hub',
+    path: '/hub-management',
+    icon: 'Warehouse',
+    shortcut: 'Alt+H'
   }
 };
 
@@ -170,6 +176,7 @@ const ROUTE_MODULE_MAP = {
   '/transit-finance': 'transit-finance',
   '/analytics': 'analytics',
   '/company-ledger': 'company-ledger',
+  '/hub-management': 'hub-management',
 };
 
 // Public routes that don't require module access
@@ -272,6 +279,12 @@ export default function Navbar() {
               handleNavClick({ path: '/fnance', module: 'fnance' });
             }
             break;
+          case 'h':
+            event.preventDefault();
+            if (userModules.includes('hub-management')) {
+              handleNavClick({ path: '/hub-management', module: 'hub-management' });
+            }
+            break;
         }
       }
     };
@@ -325,7 +338,7 @@ export default function Navbar() {
     const navigationItems = [];
     
     // Icon-only modules (left side) - MUST match module names in database
-    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'transit-finance', 'fnance', 'analytics', 'staff', 'danger'];
+    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'hub-management', 'transit-finance', 'fnance', 'analytics', 'staff', 'danger'];
     // Text modules (right side)
     const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available', 'company-profile', 'company-ledger'];
 
@@ -386,7 +399,8 @@ export default function Navbar() {
       'transit-finance': <DollarSign className="h-4 w-4" />,
       'analytics': <BarChart3 className="h-4 w-4" />,
       'company-profile': <Building2 className="h-4 w-4" />,
-      'company-ledger': <BookOpen className="h-4 w-4" />
+      'company-ledger': <BookOpen className="h-4 w-4" />,
+      'hub-management': <Warehouse className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

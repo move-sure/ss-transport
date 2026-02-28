@@ -107,15 +107,13 @@ const MobileNumberEditor = ({ bilty, onUpdate }) => {
             <span className="text-xs font-bold text-gray-900">
               {value || 'Not Available'}
             </span>
-            {(!value || value === '') && (
-              <button
-                onClick={() => handleEdit(type)}
-                className="p-0.5 text-indigo-600 hover:bg-indigo-100 rounded"
-                title="Add mobile number"
-              >
-                <Edit3 className="w-3 h-3" />
-              </button>
-            )}
+            <button
+              onClick={() => handleEdit(type)}
+              className="p-0.5 text-indigo-600 hover:bg-indigo-100 rounded"
+              title={value ? 'Edit mobile number' : 'Add mobile number'}
+            >
+              <Edit3 className="w-3 h-3" />
+            </button>
           </div>
         )}
       </div>

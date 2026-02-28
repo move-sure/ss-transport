@@ -33,6 +33,7 @@ const ROUTE_MODULE_MAP = {
   '/fnance': 'fnance',
   '/analytics': 'analytics',
   '/company-ledger': 'company-ledger',
+  '/hub-management': 'hub-management',
 };
 
 // Routes that don't require any module (public or auth-only routes)
@@ -296,7 +297,8 @@ function AccessDeniedPage({ requiredModule }) {
       'available': 'Available Items',
       'fnance': 'Finance Management',
       'analytics': 'Analytics Dashboard',
-      'company-profile': 'Company Profile'
+      'company-profile': 'Company Profile',
+      'hub-management': 'Hub Management'
     };
     return moduleNames[module] || module.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };

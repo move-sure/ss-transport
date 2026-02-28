@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Package } from 'lucide-react';
+import { Search, Package, MapPin, Calendar, Truck, IndianRupee, Tag, FileText, Building2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 const TrackingSearch = ({ onSelectBilty, user }) => {
@@ -41,68 +41,74 @@ const TrackingSearch = ({ onSelectBilty, user }) => {
 
       setIsSearching(true);
       try {
-        // Get user's branch
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('branch_id')
-          .eq('id', user.id)
-          .single();
+        // Search both bilty + station_bilty_summary via single RPC call (system-wide)
+        const { data, error } = await supabase.rpc('search_all_bilties', {
+          p_search_term: grSearch.trim(),
+          p_limit: displayLimit,
+          p_offset: 0
+        });
 
-        if (userError) throw userError;
+        if (error) {
+          console.error('RPC error details:', error.message, error.code, error.hint, JSON.stringify(error));
+          // Fallback: search bilty table directly if RPC function not found
+          if (error.code === '42883' || error.message?.includes('function') || error.code === 'PGRST202') {
+            console.warn('Falling back to direct table search...');
+            const searchTerm = grSearch.trim();
+            const searchPattern = `%${searchTerm}%`;
 
-        // Search bilties
-        const { data, error, count } = await supabase
-          .from('bilty')
-          .select('*', { count: 'exact' })
-          .eq('branch_id', userData.branch_id)
-          .eq('is_active', true)
-          .is('deleted_at', null)
-          .ilike('gr_no', `%${grSearch}%`)
-          .order('bilty_date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(displayLimit);
+            const { data: biltyData, error: biltyError, count: biltyCount } = await supabase
+              .from('bilty')
+              .select('*', { count: 'exact' })
+              .eq('is_active', true)
+              .is('deleted_at', null)
+              .or(`gr_no.ilike.${searchPattern},pvt_marks.ilike.${searchPattern},consignor_name.ilike.${searchPattern},consignee_name.ilike.${searchPattern},e_way_bill.ilike.${searchPattern},transport_name.ilike.${searchPattern},invoice_no.ilike.${searchPattern}`)
+              .order('created_at', { ascending: false })
+              .limit(displayLimit);
 
-        if (error) throw error;
+            if (biltyError) throw biltyError;
 
-        // Fetch transit details and destination for each bilty
-        const biltiesWithDetails = await Promise.all(
-          (data || []).map(async (bilty) => {
-            const promises = [];
-            
-            // Fetch transit details
-            promises.push(
-              supabase
-                .from('transit_details')
-                .select('challan_no, dispatch_date')
-                .eq('gr_no', bilty.gr_no)
-                .single()
-            );
-            
-            // Fetch destination city if to_city_id exists
-            if (bilty.to_city_id) {
-              promises.push(
-                supabase
-                  .from('cities')
-                  .select('city_name')
-                  .eq('id', bilty.to_city_id)
-                  .single()
-              );
-            } else {
-              promises.push(Promise.resolve({ data: null }));
-            }
-            
-            const [transitResult, cityResult] = await Promise.all(promises);
-            
-            return {
-              ...bilty,
-              destination: cityResult.data?.city_name || null,
-              transit_details: transitResult.data || null
-            };
-          })
-        );
+            const biltyResults = (biltyData || []).map(b => ({ ...b, source_type: 'REG', weight: b.wt }));
 
-        setBilties(biltiesWithDetails);
-        setTotalCount(count || 0);
+            const { data: stationData, error: stationError, count: stationCount } = await supabase
+              .from('station_bilty_summary')
+              .select('*', { count: 'exact' })
+              .or(`gr_no.ilike.${searchPattern},pvt_marks.ilike.${searchPattern},consignor.ilike.${searchPattern},consignee.ilike.${searchPattern},e_way_bill.ilike.${searchPattern},transport_name.ilike.${searchPattern},station.ilike.${searchPattern}`)
+              .order('created_at', { ascending: false })
+              .limit(displayLimit);
+
+            if (stationError) throw stationError;
+
+            const stationResults = (stationData || []).map(s => ({
+              ...s,
+              source_type: 'MNL',
+              consignor_name: s.consignor,
+              consignee_name: s.consignee,
+              bilty_date: s.created_at,
+              payment_mode: s.payment_status,
+              total: s.amount,
+              no_of_pkg: s.no_of_packets,
+              weight: s.weight,
+              contain: s.contents,
+              saving_option: 'SAVE',
+              destination: s.station || ''
+            }));
+
+            const combined = [...biltyResults, ...stationResults]
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, displayLimit);
+
+            setBilties(combined);
+            setTotalCount((biltyCount || 0) + (stationCount || 0));
+            return;
+          }
+          throw error;
+        }
+
+        const results = data || [];
+        const count = results.length > 0 ? results[0].total_count : 0;
+
+        setBilties(results);
+        setTotalCount(count);
       } catch (error) {
         console.error('Error searching bilties:', error);
         setBilties([]);
@@ -187,134 +193,198 @@ const TrackingSearch = ({ onSelectBilty, user }) => {
     setTotalCount(0);
   };
 
+  // Highlight matching text in search results
+  const highlightMatch = (text, search) => {
+    if (!text || !search) return text;
+    const idx = text.toLowerCase().indexOf(search.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <span className="bg-yellow-200 text-yellow-900 font-bold rounded-sm px-0.5">{text.slice(idx, idx + search.length)}</span>
+        {text.slice(idx + search.length)}
+      </>
+    );
+  };
+
   return (
-    <div className="bg-white/95 p-3 rounded-lg border border-slate-200 shadow-sm">
+    <div className="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-sm">
       <div className="flex items-center gap-2">
-        <div className="bg-indigo-500 text-white px-3 py-1.5 text-xs font-semibold rounded shadow-sm flex items-center gap-1.5">
-          <Package className="w-3 h-3" />
-          TRACK BILTY
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white px-3 py-2 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5">
+          <Package className="w-3.5 h-3.5" />
+          TRACK
         </div>
 
-        <div className="relative flex-1 max-w-md" ref={searchRef}>
-          <input
-            type="text"
-            ref={inputRef}
-            value={grSearch}
-            onChange={(e) => {
-              setGrSearch(e.target.value);
-              setShowDropdown(true);
-              setSelectedIndex(-1);
-            }}
-            onFocus={() => {
-              setShowDropdown(true);
-              setDisplayLimit(50);
-            }}
-            onKeyDown={handleKeyDown}
-            className="w-full px-3 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 transition-colors duration-200 hover:border-indigo-300"
-            placeholder="🔍 Search GR Number..."
-            autoFocus
-          />
+        <div className="relative flex-1" ref={searchRef}>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              ref={inputRef}
+              value={grSearch}
+              onChange={(e) => {
+                setGrSearch(e.target.value);
+                setShowDropdown(true);
+                setSelectedIndex(-1);
+              }}
+              onFocus={() => {
+                setShowDropdown(true);
+                setDisplayLimit(50);
+              }}
+              onKeyDown={handleKeyDown}
+              className="w-full pl-9 pr-3 py-2 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 hover:border-indigo-300"
+              placeholder="Search GR No, Pvt Mark, Consignor, Consignee, E-Way Bill, Transport..."
+              autoFocus
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+          </div>
 
-          {showDropdown && (
+          {showDropdown && grSearch.trim() && (
             <div
-              className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded shadow-lg max-h-80 overflow-y-auto"
+              className="absolute z-30 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-2xl max-h-[420px] overflow-y-auto"
               ref={dropdownRef}
               onScroll={handleScroll}
             >
-              <div className="p-2 bg-indigo-500 text-white text-[10px] font-semibold rounded-t sticky top-0 z-10">
-                <Search className="w-3 h-3 inline mr-1" />
-                {isSearching ? 'Searching...' : `SELECT BILTY (${totalCount} total, showing ${displayedBilties.length})`}
+              {/* Header */}
+              <div className="px-3 py-2 bg-gradient-to-r from-slate-800 to-slate-700 text-white text-[10px] font-semibold rounded-t-xl sticky top-0 z-10 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Search className="w-3 h-3" />
+                  {isSearching ? 'Searching...' : `${totalCount} result${totalCount !== 1 ? 's' : ''} found`}
+                </div>
+                {displayedBilties.length > 0 && !isSearching && (
+                  <span className="text-slate-300">showing {displayedBilties.length}</span>
+                )}
               </div>
+
               {displayedBilties.length > 0 ? (
-                <>
+                <div className="p-1.5 space-y-1">
                   {displayedBilties.map((bilty, index) => (
                     <button
                       key={bilty.id}
                       onClick={() => handleSelectBilty(bilty)}
-                      className={`w-full px-3 py-2 text-left hover:bg-indigo-50 border-b border-slate-100 transition-colors ${
-                        index === selectedIndex ? 'bg-indigo-100' : ''
+                      className={`w-full px-3 py-2.5 text-left rounded-lg transition-all duration-150 border ${
+                        index === selectedIndex
+                          ? 'bg-indigo-50 border-indigo-300 shadow-sm'
+                          : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'
                       }`}
                     >
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          {/* Private Mark on Top */}
-                          {bilty.private_mark && (
-                            <div className="text-[9px] font-bold text-purple-600 mb-0.5 truncate">
-                              🏷️ {bilty.private_mark}
-                            </div>
-                          )}
-                          
-                          {/* GR Number */}
-                          <div className="text-xs font-bold text-indigo-600 truncate">{bilty.gr_no}</div>
-                          
-                          {/* Consignor → Consignee */}
-                          <div className="text-xs text-black font-medium truncate">
-                            {bilty.consignor_name} → {bilty.consignee_name}
-                          </div>
-                          
-                          {/* Destination */}
-                          {bilty.destination && (
-                            <div className="text-[10px] text-indigo-700 font-semibold mt-0.5 truncate">
-                              📍 To: {bilty.destination}
-                            </div>
-                          )}
-                          
-                          {/* Date and Amount */}
-                          <div className="text-[10px] text-gray-600 mt-0.5">
-                            {new Date(bilty.bilty_date).toLocaleDateString()} | ₹{bilty.total?.toLocaleString()}
-                          </div>
-                          
-                          {/* Challan Details - Small */}
-                          {bilty.transit_details && bilty.transit_details.challan_no && (
-                            <div className="text-[9px] text-teal-700 font-medium mt-0.5 bg-teal-50 px-1.5 py-0.5 rounded inline-block">
-                              🚚 Challan: {bilty.transit_details.challan_no}
-                              {bilty.transit_details.dispatch_date && (
-                                <span className="ml-1 text-teal-800 font-semibold">
-                                  | Dispatched: {new Date(bilty.transit_details.dispatch_date).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
+                      {/* Top row: GR + badges */}
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-extrabold text-indigo-700 tracking-tight">
+                            {highlightMatch(bilty.gr_no, grSearch.trim())}
+                          </span>
+                          {bilty.source_type === 'MNL' ? (
+                            <span className="text-[8px] px-1.5 py-0.5 bg-orange-500 text-white font-bold rounded-md flex items-center gap-0.5 whitespace-nowrap">
+                              <Building2 className="w-2.5 h-2.5" /> MANUAL
+                            </span>
+                          ) : (
+                            <span className="text-[8px] px-1.5 py-0.5 bg-indigo-100 text-indigo-700 font-bold rounded-md whitespace-nowrap">
+                              REGULAR
+                            </span>
                           )}
                         </div>
-                        <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${
-                          bilty.saving_option === 'DRAFT'
-                            ? 'bg-yellow-200 text-amber-800 border border-yellow-300'
-                            : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        }`}>
-                          {bilty.saving_option}
+                        <div className="flex items-center gap-1">
+                          {bilty.challan_no && (
+                            <span className="text-[8px] px-1.5 py-0.5 bg-teal-100 text-teal-700 font-bold rounded-md flex items-center gap-0.5 whitespace-nowrap">
+                              <Truck className="w-2.5 h-2.5" /> {bilty.challan_no}
+                            </span>
+                          )}
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-bold whitespace-nowrap ${
+                            bilty.saving_option === 'DRAFT'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {bilty.saving_option}
+                          </span>
                         </div>
+                      </div>
+
+                      {/* Pvt marks */}
+                      {bilty.pvt_marks && (
+                        <div className="flex items-center gap-1 mb-1">
+                          <Tag className="w-3 h-3 text-purple-500 flex-shrink-0" />
+                          <span className="text-[10px] font-bold text-purple-700 truncate">
+                            {highlightMatch(bilty.pvt_marks, grSearch.trim())}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Consignor → Consignee */}
+                      <div className="text-xs text-slate-800 font-medium truncate mb-1">
+                        {highlightMatch(bilty.consignor_name || '', grSearch.trim())}
+                        <span className="text-slate-400 mx-1">→</span>
+                        {highlightMatch(bilty.consignee_name || '', grSearch.trim())}
+                      </div>
+
+                      {/* Bottom row: meta info */}
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
+                        {bilty.destination && (
+                          <span className="flex items-center gap-0.5 text-indigo-600 font-semibold">
+                            <MapPin className="w-3 h-3" />
+                            {highlightMatch(bilty.destination, grSearch.trim())}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-0.5">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(bilty.bilty_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        </span>
+                        {bilty.total != null && (
+                          <span className="flex items-center gap-0.5 font-bold text-slate-700">
+                            <IndianRupee className="w-3 h-3" />
+                            {Number(bilty.total).toLocaleString('en-IN')}
+                          </span>
+                        )}
+                        {bilty.no_of_pkg != null && bilty.no_of_pkg > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <Package className="w-3 h-3" /> {bilty.no_of_pkg} pkg
+                          </span>
+                        )}
+                        {bilty.e_way_bill && (
+                          <span className="flex items-center gap-0.5">
+                            <FileText className="w-3 h-3" />
+                            EWB: {highlightMatch(bilty.e_way_bill, grSearch.trim())}
+                          </span>
+                        )}
+                        {bilty.dispatch_date && (
+                          <span className="flex items-center gap-0.5 text-teal-600 font-semibold">
+                            <Truck className="w-3 h-3" />
+                            Dispatched {new Date(bilty.dispatch_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                          </span>
+                        )}
                       </div>
                     </button>
                   ))}
+
                   {hasMore && (
-                    <div className="px-3 py-2 text-[10px] text-gray-600 text-center border-b border-slate-100">
+                    <div className="px-3 py-2 text-[10px] text-center">
                       {isLoadingMore || isSearching ? (
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex items-center justify-center gap-1.5 text-slate-500">
                           <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                           Loading more...
                         </div>
                       ) : (
-                        <div className="text-indigo-600 font-medium">
-                          Scroll for more... ({totalCount - displayedBilties.length} more)
-                        </div>
+                        <span className="text-indigo-600 font-semibold">
+                          ↓ Scroll for {totalCount - displayedBilties.length} more
+                        </span>
                       )}
                     </div>
                   )}
-                </>
-              ) : grSearch ? (
-                isSearching ? (
-                  <div className="px-3 py-2 text-xs text-gray-600 text-center flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    Searching database...
-                  </div>
-                ) : (
-                  <div className="px-3 py-2 text-xs text-gray-600 text-center">
-                    No bilties found matching &quot;{grSearch}&quot;
-                  </div>
-                )
+                </div>
+              ) : isSearching ? (
+                <div className="px-4 py-8 text-center">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-xs text-slate-500 font-medium">Searching across all bilties...</p>
+                </div>
               ) : (
-                <div className="px-3 py-2 text-xs text-gray-600 text-center">
-                  Start typing to search bilties...
+                <div className="px-4 py-8 text-center">
+                  <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs text-slate-500 font-medium">No bilties found for &quot;{grSearch}&quot;</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Try searching by GR No, Pvt Mark, Consignor, Consignee</p>
                 </div>
               )}
             </div>

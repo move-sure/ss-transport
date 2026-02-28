@@ -270,11 +270,11 @@ export default function TransitManagement() {
 
       // Separate GR numbers by source table
       const biltyGrNumbers = availableGrRes.data
-        .filter(item => item.source_table === 'bilty')
+        .filter(item => item.source_type === 'REG')
         .map(item => item.gr_no);
       
       const summaryGrNumbers = availableGrRes.data
-        .filter(item => item.source_table === 'station_bilty_summary')
+        .filter(item => item.source_type === 'MNL')
         .map(item => item.gr_no);
 
       // Fetch detailed information for each type

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo, startTransition } from 'react';
 import { Edit2, Save, X, Loader2, Plus, Trash2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
@@ -14,17 +14,22 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
   paymentMode = '',
   deliveryType = '',
   kaatData: initialKaatData = null,
+  preloadedHubRates = {},
+  userNamesMap = {},
   onKaatUpdate,
   onKaatDelete
 }) {
-  // Check if DD applies (payment mode contains dd or delivery type is door)
-  const isDDPayment = paymentMode?.toLowerCase().includes('paid') && deliveryType?.toLowerCase().includes('door') ||
-    paymentMode?.toLowerCase().includes('to-pay') && deliveryType?.toLowerCase().includes('door');
+  // Use initialKaatData directly as the source of truth (parent owns it via realtime)
+  const kaatData = initialKaatData;
+
+  // Check if DD applies
+  const isDDPayment = (paymentMode?.toLowerCase().includes('paid') && deliveryType?.toLowerCase().includes('door')) ||
+    (paymentMode?.toLowerCase().includes('to-pay') && deliveryType?.toLowerCase().includes('door'));
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [kaatData, setKaatData] = useState(initialKaatData);
   const [hubRates, setHubRates] = useState([]);
+  const [fallbackLoaded, setFallbackLoaded] = useState(false);
   
   const [formData, setFormData] = useState({
     transport_hub_rate_id: '',
@@ -35,13 +40,14 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
     bilty_chrg: '',
     ewb_chrg: '',
     labour_chrg: '',
-    other_chrg: ''
+    other_chrg: '',
+    pohonch_no: '',
+    bilty_number: ''
   });
 
-  // Update local state when prop changes
+  // Sync form data when kaatData prop changes (from realtime)
   useEffect(() => {
-    setKaatData(initialKaatData);
-    if (initialKaatData) {
+    if (initialKaatData && !isEditing) {
       setFormData({
         transport_hub_rate_id: initialKaatData.transport_hub_rate_id || '',
         rate_type: initialKaatData.rate_type || 'per_kg',
@@ -51,37 +57,57 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         bilty_chrg: initialKaatData.bilty_chrg || '',
         ewb_chrg: initialKaatData.ewb_chrg || '',
         labour_chrg: initialKaatData.labour_chrg || '',
-        other_chrg: initialKaatData.other_chrg || ''
+        other_chrg: initialKaatData.other_chrg || '',
+        pohonch_no: initialKaatData.pohonch_no || '',
+        bilty_number: initialKaatData.bilty_number || ''
       });
     }
-  }, [initialKaatData]);
+  }, [initialKaatData, isEditing]);
+
+  // Hub rates: use preloaded data SYNCHRONOUSLY (no useEffect lag)
+  // Compute sorted hub rates from preloaded data immediately via useMemo
+  const preloadedSorted = useMemo(() => {
+    const preloaded = preloadedHubRates?.[destinationCityId];
+    if (!preloaded || preloaded.length === 0) return null;
+    return [...preloaded].sort((a, b) => {
+      if (biltyTransportGst) {
+        const aMatch = a.transport?.gst_number === biltyTransportGst;
+        const bMatch = b.transport?.gst_number === biltyTransportGst;
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+      }
+      const aName = a.transport_name || a.transport?.transport_name || '';
+      const bName = b.transport_name || b.transport?.transport_name || '';
+      return aName.localeCompare(bName);
+    });
+  }, [preloadedHubRates, destinationCityId, biltyTransportGst]);
+
+  // The active hub rates list: preloaded (instant) or fallback-fetched
+  const activeHubRates = preloadedSorted || hubRates;
+  const hubRatesLoading = !preloadedSorted && loading;
+
+  // Only fetch from DB if preloaded data is missing AND user opens editing
+  useEffect(() => {
+    if (isEditing && destinationCityId && !preloadedSorted && !fallbackLoaded) {
+      // Use startTransition so the fetch doesn't block the UI
+      startTransition(() => { setLoading(true); });
+      loadHubRatesFallback();
+    }
+  }, [isEditing, destinationCityId, preloadedSorted, fallbackLoaded]);
 
   useEffect(() => {
-    // Listen for hub rate additions/updates
     const handleHubRateUpdate = () => {
-      if (isEditing && destinationCityId) {
-        loadHubRates();
+      if (isEditing && destinationCityId && !preloadedSorted) {
+        loadHubRatesFallback();
       }
     };
-
     window.addEventListener('hubRateUpdated', handleHubRateUpdate);
-    
-    return () => {
-      window.removeEventListener('hubRateUpdated', handleHubRateUpdate);
-    };
-  }, [isEditing, destinationCityId]);
+    return () => window.removeEventListener('hubRateUpdated', handleHubRateUpdate);
+  }, [isEditing, destinationCityId, preloadedSorted]);
 
-  useEffect(() => {
-    if (isEditing && destinationCityId) {
-      loadHubRates();
-    }
-  }, [isEditing, destinationCityId]);
-
-  const loadHubRates = async () => {
+  const loadHubRatesFallback = async () => {
     try {
       setLoading(true);
-      
-      console.log('🔍 Loading hub rates for:', { destinationCityId, biltyTransportGst });
       
       // Check cache first
       const cacheKey = `hub_rates_${destinationCityId}_${biltyTransportGst || 'all'}`;
@@ -90,7 +116,6 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         const { data, timestamp } = JSON.parse(cached);
         // Use cache if less than 5 minutes old
         if (Date.now() - timestamp < 5 * 60 * 1000) {
-          console.log('📦 Using cached hub rates');
           setHubRates(data);
           setLoading(false);
           return;
@@ -142,12 +167,6 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
       });
       
       const rates = Array.from(allRatesMap.values());
-      
-      console.log('📊 Found rates:', {
-        byCity: ratesByCity?.length || 0,
-        byTransport: ratesByTransport.length,
-        total: rates.length
-      });
 
       // Get unique transport IDs
       const transportIds = [...new Set(rates.map(r => r.transport_id).filter(Boolean))];
@@ -208,7 +227,6 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
           return aName.localeCompare(bName);
         });
 
-      console.log('✅ Loaded hub rates:', enrichedRates.length, 'rates');
       setHubRates(enrichedRates);
       
       // Cache the results
@@ -227,11 +245,12 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
       setHubRates([]);
     } finally {
       setLoading(false);
+      setFallbackLoaded(true);
     }
   };
 
   const handleHubRateSelect = (rateId) => {
-    const selectedRate = hubRates.find(r => r.id === rateId);
+    const selectedRate = activeHubRates.find(r => r.id === rateId);
     if (selectedRate) {
       setFormData(prev => ({
         ...prev,
@@ -332,6 +351,8 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         ewb_chrg: formData.ewb_chrg ? parseFloat(formData.ewb_chrg) : 0,
         labour_chrg: formData.labour_chrg ? parseFloat(formData.labour_chrg) : 0,
         other_chrg: formData.other_chrg ? parseFloat(formData.other_chrg) : 0,
+        pohonch_no: formData.pohonch_no?.trim() || null,
+        bilty_number: formData.bilty_number?.trim() || null,
         updated_by: userId,
         updated_at: new Date().toISOString()
       };
@@ -346,7 +367,7 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
           .single();
 
         if (error) throw error;
-        setKaatData(data);
+        // Immediately notify parent (realtime will also fire but this is faster)
         if (onKaatUpdate) onKaatUpdate(grNo, data);
       } else {
         // Insert new
@@ -358,7 +379,6 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
           .single();
 
         if (error) throw error;
-        setKaatData(data);
         if (onKaatUpdate) onKaatUpdate(grNo, data);
       }
 
@@ -383,7 +403,9 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         bilty_chrg: kaatData.bilty_chrg || '',
         ewb_chrg: kaatData.ewb_chrg || '',
         labour_chrg: kaatData.labour_chrg || '',
-        other_chrg: kaatData.other_chrg || ''
+        other_chrg: kaatData.other_chrg || '',
+        pohonch_no: kaatData.pohonch_no || '',
+        bilty_number: kaatData.bilty_number || ''
       });
     } else {
       setFormData({
@@ -395,7 +417,9 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         bilty_chrg: '',
         ewb_chrg: '',
         labour_chrg: '',
-        other_chrg: ''
+        other_chrg: '',
+        pohonch_no: '',
+        bilty_number: ''
       });
     }
     setIsEditing(false);
@@ -416,7 +440,6 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
 
       if (error) throw error;
 
-      setKaatData(null);
       setFormData({
         transport_hub_rate_id: '',
         rate_type: 'per_kg',
@@ -426,7 +449,9 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         bilty_chrg: '',
         ewb_chrg: '',
         labour_chrg: '',
-        other_chrg: ''
+        other_chrg: '',
+        pohonch_no: '',
+        bilty_number: ''
       });
       
       if (onKaatDelete) onKaatDelete(grNo);
@@ -449,10 +474,10 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
               value={formData.transport_hub_rate_id}
               onChange={(e) => handleHubRateSelect(e.target.value)}
               className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-              disabled={loading}
+              disabled={hubRatesLoading}
             >
               <option value="">-- Select Rate (Optional) --</option>
-              {hubRates.map(rate => {
+              {activeHubRates.map(rate => {
                 const transportName = rate.transport_name || rate.transport?.transport_name || 'Unknown Transport';
                 const cityName = rate.transport?.city_name || '';
                 const gstNumber = rate.transport?.gst_number || '';
@@ -469,13 +494,13 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
                 );
               })}
             </select>
-            {loading && (
+            {hubRatesLoading && (
               <div className="text-[9px] text-blue-600 mt-1 flex items-center gap-1">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
                 Loading rates...
               </div>
             )}
-            {!loading && hubRates.length === 0 && (
+            {!hubRatesLoading && activeHubRates.length === 0 && (
               <div className="text-[9px] text-orange-600 mt-1">
                 No kaat rates configured for this destination
               </div>
@@ -655,8 +680,18 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
                 </div>
               )}
               {kaatData.actual_kaat_rate > 0 && (
-                <div className="text-[8px] text-gray-500">
+                <div className="text-[7px] text-gray-500">
                   Eff: ₹{parseFloat(kaatData.actual_kaat_rate).toFixed(2)}/kg
+                </div>
+              )}
+              {(kaatData.created_by || kaatData.updated_by) && (
+                <div className="text-[7px] text-gray-400 mt-0.5 border-t border-orange-100 pt-0.5 leading-tight">
+                  {kaatData.created_by && (
+                    <span title={`Created by`}>By: {userNamesMap?.[kaatData.created_by] || '...'}</span>
+                  )}
+                  {kaatData.updated_by && kaatData.updated_by !== kaatData.created_by && (
+                    <span className="ml-1" title={`Updated by`}>| Upd: {userNamesMap?.[kaatData.updated_by] || '...'}</span>
+                  )}
                 </div>
               )}
             </div>

@@ -25,6 +25,7 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(true);
   const [kaatDetails, setKaatDetails] = useState(null);
   const [transportInfo, setTransportInfo] = useState(null);
+  const [destinationTransport, setDestinationTransport] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -126,6 +127,7 @@ export default function TrackingPage() {
     setSearchLogs([]);
     setKaatDetails(null);
     setTransportInfo(null);
+    setDestinationTransport(null);
     
     try {
       // Fire independent fetches in parallel - tracking RPC uses .catch so it won't break other fetches
@@ -229,6 +231,21 @@ export default function TrackingPage() {
             setTransportInfo({ ...tData, admin: adminData });
           }
         } catch (e) { /* no transport record */ }
+      }
+
+      // Fetch destination city transport mobile (match transport name + destination city)
+      const destCity = bilty.destination || bilty.station;
+      const tName = bilty.transport_name;
+      if (tName && destCity) {
+        try {
+          const { data: destTransports } = await supabase
+            .from('transports')
+            .select('id, transport_name, city_name, mob_number, branch_owner_name')
+            .ilike('city_name', destCity.trim())
+            .ilike('transport_name', tName.trim())
+            .limit(1);
+          setDestinationTransport(destTransports?.[0] || null);
+        } catch (e) { /* no match */ }
       }
 
       // Set search tracking record (with fallback direct fetch if RPC returned nothing)
@@ -423,6 +440,7 @@ export default function TrackingPage() {
               user={user}
               kaatDetails={kaatDetails}
               transportInfo={transportInfo}
+              destinationTransport={destinationTransport}
             />
           ) : (
             /* Recent Searches - shown when no bilty selected */

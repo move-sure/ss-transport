@@ -31,7 +31,7 @@ const Pill = ({ label, value, bold }) => (
   </div>
 );
 
-const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate, challanDetails, truck, driver, owner, searchRecord, searchLogs, onSearchRecordUpdate, user, kaatDetails, transportInfo }) => {
+const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate, challanDetails, truck, driver, owner, searchRecord, searchLogs, onSearchRecordUpdate, user, kaatDetails, transportInfo, destinationTransport }) => {
   const [complaintLoading, setComplaintLoading] = useState(false);
   const [resolveLoading, setResolveLoading] = useState(false);
   const [complaintRemark, setComplaintRemark] = useState('');
@@ -318,21 +318,7 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
             <div className="flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-purple-600" />
               <span className="text-[10px] text-purple-400 font-semibold uppercase">Mobile:</span>
-              {editingTransportNum && bilty.source_type !== 'MNL' ? (
-                <div className="inline-flex items-center gap-1">
-                  <input type="tel" value={tempTransportNum} onChange={(e) => setTempTransportNum(e.target.value)}
-                    className="w-32 px-2 py-1 text-sm font-bold text-slate-900 bg-white border-2 border-purple-400 rounded-lg focus:ring-2 focus:ring-purple-500" maxLength={20} />
-                  <button onClick={handleSaveTransportNumber} disabled={savingTransportNum} className="p-1 bg-green-600 text-white rounded-lg"><Save className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setEditingTransportNum(false)} className="p-1 bg-slate-400 text-white rounded-lg"><X className="w-3.5 h-3.5" /></button>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-slate-800">{bilty.transport_number || 'N/A'}</span>
-                  {bilty.source_type !== 'MNL' && (
-                    <button onClick={handleEditTransportNumber} className="p-0.5 text-purple-600 hover:bg-purple-100 rounded"><Edit3 className="w-3.5 h-3.5" /></button>
-                  )}
-                </div>
-              )}
+              <span className="text-sm font-bold text-slate-800">{transportInfo?.mob_number || 'N/A'}</span>
             </div>
           </div>
         )}

@@ -246,7 +246,7 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
 
         {/* Main info row */}
         <div className="px-4 py-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-x-4 gap-y-2">
             <div>
               <div className="text-[9px] text-slate-400 font-semibold uppercase">Date</div>
               <div className="text-sm font-bold text-slate-800">{fmtDate(bilty.bilty_date)}</div>
@@ -260,6 +260,10 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
               <div className="text-[9px] text-slate-400 font-semibold uppercase">Consignee</div>
               <div className="text-sm font-bold text-slate-800 truncate" title={bilty.consignee_name}>{bilty.consignee_name || 'N/A'}</div>
               {bilty.consignee_number && <div className="text-[10px] text-slate-500">{bilty.consignee_number}</div>}
+            </div>
+            <div>
+              <div className="text-[9px] text-slate-400 font-semibold uppercase">Pvt Marks</div>
+              <div className="text-sm font-bold text-slate-800 truncate" title={bilty.pvt_marks}>{bilty.pvt_marks || '-'}</div>
             </div>
             <div>
               <div className="text-[9px] text-slate-400 font-semibold uppercase">Pkg / Weight</div>
@@ -282,7 +286,6 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
 
           {/* Extra details */}
           <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
-            {bilty.pvt_marks && <Pill label="Pvt Marks" value={bilty.pvt_marks} bold />}
             {bilty.contain && <Pill label="Contains" value={bilty.contain} />}
             {bilty.e_way_bill && <Pill label="E-Way" value={bilty.e_way_bill} />}
             {bilty.invoice_no && <Pill label="Invoice" value={bilty.invoice_no} />}

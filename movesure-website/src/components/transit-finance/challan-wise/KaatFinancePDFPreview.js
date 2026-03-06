@@ -16,7 +16,7 @@ import {
 /**
  * KaatFinancePDFPreview - Full-screen PDF preview & downloader for kaat finance data.
  * Sorted alphabetically by station (destination city).
- * Columns: S.No, GR No, Station, Transport, Consignor, Consignee, Pkg, Weight, Total, Kaat, Pohonch, Bilty#, PF, Profit
+ * Columns: S.No, GR No, Station, Transport, Consignor, Consignee, Pvt M, Pkg, Wt, Total, Pay, DD, Kaat, Profit, Remark, Pohonch, Bilty#
  */
 export default function KaatFinancePDFPreview({
   isOpen,
@@ -141,9 +141,9 @@ export default function KaatFinancePDFPreview({
       addHeader(1);
 
       // Build table data - compute real totals from data
-      let sumPkgs = 0, sumWt = 0, sumTotal = 0, sumKaat = 0, sumDd = 0, sumPf = 0, sumProfit = 0;
+      let sumPkgs = 0, sumWt = 0, sumTotal = 0, sumKaat = 0, sumDd = 0, sumProfit = 0;
 
-      // Column order: #, GR No, Station, Transport, Consignor, Consignee, Pkg, Wt, Total, Pay, DD, Kaat, PF, Profit, Pohonch, Bilty#
+      // Column order: #, GR No, Station, Transport, Consignor, Consignee, Pvt M, Pkg, Wt, Total, Pay, DD, Kaat, Profit, Remark, Pohonch, Bilty#
       const tableData = sortedTransits.map((transit, idx) => {
         const bilty = transit.bilty;
         const station = transit.station;
@@ -156,16 +156,16 @@ export default function KaatFinancePDFPreview({
         const kaatAmount = computeKaat(transit);
         const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
         const profit = kaatData ? totalAmount - kaatAmount - ddChrg : totalAmount - ddChrg;
-        const pf = kaatData?.pf != null ? parseFloat(kaatData.pf) : 0;
         const pkg = bilty?.no_of_pkg || station?.no_of_packets || 0;
         const wt = parseFloat(bilty?.wt || station?.weight || 0);
+        const pvtMarks = bilty?.pvt_marks || station?.pvt_marks || '';
+        const remark = kaatData?.remark || bilty?.remark || '';
 
         sumPkgs += pkg;
         sumWt += wt;
         sumTotal += totalAmount;
         sumKaat += kaatAmount;
         sumDd += ddChrg;
-        sumPf += pf;
         sumProfit += profit;
 
         return [
@@ -175,26 +175,27 @@ export default function KaatFinancePDFPreview({
           (getTransportDisplay(transit) || '').toUpperCase(),
           (bilty?.consignor_name || station?.consignor || '').toUpperCase(),
           (bilty?.consignee_name || station?.consignee || '').toUpperCase(),
+          (pvtMarks || '').toUpperCase(),
           pkg.toString(),
           Math.round(wt).toString(),
           isPaidOrDD ? '0' : totalAmount.toFixed(0),
           (paymentMode?.toUpperCase() || '') + (hasDoor ? '/DD' : ''),
           hasDoor ? (ddChrg > 0 ? ddChrg.toFixed(0) : 'DD') : '',
           kaatAmount > 0 ? kaatAmount.toFixed(0) : '',
-          pf !== 0 ? pf.toFixed(0) : '',
           profit !== 0 ? profit.toFixed(0) : '',
+          (remark || '').toUpperCase(),
           kaatData?.pohonch_no || '',
           kaatData?.bilty_number || '',
         ];
       });
 
       // Column widths to fill usableWidth (293mm)
-      // #(8) GR(20) Station(20) Transport(30) Consignor(30) Consignee(30) Pkg(11) Wt(13) Total(17) Pay(17) DD(13) Kaat(17) PF(14) Profit(17) Pohonch(18) Bilty#(18) = 293
-      const colWidths = [8, 20, 20, 30, 30, 30, 11, 13, 17, 17, 13, 17, 14, 17, 18, 18];
+      // #(7) GR(18) Station(18) Transport(26) Consignor(28) Consignee(28) PvtM(17) Pkg(10) Wt(12) Total(16) Pay(15) DD(12) Kaat(16) Profit(16) Remark(20) Pohonch(17) Bilty#(17) = 293
+      const colWidths = [7, 18, 18, 26, 28, 28, 17, 10, 12, 16, 15, 12, 16, 16, 20, 17, 17];
 
       autoTable(doc, {
         startY: 27,
-        head: [['#', 'GR No', 'Station', 'Transport', 'Consignor', 'Consignee', 'Pkg', 'Wt', 'Total', 'Pay', 'DD', 'Kaat', 'PF', 'Profit', 'Pohonch', 'Bilty#']],
+        head: [['#', 'GR No', 'Station', 'Transport', 'Consignor', 'Consignee', 'Pvt M', 'Pkg', 'Wt', 'Total', 'Pay', 'DD', 'Kaat', 'Profit', 'Remark', 'Pohonch', 'Bilty#']],
         body: tableData,
         theme: 'grid',
         headStyles: {
@@ -223,19 +224,20 @@ export default function KaatFinancePDFPreview({
           0:  { halign: 'center', cellWidth: colWidths[0], fontStyle: 'bold' },        // #
           1:  { halign: 'center', cellWidth: colWidths[1], fontStyle: 'bold', fontSize: 7.5 }, // GR
           2:  { halign: 'center', cellWidth: colWidths[2], fontStyle: 'bold' },        // Station
-          3:  { cellWidth: colWidths[3], overflow: 'linebreak', fontSize: 6 },          // Transport
+          3:  { cellWidth: colWidths[3], overflow: 'linebreak', fontSize: 5 },          // Transport (smaller)
           4:  { cellWidth: colWidths[4], overflow: 'linebreak', fontSize: 6 },          // Consignor
           5:  { cellWidth: colWidths[5], overflow: 'linebreak', fontSize: 6 },          // Consignee
-          6:  { halign: 'center', cellWidth: colWidths[6] },                            // Pkg
-          7:  { halign: 'center', cellWidth: colWidths[7] },                            // Wt
-          8:  { halign: 'right', cellWidth: colWidths[8] },                             // Total
-          9:  { halign: 'center', cellWidth: colWidths[9], fontSize: 6 },               // Pay
-          10: { halign: 'center', cellWidth: colWidths[10], fontStyle: 'bold' },         // DD
-          11: { halign: 'right', cellWidth: colWidths[11], fontStyle: 'bold' },          // Kaat
-          12: { halign: 'right', cellWidth: colWidths[12] },                             // PF
+          6:  { cellWidth: colWidths[6], overflow: 'linebreak', fontSize: 5.5 },        // Pvt M
+          7:  { halign: 'center', cellWidth: colWidths[7] },                            // Pkg
+          8:  { halign: 'center', cellWidth: colWidths[8] },                            // Wt
+          9:  { halign: 'right', cellWidth: colWidths[9] },                             // Total
+          10: { halign: 'center', cellWidth: colWidths[10], fontSize: 6 },              // Pay
+          11: { halign: 'center', cellWidth: colWidths[11], fontStyle: 'bold' },         // DD
+          12: { halign: 'right', cellWidth: colWidths[12], fontStyle: 'bold' },          // Kaat
           13: { halign: 'right', cellWidth: colWidths[13], fontStyle: 'bold' },          // Profit
-          14: { halign: 'center', cellWidth: colWidths[14] },                            // Pohonch
-          15: { halign: 'center', cellWidth: colWidths[15] },                            // Bilty#
+          14: { cellWidth: colWidths[14], overflow: 'linebreak', fontSize: 5.5 },        // Remark
+          15: { halign: 'center', cellWidth: colWidths[15] },                            // Pohonch
+          16: { halign: 'center', cellWidth: colWidths[16] },                            // Bilty#
         },
         margin: { left: margin, right: margin },
         tableWidth: usableWidth,
@@ -251,24 +253,27 @@ export default function KaatFinancePDFPreview({
       const tableEndY = doc.lastAutoTable.finalY + 2;
       const totColStyles = {};
       colWidths.forEach((w, i) => {
-        totColStyles[i] = { cellWidth: w, halign: i <= 5 ? 'center' : (i >= 8 ? 'right' : 'center') };
+        totColStyles[i] = { cellWidth: w, halign: i <= 5 ? 'center' : (i >= 9 ? 'right' : 'center') };
       });
       totColStyles[5] = { cellWidth: colWidths[5], halign: 'center', fontStyle: 'bold' };
+      totColStyles[6] = { cellWidth: colWidths[6], halign: 'center' };
       totColStyles[14] = { cellWidth: colWidths[14], halign: 'center' };
       totColStyles[15] = { cellWidth: colWidths[15], halign: 'center' };
+      totColStyles[16] = { cellWidth: colWidths[16], halign: 'center' };
 
       autoTable(doc, {
         startY: tableEndY,
         body: [[
           '', '', '', '', '', 'TOTAL',
+          '',
           sumPkgs.toString(),
           Math.round(sumWt).toString(),
           sumTotal.toFixed(0),
           '',
           sumDd > 0 ? sumDd.toFixed(0) : '',
           sumKaat.toFixed(0),
-          sumPf.toFixed(0),
           sumProfit.toFixed(0),
+          '',
           pohonchCount + '/' + sortedTransits.length,
           biltyNoCount + '/' + sortedTransits.length,
         ]],
@@ -297,7 +302,6 @@ export default function KaatFinancePDFPreview({
         'Total: Rs.' + sumTotal.toFixed(0) +
         '  |  Kaat: Rs.' + sumKaat.toFixed(0) +
         '  |  DD: Rs.' + sumDd.toFixed(0) +
-        '  |  PF: Rs.' + sumPf.toFixed(0) +
         '  |  Profit: Rs.' + sumProfit.toFixed(0),
         margin, summaryY + 5
       );
@@ -450,7 +454,6 @@ export default function KaatFinancePDFPreview({
               <span>Bilties: <strong>{sortedTransits.length}</strong></span>
               <span>Total: <strong>₹{(footerTotals.totalAmount || 0).toFixed(0)}</strong></span>
               <span>Kaat: <strong>₹{(footerTotals.totalKaat || 0).toFixed(0)}</strong></span>
-              <span>PF: <strong>₹{(footerTotals.totalPf || 0).toFixed(0)}</strong></span>
               <span className={`font-bold ${(footerTotals.totalProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 Profit: ₹{(footerTotals.totalProfit || 0).toFixed(0)}
               </span>

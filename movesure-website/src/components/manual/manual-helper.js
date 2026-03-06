@@ -174,17 +174,34 @@ export const useStationBiltySummary = () => {
       return acc;
     }, {});
 
-    // Fetch dispatch_date from challan_details for client-side fallback
+    // Fetch dispatch_date + truck_number from challan_details for client-side fallback
     let challanMap = {};
     if (!hasTransitFromDB && transitResult.length > 0) {
       const challanNos = [...new Set(transitResult.map(t => t.challan_no).filter(Boolean))];
       if (challanNos.length > 0) {
         const challanResult = await supabase
           .from('challan_details')
-          .select('challan_no, dispatch_date')
+          .select('challan_no, dispatch_date, trucks(truck_number)')
           .in('challan_no', challanNos)
           .then(r => r.data || []).catch(() => []);
         challanMap = challanResult.reduce((acc, c) => { acc[c.challan_no] = c; return acc; }, {});
+      }
+    }
+
+    // Fetch truck_number for DB-function path (already has transit_challan_no)
+    let challanTruckMap = {};
+    if (hasTransitFromDB) {
+      const challanNos = [...new Set(records.map(i => i.transit_challan_no).filter(Boolean))];
+      if (challanNos.length > 0) {
+        const challanResult = await supabase
+          .from('challan_details')
+          .select('challan_no, trucks(truck_number)')
+          .in('challan_no', challanNos)
+          .then(r => r.data || []).catch(() => []);
+        challanTruckMap = challanResult.reduce((acc, c) => {
+          acc[c.challan_no] = c.trucks?.truck_number || null;
+          return acc;
+        }, {});
       }
     }
 
@@ -197,6 +214,7 @@ export const useStationBiltySummary = () => {
           transit_challan_no: item.transit_challan_no || null,
           transit_status: item.transit_status || 'AVL',
           transit_dispatch_date: item.transit_dispatch_date || null,
+          transit_truck_number: challanTruckMap[item.transit_challan_no] || null,
         };
       } else {
         const transit = transitMap[item.gr_no?.toUpperCase()] || null;
@@ -206,12 +224,14 @@ export const useStationBiltySummary = () => {
             transit_status: getTransitStatusLabel(transit),
             // dispatch_date from challan_details, NOT from transit_details
             transit_dispatch_date: challanMap[transit.challan_no]?.dispatch_date || null,
+            transit_truck_number: challanMap[transit.challan_no]?.trucks?.truck_number || null,
           };
         } else {
           transitInfo = {
             transit_challan_no: null,
             transit_status: 'AVL',
             transit_dispatch_date: null,
+            transit_truck_number: null,
           };
         }
       }
@@ -755,7 +775,8 @@ export const formatCurrency = (amount) => {
 };
 
 export const formatWeight = (weight) => {
-  return `${(weight || 0).toFixed(3)} kg`;
+  const w = weight || 0;
+  return `${Number.isInteger(w) ? w : w.toFixed(1)} kg`;
 };
 
 export const getPaymentStatusColor = (status) => {

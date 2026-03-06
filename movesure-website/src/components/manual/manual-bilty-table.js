@@ -36,12 +36,13 @@ const getCombinedOptionColor = (value) => {
   }
 };
 
-// Simple Transit Badge — only challan no + dispatch date
+// Transit Badge — challan no + truck number + dispatch date
 const TransitBadge = ({ summary }) => {
   const status = summary.transit_status || 'AVL';
   const config = TRANSIT_STATUS_CONFIG[status] || TRANSIT_STATUS_CONFIG['AVL'];
   const challanNo = summary.transit_challan_no;
   const dispatchDate = summary.transit_dispatch_date;
+  const truckNumber = summary.transit_truck_number;
 
   return (
     <div className={`inline-flex flex-col items-start gap-0.5 px-2 py-1 rounded-lg text-[10px] font-semibold border ${config.bg} ${config.text} ${config.border}`}>
@@ -49,6 +50,11 @@ const TransitBadge = ({ summary }) => {
         <span className="text-xs leading-none">{config.icon}</span>
         <span className="font-bold leading-tight text-[11px]">{challanNo || 'AVL'}</span>
       </div>
+      {truckNumber && (
+        <div className="text-[10px] opacity-80 font-semibold pl-5 leading-none flex items-center gap-0.5">
+          🚛 {truckNumber}
+        </div>
+      )}
       {dispatchDate && (
         <div className="text-[10px] opacity-75 font-medium pl-5 leading-none">
           {new Date(dispatchDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -139,21 +145,21 @@ const ManualBiltyTable = ({
         <table className="w-full min-w-full divide-y divide-gray-200 text-xs">
           <thead className="bg-gradient-to-r from-gray-50 via-purple-50 to-blue-50">
             <tr>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">Branch</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">Station/GR</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-28">Challan</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-32">Consignor/Consignee</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-36">Contents/E-way Bill</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">Pkgs/Wt</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">Payment</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">Amount</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">Created</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">Updated</th>
-              <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">Actions</th>
+              <th className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Branch</th>
+              <th className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Station/GR</th>
+              <th className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Consignor</th>
+              <th className="px-1 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Consignee</th>
+              <th className="px-1 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Contents</th>
+              <th className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Pkgs/Wt</th>
+              <th className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Payment</th>
+              <th className="px-2 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Amt</th>
+              <th className="px-1.5 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">User / Date</th>
+              <th className="px-0.5 py-2.5 text-left text-[10px] font-bold text-gray-600 uppercase tracking-wider">Challan</th>
+              <th className="px-0.5 py-2.5 text-center text-[10px] font-bold text-gray-600 uppercase tracking-wider">Act</th>
             </tr>
           </thead>
 
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-gray-100">
             {dataToShow.map((summary) => {
               const transitStatus = summary.transit_status || 'AVL';
               const rowBorderClass = transitStatus === 'AVL' 
@@ -163,144 +169,126 @@ const ManualBiltyTable = ({
                   : 'border-l-4 border-l-blue-400';
 
               return (
-                <tr key={summary.id} className={`hover:bg-purple-50/50 transition-all duration-200 group ${rowBorderClass}`}>
+                <tr key={summary.id} className={`hover:bg-purple-50/40 transition-all duration-150 group ${rowBorderClass}`}>
                   {/* Branch */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <div className="text-xs font-medium text-gray-900">
+                  <td className="px-1.5 py-2.5 whitespace-nowrap">
+                    <div className="text-[10px] font-semibold text-gray-800 truncate max-w-[70px]">
                       {summary.branch?.branch_name || 'N/A'}
                     </div>
-                    <div className="text-[10px] text-gray-500">
-                      {summary.branch?.branch_code || 'N/A'}
+                    <div className="text-[9px] text-gray-400 font-medium">
+                      {summary.branch?.branch_code || ''}
                     </div>
                   </td>
-                  
+
                   {/* Station/GR */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <div className="text-xs font-medium text-gray-900 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-purple-500" />
-                      {summary.station}
+                  <td className="px-2 py-2.5 whitespace-nowrap">
+                    <div className="text-[13px] font-bold text-gray-900 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-purple-500 shrink-0" />
+                      <span className="truncate max-w-[80px]">{summary.station}</span>
                     </div>
-                    <div className="text-xs text-indigo-600 font-mono font-semibold mt-0.5">
+                    <div className="text-[13px] text-indigo-600 font-mono font-extrabold mt-0.5">
                       {summary.gr_no}
                     </div>
                   </td>
-                  
-                  {/* Challan Column */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <TransitBadge summary={summary} />
-                  </td>
-                  
-                  {/* Consignor/Consignee */}
-                  <td className="px-2 py-3">
-                    <div className="text-xs font-medium text-gray-900 truncate max-w-[140px]">
+
+                  {/* Consignor */}
+                  <td className="px-2 py-2.5">
+                    <div className="text-xs font-semibold text-gray-900 break-words leading-tight">
                       {summary.consignor || '-'}
                     </div>
-                    <div className="text-xs text-gray-500 truncate max-w-[140px]">
-                      → {summary.consignee || '-'}
+                  </td>
+
+                  {/* Consignee */}
+                  <td className="px-1 py-2.5">
+                    <div className="text-xs text-gray-700 break-words leading-tight">
+                      {summary.consignee || '-'}
                     </div>
                   </td>
-                  
-                  {/* Contents/E-way Bill */}
-                  <td className="px-2 py-3">
-                    <div className="text-xs text-gray-900 font-medium truncate max-w-[160px]">
+
+                  {/* Contents/EWB */}
+                  <td className="px-1 py-1.5">
+                    <div className="text-xs text-gray-900 font-medium truncate max-w-[130px] leading-none">
                       {summary.contents || '-'}
                     </div>
-                    {summary.pvt_marks && (
-                      <div className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-purple-200">
-                        PVT: {summary.pvt_marks}
-                      </div>
-                    )}
-                    {summary.e_way_bill ? (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <div className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                          EWB: {summary.e_way_bill}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-gray-400 mt-0.5">No EWB</div>
-                    )}
+                    <div className="flex items-center gap-1 flex-wrap mt-px">
+                      {summary.pvt_marks && (
+                        <span className="text-xs text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded font-bold border border-purple-200 leading-tight">
+                          {summary.pvt_marks}
+                        </span>
+                      )}
+                      {summary.e_way_bill ? (
+                        <span className="text-[8px] text-blue-600 bg-blue-50 px-1 py-px rounded-full border border-blue-200 font-bold leading-tight" title={summary.e_way_bill}>
+                          📄 EWB
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
-                  
+
                   {/* Packages/Weight */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <div className="text-xs text-gray-900 font-medium">{summary.no_of_packets} pkgs</div>
-                    <div className="text-[10px] text-gray-500">{formatWeight(summary.weight)}</div>
+                  <td className="px-2 py-2.5 whitespace-nowrap">
+                    <div className="text-xs text-gray-900 font-semibold">{summary.no_of_packets} <span className="font-normal text-gray-500">pkgs</span></div>
+                    <div className="text-xs text-gray-900 font-semibold">{formatWeight(summary.weight)}</div>
                   </td>
-                  
+
                   {/* Payment */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                  <td className="px-2 py-2.5 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${
                       getCombinedOptionColor(getCombinedValue(summary.payment_status, summary.delivery_type))
                     }`}>
-                      {COMBINED_OPTIONS.find(opt => 
+                      {COMBINED_OPTIONS.find(opt =>
                         opt.payment_status === summary.payment_status && opt.delivery_type === summary.delivery_type
                       )?.label || `${summary.payment_status || 'N/A'}`}
                     </span>
                   </td>
-                  
+
                   {/* Amount */}
-                  <td className="px-2 py-3 whitespace-nowrap text-xs font-semibold text-gray-900">
+                  <td className="px-2 py-2.5 whitespace-nowrap text-xs font-bold text-gray-900">
                     {formatCurrency(summary.amount)}
                   </td>
                   
-                  {/* Created */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <div className="text-xs font-medium text-gray-900">
-                      {summary.creator?.name || summary.creator?.username || 'System'}
-                    </div>
-                    <div className="text-[10px] text-gray-500">
-                      {summary.created_at ? new Date(summary.created_at).toLocaleDateString('en-GB', { 
-                        day: '2-digit', month: '2-digit', year: '2-digit' 
-                      }) : 'N/A'}
-                    </div>
-                    <div className="text-[10px] text-gray-400">
-                      {summary.created_at ? new Date(summary.created_at).toLocaleTimeString('en-GB', { 
-                        hour: '2-digit', minute: '2-digit' 
-                      }) : ''}
+                  {/* User / Date */}
+                  <td className="px-1.5 py-2.5">
+                    <div className="flex flex-col gap-0.5">
+                      {/* Created */}
+                      <div className="text-[9px] text-gray-500 leading-tight">
+                        <div className="font-semibold text-gray-700 break-words">{summary.creator?.name || summary.creator?.username || 'System'}</div>
+                        <div className="text-gray-400">
+                          {summary.created_at ? new Date(summary.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                        </div>
+                      </div>
+                      {/* Updated */}
+                      {summary.updated_at && summary.updated_at !== summary.created_at ? (
+                        <div className="text-[9px] text-blue-500 leading-tight border-t border-gray-100 pt-0.5 mt-0.5">
+                          <div className="font-semibold break-words">{summary.updater?.name || summary.updater?.username || 'System'}</div>
+                          <div className="text-blue-400">
+                            {new Date(summary.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </td>
 
-                  {/* Updated */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    {summary.updated_at && summary.updated_at !== summary.created_at ? (
-                      <div>
-                        <div className="text-xs font-medium text-blue-600">
-                          {summary.updater?.name || summary.updater?.username || 'System'}
-                        </div>
-                        <div className="text-[10px] text-blue-500">
-                          {new Date(summary.updated_at).toLocaleDateString('en-GB', { 
-                            day: '2-digit', month: '2-digit', year: '2-digit' 
-                          })}
-                        </div>
-                        <div className="text-[10px] text-blue-400">
-                          {new Date(summary.updated_at).toLocaleTimeString('en-GB', { 
-                            hour: '2-digit', minute: '2-digit' 
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-gray-400 text-center py-1">
-                        <div className="font-medium">No Updates</div>
-                      </div>
-                    )}
+                  {/* Challan Column */}
+                  <td className="px-0.5 py-2.5 whitespace-nowrap">
+                    <TransitBadge summary={summary} />
                   </td>
-                  
+
                   {/* Actions */}
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
+                  <td className="px-0.5 py-2.5 whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-0.5">
                       <button
                         onClick={() => handleEdit(summary)}
-                        className="text-purple-600 hover:text-purple-800 p-1.5 hover:bg-purple-100 rounded-md transition-colors border border-purple-200"
+                        className="text-purple-600 hover:text-white p-1.5 hover:bg-purple-500 rounded-lg transition-all border border-purple-200 hover:border-purple-500 hover:shadow-sm"
                         title="Edit"
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteRequest(summary)}
-                        className="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-100 rounded-md transition-colors border border-red-200"
+                        className="text-red-500 hover:text-white p-1.5 hover:bg-red-500 rounded-lg transition-all border border-red-200 hover:border-red-500 hover:shadow-sm"
                         title="Delete"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>

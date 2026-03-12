@@ -13,6 +13,28 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
   const [existingCewbs, setExistingCewbs] = useState([]);
   const [loadingExisting, setLoadingExisting] = useState(true);
 
+  // Build EWB → GR mapping from transitDetails
+  const ewbToGrMapping = useMemo(() => {
+    if (!transitDetails) return {};
+    const map = {};
+    transitDetails.forEach(transit => {
+      const ewbs = [];
+      if (transit.bilty?.e_way_bill) {
+        transit.bilty.e_way_bill.split(',').filter(e => e.trim()).forEach(e => ewbs.push({ ewb: e.trim(), source: 'bilty' }));
+      }
+      if (transit.station?.e_way_bill) {
+        transit.station.e_way_bill.split(',').filter(e => e.trim()).forEach(e => ewbs.push({ ewb: e.trim(), source: 'station' }));
+      }
+      ewbs.forEach(({ ewb, source }) => {
+        if (!map[ewb]) map[ewb] = [];
+        if (transit.gr_no && !map[ewb].some(m => m.gr_no === transit.gr_no)) {
+          map[ewb].push({ gr_no: transit.gr_no, source });
+        }
+      });
+    });
+    return map;
+  }, [transitDetails]);
+
   // Get all EWB numbers from transit details
   const allEwbNumbers = useMemo(() => {
     if (!transitDetails) return [];
@@ -178,6 +200,7 @@ export default function ConsolidationSection({ transitDetails, challanDetails })
       <ConsolidatedEwbForm
         ewbNumbers={allEwbNumbers}
         challanData={challanDetails}
+        ewbToGrMapping={ewbToGrMapping}
         onBack={() => {
           setShowForm(false);
           fetchExistingCewbs(); // Refresh after returning from form

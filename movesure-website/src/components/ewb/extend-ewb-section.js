@@ -382,10 +382,28 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      // Handle empty response body (e.g. HTTP 204 No Content)
+      const responseText = await response.text();
+      let data = {};
+      if (responseText && responseText.trim()) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseErr) {
+          throw new Error(`API returned invalid response (HTTP ${response.status}): ${responseText.slice(0, 200)}`);
+        }
+      } else {
+        // Empty body — treat as error with HTTP status info
+        throw new Error(`API returned empty response (HTTP ${response.status}). The server may have rejected the request.`);
+      }
 
       if (data.status === 'error' || data.status_code === 204 || data.results?.code >= 300) {
-        const errMsg = data.results?.message || data.message || 'Failed to extend E-Way Bill';
+        const rawMsg = data.results?.message || data.message || 'Failed to extend E-Way Bill';
+        const nicCode = data.results?.code || data.status_code || '';
+        const rawMsgStr = typeof rawMsg === 'string' ? rawMsg : JSON.stringify(rawMsg);
+        // Build a clear error string showing API code + NIC code + message
+        const errMsg = nicCode
+          ? `API Error (Code ${data.status_code || 'N/A'}, NIC: ${nicCode}): ${rawMsgStr}`
+          : rawMsgStr;
         // Save failed attempt to DB
         try {
           await supabase.from('extended_ewb_validations').insert({
@@ -397,12 +415,12 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
             mode_of_transport: formData.mode_of_transport,
             extend_validity_reason: formData.extend_validity_reason,
             extend_remarks: formData.extend_remarks,
-            error_message: typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg),
+            error_message: errMsg,
             raw_result_metadata: data,
             extended_at: new Date().toISOString(),
           });
         } catch (dbErr) { console.error('Failed to save error to DB:', dbErr); }
-        throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+        throw new Error(errMsg);
       }
 
       const isSuccess = (data.status === 'success' || data.results?.status === 'Success') &&

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import { useRouter } from 'next/navigation';
@@ -15,13 +15,9 @@ export default function GodownPage() {
   // Core state
   const [loading, setLoading] = useState(true);
   const [bilties, setBilties] = useState([]);
-  const [stationBilties, setStationBilties] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [transports, setTransports] = useState([]);
-  const [consignors, setConsignors] = useState([]);
-  const [consignees, setConsignees] = useState([]);
-  const [transitDetails, setTransitDetails] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [branches, setBranches] = useState([]);
+  const [stations, setStations] = useState([]);
   const [userBranchId, setUserBranchId] = useState(null);
   const [userBranchName, setUserBranchName] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
@@ -31,11 +27,18 @@ export default function GodownPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStation, setSelectedStation] = useState('');
   
+  // Debounced search
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimerRef = useRef(null);
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50); // Show 50 items per page
+  const [itemsPerPage] = useState(50);
   const [pageLoading, setPageLoading] = useState(false);
   
+  // Track if initial user data loaded
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!requireAuth()) {
@@ -43,67 +46,171 @@ export default function GodownPage() {
     }
   }, [requireAuth, router]);
 
-  // Load initial data
+  // Debounce search input - wait 400ms after user stops typing
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchQuery]);
+
+  // Reset page when station filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStation]);
+
+  // Load user data and branches on mount
   useEffect(() => {
     if (user) {
-      loadInitialData();
+      loadUserAndBranches();
     }
-  }, [user, selectedBranchId]);
+  }, [user]);
 
-  // Load all required data
-  const loadInitialData = async () => {
-    setLoading(true);
+  // Load bilties when filters/pagination change
+  useEffect(() => {
+    if (userDataLoaded) {
+      loadBilties();
+    }
+  }, [userDataLoaded, selectedBranchId, debouncedSearch, selectedStation, currentPage]);
+
+  // Load user branch info + branches list (one-time)
+  const loadUserAndBranches = async () => {
+    try {
+      const [userData, branchesData] = await Promise.all([
+        supabase.from('users').select('branch_id').eq('id', user.id).single(),
+        supabase.from('branches').select('id, branch_name').order('branch_name')
+      ]);
+
+      if (userData.error) throw userData.error;
+      if (branchesData.error) throw branchesData.error;
+
+      const uBranchId = userData.data?.branch_id;
+      setUserBranchId(uBranchId);
+      setBranches(branchesData.data || []);
+
+      // Get branch name
+      if (uBranchId) {
+        const branch = (branchesData.data || []).find(b => b.id === uBranchId);
+        setUserBranchName(branch?.branch_name || null);
+        if (selectedBranchId === null) {
+          setSelectedBranchId(uBranchId);
+        }
+      }
+
+      // Load station list for filter dropdown
+      loadStations(uBranchId);
+
+      setUserDataLoaded(true);
+    } catch (err) {
+      console.error('Error loading user data:', err);
+      setError('Failed to load user data. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  // Load unique stations for the filter dropdown
+  const loadStations = async (branchId) => {
+    try {
+      // Get stations from both tables
+      const [biltyStations, stationBiltyStations] = await Promise.all([
+        supabase.from('bilty').select('to_city_id').not('to_city_id', 'is', null),
+        supabase.from('station_bilty_summary').select('station').not('station', 'is', null)
+      ]);
+
+      // Get unique city ids from bilty table
+      const cityIds = [...new Set((biltyStations.data || []).map(b => b.to_city_id).filter(Boolean))];
+      
+      // Fetch city details for those ids
+      let citiesMap = {};
+      if (cityIds.length > 0) {
+        const { data: citiesData } = await supabase.from('cities').select('id, city_name, city_code').in('id', cityIds);
+        (citiesData || []).forEach(c => { citiesMap[c.id] = c; });
+      }
+
+      // Also get city details by city_code for station bilties
+      const stationCodes = [...new Set((stationBiltyStations.data || []).map(s => s.station).filter(Boolean))];
+      if (stationCodes.length > 0) {
+        const { data: stationCities } = await supabase.from('cities').select('id, city_name, city_code').in('city_code', stationCodes);
+        (stationCities || []).forEach(c => { citiesMap[c.id] = c; });
+      }
+
+      const stationSet = new Set();
+      // From bilty table
+      cityIds.forEach(cid => {
+        const c = citiesMap[cid];
+        if (c) stationSet.add(`${c.city_name} (${c.city_code})`);
+      });
+      // From station_bilty_summary
+      stationCodes.forEach(code => {
+        const c = Object.values(citiesMap).find(ci => ci.city_code === code);
+        if (c) stationSet.add(`${c.city_name} (${c.city_code})`);
+        else stationSet.add(`${code} (${code})`);
+      });
+
+      setStations(Array.from(stationSet).sort());
+    } catch (err) {
+      console.error('Error loading stations:', err);
+    }
+  };
+
+  // Load bilties via RPC function - fast single query, with fallback to direct queries
+  const loadBilties = async () => {
+    setPageLoading(true);
+    if (bilties.length === 0) setLoading(true);
     setError(null);
 
     try {
-      // Get user's branch_id and branch info
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('branch_id')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-        throw new Error('Failed to fetch user branch information');
-      }
-
-      const userBranchId = userData?.branch_id;
-      setUserBranchId(userBranchId);
-      
-      // Set selected branch to user's branch if not already set
-      if (selectedBranchId === null && userBranchId) {
-        setSelectedBranchId(userBranchId);
-      }
-
-      // Get branch name if branch_id exists
-      let branchName = null;
-      if (userBranchId) {
-        const { data: branchData, error: branchError } = await supabase
-          .from('branches')
-          .select('branch_name')
-          .eq('id', userBranchId)
-          .single();
-
-        if (!branchError && branchData) {
-          branchName = branchData.branch_name;
-        }
-      }
-      setUserBranchName(branchName);
-      
-      // Determine which branch to filter by
       const filterBranchId = selectedBranchId || userBranchId;
 
-      const [biltiesData, stationBiltiesData, branchesData, citiesData, transportsData, consignorsData, consigneesData, transitDetailsData] = await Promise.all([
-        // Filter regular bilties by selected branch_id
+      // Try RPC first (fast, server-side search/filter/pagination)
+      const { data, error: rpcError } = await supabase.rpc('search_godown_bilties', {
+        p_branch_id: filterBranchId || null,
+        p_search_query: debouncedSearch || '',
+        p_station_filter: selectedStation || '',
+        p_page_number: currentPage,
+        p_page_size: itemsPerPage
+      });
+
+      if (rpcError) {
+        console.warn('RPC search_godown_bilties not available, using fallback:', rpcError.message || rpcError);
+        // Fallback to direct queries
+        await loadBiltiesFallback(filterBranchId);
+        return;
+      }
+
+      // Map the RPC result to the format expected by components
+      const mapped = (data || []).map(row => ({
+        ...row,
+        transports: row.transports_json || [],
+        combinedColumn: `${row.pvt_marks || ''} - ${row.no_of_bags || ''}`
+      }));
+
+      setBilties(mapped);
+      setTotalCount(data && data.length > 0 ? Number(data[0].total_count) : 0);
+    } catch (err) {
+      console.error('Error loading bilties:', err?.message || err);
+      setError('Failed to load godown data. Please try again.');
+    } finally {
+      setLoading(false);
+      setPageLoading(false);
+    }
+  };
+
+  // Fallback: direct table queries (works without RPC function deployed)
+  const loadBiltiesFallback = async (filterBranchId) => {
+    try {
+      // Fetch all needed data in parallel
+      const [biltiesRes, stationRes, citiesRes, transportsRes, consignorsRes, consigneesRes, transitRes] = await Promise.all([
         filterBranchId
           ? supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type, branch_id, bilty_image').eq('branch_id', filterBranchId).order('created_at', { ascending: false })
           : supabase.from('bilty').select('id, gr_no, pvt_marks, to_city_id, no_of_pkg, wt, consignor_name, consignee_name, created_at, payment_mode, delivery_type, branch_id, bilty_image').order('created_at', { ascending: false }),
-        // Filter station bilties by selected branch_id
-        filterBranchId 
+        filterBranchId
           ? supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type, w_name, is_in_head_branch, bilty_image').eq('branch_id', filterBranchId).order('created_at', { ascending: false })
           : supabase.from('station_bilty_summary').select('id, gr_no, pvt_marks, station, no_of_packets, weight, consignor, consignee, created_at, branch_id, payment_status, delivery_type, w_name, is_in_head_branch, bilty_image').order('created_at', { ascending: false }),
-        supabase.from('branches').select('id, branch_name').order('branch_name'),
         supabase.from('cities').select('id, city_name, city_code'),
         supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number'),
         supabase.from('consignors').select('id, company_name, number'),
@@ -111,192 +218,121 @@ export default function GodownPage() {
         supabase.from('transit_details').select('gr_no, challan_no')
       ]);
 
-      if (biltiesData.error) throw biltiesData.error;
-      if (stationBiltiesData.error) throw stationBiltiesData.error;
-      if (branchesData.error) throw branchesData.error;
-      if (citiesData.error) throw citiesData.error;
-      if (transportsData.error) throw transportsData.error;
-      if (consignorsData.error) throw consignorsData.error;
-      if (consigneesData.error) throw consigneesData.error;
-      if (transitDetailsData.error) throw transitDetailsData.error;
+      if (biltiesRes.error) throw biltiesRes.error;
+      if (stationRes.error) throw stationRes.error;
 
-      setBilties(biltiesData.data || []);
-      setStationBilties(stationBiltiesData.data || []);
-      setBranches(branchesData.data || []);
-      setCities(citiesData.data || []);
-      setTransports(transportsData.data || []);
-      setConsignors(consignorsData.data || []);
-      setConsignees(consigneesData.data || []);
-      setTransitDetails(transitDetailsData.data || []);
+      const citiesList = citiesRes.data || [];
+      const transportsList = transportsRes.data || [];
+      const consignorsList = consignorsRes.data || [];
+      const consigneesList = consigneesRes.data || [];
+      const transitList = transitRes.data || [];
+
+      // Helper lookups
+      const getCityInfo = (cityId) => {
+        const city = citiesList.find(c => c.id === cityId);
+        return city ? { name: city.city_name, code: city.city_code } : { name: 'Unknown', code: 'N/A' };
+      };
+      const getCityByCode = (code) => {
+        if (!code) return { name: 'Unknown', code: 'N/A' };
+        const city = citiesList.find(c => c.city_code === code);
+        return city ? { name: city.city_name, code: city.city_code } : { name: code, code };
+      };
+      const getTransports = (cityName) => transportsList.filter(t => t.city_name === cityName);
+      const getConsignorNum = (name) => name ? consignorsList.find(c => c.company_name === name)?.number || null : null;
+      const getConsigneeNum = (name) => name ? consigneesList.find(c => c.company_name === name)?.number || null : null;
+      const getChallan = (grNo) => grNo ? transitList.find(t => t.gr_no === grNo)?.challan_no || null : null;
+
+      // Combine both tables
+      const combined = [
+        ...(biltiesRes.data || []).map(b => {
+          const ci = getCityInfo(b.to_city_id);
+          let dt = b.delivery_type;
+          if (dt) dt = dt.replace('-delivery', '').trim();
+          return {
+            ...b,
+            no_of_bags: b.no_of_pkg,
+            weight: b.wt,
+            source: 'regular',
+            combinedColumn: `${b.pvt_marks || ''} - ${b.no_of_pkg || ''}`,
+            destination: ci.name,
+            city_code: ci.code,
+            station_destination: `${ci.name} (${ci.code})`,
+            transports: getTransports(ci.name),
+            consignor_number: getConsignorNum(b.consignor_name),
+            consignee_number: getConsigneeNum(b.consignee_name),
+            payment_status: b.payment_mode,
+            delivery_type: dt,
+            challan_no: getChallan(b.gr_no)
+          };
+        }),
+        ...(stationRes.data || []).map(s => {
+          const ci = getCityByCode(s.station);
+          return {
+            ...s,
+            no_of_bags: s.no_of_packets,
+            consignor_name: s.consignor,
+            consignee_name: s.consignee,
+            source: 'manual',
+            combinedColumn: `${s.pvt_marks || ''} - ${s.no_of_packets || ''}`,
+            destination: ci.name,
+            city_code: ci.code,
+            station_destination: `${ci.name} (${ci.code})`,
+            transports: getTransports(ci.name),
+            consignor_number: getConsignorNum(s.consignor),
+            consignee_number: getConsigneeNum(s.consignee),
+            payment_status: s.payment_status,
+            delivery_type: s.delivery_type,
+            challan_no: getChallan(s.gr_no)
+          };
+        })
+      ];
+
+      // Client-side search filter
+      let filtered = combined;
+      const q = (debouncedSearch || '').toLowerCase().trim();
+      if (q) {
+        filtered = filtered.filter(b =>
+          b.gr_no?.toLowerCase().includes(q) ||
+          b.pvt_marks?.toLowerCase().includes(q) ||
+          b.station_destination?.toLowerCase().includes(q) ||
+          b.consignor_name?.toLowerCase().includes(q) ||
+          b.consignee_name?.toLowerCase().includes(q) ||
+          b.challan_no?.toLowerCase().includes(q)
+        );
+      }
+      if (selectedStation) {
+        const sf = selectedStation.toLowerCase();
+        filtered = filtered.filter(b => b.station_destination?.toLowerCase().includes(sf));
+      }
+
+      // Sort newest first
+      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      // Client-side pagination
+      const total = filtered.length;
+      const offset = (currentPage - 1) * itemsPerPage;
+      const page = filtered.slice(offset, offset + itemsPerPage);
+
+      setBilties(page);
+      setTotalCount(total);
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('Fallback load error:', err?.message || err);
       setError('Failed to load godown data. Please try again.');
     } finally {
       setLoading(false);
+      setPageLoading(false);
     }
   };
 
-  // Helper function to get city name and code by ID
-  const getCityInfo = (cityId) => {
-    const city = cities.find(c => c.id === cityId);
-    return city ? { name: city.city_name, code: city.city_code } : { name: 'Unknown', code: 'N/A' };
-  };
-
-  // Helper function to get city info by city code (for station bilties)
-  const getCityInfoByCode = (cityCode) => {
-    if (!cityCode) return { name: 'Unknown', code: 'N/A' };
-    const city = cities.find(c => c.city_code === cityCode);
-    return city ? { name: city.city_name, code: city.city_code } : { name: cityCode, code: cityCode };
-  };
-
-  // Helper function to get transport names by city name
-  const getTransportsByCity = (cityName) => {
-    return transports.filter(t => t.city_name === cityName);
-  };
-
-  // Helper function to get consignor info by name
-  const getConsignorInfo = (consignorName) => {
-    if (!consignorName) return null;
-    return consignors.find(c => c.company_name === consignorName);
-  };
-
-  // Helper function to get consignee info by name
-  const getConsigneeInfo = (consigneeName) => {
-    if (!consigneeName) return null;
-    return consignees.find(c => c.company_name === consigneeName);
-  };
-
-  // Helper function to get challan_no by gr_no
-  const getChallanNo = (grNo) => {
-    if (!grNo) return null;
-    const transit = transitDetails.find(t => t.gr_no === grNo);
-    return transit?.challan_no || null;
-  };
-
-  // Combined and filtered bilties
-  const allFilteredBilties = useMemo(() => {
-    // Combine bilties from both tables
-    const combinedBilties = [
-      ...bilties.map(bilty => {
-        const cityInfo = getCityInfo(bilty.to_city_id);
-        const cityTransports = getTransportsByCity(cityInfo.name);
-        const consignorInfo = getConsignorInfo(bilty.consignor_name);
-        const consigneeInfo = getConsigneeInfo(bilty.consignee_name);
-        
-        // Normalize delivery_type from bilty table: "door-delivery" -> "door", "godown-delivery" -> "godown"
-        let normalizedDeliveryType = bilty.delivery_type;
-        if (normalizedDeliveryType) {
-          normalizedDeliveryType = normalizedDeliveryType.replace('-delivery', '').trim();
-        }
-        
-        return {
-          ...bilty,
-          no_of_bags: bilty.no_of_pkg, // Standardize to no_of_bags
-          weight: bilty.wt, // Map weight field
-          source: 'regular', // Regular bilty table
-          combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_pkg || ''}`,
-          destination: cityInfo.name,
-          city_code: cityInfo.code,
-          station_destination: `${cityInfo.name} (${cityInfo.code})`,
-          transports: cityTransports, // Add transport info
-          consignor_number: consignorInfo?.number || null,
-          consignee_number: consigneeInfo?.number || null,
-          payment_status: bilty.payment_mode, // Map to payment_status for consistency
-          delivery_type: normalizedDeliveryType, // Normalized from "door-delivery" to "door"
-          challan_no: getChallanNo(bilty.gr_no) // Get challan_no from transit_details
-        };
-      }),
-      ...stationBilties.map(bilty => {
-        // Convert city code to city name for station bilties
-        const cityInfo = getCityInfoByCode(bilty.station);
-        const cityTransports = getTransportsByCity(cityInfo.name);
-        const consignorInfo = getConsignorInfo(bilty.consignor);
-        const consigneeInfo = getConsigneeInfo(bilty.consignee);
-        
-        return {
-          ...bilty,
-          no_of_bags: bilty.no_of_packets, // Standardize to no_of_bags
-          consignor_name: bilty.consignor, // Map consignor field
-          consignee_name: bilty.consignee, // Map consignee field
-          source: 'manual', // Station bilties are manual
-          combinedColumn: `${bilty.pvt_marks || ''} - ${bilty.no_of_packets || ''}`,
-          destination: cityInfo.name, // Convert code to name
-          city_code: cityInfo.code,
-          station_destination: `${cityInfo.name} (${cityInfo.code})`,
-          transports: cityTransports, // Add transport info
-          consignor_number: consignorInfo?.number || null,
-          consignee_number: consigneeInfo?.number || null,
-          payment_status: bilty.payment_status, // Already correct field name
-          delivery_type: bilty.delivery_type, // Already in correct format
-          challan_no: getChallanNo(bilty.gr_no) // Get challan_no from transit_details
-        };
-      })
-    ];
-
-    // Apply search filter
-    let filtered = combinedBilties;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(bilty => 
-        bilty.gr_no?.toLowerCase().includes(query) ||
-        bilty.combinedColumn?.toLowerCase().includes(query) ||
-        bilty.station_destination?.toLowerCase().includes(query) ||
-        bilty.consignor_name?.toLowerCase().includes(query) ||
-        bilty.consignee_name?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply station filter
-    if (selectedStation) {
-      filtered = filtered.filter(bilty => 
-        bilty.station_destination?.toLowerCase().includes(selectedStation.toLowerCase())
-      );
-    }
-
-    // Sort by created_at (newest first)
-    return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [bilties, stationBilties, cities, transports, transitDetails, consignors, consignees, searchQuery, selectedStation]);
-
-  // Paginated bilties
-  const paginatedBilties = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return allFilteredBilties.slice(startIndex, endIndex);
-  }, [allFilteredBilties, currentPage, itemsPerPage]);
-
-  // Pagination info
-  const totalPages = Math.ceil(allFilteredBilties.length / itemsPerPage);
-  const startRecord = allFilteredBilties.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
-  const endRecord = Math.min(currentPage * itemsPerPage, allFilteredBilties.length);
-
-  // Get unique stations for filter
-  const uniqueStations = useMemo(() => {
-    const stations = new Set();
-    bilties.forEach(bilty => {
-      const cityInfo = getCityInfo(bilty.to_city_id);
-      if (cityInfo.name !== 'Unknown') stations.add(`${cityInfo.name} (${cityInfo.code})`);
-    });
-    stationBilties.forEach(bilty => {
-      if (bilty.station) {
-        const cityInfo = getCityInfoByCode(bilty.station);
-        stations.add(`${cityInfo.name} (${cityInfo.code})`);
-      }
-    });
-    return Array.from(stations).sort();
-  }, [bilties, stationBilties, cities]);
-
-  // Reset to first page when search or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedStation]);
+  // Pagination derived values
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  const startRecord = totalCount > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
+  const endRecord = Math.min(currentPage * itemsPerPage, totalCount);
 
   // Keyboard navigation for pagination
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Only handle if not typing in an input
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-
       if (e.key === 'ArrowLeft' && currentPage > 1) {
         e.preventDefault();
         handlePreviousPage();
@@ -305,41 +341,31 @@ export default function GodownPage() {
         handleNextPage();
       }
     };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentPage, totalPages]);
 
   // Pagination handlers
   const handlePageChange = (page) => {
-    setPageLoading(true);
     setCurrentPage(page);
-    // Small delay to show loading state, then scroll
-    setTimeout(() => {
-      setPageLoading(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 100);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      handlePageChange(currentPage - 1);
-    }
+    if (currentPage > 1) handlePageChange(currentPage - 1);
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      handlePageChange(currentPage + 1);
-    }
+    if (currentPage < totalPages) handlePageChange(currentPage + 1);
   };
 
   // Handle refresh
   const handleRefresh = () => {
-    loadInitialData();
+    loadBilties();
   };
 
   if (!user) {
-    return null; // Will redirect to login
+    return null;
   }
 
   return (
@@ -357,7 +383,7 @@ export default function GodownPage() {
           onSearchChange={setSearchQuery}
           selectedStation={selectedStation}
           onStationChange={setSelectedStation}
-          stations={uniqueStations}
+          stations={stations}
         />
 
         {/* Branch Selector - Mobile Optimized */}
@@ -437,7 +463,7 @@ export default function GodownPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between text-sm">
               <div className="text-blue-700">
-                <strong>{allFilteredBilties.length}</strong> records found
+                <strong>{totalCount}</strong> records found
                 {searchQuery && <span> matching {searchQuery}</span>}
                 {selectedStation && <span> in {selectedStation}</span>}
               </div>
@@ -452,11 +478,11 @@ export default function GodownPage() {
 
         {/* Bilty List */}
         <GodownBiltyList
-          bilties={paginatedBilties}
+          bilties={bilties}
           loading={loading || pageLoading}
           error={error}
           onRefresh={handleRefresh}
-          totalRecords={allFilteredBilties.length}
+          totalRecords={totalCount}
           currentPage={currentPage}
           totalPages={totalPages}
           itemsPerPage={itemsPerPage}

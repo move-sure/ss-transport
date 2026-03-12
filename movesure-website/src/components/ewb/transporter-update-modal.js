@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Truck, User, Send, X, Loader2, CheckCircle, AlertTriangle, Edit3, Download, ExternalLink, Search, ChevronDown, MapPin } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { saveTransporterUpdate } from '../../utils/ewbValidationStorage';
+import { formatEwbNumber } from '../../utils/ewbValidation';
 import { useAuth } from '../../app/utils/auth';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
@@ -340,24 +341,35 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
         console.log('🔄 First call successful, making second call for PDF...');
         
         // Second API call - same payload to get PDF
-        const response2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const data2 = await response2.json();
-        console.log('✅ Second API Response (with PDF):', JSON.stringify(data2, null, 2));
+        let data2 = null;
+        try {
+          const response2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+          const text2 = await response2.text();
+          if (text2.trim()) {
+            data2 = JSON.parse(text2);
+            console.log('✅ Second API Response (with PDF):', JSON.stringify(data2, null, 2));
+          } else {
+            console.warn('⚠️ Second transporter-update call returned empty body (likely 204)');
+          }
+        } catch (e) {
+          console.warn('⚠️ Second transporter-update call failed (non-critical):', e.message);
+        }
 
         // Use second response if successful, otherwise use first
-        const isSuccess2 = (data2.status === 'success' || data2.results?.status === 'Success') && 
+        const isSuccess2 = data2 && (data2.status === 'success' || data2.results?.status === 'Success') && 
                           (data2.status_code === 200 || data2.results?.code === 200);
         const finalData = isSuccess2 ? data2 : data1;
         
         // Extract PDF URL from response (handle both formats)
-        let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl || data2.results?.message?.url || data2.pdfUrl;
+        let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl ||
+                     data2?.results?.message?.url || data2?.pdfUrl ||
+                     data1.results?.message?.url || data1.pdfUrl;
         if (pdfUrl && !pdfUrl.startsWith('http')) {
           pdfUrl = `https://${pdfUrl}`;
         }
@@ -398,7 +410,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
           saveTransporterUpdate({
             challanNo: grData?.challan_no || null,
             grNo: grData?.gr_no || null,
-            ewbNumber: formData.eway_bill_number,
+            ewbNumber: formatEwbNumber(formData.eway_bill_number),
             transporterId: formData.transporter_id,
             transporterName: formData.transporter_name,
             userGstin: formData.user_gstin,
@@ -442,7 +454,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
         saveTransporterUpdate({
           challanNo: grData?.challan_no || null,
           grNo: grData?.gr_no || null,
-          ewbNumber: formData.eway_bill_number,
+          ewbNumber: formatEwbNumber(formData.eway_bill_number),
           transporterId: formData.transporter_id,
           transporterName: formData.transporter_name,
           userGstin: formData.user_gstin,

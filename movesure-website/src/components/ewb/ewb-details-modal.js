@@ -111,8 +111,9 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
               {/* Bilty E-Way Bills */}
               {grData.bilty?.e_way_bill && grData.bilty.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
                 const trimmedEwb = ewb.trim();
-                const validation = validationStatuses[trimmedEwb];
-                const transporterUpdate = transporterUpdates[trimmedEwb];
+                const cleanKey = trimmedEwb.replace(/[-\s]/g, '');
+                const validation = validationStatuses[cleanKey] || validationStatuses[trimmedEwb];
+                const transporterUpdate = transporterUpdates[cleanKey] || transporterUpdates[trimmedEwb];
                 
                 return (
                   <div key={`bilty-${idx}`} className="bg-white rounded-lg p-4 border-2 border-green-200 shadow-sm">
@@ -245,8 +246,9 @@ export default function EWBDetailsModal({ isOpen, onClose, grData }) {
               {/* Station E-Way Bills */}
               {grData.station?.e_way_bill && grData.station.e_way_bill.split(',').filter(e => e.trim()).map((ewb, idx) => {
                 const trimmedEwb = ewb.trim();
-                const validation = validationStatuses[trimmedEwb];
-                const transporterUpdate = transporterUpdates[trimmedEwb];
+                const cleanKey = trimmedEwb.replace(/[-\s]/g, '');
+                const validation = validationStatuses[cleanKey] || validationStatuses[trimmedEwb];
+                const transporterUpdate = transporterUpdates[cleanKey] || transporterUpdates[trimmedEwb];
                 
                 return (
                   <div key={`station-${idx}`} className="bg-white rounded-lg p-4 border-2 border-blue-200 shadow-sm">

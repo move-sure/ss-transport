@@ -1,6 +1,36 @@
 import supabase from '../app/utils/supabase';
 
 /**
+ * Extract valid_upto timestamp from raw validation result data
+ * Handles nested response: data.data.results.message or data.results.message etc.
+ */
+function extractValidUpto(validationResult) {
+  try {
+    const raw = validationResult?.data;
+    if (!raw) return null;
+    // Walk nested structure to find eway_bill_valid_date
+    let ewbData = null;
+    if (raw?.data?.results?.message) ewbData = raw.data.results.message;
+    else if (raw?.results?.message) ewbData = raw.results.message;
+    else if (raw?.message && typeof raw.message === 'object') ewbData = raw.message;
+    else ewbData = raw;
+
+    const validDateStr = ewbData?.eway_bill_valid_date;
+    if (!validDateStr) return null;
+
+    // Parse "DD/MM/YYYY HH:MM:SS AM/PM"
+    const parts = validDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i);
+    if (!parts) return null;
+    let [, dd, mm, yyyy, hh, min, ss, ampm] = parts;
+    hh = parseInt(hh);
+    if (ampm.toUpperCase() === 'PM' && hh !== 12) hh += 12;
+    if (ampm.toUpperCase() === 'AM' && hh === 12) hh = 0;
+    const d = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), hh, parseInt(min), parseInt(ss));
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  } catch { return null; }
+}
+
+/**
  * Get validation results for multiple EWB numbers
  */
 export async function getEwbValidationsByNumbers(ewbNumbers) {
@@ -67,7 +97,10 @@ export async function saveEwbValidation({
       return { success: false, error: 'Challan number is required' };
     }
 
-    const validationData = {
+    const validUpto = extractValidUpto(validationResult);
+    const now = new Date().toISOString();
+
+    const baseData = {
       validated_by: userId,
       challan_no: challanNo,
       gr_no: grNo || null,
@@ -76,10 +109,12 @@ export async function saveEwbValidation({
       validation_status: validationResult?.success ? 'SUCCESS' : 'FAILED',
       error_message: validationResult?.error || null,
       raw_result_metadata: validationResult || {},
-      validated_at: new Date().toISOString()
+      validated_at: now,
+      valid_upto: validUpto,
+      updated_by: userId
     };
 
-    console.log('💾 Upserting validation data:', validationData);
+    console.log('💾 Upserting validation data:', { ...baseData, valid_upto: validUpto });
 
     // First, try to find existing validation
     const { data: existing } = await supabase
@@ -94,11 +129,11 @@ export async function saveEwbValidation({
     let data, error;
 
     if (existing) {
-      // Update existing record
+      // Update existing record (do not overwrite created_by)
       console.log('🔄 Updating existing validation record:', existing.id);
       const updateResult = await supabase
         .from('ewb_validations')
-        .update(validationData)
+        .update(baseData)
         .eq('id', existing.id)
         .select();
       data = updateResult.data;
@@ -108,7 +143,7 @@ export async function saveEwbValidation({
       console.log('➕ Creating new validation record');
       const insertResult = await supabase
         .from('ewb_validations')
-        .insert([validationData])
+        .insert([{ ...baseData, created_by: userId }])
         .select();
       data = insertResult.data;
       error = insertResult.error;
@@ -157,6 +192,7 @@ export async function saveEwbValidationsBulk({
       return { success: true, data: [], count: 0 };
     }
 
+    const now = new Date().toISOString();
     const validationDataArray = validations.map(({ grNo, ewbNumber, validationResult }) => ({
       validated_by: userId,
       challan_no: challanNo,
@@ -166,7 +202,9 @@ export async function saveEwbValidationsBulk({
       validation_status: validationResult?.success ? 'SUCCESS' : 'FAILED',
       error_message: validationResult?.error || null,
       raw_result_metadata: validationResult || {},
-      validated_at: new Date().toISOString()
+      validated_at: now,
+      valid_upto: extractValidUpto(validationResult),
+      updated_by: userId
     }));
 
     console.log('💾 Processing bulk validation data:', validationDataArray.length, 'records');
@@ -185,17 +223,17 @@ export async function saveEwbValidationsBulk({
 
       let result;
       if (existing) {
-        // Update existing
+        // Update existing (do not overwrite created_by)
         result = await supabase
           .from('ewb_validations')
           .update(validationData)
           .eq('id', existing.id)
           .select();
       } else {
-        // Insert new
+        // Insert new — set created_by
         result = await supabase
           .from('ewb_validations')
-          .insert([validationData])
+          .insert([{ ...validationData, created_by: userId }])
           .select();
       }
 
@@ -379,11 +417,17 @@ export async function saveTransporterUpdate({
       return { success: false, error: 'EWB number is required' };
     }
 
+    // Always store EWB number in hyphenated format XXXX-XXXX-XXXX
+    const cleanEwb = ewbNumber.replace(/[-\s]/g, '');
+    const hyphenatedEwbNumber = cleanEwb.length === 12
+      ? `${cleanEwb.slice(0,4)}-${cleanEwb.slice(4,8)}-${cleanEwb.slice(8,12)}`
+      : cleanEwb;
+
     const transporterData = {
       updated_by: userId,
       challan_no: challanNo || null,
       gr_no: grNo || null,
-      ewb_number: ewbNumber,
+      ewb_number: hyphenatedEwbNumber,
       transporter_id: transporterId,
       transporter_name: transporterName,
       user_gstin: userGstin || null,
@@ -408,12 +452,13 @@ export async function saveTransporterUpdate({
 
     console.log('💾 Upserting transporter update data:', transporterData);
 
-    // Check if record exists for this EWB
+    // Check if record exists for this EWB (check hyphenated + clean + original for backward compat)
     const { data: existing } = await supabase
       .from('transporter_updates')
       .select('id')
-      .eq('ewb_number', ewbNumber)
-      .single();
+      .in('ewb_number', [...new Set([hyphenatedEwbNumber, cleanEwb, ewbNumber])].filter(Boolean))
+      .limit(1)
+      .maybeSingle();
 
     let data, error;
 
@@ -502,10 +547,22 @@ export async function getTransporterUpdatesByEwbNumbers(ewbNumbers) {
 
     console.log('🔍 Fetching transporter updates for', ewbNumbers.length, 'EWBs');
 
+    // Expand each EWB into all possible stored formats (clean 12-digit + hyphenated + original)
+    const allFormats = [];
+    ewbNumbers.forEach(ewb => {
+      const clean = ewb.replace(/[-\s]/g, '');
+      allFormats.push(clean);
+      if (clean.length === 12) {
+        allFormats.push(`${clean.slice(0,4)}-${clean.slice(4,8)}-${clean.slice(8,12)}`);
+      }
+      if (ewb !== clean) allFormats.push(ewb);
+    });
+    const uniqueFormats = [...new Set(allFormats)];
+
     const { data, error } = await supabase
       .from('transporter_updates')
       .select('*')
-      .in('ewb_number', ewbNumbers);
+      .in('ewb_number', uniqueFormats);
 
     if (error) {
       console.error('❌ Error fetching transporter updates:', error);
@@ -528,16 +585,21 @@ export async function getTransporterUpdatesByEwbNumbers(ewbNumbers) {
       }
     }
 
-    // Convert to map keyed by ewb_number with user details
+    // Build map keyed by NORMALIZED (clean) ewb_number so callers can always look up by clean key
+    // Also keep the original-format key so callers using raw formats still find it
     const updatesMap = {};
     data.forEach(update => {
-      updatesMap[update.ewb_number] = {
-        ...update,
-        users: usersMap[update.updated_by] || null
-      };
+      const cleanKey = update.ewb_number.replace(/[-\s]/g, '');
+      const enriched = { ...update, users: usersMap[update.updated_by] || null };
+      // Store under clean key — this is the canonical lookup
+      updatesMap[cleanKey] = enriched;
+      // Also store under the original stored format in case callers query by that
+      if (update.ewb_number !== cleanKey) {
+        updatesMap[update.ewb_number] = enriched;
+      }
     });
 
-    console.log('✅ Fetched transporter updates for', Object.keys(updatesMap).length, 'EWBs');
+    console.log('✅ Fetched transporter updates for', Object.keys(updatesMap).length, 'keys');
     return { success: true, data: updatesMap };
   } catch (error) {
     console.error('❌ Failed to fetch transporter updates:', error);

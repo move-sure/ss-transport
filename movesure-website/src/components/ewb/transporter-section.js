@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap } from 'lucide-react';
+import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle } from 'lucide-react';
 import TransporterUpdateModal from './transporter-update-modal';
 import EWBDetailsModal from './ewb-details-modal';
 import supabase from '../../app/utils/supabase';
@@ -109,27 +109,39 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
     (data1.status_code === 200 || data1.results?.code === 200);
   if (!ok1) throw new Error('Update failed: unexpected response');
 
-  // Second call — get PDF
-  const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const data2 = await res2.json();
+  // Second call — get PDF (may return 204/empty if EWB was already Part-B entered)
+  let data2 = null;
+  try {
+    const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const text2 = await res2.text();
+    if (text2.trim()) {
+      data2 = JSON.parse(text2);
+    }
+  } catch (e) {
+    // Second call failed or returned empty — that's fine, we already have data1
+    console.warn('Second transporter-update call failed (non-critical):', e.message);
+  }
 
-  const ok2 = (data2.status === 'success' || data2.results?.status === 'Success') &&
+  const ok2 = data2 &&
+    (data2.status === 'success' || data2.results?.status === 'Success') &&
     (data2.status_code === 200 || data2.results?.code === 200);
   const finalData = ok2 ? data2 : data1;
 
-  let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl || data2.results?.message?.url || data2.pdfUrl;
+  let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl ||
+    data2?.results?.message?.url || data2?.pdfUrl ||
+    data1.results?.message?.url || data1.pdfUrl;
   if (pdfUrl && !pdfUrl.startsWith('http')) pdfUrl = `https://${pdfUrl}`;
 
   return {
     success: true,
-    ewbNumber: finalData.results?.message?.ewayBillNo || ewbNumber,
-    transporterId: finalData.results?.message?.transporterId || transporterId,
+    ewbNumber: finalData.results?.message?.ewayBillNo || data1.results?.message?.ewayBillNo || ewbNumber,
+    transporterId: finalData.results?.message?.transporterId || data1.results?.message?.transporterId || transporterId,
     transporterName,
-    updateDate: finalData.results?.message?.transUpdateDate,
+    updateDate: finalData.results?.message?.transUpdateDate || data1.results?.message?.transUpdateDate,
     pdfUrl: pdfUrl || null,
     rawResponse: finalData
   };
@@ -153,6 +165,12 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const [bulkResults, setBulkResults] = useState({}); // ewb → { success, pdfUrl, error }
   const bulkCancelRef = useRef(false);
 
+  // ── Fix self-transfer state ──
+  const [fixRunning, setFixRunning] = useState(false);
+  const [fixProgress, setFixProgress] = useState({ current: 0, total: 0, currentGr: '', currentEwb: '' });
+  const [fixResults, setFixResults] = useState({}); // ewb → { success, pdfUrl, error, transporter }
+  const fixCancelRef = useRef(false);
+
   // Per-EWB PDF map (DB updates + bulk results merged)
   const ewbPdfMap = useMemo(() => {
     const map = {};
@@ -162,11 +180,14 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
           update.raw_result_metadata?.pdfUrl ||
           update.raw_result_metadata?.rawResponse?.results?.message?.url ||
           update.update_result?.pdfUrl;
-        if (url) map[ewb] = url;
+        // Always key by clean 12-digit
+        const cleanEwb = ewb.replace(/[-\s]/g, '');
+        if (url) map[cleanEwb] = url;
       }
     });
     Object.entries(bulkResults).forEach(([ewb, r]) => {
-      if (r.success && r.pdfUrl) map[ewb] = r.pdfUrl;
+      const cleanEwb = ewb.replace(/[-\s]/g, '');
+      if (r.success && r.pdfUrl) map[cleanEwb] = r.pdfUrl;
     });
     return map;
   }, [transporterUpdatesMap, bulkResults]);
@@ -247,13 +268,38 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   };
 
   const isEwbUpdated = useCallback((ewb) => {
-    const update = transporterUpdatesMap[ewb];
-    const bulkR = bulkResults[ewb];
+    const key = ewb.replace(/[-\s]/g, '');
+    const update = transporterUpdatesMap[key] || transporterUpdatesMap[ewb];
+    const bulkR = bulkResults[key] || bulkResults[ewb];
     return (update?.is_success === true ||
       update?.update_result?.success === true ||
       update?.raw_result_metadata?.success === true ||
       bulkR?.success === true);
   }, [transporterUpdatesMap, bulkResults]);
+
+  // Check if an EWB was updated but with SS Transport's own GSTIN (self-transfer = wrong)
+  const isSelfTransferred = useCallback((ewb, isKanpur) => {
+    if (isKanpur) return false; // Kanpur doesn't need update — not a problem
+    const key = ewb.replace(/[-\s]/g, '');
+    // Check DB record
+    const dbUpdate = transporterUpdatesMap[key] || transporterUpdatesMap[ewb];
+    if (dbUpdate?.is_success === true) {
+      const tid = (dbUpdate.transporter_id || '').replace(/-/g, '').toUpperCase();
+      if (tid === DEFAULT_USER_GSTIN) return true;
+    }
+    // Check live bulk result
+    const bulkR = bulkResults[key] || bulkResults[ewb];
+    if (bulkR?.success && bulkR.data?.transporterId) {
+      const tid = (bulkR.data.transporterId || '').replace(/-/g, '').toUpperCase();
+      if (tid === DEFAULT_USER_GSTIN) return true;
+    }
+    return false;
+  }, [transporterUpdatesMap, bulkResults]);
+
+  const hasSelfTransferIssue = useCallback((transit) => {
+    if (isKanpurDestination(transit)) return false;
+    return getTransitEwbs(transit).some(ewb => isSelfTransferred(ewb, false));
+  }, [isSelfTransferred, transporterUpdatesMap, bulkResults]);
 
   const hasSuccessfulUpdate = (transit) => {
     if (isKanpurDestination(transit)) return null;
@@ -349,7 +395,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
           saveTransporterUpdate({
             challanNo: challanDetails?.challan_no || null,
             grNo,
-            ewbNumber: ewb,
+            ewbNumber: formatEwbNumber(ewb),
             transporterId: info.transporter_id,
             transporterName: info.transporter_name,
             userGstin: DEFAULT_USER_GSTIN,
@@ -369,7 +415,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
           saveTransporterUpdate({
             challanNo: challanDetails?.challan_no || null,
             grNo,
-            ewbNumber: ewb,
+            ewbNumber: formatEwbNumber(ewb),
             transporterId: '',
             transporterName: '',
             userGstin: DEFAULT_USER_GSTIN,
@@ -385,6 +431,101 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   }, [filteredTransit, isEwbUpdated, currentUser, challanDetails]);
 
   const handleBulkCancel = () => { bulkCancelRef.current = true; };
+
+  // ════════════════ FIX SELF-TRANSFERS ════════════════
+  const handleFixSelfTransfers = useCallback(async () => {
+    fixCancelRef.current = false;
+    setFixRunning(true);
+    setFixResults({});
+
+    // Collect all self-transferred EWBs from non-Kanpur transits
+    const items = [];
+    for (const transit of filteredTransit) {
+      if (isKanpurDestination(transit)) continue;
+      for (const ewb of getTransitEwbs(transit)) {
+        if (isSelfTransferred(ewb, false)) {
+          items.push({ transit, ewb });
+        }
+      }
+    }
+
+    if (items.length === 0) { setFixRunning(false); return; }
+
+    setFixProgress({ current: 0, total: items.length, currentGr: '', currentEwb: '' });
+
+    const transporterCache = {};
+
+    for (let i = 0; i < items.length; i++) {
+      if (fixCancelRef.current) break;
+
+      const { transit, ewb } = items[i];
+      const grNo = transit.gr_no || 'N/A';
+
+      setFixProgress({ current: i + 1, total: items.length, currentGr: grNo, currentEwb: formatEwbNumber(ewb) });
+
+      try {
+        if (!transporterCache[transit.id]) {
+          transporterCache[transit.id] = await resolveTransporterForTransit(transit);
+        }
+        const info = transporterCache[transit.id];
+
+        if (info.error) {
+          setFixResults(prev => ({ ...prev, [ewb]: { success: false, error: info.error } }));
+          continue;
+        }
+
+        // Verify it's actually a different transporter, not self GSTIN again
+        if ((info.transporter_id || '').replace(/-/g, '').toUpperCase() === DEFAULT_USER_GSTIN) {
+          setFixResults(prev => ({ ...prev, [ewb]: { success: false, error: `No other transporter found for ${info.city || 'destination'}` } }));
+          continue;
+        }
+
+        const result = await callTransporterUpdateAPI(ewb, info.transporter_id, info.transporter_name);
+
+        setFixResults(prev => ({ ...prev, [ewb]: { success: true, pdfUrl: result.pdfUrl, data: result, transporter: info.transporter_name } }));
+
+        // Update local state — this clears the self-transfer flag
+        setTransporterUpdatesMap(prev => ({
+          ...prev,
+          [ewb.replace(/[-\s]/g, '')]: {
+            ...prev[ewb.replace(/[-\s]/g, '')],
+            is_success: true,
+            transporter_id: info.transporter_id,
+            transporter_name: info.transporter_name,
+            update_result: result,
+            raw_result_metadata: result,
+            pdf_url: result.pdfUrl
+          }
+        }));
+
+        if (currentUser?.id) {
+          saveTransporterUpdate({
+            challanNo: challanDetails?.challan_no || null,
+            grNo,
+            ewbNumber: formatEwbNumber(ewb),
+            transporterId: info.transporter_id,
+            transporterName: info.transporter_name,
+            userGstin: DEFAULT_USER_GSTIN,
+            updateResult: result,
+            userId: currentUser.id
+          }).catch(err => console.error('DB save error:', err));
+        }
+
+        await new Promise(r => setTimeout(r, 1500));
+
+      } catch (err) {
+        console.error(`❌ Fix self-transfer failed for EWB ${ewb}:`, err);
+        setFixResults(prev => ({ ...prev, [ewb]: { success: false, error: err.message || 'Update failed' } }));
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    setFixRunning(false);
+    // Refresh from DB to get latest state
+    fetchUpdates();
+  }, [filteredTransit, isSelfTransferred, currentUser, challanDetails, fetchUpdates]);
+
+  const handleFixSelfCancel = () => { fixCancelRef.current = true; };
 
   // ── Counts ──
   const updatedCount = useMemo(() => filteredTransit.filter(t => hasSuccessfulUpdate(t) === true).length, [filteredTransit, transporterUpdatesMap, bulkResults]);
@@ -406,6 +547,24 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
 
   const bulkSuccessCount = useMemo(() => Object.values(bulkResults).filter(r => r.success).length, [bulkResults]);
   const bulkFailCount = useMemo(() => Object.values(bulkResults).filter(r => !r.success).length, [bulkResults]);
+
+  const fixSuccessCount = useMemo(() => Object.values(fixResults).filter(r => r.success).length, [fixResults]);
+  const fixFailCount = useMemo(() => Object.values(fixResults).filter(r => !r.success).length, [fixResults]);
+
+  // Count self-transferred EWBs (not transits) for the fix button label
+  const selfTransferEwbCount = useMemo(() => {
+    let count = 0;
+    for (const transit of filteredTransit) {
+      if (isKanpurDestination(transit)) continue;
+      for (const ewb of getTransitEwbs(transit)) {
+        if (isSelfTransferred(ewb, false)) count++;
+      }
+    }
+    return count;
+  }, [filteredTransit, isSelfTransferred]);
+
+  // Count transits with self-transfer issue (updated but with own GSTIN, non-Kanpur)
+  const selfTransferCount = useMemo(() => filteredTransit.filter(t => hasSelfTransferIssue(t)).length, [filteredTransit, hasSelfTransferIssue]);
 
   if (!transitDetails || transitDetails.length === 0) {
     return (
@@ -462,6 +621,12 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 <div className="text-center px-4 py-2 bg-purple-50 rounded-lg">
                   <p className="text-2xl font-bold text-purple-600">{notRequiredCount}</p>
                   <p className="text-xs text-purple-600/70">Not Required</p>
+                </div>
+              )}
+              {selfTransferCount > 0 && (
+                <div className="text-center px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-2xl font-bold text-orange-600">{selfTransferCount}</p>
+                  <p className="text-xs text-orange-600/70">Self Transferred</p>
                 </div>
               )}
             </div>
@@ -536,6 +701,92 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
         )}
       </div>
 
+      {/* ══════ FIX SELF-TRANSFERS CARD (only when there are self-transfer issues) ══════ */}
+      {(selfTransferCount > 0 || fixRunning || Object.keys(fixResults).length > 0) && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl shadow-lg p-5 text-white">
+          {!fixRunning ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  Fix Self-Transferred EWBs
+                </h3>
+                <p className="text-sm text-amber-100 mt-1">
+                  {selfTransferEwbCount > 0
+                    ? `${selfTransferEwbCount} EWB(s) across ${selfTransferCount} GR(s) transferred to own GSTIN. Click to re-assign to correct transporters.`
+                    : 'All self-transfer issues resolved! ✅'}
+                </p>
+                {Object.keys(fixResults).length > 0 && (
+                  <p className="text-xs text-amber-200 mt-1">
+                    Last run: {fixSuccessCount} fixed, {fixFailCount} failed
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleFixSelfTransfers}
+                disabled={selfTransferEwbCount === 0}
+                className="flex items-center gap-2 px-6 py-3 bg-white text-amber-700 font-bold rounded-xl hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md text-sm flex-shrink-0"
+              >
+                <Zap className="w-5 h-5" />
+                Fix All ({selfTransferEwbCount})
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Fixing Self-Transfers...
+                  </h3>
+                  <p className="text-sm text-amber-100 mt-1">
+                    GR <span className="font-mono font-bold">{fixProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{fixProgress.currentEwb}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={handleFixSelfCancel}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 font-medium rounded-xl transition-all text-sm"
+                >
+                  <Square className="w-4 h-4" />
+                  Stop
+                </button>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-full bg-white rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${fixProgress.total > 0 ? (fixProgress.current / fixProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-amber-200">
+                <span>{fixProgress.current} / {fixProgress.total} EWBs</span>
+                <span>
+                  ✅ {fixSuccessCount} fixed
+                  {fixFailCount > 0 && <span className="text-red-200 ml-2">❌ {fixFailCount} failed</span>}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Fix Self-Transfer Errors */}
+      {!fixRunning && fixFailCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <h4 className="text-sm font-semibold text-amber-800 flex items-center gap-1.5 mb-2">
+            <AlertCircle className="w-4 h-4" />
+            {fixFailCount} EWB(s) could not be fixed
+          </h4>
+          <div className="space-y-1 max-h-36 overflow-y-auto">
+            {Object.entries(fixResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
+              <div key={ewb} className="text-xs text-amber-700 flex items-start gap-2">
+                <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
+                <span className="text-amber-500">— {r.error}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Bulk Errors Summary */}
       {!bulkRunning && bulkFailCount > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -594,15 +845,16 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 const isKanpur = isKanpurDestination(transit);
                 const hasConsolidated = isKanpur && hasConsolidatedEwb(transit);
                 const isCurrentlyProcessing = bulkRunning && bulkProgress.currentGr === transit.gr_no;
+                const hasSelfTransfer = hasSelfTransferIssue(transit);
 
                 return (
                   <tr
                     key={transit.id}
                     className={`transition-colors ${
                       isCurrentlyProcessing
-                        ? 'bg-gradient-to-r from-blue-50 to-blue-100/50 border-l-4 border-blue-500'
+                        ? 'bg-blue-50/60 border-l-2 border-blue-400'
                         : updateStatus === true || hasConsolidated
-                          ? 'bg-gradient-to-r from-green-50 to-green-100/50 border-l-4 border-green-500'
+                          ? 'bg-green-50/50 border-l-2 border-green-400'
                           : 'hover:bg-gray-50'
                     }`}
                   >
@@ -624,28 +876,41 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                             CONSOLIDATED
                           </span>
                         )}
+                        {hasSelfTransfer && (
+                          <span className="flex items-center gap-1 text-amber-600 text-xs font-medium border border-amber-300 bg-amber-50 px-2 py-0.5 rounded-full">
+                            <AlertCircle className="w-3 h-3" />
+                            Self Transfer
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
                         {ewbs.map((ewb, idx) => {
                           const updated = isEwbUpdated(ewb);
-                          const pdfUrl = ewbPdfMap[ewb];
-                          const bulkError = bulkResults[ewb]?.success === false ? bulkResults[ewb].error : null;
+                          const cleanEwb = ewb.replace(/[-\s]/g, '');
+                          const pdfUrl = ewbPdfMap[cleanEwb];
+                          const bulkError = (bulkResults[cleanEwb] || bulkResults[ewb])?.success === false
+                            ? (bulkResults[cleanEwb] || bulkResults[ewb]).error : null;
+                          const selfXfer = isSelfTransferred(ewb, isKanpur);
 
                           return (
-                            <div key={idx} className="flex items-center gap-1">
+                            <div key={idx} className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1">
                               <span
                                 className={`text-xs font-mono px-2 py-1 rounded ${
-                                  updated
-                                    ? 'bg-green-100 text-green-800 border border-green-200'
-                                    : bulkError
-                                      ? 'bg-red-100 text-red-700 border border-red-200'
-                                      : 'bg-gray-100 text-gray-700'
+                                  selfXfer
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : updated
+                                      ? 'bg-green-100 text-green-800 border border-green-200'
+                                      : bulkError
+                                        ? 'bg-red-100 text-red-700 border border-red-200'
+                                        : 'bg-gray-100 text-gray-700'
                                 }`}
-                                title={bulkError || ''}
+                                title={selfXfer ? 'Self-transferred: updated with own GSTIN' : bulkError || ''}
                               >
-                                {updated && <CheckCircle className="w-3 h-3 inline mr-1" />}
+                                {selfXfer && <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />}
+                                {!selfXfer && updated && <CheckCircle className="w-3 h-3 inline mr-1" />}
                                 {bulkError && <XCircle className="w-3 h-3 inline mr-1" />}
                                 {formatEwbNumber(ewb)}
                               </span>
@@ -659,6 +924,10 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                                 >
                                   <Download className="w-3.5 h-3.5" />
                                 </a>
+                              )}
+                              </div>
+                              {selfXfer && (
+                                <span className="text-[9px] text-amber-500 px-1">Self GSTIN</span>
                               )}
                             </div>
                           );
@@ -684,6 +953,11 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                             Not Required
                           </span>
                         )
+                      ) : hasSelfTransfer ? (
+                        <span className="flex items-center gap-1.5 text-amber-600 text-sm">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Self Transfer
+                        </span>
                       ) : updateStatus === true ? (
                         <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
                           <CheckCircle className="w-4 h-4" />

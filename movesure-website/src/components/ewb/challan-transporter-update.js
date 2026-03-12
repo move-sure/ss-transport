@@ -281,23 +281,36 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
       if (!isSuccess) throw new Error('Update failed: unexpected response');
 
       // Second API call — get PDF
-      const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data2 = await res2.json();
-      const isSuccess2 = (data2.status === 'success' || data2.results?.status === 'Success') &&
+      let data2 = null;
+      try {
+        const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const text2 = await res2.text();
+        if (text2.trim()) {
+          data2 = JSON.parse(text2);
+        } else {
+          console.warn('⚠️ Second transporter-update call returned empty body (likely 204)');
+        }
+      } catch (e) {
+        console.warn('⚠️ Second transporter-update call failed (non-critical):', e.message);
+      }
+      const isSuccess2 = data2 && (data2.status === 'success' || data2.results?.status === 'Success') &&
                         (data2.status_code === 200 || data2.results?.code === 200);
       const finalData = isSuccess2 ? data2 : data1;
 
-      let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl || data2.results?.message?.url || data2.pdfUrl;
+      let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl ||
+                   data2?.results?.message?.url || data2?.pdfUrl ||
+                   data1.results?.message?.url || data1.pdfUrl;
       if (pdfUrl && !pdfUrl.startsWith('http')) pdfUrl = `https://${pdfUrl}`;
 
+      const ewbFormatted = formatEwbNumber(ewbToUpdate);
       const successResult = {
         success: true,
         message: finalData.message || 'Transporter updated successfully!',
-        ewbNumber: finalData.results?.message?.ewayBillNo || ewbToUpdate,
+        ewbNumber: finalData.results?.message?.ewayBillNo || ewbFormatted,
         transporterId: finalData.results?.message?.transporterId || formData.transporter_id,
         transporterName: formData.transporter_name,
         updateDate: finalData.results?.message?.transUpdateDate,
@@ -311,7 +324,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
       setExistingUpdates(prev => ({
         ...prev,
         [ewbToUpdate]: {
-          ewb_number: ewbToUpdate,
+          ewb_number: ewbFormatted,
           transporter_id: formData.transporter_id,
           transporter_name: formData.transporter_name,
           is_success: true,
@@ -326,7 +339,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
         saveTransporterUpdate({
           challanNo: challanDetails?.challan_no || null,
           grNo: selectedEwb?.grNo || null,
-          ewbNumber: ewbToUpdate,
+          ewbNumber: ewbFormatted,
           transporterId: formData.transporter_id,
           transporterName: formData.transporter_name,
           userGstin: formData.user_gstin,
@@ -344,7 +357,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
         saveTransporterUpdate({
           challanNo: challanDetails?.challan_no || null,
           grNo: selectedEwb?.grNo || null,
-          ewbNumber: ewbToUpdate,
+          ewbNumber: formatEwbNumber(ewbToUpdate),
           transporterId: formData.transporter_id,
           transporterName: formData.transporter_name,
           userGstin: formData.user_gstin,
@@ -397,20 +410,34 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
         }
 
         // Second call for PDF
-        const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data2 = await res2.json();
-        const finalData = (data2.status === 'success' || data2.results?.status === 'Success') ? data2 : data1;
-        let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl || null;
+        let data2Bulk = null;
+        try {
+          const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const text2 = await res2.text();
+          if (text2.trim()) {
+            data2Bulk = JSON.parse(text2);
+          } else {
+            console.warn('⚠️ Second bulk transporter-update call returned empty body (likely 204)');
+          }
+        } catch (e) {
+          console.warn('⚠️ Second bulk transporter-update call failed (non-critical):', e.message);
+        }
+        const isBulkSuccess2 = data2Bulk && (data2Bulk.status === 'success' || data2Bulk.results?.status === 'Success');
+        const finalData = isBulkSuccess2 ? data2Bulk : data1;
+        let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl ||
+                     data2Bulk?.results?.message?.url || data2Bulk?.pdfUrl ||
+                     data1.results?.message?.url || data1.pdfUrl || null;
         if (pdfUrl && !pdfUrl.startsWith('http')) pdfUrl = `https://${pdfUrl}`;
 
+        const ewbHyphenated = formatEwbNumber(ewbClean);
         setExistingUpdates(prev => ({
           ...prev,
           [ewbClean]: {
-            ewb_number: ewbClean,
+            ewb_number: ewbHyphenated,
             transporter_id: DEFAULT_USER_GSTIN,
             transporter_name: 'SS TRANSPORT CORPORATION',
             is_success: true,
@@ -430,7 +457,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
           saveTransporterUpdate({
             challanNo: challanDetails?.challan_no || null,
             grNo: item.grNo || null,
-            ewbNumber: ewbClean,
+            ewbNumber: ewbHyphenated,
             transporterId: DEFAULT_USER_GSTIN,
             transporterName: 'SS TRANSPORT CORPORATION',
             userGstin: DEFAULT_USER_GSTIN,

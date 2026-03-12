@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Shield, FileStack, Truck, Edit3, Clock, CheckCircle, AlertCircle, Circle } from 'lucide-react';
+import { Shield, FileStack, Truck, Edit3, Clock, Eye, CheckCircle, AlertCircle, Circle } from 'lucide-react';
 
 const navItems = [
   {
@@ -38,6 +38,13 @@ const navItems = [
     icon: Clock,
     color: 'amber',
     step: 5
+  },
+  {
+    id: 'ewbdetail',
+    label: 'EWB Detail',
+    icon: Eye,
+    color: 'teal',
+    step: 6
   }
 ];
 
@@ -70,7 +77,9 @@ export default function EwbSidenav({ activeSection, onSectionChange, stats = {} 
                           ? 'bg-purple-600 text-white shadow-md'
                           : item.color === 'amber'
                             ? 'bg-amber-500 text-white shadow-md'
-                            : 'bg-green-600 text-white shadow-md'
+                            : item.color === 'teal'
+                              ? 'bg-teal-600 text-white shadow-md'
+                              : 'bg-green-600 text-white shadow-md'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -85,7 +94,9 @@ export default function EwbSidenav({ activeSection, onSectionChange, stats = {} 
                           ? 'bg-purple-100 text-purple-600'
                           : item.color === 'amber'
                             ? 'bg-amber-100 text-amber-600'
-                            : 'bg-green-100 text-green-600'
+                            : item.color === 'teal'
+                              ? 'bg-teal-100 text-teal-600'
+                              : 'bg-green-100 text-green-600'
                 }`}>
                   {item.step}
                 </div>

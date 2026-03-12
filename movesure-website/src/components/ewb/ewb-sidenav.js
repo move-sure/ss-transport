@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Shield, FileStack, Truck, Edit3, CheckCircle, AlertCircle, Circle } from 'lucide-react';
+import { Shield, FileStack, Truck, Edit3, Clock, CheckCircle, AlertCircle, Circle } from 'lucide-react';
 
 const navItems = [
   {
@@ -31,6 +31,13 @@ const navItems = [
     icon: Edit3,
     color: 'purple',
     step: 4
+  },
+  {
+    id: 'extend',
+    label: 'Extend Validity',
+    icon: Clock,
+    color: 'amber',
+    step: 5
   }
 ];
 
@@ -61,7 +68,9 @@ export default function EwbSidenav({ activeSection, onSectionChange, stats = {} 
                         ? 'bg-orange-600 text-white shadow-md'
                         : item.color === 'purple'
                           ? 'bg-purple-600 text-white shadow-md'
-                          : 'bg-green-600 text-white shadow-md'
+                          : item.color === 'amber'
+                            ? 'bg-amber-500 text-white shadow-md'
+                            : 'bg-green-600 text-white shadow-md'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -74,7 +83,9 @@ export default function EwbSidenav({ activeSection, onSectionChange, stats = {} 
                         ? 'bg-orange-100 text-orange-600'
                         : item.color === 'purple'
                           ? 'bg-purple-100 text-purple-600'
-                          : 'bg-green-100 text-green-600'
+                          : item.color === 'amber'
+                            ? 'bg-amber-100 text-amber-600'
+                            : 'bg-green-100 text-green-600'
                 }`}>
                   {item.step}
                 </div>

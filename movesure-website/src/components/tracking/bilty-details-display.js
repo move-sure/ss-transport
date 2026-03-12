@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Package, Truck, FileText, IndianRupee, Clock, AlertTriangle, CheckCircle2, Shield, History, ExternalLink, Calculator, Phone, Edit3, Save, X, MapPin, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, Truck, FileText, IndianRupee, Clock, AlertTriangle, CheckCircle2, Shield, History, ExternalLink, Calculator, Phone, Edit3, Save, X, MapPin, Loader2, ChevronDown, ChevronUp, Printer, FileImage } from 'lucide-react';
 import MobileNumberEditor from './mobile-number-editor';
 import supabase from '../../app/utils/supabase';
 
@@ -32,6 +32,7 @@ const Pill = ({ label, value, bold }) => (
 );
 
 const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpdate, challanDetails, truck, driver, owner, searchRecord, searchLogs, onSearchRecordUpdate, user, kaatDetails, transportInfo, destinationTransport }) => {
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const [complaintLoading, setComplaintLoading] = useState(false);
   const [resolveLoading, setResolveLoading] = useState(false);
   const [complaintRemark, setComplaintRemark] = useState('');
@@ -221,8 +222,52 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
     return <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${cls}`}>{mode?.toUpperCase() || '-'}</span>;
   };
 
+  const pdfUrl = bilty.pdf_bucket || bilty.bilty_image || null;
+
   return (
     <div className="space-y-3 w-full max-w-full">
+
+      {/* ===== PDF Preview Modal ===== */}
+      {showPdfModal && pdfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-800 text-white flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-bold">Bilty PDF — GR: {bilty.gr_no}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded text-xs font-bold transition"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print / Open
+                </a>
+                <button
+                  onClick={() => setShowPdfModal(false)}
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {pdfUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <img src={pdfUrl} alt={`Bilty ${bilty.gr_no}`} className="w-full h-full object-contain p-4" />
+              ) : (
+                <iframe
+                  src={pdfUrl}
+                  title={`Bilty PDF - ${bilty.gr_no}`}
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== TOP: Clean Table-Row Style Summary ===== */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -241,6 +286,15 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
             {transitDetails?.challan_no && <span className="text-slate-300">Challan: <strong className="text-white">{transitDetails.challan_no}</strong></span>}
             {bilty.destination && <span className="text-amber-300 font-bold">📍 {bilty.destination}</span>}
             {createdByUser && <span className="text-slate-400">by <strong className="text-slate-200">{createdByUser.name || createdByUser.username}</strong></span>}
+            {pdfUrl && (
+              <button
+                onClick={() => setShowPdfModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-[11px] font-bold transition shadow-sm"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Bilty
+              </button>
+            )}
           </div>
         </div>
 

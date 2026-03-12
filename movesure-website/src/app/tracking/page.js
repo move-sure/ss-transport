@@ -34,6 +34,15 @@ export default function TrackingPage() {
     }
   }, [user]);
 
+  // Auto-load bilty when ?gr= query param is present
+  useEffect(() => {
+    if (!user || loading) return;
+    const grNo = new URLSearchParams(window.location.search).get('gr');
+    if (grNo) {
+      handleRecentClick(grNo);
+    }
+  }, [user, loading]);
+
   const fetchRecentSearches = async () => {
     setRecentLoading(true);
     try {
@@ -128,6 +137,21 @@ export default function TrackingPage() {
     setKaatDetails(null);
     setTransportInfo(null);
     setDestinationTransport(null);
+
+    // If pdf_bucket is missing (RPC may not return it), fetch it directly from bilty table
+    if (bilty.source_type !== 'MNL' && !bilty.pdf_bucket) {
+      try {
+        const { data: pdfData } = await supabase
+          .from('bilty')
+          .select('pdf_bucket, bilty_image')
+          .eq('gr_no', bilty.gr_no)
+          .single();
+        if (pdfData) {
+          bilty = { ...bilty, pdf_bucket: pdfData.pdf_bucket, bilty_image: pdfData.bilty_image };
+          setSelectedBilty(bilty);
+        }
+      } catch (e) { /* ignore */ }
+    }
     
     try {
       // Fire independent fetches in parallel - tracking RPC uses .catch so it won't break other fetches

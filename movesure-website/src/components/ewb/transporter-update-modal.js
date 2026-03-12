@@ -318,19 +318,17 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
       const data1 = await response1.json();
       console.log('✅ First API Response:', JSON.stringify(data1, null, 2));
 
-      // Check for errors in first call
+      // API-level errors: 422 (NIC rules), 400 (missing fields), 503 (auth), 408 (timeout)
+      if (data1.status === 'error') {
+        const code = data1.error_code ? `[${data1.error_code}] ` : '';
+        const msg = data1.message || data1.error_description || 'Failed to update transporter';
+        throw new Error(`${code}${msg}`);
+      }
+
+      // Legacy NIC error format via results
       if (data1.results?.status === 'No Content' || data1.results?.code >= 400) {
         const errorData = data1.error?.results || data1.results || data1;
-        const detailedMessage = errorData.message || data1.message || 'Failed to update transporter';
-        const errorCode = errorData.code || data1.status_code || response1.status;
-        const errorStatus = errorData.status || data1.status || 'Error';
-        
-        throw new Error(JSON.stringify({
-          code: errorCode,
-          status: errorStatus,
-          message: detailedMessage,
-          fullResponse: data1
-        }));
+        throw new Error(errorData.message || data1.message || 'Failed to update transporter');
       }
 
       // Check if first call was successful (handle both formats: 'Success' and 'success')
@@ -431,23 +429,8 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
       }
     } catch (err) {
       console.error('❌ Transporter Update Error:', err);
-      
-      // Try to parse structured error
-      let errorDetails;
-      try {
-        const errorObj = JSON.parse(err.message);
-        errorDetails = {
-          code: errorObj.code,
-          status: errorObj.status,
-          message: errorObj.message,
-          fullResponse: errorObj.fullResponse
-        };
-      } catch {
-        // If not JSON, use the error message as is
-        errorDetails = err.message;
-      }
-      
-      setError(errorDetails);
+      // err.message is already a clean human-readable string (e.g. "[338] You cannot update...")
+      setError(err.message || 'Failed to update transporter');
 
       // Save error to database (in background)
       if (currentUser?.id && formData.eway_bill_number) {
@@ -460,8 +443,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
           userGstin: formData.user_gstin,
           updateResult: { 
             success: false, 
-            error: typeof errorDetails === 'object' ? errorDetails.message : errorDetails,
-            fullData: errorDetails
+            error: err.message || 'Failed to update transporter'
           },
           userId: currentUser.id
         }).then(saveResult => {
@@ -697,105 +679,89 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
 
           {/* Error Display */}
           {error && (
-            <div className="bg-white rounded-lg shadow-lg p-4 mb-6 border-2 border-red-400">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <AlertTriangle className="w-6 h-6 text-red-600 mt-0.5" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-red-800 mb-2">Failed to Update Transporter</h3>
-                  
-                  {typeof error === 'object' ? (
-                    <div className="space-y-2">
-                      {/* Compact Error Summary */}
-                      <div className="bg-red-50 rounded p-3 border border-red-200">
-                        <div className="grid grid-cols-2 gap-3 mb-2">
-                          {error.code && (
-                            <div>
-                              <div className="text-[10px] font-semibold text-red-600 uppercase">Error Code</div>
-                              <div className="text-lg font-bold text-red-900">{error.code}</div>
-                            </div>
+            (() => {
+              // Parse "[338] message" or plain "message"
+              const errorStr = typeof error === 'string' ? error : (error?.message || JSON.stringify(error));
+              const match = errorStr.match(/^\[(\d+)\]\s*(.+)$/s);
+              const errorCode = match?.[1] || null;
+              const errorMsg = match?.[2]?.trim() || errorStr;
+              const is338 = errorCode === '338';
+
+              if (is338) {
+                // Special UI for "already transferred / Part B entered"
+                return (
+                  <div className="bg-white rounded-lg shadow-lg p-4 mb-6 border-2 border-emerald-300">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <CheckCircle className="w-6 h-6 text-emerald-600 mt-0.5" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-emerald-800 mb-1">
+                          Already Transferred to {formData.transporter_name || 'this transporter'}
+                        </h3>
+                        <p className="text-sm text-emerald-700 mb-2">
+                          The current transporter has already entered Part B details on this E-Way Bill. No further transporter change is needed.
+                        </p>
+                        <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200 text-xs text-emerald-800 space-y-1">
+                          {formData.transporter_id && (
+                            <p><span className="font-semibold">Transporter GSTIN:</span> <span className="font-mono">{formData.transporter_id}</span></p>
                           )}
-                          {error.status && (
-                            <div>
-                              <div className="text-[10px] font-semibold text-red-600 uppercase">Status</div>
-                              <div className="text-lg font-bold text-red-900">{error.status}</div>
-                            </div>
-                          )}
+                          <p><span className="font-semibold">NIC Code:</span> <span className="font-mono">338</span></p>
+                          <p className="text-emerald-700 italic">{errorMsg}</p>
                         </div>
-                        
-                        {/* Error Message */}
-                        {error.message && (
-                          <div>
-                            <div className="text-[10px] font-semibold text-red-600 uppercase mb-1">Error Details</div>
-                            <div className="text-sm text-red-900 leading-relaxed">
-                              {error.message.split('||').map((msg, idx) => (
-                                <div key={idx} className="mb-1 last:mb-0">
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                                    <span className="font-medium">{msg.trim()}</span>
-                                  </span>
-                                </div>
-                              ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Default error UI for all other codes
+              const hints = {
+                '301': 'The EWB number entered does not exist or is not valid.',
+                '312': 'This E-Way Bill has been cancelled and cannot be updated.',
+                '362': 'The transporter document date is earlier than the invoice date — check the dates on the EWB.',
+                '371': 'The transporter GSTIN is invalid or not registered. Verify the Transporter ID.',
+              };
+              const hint = errorCode ? hints[errorCode] : null;
+
+              return (
+                <div className="bg-white rounded-lg shadow-lg p-4 mb-6 border-2 border-red-400">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <AlertTriangle className="w-6 h-6 text-red-600 mt-0.5" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-red-800 mb-2">Failed to Update Transporter</h3>
+                      <div className="space-y-2">
+                        <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                          {errorCode && (
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-[10px] font-bold text-red-600 uppercase tracking-wide">NIC Error Code</span>
+                              <span className="text-sm font-bold text-red-900 bg-red-100 px-2 py-0.5 rounded font-mono">{errorCode}</span>
                             </div>
+                          )}
+                          <p className="text-sm font-medium text-red-900 leading-snug">{errorMsg}</p>
+                        </div>
+                        {hint ? (
+                          <div className="p-2.5 bg-amber-50 rounded border border-amber-200">
+                            <p className="text-xs text-amber-800"><span className="font-semibold">💡 Note: </span>{hint}</p>
+                          </div>
+                        ) : (
+                          <div className="p-2.5 bg-amber-50 rounded border border-amber-200">
+                            <p className="text-[10px] font-semibold text-amber-800 uppercase mb-1">Common Issues:</p>
+                            <ul className="text-xs text-amber-800 space-y-0.5">
+                              <li>• Check if EWB number is valid and active</li>
+                              <li>• Ensure Transporter ID (GSTIN) is correct</li>
+                              <li>• Verify Transporter Name matches registration</li>
+                            </ul>
                           </div>
                         )}
                       </div>
-                      
-                      {/* Helpful Tips */}
-                      <div className="p-2.5 bg-amber-50 rounded border border-amber-200">
-                        <p className="text-[10px] font-semibold text-amber-800 uppercase mb-1.5">💡 How to Fix:</p>
-                        <ul className="text-xs text-amber-800 space-y-1">
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-amber-600 font-bold text-[10px]">•</span>
-                            <span>Verify the <strong>Transporter ID (GSTIN)</strong> is correct</span>
-                          </li>
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-amber-600 font-bold text-[10px]">•</span>
-                            <span>Ensure GSTIN is mapped to your account</span>
-                          </li>
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-amber-600 font-bold text-[10px]">•</span>
-                            <span>Check if EWB number is valid and active</span>
-                          </li>
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-amber-600 font-bold text-[10px]">•</span>
-                            <span>Confirm Transporter Name matches exactly</span>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      {/* Full Response (Collapsible) */}
-                      {error.fullResponse && (
-                        <details>
-                          <summary className="text-[10px] text-red-600 font-semibold cursor-pointer hover:text-red-800 uppercase">
-                            📋 View Full Response
-                          </summary>
-                          <div className="mt-1.5 p-2 bg-white rounded border border-red-200">
-                            <pre className="text-[9px] text-gray-700 overflow-auto max-h-40 whitespace-pre-wrap break-words font-mono">
-{JSON.stringify(error.fullResponse, null, 2)}
-                            </pre>
-                          </div>
-                        </details>
-                      )}
                     </div>
-                  ) : (
-                    <div>
-                      <p className="text-sm text-red-800 mb-2 font-medium">{error}</p>
-                      <div className="p-2 bg-amber-50 rounded border border-amber-200">
-                        <p className="text-[10px] text-amber-800 font-semibold uppercase mb-1">Common Issues:</p>
-                        <ul className="text-xs text-amber-800 space-y-0.5">
-                          <li>• Check if EWB number is valid</li>
-                          <li>• Ensure Transporter ID format is correct</li>
-                          <li>• Verify Transporter Name matches</li>
-                          <li>• Confirm all fields are filled</li>
-                        </ul>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()
           )}
 
           {/* GR Information */}

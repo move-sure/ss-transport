@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
-import { Users, Save, Search, CheckCircle, XCircle, Shield, User, ChevronDown, ChevronUp, X, Check, ToggleLeft, ToggleRight } from 'lucide-react';
+import Link from 'next/link';
+import { Users, Save, Search, CheckCircle, XCircle, Shield, User, ChevronDown, ChevronUp, X, Check, ToggleLeft, ToggleRight, Activity } from 'lucide-react';
 
 const AVAILABLE_MODULES = [
   { name: 'bilty', label: 'Bilty', description: 'Create and manage bilty documents' },
@@ -201,6 +202,13 @@ export default function UserModulesPage() {
                 <p className="text-sm text-gray-500">{users.length} users • {AVAILABLE_MODULES.length} modules</p>
               </div>
             </div>
+            <Link
+              href="/test/sessions"
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-bold rounded-xl hover:from-emerald-600 hover:to-teal-700 transition shadow-sm flex items-center gap-2"
+            >
+              <Activity className="w-4 h-4" />
+              User Sessions
+            </Link>
           </div>
         </div>
       </div>

@@ -100,6 +100,14 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
   });
   const data1 = await res1.json();
 
+  // API-level errors: 422 (NIC rules), 400 (missing fields), 503 (auth), 408 (timeout)
+  if (data1.status === 'error') {
+    const code = data1.error_code ? `[${data1.error_code}] ` : '';
+    const msg = data1.message || data1.error_description || 'Failed to update transporter';
+    throw new Error(`${code}${msg}`);
+  }
+
+  // Legacy NIC error format via results
   if (data1.results?.status === 'No Content' || data1.results?.code >= 400) {
     const errData = data1.error?.results || data1.results || data1;
     throw new Error(errData.message || data1.message || 'Failed to update transporter');
@@ -107,7 +115,7 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
 
   const ok1 = (data1.status === 'success' || data1.results?.status === 'Success') &&
     (data1.status_code === 200 || data1.results?.code === 200);
-  if (!ok1) throw new Error('Update failed: unexpected response');
+  if (!ok1) throw new Error(data1.message || 'Update failed: unexpected response');
 
   // Second call — get PDF (may return 204/empty if EWB was already Part-B entered)
   let data2 = null;

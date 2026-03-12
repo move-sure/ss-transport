@@ -61,11 +61,94 @@ export default function LoginPage() {
     }));
   };
 
-  const getClientInfo = () => {
-    return {
-      ip_address: '127.0.0.1',
-      user_agent: navigator.userAgent
-    };
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent || '';
+    // Detect device type
+    let device_type = 'Desktop';
+    if (/Mobi|Android.*Mobile|iPhone|iPod/i.test(ua)) device_type = 'Mobile';
+    else if (/iPad|Android(?!.*Mobile)|Tablet/i.test(ua)) device_type = 'Tablet';
+
+    // Detect browser
+    let browser = 'Unknown';
+    if (ua.includes('Edg/')) { const m = ua.match(/Edg\/(\S+)/); browser = 'Edge ' + (m?.[1] || ''); }
+    else if (ua.includes('OPR/') || ua.includes('Opera')) { const m = ua.match(/(?:OPR|Opera)\/(\S+)/); browser = 'Opera ' + (m?.[1] || ''); }
+    else if (ua.includes('Chrome/') && !ua.includes('Edg')) { const m = ua.match(/Chrome\/(\S+)/); browser = 'Chrome ' + (m?.[1] || ''); }
+    else if (ua.includes('Safari/') && !ua.includes('Chrome')) { const m = ua.match(/Version\/(\S+)/); browser = 'Safari ' + (m?.[1] || ''); }
+    else if (ua.includes('Firefox/')) { const m = ua.match(/Firefox\/(\S+)/); browser = 'Firefox ' + (m?.[1] || ''); }
+
+    // Detect OS
+    let os = 'Unknown';
+    if (ua.includes('Windows NT 10')) os = 'Windows 10/11';
+    else if (ua.includes('Windows NT')) os = 'Windows';
+    else if (/Mac OS X/.test(ua)) { const m = ua.match(/Mac OS X ([\d_]+)/); os = 'macOS ' + (m?.[1]?.replace(/_/g, '.') || ''); }
+    else if (/Android ([\d.]+)/.test(ua)) { const m = ua.match(/Android ([\d.]+)/); os = 'Android ' + (m?.[1] || ''); }
+    else if (/iPhone OS ([\d_]+)/.test(ua)) { const m = ua.match(/iPhone OS ([\d_]+)/); os = 'iOS ' + (m?.[1]?.replace(/_/g, '.') || ''); }
+    else if (ua.includes('Linux')) os = 'Linux';
+
+    // Screen info
+    const screen_resolution = `${screen.width}x${screen.height}`;
+    const viewport = `${window.innerWidth}x${window.innerHeight}`;
+    const language = navigator.language || navigator.languages?.[0] || 'unknown';
+    const platform = navigator.platform || 'unknown';
+
+    return { device_type, browser, os, screen_resolution, viewport, language, platform, raw_user_agent: ua };
+  };
+
+  const getClientInfo = async () => {
+    const deviceInfo = getDeviceInfo();
+    let ip_address = '0.0.0.0';
+    let latitude = null;
+    let longitude = null;
+    let city = null;
+    let region = null;
+    let country = null;
+    let isp = null;
+
+    // Fetch real IP + geo from free API (non-blocking, with timeout)
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const geo = await res.json();
+        ip_address = geo.ip || ip_address;
+        latitude = geo.latitude || null;
+        longitude = geo.longitude || null;
+        city = geo.city || null;
+        region = geo.region || null;
+        country = geo.country_name || null;
+        isp = geo.org || null;
+      }
+    } catch (e) {
+      console.warn('IP/Geo lookup failed, using defaults');
+    }
+
+    // Try browser geolocation for more accurate lat/long (non-blocking)
+    try {
+      if (navigator.geolocation) {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000, maximumAge: 60000 });
+        });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      }
+    } catch (e) {
+      // User denied or timeout — keep IP-based lat/long
+    }
+
+    const user_agent_json = JSON.stringify({
+      ...deviceInfo,
+      latitude,
+      longitude,
+      city,
+      region,
+      country,
+      isp,
+      login_at: new Date().toISOString()
+    });
+
+    return { ip_address, user_agent: user_agent_json };
   };
 
   const handleSubmit = async (e) => {
@@ -145,7 +228,7 @@ export default function LoginPage() {
 
       console.log('Password verified successfully');
 
-      const clientInfo = getClientInfo();
+      const clientInfo = await getClientInfo();
       const { data: sessionData, error: sessionError } = await supabase
         .from('user_sessions')
         .insert([

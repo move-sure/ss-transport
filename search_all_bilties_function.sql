@@ -65,6 +65,7 @@ RETURNS TABLE (
   destination TEXT,
   challan_no TEXT,
   dispatch_date TIMESTAMPTZ,
+  pdf_bucket TEXT,
   total_count BIGINT
 )
 LANGUAGE plpgsql
@@ -130,7 +131,8 @@ BEGIN
       NULL::TEXT                             AS w_name,
       COALESCE(ct.city_name::TEXT, '')       AS destination,
       td.challan_no::TEXT                    AS challan_no,
-      cd.dispatch_date::TIMESTAMPTZ          AS dispatch_date
+      cd.dispatch_date::TIMESTAMPTZ          AS dispatch_date,
+      b.pdf_bucket::TEXT                     AS pdf_bucket
     FROM bilty b
     LEFT JOIN transit_details td ON td.gr_no = b.gr_no
     LEFT JOIN challan_details cd ON cd.challan_no = td.challan_no
@@ -199,7 +201,8 @@ BEGIN
       s.w_name::TEXT                         AS w_name,
       COALESCE(sc.city_name::TEXT, s.station::TEXT, '')  AS destination,
       td2.challan_no::TEXT                   AS challan_no,
-      cd2.dispatch_date::TIMESTAMPTZ         AS dispatch_date
+      cd2.dispatch_date::TIMESTAMPTZ         AS dispatch_date,
+      NULL::TEXT                             AS pdf_bucket
     FROM station_bilty_summary s
     LEFT JOIN transit_details td2 ON td2.gr_no = s.gr_no
     LEFT JOIN challan_details cd2 ON cd2.challan_no = td2.challan_no

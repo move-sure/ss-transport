@@ -26,9 +26,6 @@ const INDIAN_STATES = [
 
 const TRANSPORT_MODES = [
   { value: '1', label: 'Road', icon: '🚛' },
-  { value: '2', label: 'Rail', icon: '🚂' },
-  { value: '3', label: 'Air', icon: '✈️' },
-  { value: '4', label: 'Ship', icon: '🚢' },
   { value: '5', label: 'In Transit', icon: '📦' },
 ];
 
@@ -119,6 +116,10 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
     address_line2: '',
     address_line3: '',
   });
+
+  // Auto-fetch EWB details
+  const [ewbFetchLoading, setEwbFetchLoading] = useState(false);
+  const [toPincode, setToPincode] = useState('');
 
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -271,11 +272,38 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // ── Auto-fetch EWB details to get distance & to_pincode ──
+  const fetchEwbAutoData = useCallback(async (ewbNumber) => {
+    if (!ewbNumber || ewbNumber.length < 10) return;
+    setEwbFetchLoading(true);
+    try {
+      const url = `https://movesure-backend.onrender.com/api/ewaybill?eway_bill_number=${ewbNumber}&gstin=${DEFAULT_USER_GSTIN}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if ((json.status === 'success' || json.success) && json.data?.results?.message) {
+        const msg = json.data.results.message;
+        if (msg.transportation_distance) {
+          setFormData(prev => ({ ...prev, remaining_distance: String(msg.transportation_distance) }));
+        }
+        if (msg.pincode_of_consignee) {
+          setToPincode(String(msg.pincode_of_consignee));
+        }
+      }
+    } catch (err) {
+      console.error('Auto-fetch EWB details failed:', err);
+    } finally {
+      setEwbFetchLoading(false);
+    }
+  }, []);
+
   // ── Handlers ──
   const handleSelectEwb = (item) => {
     setSelectedEwb(item);
     setResult(null);
     setError(null);
+    // Auto-fetch EWB details for distance & pincode
+    const cleaned = item.ewb.replace(/[-\s]/g, '');
+    fetchEwbAutoData(cleaned);
   };
 
   const handleInputChange = (field, value) => {
@@ -292,10 +320,7 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
       setError('Vehicle number is required for Road transport');
       return;
     }
-    if (['2', '3', '4'].includes(formData.mode_of_transport) && !formData.transporter_document_number) {
-      setError('Transporter Document Number is required for Rail/Air/Ship');
-      return;
-    }
+
     if (!formData.place_of_consignor) {
       setError('Place of consignor is required');
       return;
@@ -634,7 +659,12 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
                     value={formatEwbInput(manualEwb)}
                     onChange={(e) => {
                       const formatted = formatEwbInput(e.target.value);
-                      setManualEwb(formatted.replace(/-/g, ''));
+                      const cleaned = formatted.replace(/-/g, '');
+                      setManualEwb(cleaned);
+                      // Auto-fetch when 12 digits entered
+                      if (cleaned.length === 12) {
+                        fetchEwbAutoData(cleaned);
+                      }
                     }}
                     placeholder="Enter EWB (e.g. 4480-0919-5664)"
                     maxLength={14}
@@ -908,8 +938,8 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
                   onDistanceFound={(km) => handleInputChange('remaining_distance', String(km))}
                 />
 
-                {/* ── Row 3: Distance & Pincode ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* ── Row 3: Distance & Pincodes ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       <Navigation className="w-4 h-4 inline mr-1 -mt-0.5 text-amber-500" />
@@ -923,6 +953,16 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
                       placeholder="e.g. 150"
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                     />
+                    {ewbFetchLoading && (
+                      <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Fetching from EWB...
+                      </p>
+                    )}
+                    {!ewbFetchLoading && formData.remaining_distance && activeEwb && (
+                      <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Auto-filled from EWB
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -934,9 +974,34 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
                       maxLength={6}
                       value={formData.from_pincode}
                       onChange={(e) => handleInputChange('from_pincode', e.target.value.replace(/\D/g, ''))}
-                      placeholder="e.g. 248001"
+                      placeholder="e.g. 202001"
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                     />
+                    <p className="mt-1 text-xs text-gray-400">Default: 202001</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      <MapPin className="w-4 h-4 inline mr-1 -mt-0.5 text-amber-500" />
+                      To Pincode
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={toPincode}
+                      onChange={(e) => setToPincode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Auto from EWB"
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-mono bg-gray-50 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    />
+                    {ewbFetchLoading && (
+                      <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Fetching...
+                      </p>
+                    )}
+                    {!ewbFetchLoading && toPincode && (
+                      <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> From EWB consignee
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -972,49 +1037,6 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
                     </select>
                   </div>
                 </div>
-
-                {/* ── Conditional: Transporter Doc (Rail/Air/Ship) ── */}
-                {['2', '3', '4'].includes(formData.mode_of_transport) && (
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 space-y-3">
-                    <p className="text-sm font-medium text-blue-800 flex items-center gap-1.5">
-                      <Info className="w-4 h-4" />
-                      Transporter Document (required for {TRANSPORT_MODES.find(m => m.value === formData.mode_of_transport)?.label})
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">Document Number <span className="text-red-500">*</span></label>
-                        <input
-                          type="text"
-                          value={formData.transporter_document_number}
-                          onChange={(e) => handleInputChange('transporter_document_number', e.target.value)}
-                          placeholder="Document number"
-                          className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {formData.transporter_document_number === challanNo && challanNo && (
-                          <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> Auto-filled from challan
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">Document Date</label>
-                        <input
-                          type="text"
-                          value={formData.transporter_document_date}
-                          onChange={(e) => handleInputChange('transporter_document_date', e.target.value)}
-                          placeholder="DD/MM/YYYY"
-                          maxLength={10}
-                          className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        {formData.transporter_document_date === dispatchDate && dispatchDate && (
-                          <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> Auto-filled dispatch date
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* ── Conditional: Road - optional doc ── */}
                 {formData.mode_of_transport === '1' && (
@@ -1117,12 +1139,12 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
                   </div>
                 )}
 
-                {/* ── Info: Modes 1-4 address not needed ── */}
-                {formData.mode_of_transport !== '5' && (
+                {/* ── Info: Road mode address not needed ── */}
+                {formData.mode_of_transport === '1' && (
                   <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 flex items-start gap-2">
                     <Info className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
                     <p className="text-xs text-gray-600">
-                      <strong>Mode {formData.mode_of_transport} ({TRANSPORT_MODES.find(m => m.value === formData.mode_of_transport)?.label}):</strong> Consignment is on road — address fields and transit type are not required and will be sent as blank.
+                      <strong>Road Mode:</strong> Consignment is on road — address fields and transit type are not required and will be sent as blank.
                     </p>
                   </div>
                 )}

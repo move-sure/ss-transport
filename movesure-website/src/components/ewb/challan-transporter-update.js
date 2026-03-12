@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   Truck, Search, Loader2, CheckCircle, AlertTriangle, Send,
   Download, ExternalLink, Edit3, ChevronDown, X, Package,
-  MapPin, Plus, Hash
+  MapPin, Plus, Hash, Zap, XCircle
 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { formatEwbNumber } from '../../utils/ewbValidation';
@@ -79,6 +79,12 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
   // Existing updates tracking
   const [existingUpdates, setExistingUpdates] = useState({});
   const [loadingExisting, setLoadingExisting] = useState(false);
+
+  // Bulk transfer
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, results: [] });
+  const [bulkSelected, setBulkSelected] = useState(new Set());
 
   // ── Active EWB number (from challan selection or manual) ──
   const activeEwb = useMemo(() => {
@@ -351,6 +357,104 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
     }
   };
 
+  // ── Bulk Transfer Selected to Our GSTIN ──
+  const handleBulkTransfer = async () => {
+    const toTransfer = challanEwbList.filter(item => {
+      const clean = item.ewb.replace(/[-\s]/g, '');
+      return bulkSelected.has(clean);
+    });
+    if (toTransfer.length === 0) return;
+
+    setBulkRunning(true);
+    setBulkProgress({ current: 0, total: toTransfer.length, results: [] });
+
+    for (let i = 0; i < toTransfer.length; i++) {
+      const item = toTransfer[i];
+      const ewbClean = item.ewb.replace(/[-\s]/g, '');
+      setBulkProgress(prev => ({ ...prev, current: i + 1 }));
+
+      try {
+        const payload = {
+          user_gstin: DEFAULT_USER_GSTIN,
+          eway_bill_number: ewbClean,
+          transporter_id: DEFAULT_USER_GSTIN,
+          transporter_name: 'SS TRANSPORT CORPORATION'
+        };
+
+        const res1 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data1 = await res1.json();
+
+        const isSuccess = (data1.status === 'success' || data1.results?.status === 'Success') &&
+                          (data1.status_code === 200 || data1.results?.code === 200);
+
+        if (!isSuccess) {
+          const errMsg = data1.results?.message || data1.message || 'Failed';
+          throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+        }
+
+        // Second call for PDF
+        const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data2 = await res2.json();
+        const finalData = (data2.status === 'success' || data2.results?.status === 'Success') ? data2 : data1;
+        let pdfUrl = finalData.results?.message?.url || finalData.pdfUrl || null;
+        if (pdfUrl && !pdfUrl.startsWith('http')) pdfUrl = `https://${pdfUrl}`;
+
+        setExistingUpdates(prev => ({
+          ...prev,
+          [ewbClean]: {
+            ewb_number: ewbClean,
+            transporter_id: DEFAULT_USER_GSTIN,
+            transporter_name: 'SS TRANSPORT CORPORATION',
+            is_success: true,
+            pdf_url: pdfUrl,
+            update_date: finalData.results?.message?.transUpdateDate,
+            updated_at: new Date().toISOString()
+          }
+        }));
+
+        setBulkProgress(prev => ({
+          ...prev,
+          results: [...prev.results, { ewb: ewbClean, grNo: item.grNo, success: true, pdfUrl }]
+        }));
+
+        // Save to DB
+        if (currentUser?.id) {
+          saveTransporterUpdate({
+            challanNo: challanDetails?.challan_no || null,
+            grNo: item.grNo || null,
+            ewbNumber: ewbClean,
+            transporterId: DEFAULT_USER_GSTIN,
+            transporterName: 'SS TRANSPORT CORPORATION',
+            userGstin: DEFAULT_USER_GSTIN,
+            updateResult: { success: true, pdfUrl },
+            userId: currentUser.id
+          }).catch(err => console.error('Save error:', err));
+        }
+      } catch (err) {
+        setBulkProgress(prev => ({
+          ...prev,
+          results: [...prev.results, { ewb: ewbClean, grNo: item.grNo, success: false, error: err.message }]
+        }));
+      }
+
+      // Small delay between calls
+      if (i < toTransfer.length - 1) {
+        await new Promise(r => setTimeout(r, 800));
+      }
+    }
+
+    setBulkRunning(false);
+    setBulkSelected(new Set());
+  };
+
   const currentExisting = activeEwb ? existingUpdates[activeEwb] : null;
 
   // Count updated vs total
@@ -358,6 +462,26 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
     const clean = item.ewb.replace(/[-\s]/g, '');
     return existingUpdates[clean]?.is_success;
   }).length;
+
+  const bulkSuccessCount = bulkProgress.results.filter(r => r.success).length;
+  const bulkFailCount = bulkProgress.results.filter(r => !r.success).length;
+
+  const toggleBulkSelect = (ewbClean) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(ewbClean)) next.delete(ewbClean);
+      else next.add(ewbClean);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (bulkSelected.size === challanEwbList.length) {
+      setBulkSelected(new Set());
+    } else {
+      setBulkSelected(new Set(challanEwbList.map(item => item.ewb.replace(/[-\s]/g, ''))));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -387,11 +511,11 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
 
         {/* Mode Toggle */}
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => { setMode('challan'); setResult(null); setError(null); }}
+              onClick={() => { setMode('challan'); setBulkMode(false); setResult(null); setError(null); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mode === 'challan'
+                mode === 'challan' && !bulkMode
                   ? 'bg-violet-600 text-white shadow-md'
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
@@ -400,9 +524,9 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
               From Challan
             </button>
             <button
-              onClick={() => { setMode('manual'); setSelectedEwb(null); setResult(null); setError(null); }}
+              onClick={() => { setMode('manual'); setBulkMode(false); setSelectedEwb(null); setResult(null); setError(null); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mode === 'manual'
+                mode === 'manual' && !bulkMode
                   ? 'bg-violet-600 text-white shadow-md'
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
@@ -410,15 +534,233 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
               <Plus className="w-4 h-4 inline mr-1.5 -mt-0.5" />
               Other EWB
             </button>
+            {challanEwbList.length > 0 && (
+              <button
+                onClick={() => { setBulkMode(true); setMode('challan'); setSelectedEwb(null); setResult(null); setError(null); }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  bulkMode
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <Zap className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                Transfer All to SS Transport
+              </button>
+            )}
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            {mode === 'challan'
-              ? 'Select an E-Way Bill from this challan to update its transporter.'
-              : 'Enter any E-Way Bill number (not in this challan) to update its transporter.'}
+            {bulkMode
+              ? 'Bulk transfer all pending EWBs to SS TRANSPORT CORPORATION (09COVPS5556J1ZT) in one click.'
+              : mode === 'challan'
+                ? 'Select an E-Way Bill from this challan to update its transporter.'
+                : 'Enter any E-Way Bill number (not in this challan) to update its transporter.'}
           </p>
         </div>
       </div>
 
+      {/* ── Bulk Transfer Panel ── */}
+      {bulkMode && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 rounded-xl">
+                  <Zap className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Transfer All to SS Transport</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    GSTIN: <span className="font-mono font-semibold">{DEFAULT_USER_GSTIN}</span> &middot; SS TRANSPORT CORPORATION
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setBulkMode(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {/* Selection UI before start */}
+            {!bulkRunning && bulkProgress.results.length === 0 && (
+              <div className="space-y-4">
+                {/* Select All / Stats Row */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={bulkSelected.size === challanEwbList.length && challanEwbList.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm font-semibold text-gray-700">
+                      {bulkSelected.size === challanEwbList.length ? 'Deselect All' : 'Select All'}
+                    </span>
+                  </label>
+                  <span className="text-xs font-medium text-gray-500">
+                    {bulkSelected.size} of {challanEwbList.length} selected
+                  </span>
+                </div>
+
+                {/* EWB Checkbox List */}
+                <div className="max-h-[360px] overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
+                  {challanEwbList.map((item) => {
+                    const clean = item.ewb.replace(/[-\s]/g, '');
+                    const isChecked = bulkSelected.has(clean);
+                    const alreadyDone = existingUpdates[clean]?.is_success;
+                    return (
+                      <label
+                        key={clean}
+                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-emerald-50 ${
+                          isChecked ? 'bg-emerald-50/60' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleBulkSelect(clean)}
+                          className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-semibold text-gray-900">{formatEwbNumber(item.ewb)}</span>
+                            {alreadyDone && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">Already Done</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                            {item.grNo && <span>GR: {item.grNo}</span>}
+                            {item.destination && <span>&middot; {item.destination}</span>}
+                            {item.consignee && <span>&middot; {item.consignee}</span>}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Transfer Button */}
+                {bulkSelected.size > 0 ? (
+                  <button
+                    onClick={handleBulkTransfer}
+                    className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
+                  >
+                    <Zap className="w-5 h-5" />
+                    Transfer {bulkSelected.size} EWB{bulkSelected.size !== 1 ? 's' : ''} to SS Transport
+                  </button>
+                ) : (
+                  <div className="text-center py-3 text-sm text-gray-400">
+                    Select EWBs above to transfer them
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Progress while running */}
+            {bulkRunning && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">
+                    Transferring {bulkProgress.current} of {bulkProgress.total}...
+                  </p>
+                  <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-green-500 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                  />
+                </div>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-emerald-600 font-medium">{bulkSuccessCount} success</span>
+                  {bulkFailCount > 0 && <span className="text-red-600 font-medium">{bulkFailCount} failed</span>}
+                </div>
+                {/* Live results */}
+                <div className="max-h-48 overflow-y-auto space-y-1.5">
+                  {[...bulkProgress.results].reverse().map((r, idx) => (
+                    <div key={idx} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${
+                      r.success ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {r.success ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                        <span className="font-mono font-semibold">{formatEwbNumber(r.ewb)}</span>
+                        {r.grNo && <span className="text-gray-400">GR: {r.grNo}</span>}
+                      </div>
+                      {r.success ? (
+                        <span className="text-emerald-600 font-medium">Done</span>
+                      ) : (
+                        <span className="text-red-600 truncate max-w-[200px]" title={r.error}>{r.error}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Completed summary */}
+            {!bulkRunning && bulkProgress.results.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="font-bold text-base">Bulk Transfer Complete</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <p className="text-lg font-bold text-gray-900">{bulkProgress.total}</p>
+                    <p className="text-xs text-gray-500">Processed</p>
+                  </div>
+                  <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <p className="text-lg font-bold text-emerald-700">{bulkSuccessCount}</p>
+                    <p className="text-xs text-emerald-600">Success</p>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-100">
+                    <p className="text-lg font-bold text-red-700">{bulkFailCount}</p>
+                    <p className="text-xs text-red-600">Failed</p>
+                  </div>
+                </div>
+                {/* Results list */}
+                <div className="max-h-64 overflow-y-auto space-y-1.5">
+                  {bulkProgress.results.map((r, idx) => (
+                    <div key={idx} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${
+                      r.success ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {r.success ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                        <span className="font-mono font-semibold">{formatEwbNumber(r.ewb)}</span>
+                        {r.grNo && <span className="text-gray-400">GR: {r.grNo}</span>}
+                      </div>
+                      {r.success ? (
+                        r.pdfUrl ? (
+                          <a href={r.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 font-medium hover:underline flex items-center gap-1">
+                            <Download className="w-3 h-3" /> PDF
+                          </a>
+                        ) : <span className="text-emerald-600 font-medium">Done</span>
+                      ) : (
+                        <span className="text-red-600 truncate max-w-[200px]" title={r.error}>{r.error}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {bulkFailCount > 0 && (
+                  <button
+                    onClick={() => {
+                      const failedEwbs = bulkProgress.results.filter(r => !r.success).map(r => r.ewb);
+                      setBulkSelected(new Set(failedEwbs));
+                      setBulkProgress({ current: 0, total: 0, results: [] });
+                    }}
+                    className="w-full py-2.5 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Select {bulkFailCount} Failed EWB{bulkFailCount !== 1 ? 's' : ''} to Retry
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!bulkMode && (
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* ── Left: EWB Selection ── */}
         <div className="xl:col-span-2">
@@ -858,6 +1200,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

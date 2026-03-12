@@ -28,6 +28,32 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
+  // Periodically check if session is still active (every 30 seconds)
+  useEffect(() => {
+    if (!isAuthenticated || !sessionId) return;
+
+    const checkSessionActive = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_sessions')
+          .select('is_active')
+          .eq('id', sessionId)
+          .single();
+
+        if (error || !data || !data.is_active) {
+          console.log('Session ended remotely, logging out');
+          await clearAuth();
+          router.push('/login');
+        }
+      } catch (err) {
+        // Network error — skip this check, will retry next interval
+      }
+    };
+
+    const interval = setInterval(checkSessionActive, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, sessionId]);
+
   const initializeAuth = async () => {
     try {
       console.log('Initializing auth...');
@@ -80,6 +106,23 @@ export const AuthProvider = ({ children }) => {
       }
 
       console.log('Token verified:', tokenData);
+
+      // Check if session is still active (admin may have ended it)
+      if (session.sessionId) {
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('user_sessions')
+          .select('is_active')
+          .eq('id', session.sessionId)
+          .single();
+
+        if (sessionError || !sessionData || !sessionData.is_active) {
+          console.log('Session has been ended by admin');
+          await clearAuth();
+          setLoading(false);
+          setInitialized(true);
+          return;
+        }
+      }
 
       // Then get user data
       const { data: userData, error: userError } = await supabase

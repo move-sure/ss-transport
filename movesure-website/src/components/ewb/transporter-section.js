@@ -11,6 +11,26 @@ import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers,
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
 
+// Parse "DD/MM/YYYY HH:MM:SS AM/PM" string to ISO date string
+function parseIndianDateString(str) {
+  if (!str) return null;
+  try {
+    // Match: DD/MM/YYYY HH:MM:SS AM/PM
+    const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)/i);
+    if (m) {
+      const [, day, month, year, rawHour, min, sec, ampm] = m;
+      let hour = parseInt(rawHour, 10);
+      if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${String(hour).padStart(2, '0')}:${min}:${sec}`;
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 // Resolve transporter for a transit's destination city
 async function resolveTransporterForTransit(transit) {
   let targetCityId = null;
@@ -167,6 +187,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const [hideKanpur, setHideKanpur] = useState(true);
   const [loading, setLoading] = useState(false);
   const [ewbValidUptoMap, setEwbValidUptoMap] = useState({});
+  const [ewbExtendedValidUptoMap, setEwbExtendedValidUptoMap] = useState({});
 
   // ── Bulk update state ──
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -285,18 +306,30 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
       if (transporterResult.success) setTransporterUpdatesMap(transporterResult.data);
       if (consolidatedResult.success) setConsolidatedEwbMap(consolidatedResult.data);
 
-      // Fetch valid_upto from ewb_validations
+      // Fetch valid_upto from ewb_validations + extended_ewb_validations
       try {
-        const { data: validData, error: validError } = await supabase
-          .from('ewb_validations')
-          .select('ewb_number, valid_upto, is_valid')
-          .in('ewb_number', allEwbNumbers)
-          .order('validated_at', { ascending: false });
+        // Build clean (no hyphens/spaces) EWB numbers for extended table lookup
+        const cleanEwbNumbers = [...new Set(allEwbNumbers.map(e => e.replace(/[-\s]/g, '')))];
 
-        if (!validError && validData) {
+        const [validRes, extendedRes] = await Promise.all([
+          supabase
+            .from('ewb_validations')
+            .select('ewb_number, valid_upto, is_valid')
+            .in('ewb_number', allEwbNumbers)
+            .order('validated_at', { ascending: false }),
+          supabase
+            .from('extended_ewb_validations')
+            .select('ewb_number, valid_upto, is_success, extended_at')
+            .in('ewb_number', cleanEwbNumbers)
+            .eq('is_success', true)
+            .order('extended_at', { ascending: false })
+        ]);
+
+        // Original valid_upto map
+        if (!validRes.error && validRes.data) {
           const vMap = {};
           const seen = new Set();
-          validData.forEach(row => {
+          validRes.data.forEach(row => {
             if (!seen.has(row.ewb_number) && row.valid_upto) {
               const cleanKey = row.ewb_number.replace(/[-\s]/g, '');
               vMap[cleanKey] = row.valid_upto;
@@ -305,6 +338,25 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
             }
           });
           setEwbValidUptoMap(vMap);
+        }
+
+        // Extended valid_upto map (latest successful extension per EWB)
+        // valid_upto is varchar like "14/03/2026 11:59:00 PM" — needs parsing
+        if (!extendedRes.error && extendedRes.data) {
+          const eMap = {};
+          const seen = new Set();
+          extendedRes.data.forEach(row => {
+            if (!seen.has(row.ewb_number) && row.valid_upto) {
+              const cleanKey = row.ewb_number.replace(/[-\s]/g, '');
+              const parsed = parseIndianDateString(row.valid_upto);
+              if (parsed) {
+                eMap[cleanKey] = parsed;
+                eMap[row.ewb_number] = parsed;
+              }
+              seen.add(row.ewb_number);
+            }
+          });
+          setEwbExtendedValidUptoMap(eMap);
         }
       } catch (vErr) {
         console.error('Error fetching EWB valid_upto:', vErr);
@@ -949,10 +1001,14 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 const isCurrentlyProcessing = bulkRunning && bulkProgress.currentGr === transit.gr_no;
                 const hasSelfTransfer = hasSelfTransferIssue(transit);
 
-                // Collect valid_upto dates for this transit's EWBs
+                // Collect valid_upto dates for this transit's EWBs (prefer extended over original)
+                let hasExtendedEwb = false;
                 const transitValidDates = ewbs.map(ewb => {
                   const cleanEwb = ewb.replace(/[-\s]/g, '');
-                  const v = ewbValidUptoMap[cleanEwb] || ewbValidUptoMap[ewb] || null;
+                  const extV = ewbExtendedValidUptoMap[cleanEwb] || ewbExtendedValidUptoMap[ewb] || null;
+                  const origV = ewbValidUptoMap[cleanEwb] || ewbValidUptoMap[ewb] || null;
+                  if (extV) hasExtendedEwb = true;
+                  const v = extV || origV;
                   return v ? new Date(v) : null;
                 }).filter(Boolean);
                 // Use the earliest valid_upto for the row
@@ -1082,6 +1138,11 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                             <Clock className="w-3.5 h-3.5" />
                             {isRowExpired ? 'EXPIRED' : 'VALID'}
                           </span>
+                          {hasExtendedEwb && (
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded w-fit">
+                              EXTENDED
+                            </span>
+                          )}
                           <span className={`text-xs font-medium ${
                             isRowExpired ? 'text-red-500' : 'text-gray-800'
                           }`}>

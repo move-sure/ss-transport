@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle } from 'lucide-react';
+import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle, Clock } from 'lucide-react';
 import TransporterUpdateModal from './transporter-update-modal';
 import EWBDetailsModal from './ewb-details-modal';
 import supabase from '../../app/utils/supabase';
@@ -164,8 +164,9 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTransit, setSelectedTransit] = useState(null);
   const [selectedDetailsTransit, setSelectedDetailsTransit] = useState(null);
-  const [hideKanpur, setHideKanpur] = useState(false);
+  const [hideKanpur, setHideKanpur] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [ewbValidUptoMap, setEwbValidUptoMap] = useState({});
 
   // ── Bulk update state ──
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -283,6 +284,31 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
       ]);
       if (transporterResult.success) setTransporterUpdatesMap(transporterResult.data);
       if (consolidatedResult.success) setConsolidatedEwbMap(consolidatedResult.data);
+
+      // Fetch valid_upto from ewb_validations
+      try {
+        const { data: validData, error: validError } = await supabase
+          .from('ewb_validations')
+          .select('ewb_number, valid_upto, is_valid')
+          .in('ewb_number', allEwbNumbers)
+          .order('validated_at', { ascending: false });
+
+        if (!validError && validData) {
+          const vMap = {};
+          const seen = new Set();
+          validData.forEach(row => {
+            if (!seen.has(row.ewb_number) && row.valid_upto) {
+              const cleanKey = row.ewb_number.replace(/[-\s]/g, '');
+              vMap[cleanKey] = row.valid_upto;
+              vMap[row.ewb_number] = row.valid_upto;
+              seen.add(row.ewb_number);
+            }
+          });
+          setEwbValidUptoMap(vMap);
+        }
+      } catch (vErr) {
+        console.error('Error fetching EWB valid_upto:', vErr);
+      }
     } catch (error) {
       console.error('Error fetching transporter updates:', error);
     }
@@ -908,6 +934,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">GR No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">E-Way Bills</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Valid Upto</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Destination</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
@@ -922,33 +949,54 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 const isCurrentlyProcessing = bulkRunning && bulkProgress.currentGr === transit.gr_no;
                 const hasSelfTransfer = hasSelfTransferIssue(transit);
 
+                // Collect valid_upto dates for this transit's EWBs
+                const transitValidDates = ewbs.map(ewb => {
+                  const cleanEwb = ewb.replace(/[-\s]/g, '');
+                  const v = ewbValidUptoMap[cleanEwb] || ewbValidUptoMap[ewb] || null;
+                  return v ? new Date(v) : null;
+                }).filter(Boolean);
+                // Use the earliest valid_upto for the row
+                const earliestValid = transitValidDates.length > 0
+                  ? transitValidDates.reduce((a, b) => a < b ? a : b)
+                  : null;
+                const isRowExpired = earliestValid ? earliestValid < new Date() : false;
+
                 return (
                   <tr
                     key={transit.id}
                     className={`transition-colors ${
                       isCurrentlyProcessing
                         ? 'bg-blue-50/60 border-l-2 border-blue-400'
-                        : updateStatus === true || hasConsolidated
-                          ? 'bg-green-50/50 border-l-2 border-green-400'
-                          : 'hover:bg-gray-50'
+                        : isKanpur
+                          ? hasConsolidated
+                            ? 'bg-green-50/50 border-l-2 border-green-400'
+                            : 'bg-purple-50/40 border-l-2 border-purple-300'
+                          : updateStatus === true
+                            ? 'bg-green-50/50 border-l-2 border-green-400'
+                            : 'hover:bg-gray-50'
                     }`}
                   >
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-gray-900">{transit.gr_no}</span>
                         {isCurrentlyProcessing && (
                           <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                         )}
-                        {!isCurrentlyProcessing && updateStatus === true && (
-                          <span className="flex items-center gap-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-                            <CheckCircle className="w-3 h-3" />
-                            UPDATED
+                        {isKanpur && (
+                          <span className="flex items-center gap-1 text-purple-700 text-xs font-semibold border border-purple-300 bg-purple-100 px-2 py-0.5 rounded-full">
+                            KANPUR
                           </span>
                         )}
-                        {hasConsolidated && (
+                        {isKanpur && hasConsolidated && (
                           <span className="flex items-center gap-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
                             <CheckCircle className="w-3 h-3" />
                             CONSOLIDATED
+                          </span>
+                        )}
+                        {!isKanpur && !isCurrentlyProcessing && updateStatus === true && (
+                          <span className="flex items-center gap-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                            <CheckCircle className="w-3 h-3" />
+                            UPDATED
                           </span>
                         )}
                         {hasSelfTransfer && (
@@ -975,22 +1023,27 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                               <div className="flex items-center gap-1">
                               <span
                                 className={`text-xs font-mono px-2 py-1 rounded ${
-                                  selfXfer
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : updated
+                                  isKanpur
+                                    ? hasConsolidated
                                       ? 'bg-green-100 text-green-800 border border-green-200'
-                                      : bulkError
-                                        ? 'bg-red-100 text-red-700 border border-red-200'
-                                        : 'bg-gray-100 text-gray-700'
+                                      : 'bg-purple-100 text-purple-800 border border-purple-200'
+                                    : selfXfer
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                      : updated
+                                        ? 'bg-green-100 text-green-800 border border-green-200'
+                                        : bulkError
+                                          ? 'bg-red-100 text-red-700 border border-red-200'
+                                          : 'bg-gray-100 text-gray-700'
                                 }`}
                                 title={selfXfer ? 'Self-transferred: updated with own GSTIN' : bulkError || ''}
                               >
-                                {selfXfer && <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />}
-                                {!selfXfer && updated && <CheckCircle className="w-3 h-3 inline mr-1" />}
-                                {bulkError && <XCircle className="w-3 h-3 inline mr-1" />}
+                                {isKanpur && hasConsolidated && <CheckCircle className="w-3 h-3 inline mr-1 text-green-600" />}
+                                {!isKanpur && selfXfer && <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />}
+                                {!isKanpur && !selfXfer && updated && <CheckCircle className="w-3 h-3 inline mr-1" />}
+                                {!isKanpur && bulkError && <XCircle className="w-3 h-3 inline mr-1" />}
                                 {formatEwbNumber(ewb)}
                               </span>
-                              {pdfUrl && (
+                              {!isKanpur && pdfUrl && (
                                 <button
                                   onClick={() => handlePdfDownload(ewb, pdfUrl)}
                                   className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors shadow-sm ${
@@ -1006,19 +1059,43 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                                 </button>
                               )}
                               </div>
-                              {selfXfer && (
+                              {!isKanpur && selfXfer && (
                                 <span className="text-[9px] text-amber-500 px-1">Self GSTIN</span>
                               )}
-                              {pdfUrl && isDownloaded && (
+                              {!isKanpur && pdfUrl && isDownloaded && (
                                 <span className="text-[9px] text-green-600 px-1">Downloaded ✓</span>
                               )}
-                              {pdfUrl && !isDownloaded && updated && (
+                              {!isKanpur && pdfUrl && !isDownloaded && updated && (
                                 <span className="text-[9px] text-rose-500 px-1">Not Downloaded</span>
                               )}
                             </div>
                           );
                         })}
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {earliestValid ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`text-xs font-semibold flex items-center gap-1 ${
+                            isRowExpired ? 'text-red-600' : 'text-green-700'
+                          }`}>
+                            <Clock className="w-3.5 h-3.5" />
+                            {isRowExpired ? 'EXPIRED' : 'VALID'}
+                          </span>
+                          <span className={`text-xs font-medium ${
+                            isRowExpired ? 'text-red-500' : 'text-gray-800'
+                          }`}>
+                            {earliestValid.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                          <span className={`text-[11px] ${
+                            isRowExpired ? 'text-red-400' : 'text-gray-600'
+                          }`}>
+                            {earliestValid.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-sm ${isKanpur ? 'text-purple-700 font-medium' : 'text-gray-700'}`}>
@@ -1029,14 +1106,13 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                     <td className="px-4 py-3">
                       {isKanpur ? (
                         hasConsolidated ? (
-                          <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
+                          <span className="flex items-center gap-1.5 text-green-600 text-sm font-semibold">
                             <CheckCircle className="w-4 h-4" />
                             Consolidated
                           </span>
                         ) : (
                           <span className="flex items-center gap-1.5 text-purple-600 text-sm">
-                            <CheckCircle className="w-4 h-4" />
-                            Not Required
+                            Kanpur Bilty
                           </span>
                         )
                       ) : hasSelfTransfer ? (

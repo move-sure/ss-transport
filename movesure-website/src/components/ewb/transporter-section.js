@@ -7,7 +7,7 @@ import EWBDetailsModal from './ewb-details-modal';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../../app/utils/auth';
 import { formatEwbNumber } from '../../utils/ewbValidation';
-import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers, saveTransporterUpdate } from '../../utils/ewbValidationStorage';
+import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers, saveTransporterUpdate, markEwbAsDownloaded } from '../../utils/ewbValidationStorage';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
 
@@ -199,6 +199,38 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
     });
     return map;
   }, [transporterUpdatesMap, bulkResults]);
+
+  // Per-EWB downloaded status map (from DB is_downloaded field)
+  const ewbDownloadedMap = useMemo(() => {
+    const map = {};
+    Object.entries(transporterUpdatesMap).forEach(([ewb, update]) => {
+      const cleanEwb = ewb.replace(/[-\s]/g, '');
+      if (update?.is_downloaded === true) map[cleanEwb] = true;
+    });
+    return map;
+  }, [transporterUpdatesMap]);
+
+  // Handle PDF download click — open PDF and mark as downloaded
+  const handlePdfDownload = useCallback(async (ewb, pdfUrl) => {
+    if (!pdfUrl) return;
+    // Open PDF in new tab
+    window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+    // Mark as downloaded in DB
+    const cleanEwb = ewb.replace(/[-\s]/g, '');
+    try {
+      await markEwbAsDownloaded(ewb);
+      // Update local state immediately
+      setTransporterUpdatesMap(prev => {
+        const existing = prev[cleanEwb] || prev[ewb] || {};
+        return {
+          ...prev,
+          [cleanEwb]: { ...existing, is_downloaded: true }
+        };
+      });
+    } catch (err) {
+      console.error('Failed to mark as downloaded:', err);
+    }
+  }, []);
 
   // Get all EWB numbers
   const allEwbNumbers = useMemo(() => {
@@ -553,6 +585,31 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
     return count;
   }, [filteredTransit, isEwbUpdated]);
 
+  // Downloaded count: EWBs that have been successfully downloaded
+  const downloadedCount = useMemo(() => {
+    let count = 0;
+    for (const transit of filteredTransit) {
+      for (const ewb of getTransitEwbs(transit)) {
+        const cleanEwb = ewb.replace(/[-\s]/g, '');
+        if (ewbDownloadedMap[cleanEwb]) count++;
+      }
+    }
+    return count;
+  }, [filteredTransit, ewbDownloadedMap]);
+
+  // Not-downloaded count: EWBs that are updated but PDF not downloaded
+  const notDownloadedCount = useMemo(() => {
+    let count = 0;
+    for (const transit of filteredTransit) {
+      if (isKanpurDestination(transit)) continue;
+      for (const ewb of getTransitEwbs(transit)) {
+        const cleanEwb = ewb.replace(/[-\s]/g, '');
+        if (isEwbUpdated(ewb) && ewbPdfMap[cleanEwb] && !ewbDownloadedMap[cleanEwb]) count++;
+      }
+    }
+    return count;
+  }, [filteredTransit, isEwbUpdated, ewbPdfMap, ewbDownloadedMap]);
+
   const bulkSuccessCount = useMemo(() => Object.values(bulkResults).filter(r => r.success).length, [bulkResults]);
   const bulkFailCount = useMemo(() => Object.values(bulkResults).filter(r => !r.success).length, [bulkResults]);
 
@@ -635,6 +692,16 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 <div className="text-center px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg">
                   <p className="text-2xl font-bold text-orange-600">{selfTransferCount}</p>
                   <p className="text-xs text-orange-600/70">Self Transferred</p>
+                </div>
+              )}
+              <div className="text-center px-4 py-2 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600">{downloadedCount}</p>
+                <p className="text-xs text-blue-600/70">Downloaded</p>
+              </div>
+              {notDownloadedCount > 0 && (
+                <div className="text-center px-4 py-2 bg-rose-50 border border-rose-200 rounded-lg">
+                  <p className="text-2xl font-bold text-rose-600">{notDownloadedCount}</p>
+                  <p className="text-xs text-rose-600/70">Not Downloaded</p>
                 </div>
               )}
             </div>
@@ -898,6 +965,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                           const updated = isEwbUpdated(ewb);
                           const cleanEwb = ewb.replace(/[-\s]/g, '');
                           const pdfUrl = ewbPdfMap[cleanEwb];
+                          const isDownloaded = ewbDownloadedMap[cleanEwb] || false;
                           const bulkError = (bulkResults[cleanEwb] || bulkResults[ewb])?.success === false
                             ? (bulkResults[cleanEwb] || bulkResults[ewb]).error : null;
                           const selfXfer = isSelfTransferred(ewb, isKanpur);
@@ -923,19 +991,29 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                                 {formatEwbNumber(ewb)}
                               </span>
                               {pdfUrl && (
-                                <a
-                                  href={pdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                                  title="Download PDF"
+                                <button
+                                  onClick={() => handlePdfDownload(ewb, pdfUrl)}
+                                  className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors shadow-sm ${
+                                    isDownloaded
+                                      ? 'bg-green-600 text-white hover:bg-green-700'
+                                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                                  }`}
+                                  title={isDownloaded ? 'Downloaded ✓ (click to re-download)' : 'Download PDF'}
                                 >
-                                  <Download className="w-3.5 h-3.5" />
-                                </a>
+                                  {isDownloaded
+                                    ? <CheckCircle className="w-3.5 h-3.5" />
+                                    : <Download className="w-3.5 h-3.5" />}
+                                </button>
                               )}
                               </div>
                               {selfXfer && (
                                 <span className="text-[9px] text-amber-500 px-1">Self GSTIN</span>
+                              )}
+                              {pdfUrl && isDownloaded && (
+                                <span className="text-[9px] text-green-600 px-1">Downloaded ✓</span>
+                              )}
+                              {pdfUrl && !isDownloaded && updated && (
+                                <span className="text-[9px] text-rose-500 px-1">Not Downloaded</span>
                               )}
                             </div>
                           );

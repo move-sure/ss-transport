@@ -608,6 +608,36 @@ export async function getTransporterUpdatesByEwbNumbers(ewbNumbers) {
 }
 
 /**
+ * Mark an EWB transporter update as downloaded (is_downloaded = true)
+ */
+export async function markEwbAsDownloaded(ewbNumber) {
+  try {
+    if (!ewbNumber) return { success: false, error: 'EWB number is required' };
+
+    const clean = ewbNumber.replace(/[-\s]/g, '');
+    const hyphenated = clean.length === 12
+      ? `${clean.slice(0,4)}-${clean.slice(4,8)}-${clean.slice(8,12)}`
+      : clean;
+
+    const allFormats = [...new Set([clean, hyphenated, ewbNumber])].filter(Boolean);
+
+    const { data, error } = await supabase
+      .from('transporter_updates')
+      .update({ is_downloaded: true, updated_at: new Date().toISOString() })
+      .in('ewb_number', allFormats)
+      .select();
+
+    if (error) throw error;
+
+    console.log('✅ Marked EWB as downloaded:', ewbNumber);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Failed to mark EWB as downloaded:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Check which EWB numbers have successful consolidated EWB validations
  * Returns a map of EWB number -> consolidated EWB validation record
  */

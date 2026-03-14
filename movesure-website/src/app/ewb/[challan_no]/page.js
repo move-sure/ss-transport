@@ -14,6 +14,7 @@ import TransporterSection from '../../../components/ewb/transporter-section';
 import ChallanTransporterUpdate from '../../../components/ewb/challan-transporter-update';
 import ExtendEwbSection from '../../../components/ewb/extend-ewb-section';
 import EwbDetailSection from '../../../components/ewb/ewb-detail-section';
+import GenerateEwbSection from '../../../components/ewb/generate-ewb-section';
 import useChallanData from '../../../components/ewb/challan-data-fetcher';
 import supabase from '../../utils/supabase';
 
@@ -122,6 +123,8 @@ export default function ChallanEWBPage() {
         return <ExtendEwbSection transitDetails={transitDetails} challanDetails={challanDetails} />;
       case 'ewbdetail':
         return <EwbDetailSection transitDetails={transitDetails} challanDetails={challanDetails} />;
+      case 'generateewb':
+        return <GenerateEwbSection transitDetails={transitDetails} challanDetails={challanDetails} />;
       default:
         return <ValidationSection transitDetails={transitDetails} challanDetails={challanDetails} />;
     }

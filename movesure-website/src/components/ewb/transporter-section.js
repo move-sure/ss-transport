@@ -911,27 +911,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
         /* ── Action buttons row ── */
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Update All */}
-            <button
-              onClick={handleBulkUpdateAll}
-              disabled={pendingEwbCount === 0}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
-            >
-              <Zap className="w-4 h-4" />
-              Update All ({pendingEwbCount})
-            </button>
-
-            {/* Validate All */}
-            <button
-              onClick={handleValidateAll}
-              disabled={allEwbNumbers.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
-            >
-              <Shield className="w-4 h-4" />
-              Validate All ({allEwbNumbers.length})
-            </button>
-
-            {/* Fix Self-Transfers (only if needed) */}
+            {/* Fix Self-Transfers on the LEFT (only if needed) */}
             {selfTransferEwbCount > 0 && (
               <button
                 onClick={handleFixSelfTransfers}
@@ -942,8 +922,8 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
               </button>
             )}
 
-            {/* Last run summaries */}
-            <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
+            {/* Last run summaries in the middle */}
+            <div className="flex items-center gap-3 text-xs text-gray-500">
               {Object.keys(bulkResults).length > 0 && (
                 <span>Update: <span className="text-green-600 font-medium">{bulkSuccessCount}✓</span>{bulkFailCount > 0 && <span className="text-red-500 font-medium ml-1">{bulkFailCount}✗</span>}</span>
               )}
@@ -953,6 +933,26 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
               {Object.keys(fixResults).length > 0 && (
                 <span>Fix: <span className="text-green-600 font-medium">{fixSuccessCount}✓</span>{fixFailCount > 0 && <span className="text-red-500 font-medium ml-1">{fixFailCount}✗</span>}</span>
               )}
+            </div>
+
+            {/* Validate All + Update All pushed to the RIGHT */}
+            <div className="ml-auto flex items-center gap-3">
+              <button
+                onClick={handleValidateAll}
+                disabled={allEwbNumbers.length === 0}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
+              >
+                <Shield className="w-4 h-4" />
+                Validate All ({allEwbNumbers.length})
+              </button>
+              <button
+                onClick={handleBulkUpdateAll}
+                disabled={pendingEwbCount === 0}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
+              >
+                <Zap className="w-4 h-4" />
+                Update All ({pendingEwbCount})
+              </button>
             </div>
           </div>
         </div>

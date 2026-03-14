@@ -62,7 +62,7 @@ const EwbValidationComponent = ({
     setIsValidating(true);
     
     try {
-      const result = await validateEwbNumber(ewbNumber);
+      const result = await validateEwbNumber(ewbNumber, { skipCache: true });
       
       setValidationResults(prev => ({
         ...prev,
@@ -120,7 +120,7 @@ const EwbValidationComponent = ({
           ewbNumber: ewbNumber
         });
         
-        const result = await validateEwbNumber(ewbNumber);
+        const result = await validateEwbNumber(ewbNumber, { skipCache: true });
         results.push({ ewbNumber, ...result });
         
         // Prepare validation data for bulk save

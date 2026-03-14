@@ -134,18 +134,20 @@ export const cacheValidation = (ewbNumber, validationData) => {
  * @param {string} ewbNumber - EWB number to validate
  * @returns {Promise<Object>} Validation result
  */
-export const validateEwbNumber = async (ewbNumber) => {
+export const validateEwbNumber = async (ewbNumber, { skipCache = false } = {}) => {
   try {
     const cleanNumber = cleanEwbNumber(ewbNumber);
     
-    // Check cache first
-    const cached = getCachedValidation(cleanNumber);
-    if (cached) {
-      return {
-        success: true,
-        data: cached,
-        source: 'cache'
-      };
+    // Check cache first (skip if forced fresh)
+    if (!skipCache) {
+      const cached = getCachedValidation(cleanNumber);
+      if (cached) {
+        return {
+          success: true,
+          data: cached,
+          source: 'cache'
+        };
+      }
     }
     
     // Make API call

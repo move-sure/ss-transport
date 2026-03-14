@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle, Clock } from 'lucide-react';
+import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle, Clock, Shield } from 'lucide-react';
 import TransporterUpdateModal from './transporter-update-modal';
 import EWBDetailsModal from './ewb-details-modal';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../../app/utils/auth';
-import { formatEwbNumber } from '../../utils/ewbValidation';
-import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers, saveTransporterUpdate, markEwbAsDownloaded } from '../../utils/ewbValidationStorage';
+import { formatEwbNumber, validateEwbNumber } from '../../utils/ewbValidation';
+import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers, saveTransporterUpdate, markEwbAsDownloaded, saveEwbValidationsBulk } from '../../utils/ewbValidationStorage';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
 
@@ -194,6 +194,12 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, currentGr: '', currentEwb: '' });
   const [bulkResults, setBulkResults] = useState({}); // ewb → { success, pdfUrl, error }
   const bulkCancelRef = useRef(false);
+
+  // ── Validate all state ──
+  const [validateRunning, setValidateRunning] = useState(false);
+  const [validateProgress, setValidateProgress] = useState({ current: 0, total: 0, currentEwb: '' });
+  const [validateResults, setValidateResults] = useState({}); // ewb → { success, data, error }
+  const validateCancelRef = useRef(false);
 
   // ── Fix self-transfer state ──
   const [fixRunning, setFixRunning] = useState(false);
@@ -550,6 +556,68 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
 
   const handleBulkCancel = () => { bulkCancelRef.current = true; };
 
+  // ════════════════ VALIDATE ALL EWBs ════════════════
+  const handleValidateAll = useCallback(async () => {
+    if (allEwbNumbers.length === 0) return;
+
+    validateCancelRef.current = false;
+    setValidateRunning(true);
+    setValidateResults({});
+    setValidateProgress({ current: 0, total: allEwbNumbers.length, currentEwb: '' });
+
+    // Build ewbToGrMapping for bulk save
+    const ewbToGrMapping = {};
+    for (const transit of transitWithEwb) {
+      const grNo = transit.gr_no || null;
+      for (const ewb of getTransitEwbs(transit)) {
+        if (!ewbToGrMapping[ewb]) ewbToGrMapping[ewb] = [];
+        ewbToGrMapping[ewb].push({ gr_no: grNo });
+      }
+    }
+
+    const validationsToSave = [];
+
+    for (let i = 0; i < allEwbNumbers.length; i++) {
+      if (validateCancelRef.current) break;
+
+      const ewb = allEwbNumbers[i];
+      setValidateProgress({ current: i + 1, total: allEwbNumbers.length, currentEwb: formatEwbNumber(ewb) });
+
+      try {
+        const result = await validateEwbNumber(ewb, { skipCache: true });
+        setValidateResults(prev => ({ ...prev, [ewb]: result }));
+
+        // Prepare for bulk save
+        if (currentUser?.id && challanDetails?.challan_no) {
+          const grMappings = ewbToGrMapping[ewb] || [];
+          const grNo = grMappings.length > 0 ? grMappings[0].gr_no : null;
+          validationsToSave.push({ grNo, ewbNumber: ewb, validationResult: result });
+        }
+      } catch (err) {
+        console.error(`❌ Validate failed for EWB ${ewb}:`, err);
+        setValidateResults(prev => ({ ...prev, [ewb]: { success: false, error: err.message } }));
+      }
+    }
+
+    // Bulk save to DB
+    if (currentUser?.id && challanDetails?.challan_no && validationsToSave.length > 0) {
+      saveEwbValidationsBulk({
+        challanNo: challanDetails.challan_no,
+        validations: validationsToSave,
+        userId: currentUser.id
+      }).catch(err => console.error('Validation bulk save failed:', err));
+    }
+
+    setValidateRunning(false);
+    // Refresh to pick up new valid_upto values
+    fetchUpdates();
+  }, [allEwbNumbers, transitWithEwb, currentUser, challanDetails, fetchUpdates]);
+
+  const handleValidateCancel = () => { validateCancelRef.current = true; };
+
+  const validateSuccessCount = useMemo(() => Object.values(validateResults).filter(r => r.success).length, [validateResults]);
+  const validateFailCount = useMemo(() => Object.values(validateResults).filter(r => !r.success).length, [validateResults]);
+
   // ════════════════ FIX SELF-TRANSFERS ════════════════
   const handleFixSelfTransfers = useCallback(async () => {
     fixCancelRef.current = false;
@@ -853,6 +921,89 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
           </div>
         )}
       </div>
+
+      {/* ═══════════ VALIDATE ALL CARD ═══════════ */}
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl shadow-lg p-5 text-white">
+        {!validateRunning ? (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Validate All E-Way Bills
+              </h3>
+              <p className="text-sm text-emerald-100 mt-1">
+                {allEwbNumbers.length} E-Way Bill(s) — Check validity &amp; get valid_upto dates for all EWBs.
+              </p>
+              {Object.keys(validateResults).length > 0 && (
+                <p className="text-xs text-emerald-200 mt-1">
+                  Last run: {validateSuccessCount} valid, {validateFailCount} failed
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleValidateAll}
+              disabled={allEwbNumbers.length === 0 || bulkRunning}
+              className="flex items-center gap-2 px-6 py-3 bg-white text-emerald-700 font-bold rounded-xl hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md text-sm"
+            >
+              <Shield className="w-5 h-5" />
+              Validate All ({allEwbNumbers.length})
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Validating E-Way Bills...
+                </h3>
+                <p className="text-sm text-emerald-100 mt-1">
+                  EWB <span className="font-mono font-bold">{validateProgress.currentEwb}</span>
+                </p>
+              </div>
+              <button
+                onClick={handleValidateCancel}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-all text-sm"
+              >
+                <Square className="w-4 h-4" />
+                Stop
+              </button>
+            </div>
+            {/* Progress Bar */}
+            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${validateProgress.total > 0 ? (validateProgress.current / validateProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-emerald-200">
+              <span>{validateProgress.current} / {validateProgress.total} EWBs</span>
+              <span>
+                ✅ {validateSuccessCount} valid
+                {validateFailCount > 0 && <span className="text-red-300 ml-2">❌ {validateFailCount} failed</span>}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Validation Errors Summary */}
+      {!validateRunning && validateFailCount > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <h4 className="text-sm font-semibold text-red-800 flex items-center gap-1.5 mb-2">
+            <AlertTriangle className="w-4 h-4" />
+            {validateFailCount} EWB(s) failed validation
+          </h4>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {Object.entries(validateResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
+              <div key={ewb} className="text-xs text-red-700 flex items-start gap-2">
+                <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
+                <span className="text-red-500">— {r.error || 'Validation failed'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ══════ FIX SELF-TRANSFERS CARD (only when there are self-transfer issues) ══════ */}
       {(selfTransferCount > 0 || fixRunning || Object.keys(fixResults).length > 0) && (

@@ -846,6 +846,7 @@ export default function ChallanDetailPage() {
                       <th className="px-1.5 py-2 text-left font-bold text-gray-700 text-[10px]">GR No</th>
                       <th className="px-1.5 py-2 text-left font-bold text-gray-700 text-[10px]">Dest</th>
                       <th className="px-1.5 py-2 text-left font-bold text-gray-700 text-[10px]">Consignor / Consignee</th>
+                      <th className="px-1.5 py-2 text-left font-bold text-gray-700 text-[10px]">Pvt Marks</th>
                       <th className="px-1 py-2 text-center font-bold text-gray-700 text-[10px]">Pkts</th>
                       <th className="px-1 py-2 text-center font-bold text-gray-700 text-[10px]">Wt</th>
                       <th className="px-1.5 py-2 text-right font-bold text-gray-700 text-[10px]">Amt</th>
@@ -884,13 +885,13 @@ export default function ChallanDetailPage() {
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                     <tr className="font-bold text-[11px] text-black">
-                      <td className="px-1.5 py-2" colSpan={6}>TOTAL ({displayed.length} GR)</td>
+                      <td className="px-1.5 py-2" colSpan={7}>TOTAL ({displayed.length} GR)</td>
                       <td className="px-1 py-2 text-center">{footerTotals.packets}</td>
                       <td className="px-1 py-2 text-center">{footerTotals.weight.toFixed(1)}</td>
                       <td className="px-1.5 py-2 text-right">₹{footerTotals.amount.toLocaleString('en-IN')}</td>
                       <td colSpan={3}></td>
                       <td className="px-1 py-2 text-center text-emerald-700">₹{footerTotals.kaat.toFixed(0)}</td>
-                      <td colSpan={2}></td>
+                      <td colSpan={3}></td>
                     </tr>
                   </tfoot>
                 </table>

@@ -44,6 +44,13 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
         <div className="text-[10px] text-gray-800 truncate max-w-[120px]" title={b.consignor}><span className="text-gray-400">S:</span> {b.consignor}</div>
         <div className="text-[10px] text-gray-800 truncate max-w-[120px]" title={b.consignee}><span className="text-gray-400">R:</span> {b.consignee}</div>
       </td>
+      <td className="px-1.5 py-1.5">
+        {b.pvt_marks ? (
+          <div className="text-[10px] text-gray-800 truncate max-w-[90px] font-medium" title={b.pvt_marks}>{b.pvt_marks}</div>
+        ) : (
+          <span className="text-[9px] text-gray-300">-</span>
+        )}
+      </td>
       <td className="px-1 py-1.5 text-center font-bold text-black text-[11px]">{b.packets}</td>
       <td className="px-1 py-1.5 text-center font-medium text-black text-[11px]">{parseFloat(b.weight || 0).toFixed(1)}</td>
       <td className="px-1.5 py-1.5 text-right font-bold text-black text-[11px]">₹{parseFloat(b.amount || 0).toLocaleString('en-IN')}</td>

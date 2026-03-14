@@ -855,257 +855,160 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
         </div>
       </div>
 
-      {/* ═══════════ BULK UPDATE CARD ═══════════ */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-5 text-white">
-        {!bulkRunning ? (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Zap className="w-5 h-5" />
-                Auto Update All Transporters
-              </h3>
-              <p className="text-sm text-blue-100 mt-1">
-                {pendingEwbCount > 0
-                  ? `${pendingEwbCount} E-Way Bill(s) pending across ${pendingCount} GR(s). Click to update all automatically.`
-                  : 'All transporters are up to date! ✅'}
-              </p>
-              {Object.keys(bulkResults).length > 0 && (
-                <p className="text-xs text-blue-200 mt-1">
-                  Last run: {bulkSuccessCount} success, {bulkFailCount} failed
+      {/* ═══════════ QUICK ACTIONS ═══════════ */}
+      {(bulkRunning || validateRunning || fixRunning) ? (
+        /* ── Active progress bar ── */
+        <div className={`rounded-2xl shadow-lg p-5 text-white ${
+          bulkRunning ? 'bg-gradient-to-r from-blue-600 to-indigo-600' :
+          validateRunning ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
+          'bg-gradient-to-r from-amber-500 to-orange-500'
+        }`}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {bulkRunning ? 'Updating Transporters...' : validateRunning ? 'Validating E-Way Bills...' : 'Fixing Self-Transfers...'}
+                </h3>
+                <p className="text-sm opacity-80 mt-1">
+                  {bulkRunning && <>GR <span className="font-mono font-bold">{bulkProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{bulkProgress.currentEwb}</span></>}
+                  {validateRunning && <>EWB <span className="font-mono font-bold">{validateProgress.currentEwb}</span></>}
+                  {fixRunning && <>GR <span className="font-mono font-bold">{fixProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{fixProgress.currentEwb}</span></>}
                 </p>
-              )}
+              </div>
+              <button
+                onClick={bulkRunning ? handleBulkCancel : validateRunning ? handleValidateCancel : handleFixSelfCancel}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 font-medium rounded-xl transition-all text-sm"
+              >
+                <Square className="w-4 h-4" /> Stop
+              </button>
             </div>
+            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${
+                  bulkRunning ? (bulkProgress.total > 0 ? (bulkProgress.current / bulkProgress.total) * 100 : 0) :
+                  validateRunning ? (validateProgress.total > 0 ? (validateProgress.current / validateProgress.total) * 100 : 0) :
+                  (fixProgress.total > 0 ? (fixProgress.current / fixProgress.total) * 100 : 0)
+                }%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs opacity-70">
+              <span>
+                {bulkRunning && `${bulkProgress.current} / ${bulkProgress.total} EWBs`}
+                {validateRunning && `${validateProgress.current} / ${validateProgress.total} EWBs`}
+                {fixRunning && `${fixProgress.current} / ${fixProgress.total} EWBs`}
+              </span>
+              <span>
+                {bulkRunning && <>✅ {bulkSuccessCount} success{bulkFailCount > 0 && <span className="text-red-200 ml-2">❌ {bulkFailCount} failed</span>}</>}
+                {validateRunning && <>✅ {validateSuccessCount} valid{validateFailCount > 0 && <span className="text-red-200 ml-2">❌ {validateFailCount} failed</span>}</>}
+                {fixRunning && <>✅ {fixSuccessCount} fixed{fixFailCount > 0 && <span className="text-red-200 ml-2">❌ {fixFailCount} failed</span>}</>}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── Action buttons row ── */
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Update All */}
             <button
               onClick={handleBulkUpdateAll}
               disabled={pendingEwbCount === 0}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md text-sm"
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
             >
-              <Play className="w-5 h-5" />
+              <Zap className="w-4 h-4" />
               Update All ({pendingEwbCount})
             </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Updating Transporters...
-                </h3>
-                <p className="text-sm text-blue-100 mt-1">
-                  Processing GR <span className="font-mono font-bold">{bulkProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{bulkProgress.currentEwb}</span>
-                </p>
-              </div>
-              <button
-                onClick={handleBulkCancel}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-all text-sm"
-              >
-                <Square className="w-4 h-4" />
-                Stop
-              </button>
-            </div>
-            {/* Progress Bar */}
-            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${bulkProgress.total > 0 ? (bulkProgress.current / bulkProgress.total) * 100 : 0}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-xs text-blue-200">
-              <span>{bulkProgress.current} / {bulkProgress.total} EWBs</span>
-              <span>
-                ✅ {bulkSuccessCount} success
-                {bulkFailCount > 0 && <span className="text-red-300 ml-2">❌ {bulkFailCount} failed</span>}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* ═══════════ VALIDATE ALL CARD ═══════════ */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl shadow-lg p-5 text-white">
-        {!validateRunning ? (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Validate All E-Way Bills
-              </h3>
-              <p className="text-sm text-emerald-100 mt-1">
-                {allEwbNumbers.length} E-Way Bill(s) — Check validity &amp; get valid_upto dates for all EWBs.
-              </p>
-              {Object.keys(validateResults).length > 0 && (
-                <p className="text-xs text-emerald-200 mt-1">
-                  Last run: {validateSuccessCount} valid, {validateFailCount} failed
-                </p>
-              )}
-            </div>
+            {/* Validate All */}
             <button
               onClick={handleValidateAll}
-              disabled={allEwbNumbers.length === 0 || bulkRunning}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-emerald-700 font-bold rounded-xl hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md text-sm"
+              disabled={allEwbNumbers.length === 0}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
             >
-              <Shield className="w-5 h-5" />
+              <Shield className="w-4 h-4" />
               Validate All ({allEwbNumbers.length})
             </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Validating E-Way Bills...
-                </h3>
-                <p className="text-sm text-emerald-100 mt-1">
-                  EWB <span className="font-mono font-bold">{validateProgress.currentEwb}</span>
-                </p>
-              </div>
-              <button
-                onClick={handleValidateCancel}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-all text-sm"
-              >
-                <Square className="w-4 h-4" />
-                Stop
-              </button>
-            </div>
-            {/* Progress Bar */}
-            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${validateProgress.total > 0 ? (validateProgress.current / validateProgress.total) * 100 : 0}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-xs text-emerald-200">
-              <span>{validateProgress.current} / {validateProgress.total} EWBs</span>
-              <span>
-                ✅ {validateSuccessCount} valid
-                {validateFailCount > 0 && <span className="text-red-300 ml-2">❌ {validateFailCount} failed</span>}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Validation Errors Summary */}
-      {!validateRunning && validateFailCount > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-red-800 flex items-center gap-1.5 mb-2">
-            <AlertTriangle className="w-4 h-4" />
-            {validateFailCount} EWB(s) failed validation
-          </h4>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {Object.entries(validateResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
-              <div key={ewb} className="text-xs text-red-700 flex items-start gap-2">
-                <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
-                <span className="text-red-500">— {r.error || 'Validation failed'}</span>
-              </div>
-            ))}
+            {/* Fix Self-Transfers (only if needed) */}
+            {selfTransferEwbCount > 0 && (
+              <button
+                onClick={handleFixSelfTransfers}
+                className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white font-semibold rounded-xl hover:bg-amber-600 transition-all text-sm shadow-sm"
+              >
+                <AlertCircle className="w-4 h-4" />
+                Fix Self-Transfer ({selfTransferEwbCount})
+              </button>
+            )}
+
+            {/* Last run summaries */}
+            <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
+              {Object.keys(bulkResults).length > 0 && (
+                <span>Update: <span className="text-green-600 font-medium">{bulkSuccessCount}✓</span>{bulkFailCount > 0 && <span className="text-red-500 font-medium ml-1">{bulkFailCount}✗</span>}</span>
+              )}
+              {Object.keys(validateResults).length > 0 && (
+                <span>Validate: <span className="text-green-600 font-medium">{validateSuccessCount}✓</span>{validateFailCount > 0 && <span className="text-red-500 font-medium ml-1">{validateFailCount}✗</span>}</span>
+              )}
+              {Object.keys(fixResults).length > 0 && (
+                <span>Fix: <span className="text-green-600 font-medium">{fixSuccessCount}✓</span>{fixFailCount > 0 && <span className="text-red-500 font-medium ml-1">{fixFailCount}✗</span>}</span>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* ══════ FIX SELF-TRANSFERS CARD (only when there are self-transfer issues) ══════ */}
-      {(selfTransferCount > 0 || fixRunning || Object.keys(fixResults).length > 0) && (
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl shadow-lg p-5 text-white">
-          {!fixRunning ? (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  Fix Self-Transferred EWBs
-                </h3>
-                <p className="text-sm text-amber-100 mt-1">
-                  {selfTransferEwbCount > 0
-                    ? `${selfTransferEwbCount} EWB(s) across ${selfTransferCount} GR(s) transferred to own GSTIN. Click to re-assign to correct transporters.`
-                    : 'All self-transfer issues resolved! ✅'}
-                </p>
-                {Object.keys(fixResults).length > 0 && (
-                  <p className="text-xs text-amber-200 mt-1">
-                    Last run: {fixSuccessCount} fixed, {fixFailCount} failed
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={handleFixSelfTransfers}
-                disabled={selfTransferEwbCount === 0}
-                className="flex items-center gap-2 px-6 py-3 bg-white text-amber-700 font-bold rounded-xl hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md text-sm flex-shrink-0"
-              >
-                <Zap className="w-5 h-5" />
-                Fix All ({selfTransferEwbCount})
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Fixing Self-Transfers...
-                  </h3>
-                  <p className="text-sm text-amber-100 mt-1">
-                    GR <span className="font-mono font-bold">{fixProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{fixProgress.currentEwb}</span>
-                  </p>
-                </div>
-                <button
-                  onClick={handleFixSelfCancel}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 font-medium rounded-xl transition-all text-sm"
-                >
-                  <Square className="w-4 h-4" />
-                  Stop
-                </button>
-              </div>
-              <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
-                <div
-                  className="h-full bg-white rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${fixProgress.total > 0 ? (fixProgress.current / fixProgress.total) * 100 : 0}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-xs text-amber-200">
-                <span>{fixProgress.current} / {fixProgress.total} EWBs</span>
-                <span>
-                  ✅ {fixSuccessCount} fixed
-                  {fixFailCount > 0 && <span className="text-red-200 ml-2">❌ {fixFailCount} failed</span>}
-                </span>
+      {/* Error summaries (collapsed under actions) */}
+      {!bulkRunning && !validateRunning && !fixRunning && (bulkFailCount > 0 || validateFailCount > 0 || fixFailCount > 0) && (
+        <div className="space-y-2">
+          {bulkFailCount > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <h4 className="text-xs font-semibold text-red-800 flex items-center gap-1.5 mb-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {bulkFailCount} update(s) failed
+              </h4>
+              <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                {Object.entries(bulkResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
+                  <div key={ewb} className="text-xs text-red-700 flex items-start gap-2">
+                    <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
+                    <span className="text-red-500">— {r.error}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Fix Self-Transfer Errors */}
-      {!fixRunning && fixFailCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-amber-800 flex items-center gap-1.5 mb-2">
-            <AlertCircle className="w-4 h-4" />
-            {fixFailCount} EWB(s) could not be fixed
-          </h4>
-          <div className="space-y-1 max-h-36 overflow-y-auto">
-            {Object.entries(fixResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
-              <div key={ewb} className="text-xs text-amber-700 flex items-start gap-2">
-                <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
-                <span className="text-amber-500">— {r.error}</span>
+          {validateFailCount > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <h4 className="text-xs font-semibold text-red-800 flex items-center gap-1.5 mb-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {validateFailCount} validation(s) failed
+              </h4>
+              <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                {Object.entries(validateResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
+                  <div key={ewb} className="text-xs text-red-700 flex items-start gap-2">
+                    <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
+                    <span className="text-red-500">— {r.error || 'Failed'}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Errors Summary */}
-      {!bulkRunning && bulkFailCount > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-red-800 flex items-center gap-1.5 mb-2">
-            <AlertTriangle className="w-4 h-4" />
-            {bulkFailCount} EWB(s) failed to update
-          </h4>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {Object.entries(bulkResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
-              <div key={ewb} className="text-xs text-red-700 flex items-start gap-2">
-                <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
-                <span className="text-red-500">— {r.error}</span>
+            </div>
+          )}
+          {fixFailCount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <h4 className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1.5">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {fixFailCount} fix(es) failed
+              </h4>
+              <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                {Object.entries(fixResults).filter(([, r]) => !r.success).map(([ewb, r]) => (
+                  <div key={ewb} className="text-xs text-amber-700 flex items-start gap-2">
+                    <span className="font-mono font-medium">{formatEwbNumber(ewb)}</span>
+                    <span className="text-amber-500">— {r.error}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

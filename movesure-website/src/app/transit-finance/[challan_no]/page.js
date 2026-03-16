@@ -67,7 +67,11 @@ export default function ChallanDetailPage() {
       ]);
 
       if (challanRes.error) {
-        if (challanRes.error.code === 'PGRST116') throw new Error('Challan not found');
+        if (challanRes.error.code === 'PGRST116') {
+          setError('Challan not found: ' + challanNo);
+          setLoading(false);
+          return;
+        }
         throw challanRes.error;
       }
       if (citiesRes.error) throw citiesRes.error;

@@ -33,7 +33,9 @@ const TransportersComponent = () => {
     mob_number: '',
     branch_owner_name: '',
     website: '',
-    transport_admin_id: ''
+    transport_admin_id: '',
+    created_by: '',
+    updated_by: ''
   });
   const [editingId, setEditingId] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
@@ -183,6 +185,8 @@ const TransportersComponent = () => {
     try {
       setLoading(true);
 
+      const currentUser = user?.name || user?.username || 'Unknown';
+
       const transportData = {
         transport_name: formData.transport_name.trim(),
         city_id: formData.city_id,
@@ -198,7 +202,7 @@ const TransportersComponent = () => {
       if (editingId) {
         const { error } = await supabase
           .from('transports')
-          .update(transportData)
+          .update({ ...transportData, updated_by: currentUser })
           .eq('id', editingId);
 
         if (error) throw error;
@@ -206,7 +210,7 @@ const TransportersComponent = () => {
       } else {
         const { error } = await supabase
           .from('transports')
-          .insert([transportData]);
+          .insert([{ ...transportData, created_by: currentUser, updated_by: null }]);
 
         if (error) throw error;
         alert('Transporter added successfully!');
@@ -221,7 +225,9 @@ const TransportersComponent = () => {
         mob_number: '',
         branch_owner_name: '',
         website: '',
-        transport_admin_id: ''
+        transport_admin_id: '',
+        created_by: '',
+        updated_by: ''
       });
       setEditingId(null);
       setShowForm(false);
@@ -245,7 +251,9 @@ const TransportersComponent = () => {
       mob_number: transporter.mob_number || '',
       branch_owner_name: transporter.branch_owner_name || '',
       website: transporter.website || '',
-      transport_admin_id: transporter.transport_admin_id || ''
+      transport_admin_id: transporter.transport_admin_id || '',
+      created_by: transporter.created_by || '',
+      updated_by: transporter.updated_by || ''
     });
     setEditingId(transporter.id);
     setExpandedRows({ [transporter.id]: true });
@@ -263,7 +271,9 @@ const TransportersComponent = () => {
       mob_number: '',
       branch_owner_name: '',
       website: '',
-      transport_admin_id: ''
+      transport_admin_id: '',
+      created_by: '',
+      updated_by: ''
     });
   };
 
@@ -298,7 +308,9 @@ const TransportersComponent = () => {
       mob_number: '',
       branch_owner_name: '',
       website: '',
-      transport_admin_id: ''
+      transport_admin_id: '',
+      created_by: '',
+      updated_by: ''
     });
     setEditingId(null);
     setShowForm(false);
@@ -747,6 +759,8 @@ const TransportersComponent = () => {
                     </div>
                   </th>
                   <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">Admin</th>
+                  <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">Created By</th>
+                  <th className="border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-700">Updated By</th>
                   <th className="px-2 py-2 text-left font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
@@ -762,7 +776,7 @@ const TransportersComponent = () => {
                             ? 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200'
                             : 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-300'
                       }`}>
-                        <td colSpan="8" className="px-2 py-1.5">
+                        <td colSpan="10" className="px-2 py-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               {groupBy === 'city' && <span className="text-base">🏙️</span>}
@@ -849,6 +863,24 @@ const TransportersComponent = () => {
                                 );
                               })()}
                             </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              {transporter.created_by ? (
+                                <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded text-xs font-medium">
+                                  👤 {transporter.created_by}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="border-r border-gray-200 px-2 py-2 text-black">
+                              {transporter.updated_by ? (
+                                <span className="inline-flex items-center gap-1 bg-green-50 text-green-800 px-1.5 py-0.5 rounded text-xs font-medium">
+                                  ✏️ {transporter.updated_by}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
                             <td className="px-2 py-2">
                               <div className="flex gap-1">
                                 <button
@@ -872,7 +904,7 @@ const TransportersComponent = () => {
                           {/* Inline Edit Row */}
                           {editingId === transporter.id && expandedRows[transporter.id] && (
                             <tr className="bg-blue-50">
-                              <td colSpan="8" className="px-2 py-2">
+                              <td colSpan="10" className="px-2 py-2">
                                 <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-2">
                                   <div>
                                     <input
@@ -986,7 +1018,7 @@ const TransportersComponent = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8" className="px-6 py-16 text-center">
+                    <td colSpan="10" className="px-6 py-16 text-center">
                       {loading ? (
                         <div className="flex flex-col items-center justify-center space-y-4">
                           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>

@@ -209,24 +209,13 @@ const CityTransportSection = ({
     const cityTransports = transports.filter(t => t.city_id === city.id);
     
     if (cityTransports.length > 1) {
-      // Multiple transports — show dropdown, set city but don't auto-pick transport
-      console.log(`🚛 ${cityTransports.length} transports found for ${city.city_name}, showing selector`);
+      // Multiple transports — auto-select the first one, but keep list available for manual change
+      console.log(`🚛 ${cityTransports.length} transports found for ${city.city_name}, auto-selecting first`);
       setAvailableTransports(cityTransports);
-      setShowTransportDropdown(true);
+      setShowTransportDropdown(false);
       setTransportSelectedIndex(-1);
-
-      // Set city in form but clear transport fields until user picks
-      setFormData(prev => ({
-        ...prev,
-        to_city_id: city.id,
-        transport_name: '',
-        transport_gst: '',
-        transport_number: '',
-        transport_id: null
-      }));
-
-      // Still fetch rate in the background (rate depends on city, not transport)
-      fetchRateForCity(city, null);
+      // Auto-select the top transport
+      fetchRateForCity(city, cityTransports[0]);
     } else {
       // 0 or 1 transport — auto-select as before
       const transport = cityTransports[0] || null;
@@ -358,7 +347,6 @@ const CityTransportSection = ({
                 ref={cityInputRef}
                 value={citySearch}
                 onChange={handleInputChange}
-                onFocus={() => setShowCityDropdown(true)}
                 onKeyDown={handleKeyDown}
                 placeholder="🔍 City..."
                 className="w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
@@ -410,7 +398,7 @@ const CityTransportSection = ({
                   ref={transportNameRef}
                   value={formData.transport_name}
                   onChange={(e) => setFormData(prev => ({ ...prev, transport_name: e.target.value.toUpperCase() }))}
-                  onFocus={() => { if (availableTransports.length > 1) setShowTransportDropdown(true); }}
+
                   onKeyDown={(e) => {
                     // Handle transport dropdown navigation
                     if (showTransportDropdown && availableTransports.length > 1) {
@@ -450,7 +438,7 @@ const CityTransportSection = ({
                       ? 'border-amber-400 focus:border-amber-500 hover:border-amber-400 bg-amber-50'
                       : 'border-slate-300 focus:border-indigo-400 hover:border-indigo-300'
                   }`}
-                  placeholder={availableTransports.length > 1 ? `⬇ Select from ${availableTransports.length} transports...` : 'Transport name'}
+                  placeholder={availableTransports.length > 1 ? `Click ▼ to change transport` : 'Transport name'}
                   tabIndex={2}
                 />
                 {availableTransports.length > 1 && (

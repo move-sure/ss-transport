@@ -270,7 +270,10 @@ export default function GRWiseManagementPage() {
         consignee_number: bilty.consignee_number || '',
         consignee_gst: bilty.consignee_gst || '',
         destination: bilty.destination || '-',
-        to_city_id: bilty.to_city_id || null,
+        // For manual bilties (MNL), resolve to_city_id from station (city_code) via cities lookup
+        to_city_id: bilty.to_city_id || (isMNL && bilty.station
+          ? (cities.find(c => c.city_code?.toLowerCase() === bilty.station?.toLowerCase())?.id || null)
+          : null),
         from_city_id: bilty.from_city_id || null,
         packets: bilty.no_of_pkg || 0,
         weight: bilty.weight || 0,
@@ -312,7 +315,7 @@ export default function GRWiseManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [branches]);
+  }, [branches, cities]);
 
   // Transit status update (same pattern as challan detail page)
   const updateTransitStatus = async (field, dateField) => {

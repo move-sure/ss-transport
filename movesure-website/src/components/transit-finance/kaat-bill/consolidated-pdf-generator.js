@@ -274,9 +274,13 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
         
         const weight = parseFloat(bilty?.wt || station?.weight || 0);
         const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-        const total = parseFloat(bilty?.total || station?.amount || 0);
         const kaatAmount = calculateKaatAmount(kaat, weight, packages);
         const ddChrg = kaat?.dd_chrg ? parseFloat(kaat.dd_chrg) : 0;
+        
+        // Check if payment mode is PAID — don't count paid amount in kaat bill
+        const payMode = (bilty?.payment_mode || station?.payment_status || '').toUpperCase();
+        const isPaid = payMode.includes('PAID');
+        const total = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
         const profit = kaat ? total - kaatAmount - ddChrg : 0;
         
         // Resolve destination city name from kaat data or bilty/station

@@ -1,23 +1,29 @@
 'use client';
 
-import React from 'react';
-import { FileText, Check, Calendar, DollarSign, Package, Truck } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Check, Calendar, DollarSign, Package, Truck, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function KaatBillSelector({ 
   kaatBills, 
+  groupedBillsByChallan = [],
+  challanDetailsMap = {},
   selectedBills, 
   onToggleBill, 
   onSelectAll, 
   onDeselectAll,
   loading 
 }) {
+  const [collapsedChallans, setCollapsedChallans] = useState({});
   const allSelected = kaatBills.length > 0 && selectedBills.length === kaatBills.length;
-  const someSelected = selectedBills.length > 0 && selectedBills.length < kaatBills.length;
 
   // Calculate totals
   const totalBilties = selectedBills.reduce((sum, bill) => sum + (bill.total_bilty_count || 0), 0);
   const totalKaatAmount = selectedBills.reduce((sum, bill) => sum + parseFloat(bill.total_kaat_amount || 0), 0);
+
+  const toggleChallanCollapse = (challan) => {
+    setCollapsedChallans(prev => ({ ...prev, [challan]: !prev[challan] }));
+  };
 
   if (loading) {
     return (
@@ -49,10 +55,10 @@ export default function KaatBillSelector({
             <div>
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                Select Kaat Bills for Consolidated Print
+                Select Kaat Bills — Grouped by Challan
               </h3>
               <p className="text-sm text-white/80 mt-1">
-                Choose the bills you want to include in the consolidated PDF
+                {groupedBillsByChallan.length} challans, {kaatBills.length} total bills
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -94,65 +100,108 @@ export default function KaatBillSelector({
           </div>
         )}
 
-        {/* Bills List */}
-        <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
-          {kaatBills.map((bill) => {
-            const isSelected = selectedBills.some(b => b.id === bill.id);
-            
+        {/* Grouped Bills List */}
+        <div className="max-h-[600px] overflow-y-auto">
+          {groupedBillsByChallan.map(([challanNo, bills]) => {
+            const challanDetail = challanDetailsMap[challanNo];
+            const dispatchDate = challanDetail?.dispatch_date || challanDetail?.date;
+            const isCollapsed = collapsedChallans[challanNo];
+            const challanSelectedCount = bills.filter(b => selectedBills.some(sb => sb.id === b.id)).length;
+            const challanTotalAmount = bills.reduce((s, b) => s + parseFloat(b.total_kaat_amount || 0), 0);
+            const challanTotalBilties = bills.reduce((s, b) => s + (b.total_bilty_count || 0), 0);
+
             return (
-              <div
-                key={bill.id}
-                onClick={() => onToggleBill(bill)}
-                className={`p-4 cursor-pointer transition-all hover:bg-gray-50 ${
-                  isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Checkbox */}
-                  <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-1 transition-all ${
-                    isSelected 
-                      ? 'bg-indigo-600 border-indigo-600' 
-                      : 'border-gray-300 hover:border-indigo-400'
-                  }`}>
-                    {isSelected && <Check className="w-4 h-4 text-white" />}
-                  </div>
-
-                  {/* Bill Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold">
-                        {bill.challan_no}
+              <div key={challanNo} className="border-b-2 border-indigo-100 last:border-b-0">
+                {/* Challan Header */}
+                <div
+                  onClick={() => toggleChallanCollapse(challanNo)}
+                  className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 cursor-pointer hover:from-indigo-100 hover:to-purple-100 transition-colors sticky top-0 z-10"
+                >
+                  <div className="flex items-center gap-3">
+                    {isCollapsed
+                      ? <ChevronRight className="w-5 h-5 text-indigo-500" />
+                      : <ChevronDown className="w-5 h-5 text-indigo-500" />
+                    }
+                    <span className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm font-bold tracking-wide">
+                      Challan {challanNo}
+                    </span>
+                    {dispatchDate && (
+                      <span className="flex items-center gap-1 text-xs text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full font-semibold">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Dispatch: {format(new Date(dispatchDate), 'dd MMM yyyy')}
                       </span>
-                      <span className="text-gray-900 font-semibold truncate">
-                        {bill.transport_name || 'Unknown Transport'}
+                    )}
+                    <span className="text-xs text-gray-500 font-medium">
+                      {bills.length} bill{bills.length !== 1 ? 's' : ''} • {challanTotalBilties} bilties
+                    </span>
+                    {challanSelectedCount > 0 && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
+                        {challanSelectedCount} selected
                       </span>
-                      {bill.printed_yet && (
-                        <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">
-                          Printed
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>{bill.created_at ? format(new Date(bill.created_at), 'dd MMM yyyy') : '-'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Package className="w-4 h-4 text-gray-400" />
-                        <span>{bill.total_bilty_count} bilties</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-gray-600">
-                        <Truck className="w-4 h-4 text-gray-400" />
-                        <span className="truncate">{bill.transport_gst || 'No GST'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign className="w-4 h-4 text-green-500" />
-                        <span className="font-bold text-green-600">₹{parseFloat(bill.total_kaat_amount || 0).toFixed(2)}</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
+                  <span className="font-bold text-green-600 text-sm">
+                    ₹{challanTotalAmount.toFixed(2)}
+                  </span>
                 </div>
+
+                {/* Bills under this challan */}
+                {!isCollapsed && (
+                  <div className="divide-y divide-gray-100">
+                    {bills.map((bill) => {
+                      const isSelected = selectedBills.some(b => b.id === bill.id);
+
+                      return (
+                        <div
+                          key={bill.id}
+                          onClick={() => onToggleBill(bill)}
+                          className={`px-4 py-3 pl-12 cursor-pointer transition-all hover:bg-gray-50 ${
+                            isSelected ? 'bg-indigo-50/60 border-l-4 border-indigo-500' : 'border-l-4 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Checkbox */}
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              isSelected 
+                                ? 'bg-indigo-600 border-indigo-600' 
+                                : 'border-gray-300 hover:border-indigo-400'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            </div>
+
+                            {/* Bill Details */}
+                            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap">
+                              <span className="text-gray-900 font-semibold truncate text-sm">
+                                {bill.transport_name || 'Unknown Transport'}
+                              </span>
+                              {bill.printed_yet && (
+                                <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">
+                                  Printed
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <Truck className="w-3.5 h-3.5" />
+                                {bill.transport_gst || 'No GST'}
+                              </span>
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <Package className="w-3.5 h-3.5" />
+                                {bill.total_bilty_count} bilties
+                              </span>
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <Calendar className="w-3.5 h-3.5" />
+                                {bill.created_at ? format(new Date(bill.created_at), 'dd MMM yy') : '-'}
+                              </span>
+                            </div>
+
+                            <span className="font-bold text-green-600 text-sm whitespace-nowrap">
+                              ₹{parseFloat(bill.total_kaat_amount || 0).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}

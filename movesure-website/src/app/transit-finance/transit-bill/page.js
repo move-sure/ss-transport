@@ -52,13 +52,17 @@ export default function TransitBillPage() {
   const [enrichedBillsData, setEnrichedBillsData] = useState({});
   const [challanDetailsMap, setChallanDetailsMap] = useState({});
   
-  // Filter states for existing bills
+  // Filter states for existing bills (applied on search click, not on every keystroke)
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [challanFrom, setChallanFrom] = useState('');
   const [challanTo, setChallanTo] = useState('');
   const [filterPrinted, setFilterPrinted] = useState('all');
+  // Applied filters (only updated when user clicks Search)
+  const [appliedFilters, setAppliedFilters] = useState({ searchQuery: '', dateFrom: '', dateTo: '', challanFrom: '', challanTo: '', filterPrinted: 'all' });
+  // Challan details map for dispatch dates
+  const [billChallanDetails, setBillChallanDetails] = useState({});
   
   // PDF states
   const [showPreview, setShowPreview] = useState(false);
@@ -470,6 +474,24 @@ export default function TransitBillPage() {
 
       if (fetchError) throw fetchError;
       setKaatBills(data || []);
+
+      // Fetch challan dispatch dates for all unique challan numbers
+      const uniqueChallans = [...new Set((data || []).map(b => b.challan_no).filter(Boolean))];
+      if (uniqueChallans.length > 0) {
+        const batchSize = 100;
+        let allChallanDetails = [];
+        for (let i = 0; i < uniqueChallans.length; i += batchSize) {
+          const batch = uniqueChallans.slice(i, i + batchSize);
+          const { data: challanData } = await supabase
+            .from('challan_details')
+            .select('challan_no, date, dispatch_date, is_dispatched')
+            .in('challan_no', batch);
+          allChallanDetails = [...allChallanDetails, ...(challanData || [])];
+        }
+        const detailsMap = {};
+        allChallanDetails.forEach(c => { detailsMap[c.challan_no] = c; });
+        setBillChallanDetails(detailsMap);
+      }
     } catch (err) {
       console.error('❌ Error loading kaat bills:', err);
       setError(err.message || 'Failed to load kaat bills');
@@ -478,39 +500,62 @@ export default function TransitBillPage() {
     }
   };
 
-  const filteredBills = kaatBills.filter(bill => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesChallan = bill.challan_no?.toLowerCase().includes(query);
-      const matchesTransport = bill.transport_name?.toLowerCase().includes(query);
-      const matchesGst = bill.transport_gst?.toLowerCase().includes(query);
-      if (!matchesChallan && !matchesTransport && !matchesGst) return false;
-    }
-    if (challanFrom || challanTo) {
-      const challanNum = parseInt(bill.challan_no?.replace(/\D/g, '') || '0', 10);
-      if (challanFrom) {
-        const fromNum = parseInt(challanFrom.replace(/\D/g, '') || '0', 10);
-        if (challanNum < fromNum) return false;
+  // Apply search button handler
+  const handleApplySearch = () => {
+    setAppliedFilters({ searchQuery, dateFrom, dateTo, challanFrom, challanTo, filterPrinted });
+  };
+
+  const handleClearFilters = () => {
+    setChallanFrom(''); setChallanTo(''); setDateFrom(''); setDateTo(''); setSearchQuery(''); setFilterPrinted('all');
+    setAppliedFilters({ searchQuery: '', dateFrom: '', dateTo: '', challanFrom: '', challanTo: '', filterPrinted: 'all' });
+  };
+
+  // Filter bills using APPLIED filters only (not live input values)
+  const filteredBills = useMemo(() => {
+    const { searchQuery: sq, dateFrom: df, dateTo: dt, challanFrom: cf, challanTo: ct, filterPrinted: fp } = appliedFilters;
+    return kaatBills.filter(bill => {
+      if (sq) {
+        const query = sq.toLowerCase();
+        const matchesChallan = bill.challan_no?.toLowerCase().includes(query);
+        const matchesTransport = bill.transport_name?.toLowerCase().includes(query);
+        const matchesGst = bill.transport_gst?.toLowerCase().includes(query);
+        if (!matchesChallan && !matchesTransport && !matchesGst) return false;
       }
-      if (challanTo) {
-        const toNum = parseInt(challanTo.replace(/\D/g, '') || '0', 10);
-        if (challanNum > toNum) return false;
+      if (cf || ct) {
+        const challanNum = parseInt(bill.challan_no?.replace(/\D/g, '') || '0', 10);
+        if (cf) { const fromNum = parseInt(cf.replace(/\D/g, '') || '0', 10); if (challanNum < fromNum) return false; }
+        if (ct) { const toNum = parseInt(ct.replace(/\D/g, '') || '0', 10); if (challanNum > toNum) return false; }
       }
-    }
-    if (dateFrom) {
-      const bd = new Date(bill.created_at);
-      if (bd < new Date(dateFrom)) return false;
-    }
-    if (dateTo) {
-      const bd = new Date(bill.created_at);
-      const td = new Date(dateTo);
-      td.setHours(23, 59, 59, 999);
-      if (bd > td) return false;
-    }
-    if (filterPrinted === 'printed' && !bill.printed_yet) return false;
-    if (filterPrinted === 'not_printed' && bill.printed_yet) return false;
-    return true;
-  });
+      // Filter by challan dispatch_date instead of bill created_at
+      if (df || dt) {
+        const challanDetail = billChallanDetails[bill.challan_no];
+        const dispatchDate = challanDetail?.dispatch_date || challanDetail?.date;
+        if (!dispatchDate) return false;
+        const dd = new Date(dispatchDate);
+        if (df && dd < new Date(df)) return false;
+        if (dt) { const td = new Date(dt); td.setHours(23, 59, 59, 999); if (dd > td) return false; }
+      }
+      if (fp === 'printed' && !bill.printed_yet) return false;
+      if (fp === 'not_printed' && bill.printed_yet) return false;
+      return true;
+    });
+  }, [kaatBills, appliedFilters, billChallanDetails]);
+
+  // Group filtered bills by challan number, sorted numerically
+  const groupedBillsByChallan = useMemo(() => {
+    const groups = {};
+    filteredBills.forEach(bill => {
+      const challan = bill.challan_no || 'Unknown';
+      if (!groups[challan]) groups[challan] = [];
+      groups[challan].push(bill);
+    });
+    // Sort challan numbers numerically
+    return Object.entries(groups).sort(([a], [b]) => {
+      const numA = parseInt(a.replace(/\D/g, '') || '0', 10);
+      const numB = parseInt(b.replace(/\D/g, '') || '0', 10);
+      return numA - numB;
+    });
+  }, [filteredBills]);
 
   const handleToggleBill = (bill) => {
     setSelectedBills(prev => {
@@ -971,59 +1016,102 @@ export default function TransitBillPage() {
 
             {!error && (
               <>
-                {/* Filters */}
-                <div className="bg-white rounded-xl shadow-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Search</label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search challan, transport, GST..." className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-                      </div>
+                {/* Filters — applied only when Search button is clicked */}
+                <div className="bg-white rounded-xl shadow-lg p-5">
+                  <div className="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Challan From</label>
+                      <input
+                        type="text"
+                        value={challanFrom}
+                        onChange={(e) => setChallanFrom(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplySearch()}
+                        placeholder="e.g. 020"
+                        className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-indigo-50/50 font-mono text-sm"
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Challan From</label>
-                      <input type="text" value={challanFrom} onChange={(e) => setChallanFrom(e.target.value)} placeholder="e.g. 0152" className="w-full px-3 py-2.5 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-indigo-50" />
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Challan To</label>
+                      <input
+                        type="text"
+                        value={challanTo}
+                        onChange={(e) => setChallanTo(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplySearch()}
+                        placeholder="e.g. 030"
+                        className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-indigo-50/50 font-mono text-sm"
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Challan To</label>
-                      <input type="text" value={challanTo} onChange={(e) => setChallanTo(e.target.value)} placeholder="e.g. 0160" className="w-full px-3 py-2.5 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-indigo-50" />
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Dispatch From</label>
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="w-full px-2.5 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">From Date</label>
-                      <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Dispatch To</label>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="w-full px-2.5 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">To Date</label>
-                      <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+                      <select
+                        value={filterPrinted}
+                        onChange={(e) => setFilterPrinted(e.target.value)}
+                        className="w-full px-2.5 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      >
+                        <option value="all">All</option>
+                        <option value="not_printed">Not Printed</option>
+                        <option value="printed">Printed</option>
+                      </select>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Print Status</label>
-                        <select value={filterPrinted} onChange={(e) => setFilterPrinted(e.target.value)} className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                          <option value="all">All Bills</option>
-                          <option value="not_printed">Not Printed</option>
-                          <option value="printed">Already Printed</option>
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Search</label>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplySearch()}
+                        placeholder="Transport, GST..."
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleApplySearch}
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Search className="w-4 h-4" /> Search
+                      </button>
                       {(challanFrom || challanTo || dateFrom || dateTo || searchQuery || filterPrinted !== 'all') && (
-                        <button onClick={() => { setChallanFrom(''); setChallanTo(''); setDateFrom(''); setDateTo(''); setSearchQuery(''); setFilterPrinted('all'); }} className="mt-6 px-4 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium text-sm">
-                          Clear All Filters
+                        <button
+                          onClick={handleClearFilters}
+                          className="px-3 py-2 bg-red-100 text-red-600 rounded-lg font-semibold text-sm hover:bg-red-200 transition-colors"
+                          title="Clear all filters"
+                        >
+                          <X className="w-4 h-4" />
                         </button>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600 mt-6">
-                      {challanFrom && challanTo ? (
-                        <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-medium">Challan: {challanFrom} → {challanTo}</span>
-                      ) : challanFrom ? (
-                        <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-medium">From Challan: {challanFrom}</span>
-                      ) : challanTo ? (
-                        <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-medium">Up to Challan: {challanTo}</span>
-                      ) : null}
-                    </div>
                   </div>
+                  {/* Active filters summary */}
+                  {(appliedFilters.challanFrom || appliedFilters.challanTo || appliedFilters.dateFrom || appliedFilters.dateTo || appliedFilters.searchQuery) && (
+                    <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
+                      <span className="text-gray-400 font-semibold">Active:</span>
+                      {appliedFilters.challanFrom && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">From: {appliedFilters.challanFrom}</span>}
+                      {appliedFilters.challanTo && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">To: {appliedFilters.challanTo}</span>}
+                      {appliedFilters.dateFrom && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">Dispatch from: {appliedFilters.dateFrom}</span>}
+                      {appliedFilters.dateTo && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">Dispatch to: {appliedFilters.dateTo}</span>}
+                      {appliedFilters.searchQuery && <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-semibold">&quot;{appliedFilters.searchQuery}&quot;</span>}
+                      <span className="text-gray-400">• {filteredBills.length} bills in {groupedBillsByChallan.length} challans</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bill Date for PDF */}
@@ -1051,9 +1139,11 @@ export default function TransitBillPage() {
                   </div>
                 </div>
 
-                {/* Bills Selector */}
+                {/* Bills Selector — grouped by challan */}
                 <KaatBillSelector
                   kaatBills={filteredBills}
+                  groupedBillsByChallan={groupedBillsByChallan}
+                  challanDetailsMap={billChallanDetails}
                   selectedBills={selectedBills}
                   onToggleBill={handleToggleBill}
                   onSelectAll={handleSelectAll}

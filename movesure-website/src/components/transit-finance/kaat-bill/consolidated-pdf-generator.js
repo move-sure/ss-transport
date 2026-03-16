@@ -190,7 +190,9 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     const citiesMap = {};
     (citiesData || []).forEach(c => { citiesMap[c.id] = c.city_name; });
 
-    const doc = new jsPDF('portrait', 'mm', 'a4');
+    const orientation = settings.orientation || 'portrait';
+    const isLandscape = orientation === 'landscape';
+    const doc = new jsPDF(orientation, 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = PDF_CONFIG.margins.left;
@@ -308,9 +310,22 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
           station?.payment_status
         );
         
+        // Format pohonch/bilty number from bilty_wise_kaat
+        const pohonchNo = kaat?.pohonch_no || '';
+        const biltyNo = kaat?.bilty_number || '';
+        let pohonchBilty = '-';
+        if (pohonchNo && biltyNo) {
+          pohonchBilty = `${pohonchNo}/${biltyNo}`;
+        } else if (pohonchNo) {
+          pohonchBilty = pohonchNo;
+        } else if (biltyNo) {
+          pohonchBilty = biltyNo;
+        }
+        
         const row = [
           (index + 1).toString(),
           item.gr_no || 'N/A',
+          pohonchBilty.substring(0, 16),
           bilty?.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM') : 
             station?.created_at ? format(new Date(station.created_at), 'dd/MM') : '-',
           (bilty?.consignor_name || station?.consignor || 'N/A').substring(0, 12),
@@ -337,29 +352,53 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       grandTotalDD += billTotalDD;
       grandTotalProfit += (billTotalAmount - billTotalKaat - billTotalDD);
       
-      // Table headers - with Dest and DD columns
-      const headers = ['#', 'GR No.', 'Date', 'Consignor', 'Consignee', 'Station', 'Pay', 'Pkg', 'Wt', 'Amt', 'DD', 'Kaat', 'PF'];
+      // Table headers - with P/B No., Dest and DD columns
+      const headers = ['#', 'GR No.', 'P/B No.', 'Date', 'Consignor', 'Consignee', 'Station', 'Pay', 'Pkg', 'Wt', 'Amt', 'DD', 'Kaat', 'PF'];
       if (showRemarkColumn) headers.push('Remark');
       
-      // Column styles — adjust widths when remark col is present to fit A4
+      // Column styles — adjust widths for portrait/landscape and remark
       const hasRemark = showRemarkColumn;
-      const columnStyles = {
-        0: { halign: 'center', cellWidth: 6 },
-        1: { halign: 'center', cellWidth: hasRemark ? 13 : 15 },
-        2: { halign: 'center', cellWidth: hasRemark ? 10 : 11 },
-        3: { cellWidth: 'auto' },
-        4: { cellWidth: 'auto' },
-        5: { cellWidth: 'auto' },
-        6: { halign: 'center', cellWidth: hasRemark ? 10 : 12 },
-        7: { halign: 'center', cellWidth: 8 },
-        8: { halign: 'right', cellWidth: hasRemark ? 9 : 10 },
-        9: { halign: 'right', cellWidth: hasRemark ? 10 : 12 },
-        10: { halign: 'right', cellWidth: hasRemark ? 8 : 10 },
-        11: { halign: 'right', cellWidth: hasRemark ? 10 : 12 },
-        12: { halign: 'right', cellWidth: hasRemark ? 10 : 12, fontStyle: 'bold' }
-      };
-      if (hasRemark) {
-        columnStyles[13] = { cellWidth: 18, halign: 'left' };
+      let columnStyles;
+      if (isLandscape) {
+        columnStyles = {
+          0:  { halign: 'center', cellWidth: 7 },
+          1:  { halign: 'center', cellWidth: hasRemark ? 16 : 18 },
+          2:  { halign: 'center', cellWidth: hasRemark ? 18 : 22 },
+          3:  { halign: 'center', cellWidth: hasRemark ? 12 : 14 },
+          4:  { cellWidth: 'auto' },
+          5:  { cellWidth: 'auto' },
+          6:  { cellWidth: 'auto' },
+          7:  { halign: 'center', cellWidth: hasRemark ? 13 : 15 },
+          8:  { halign: 'center', cellWidth: hasRemark ? 9 : 10 },
+          9:  { halign: 'right', cellWidth: hasRemark ? 11 : 13 },
+          10: { halign: 'right', cellWidth: hasRemark ? 13 : 15 },
+          11: { halign: 'right', cellWidth: hasRemark ? 10 : 12 },
+          12: { halign: 'right', cellWidth: hasRemark ? 13 : 15 },
+          13: { halign: 'right', cellWidth: hasRemark ? 13 : 15, fontStyle: 'bold' }
+        };
+        if (hasRemark) {
+          columnStyles[14] = { cellWidth: 22, halign: 'left' };
+        }
+      } else {
+        columnStyles = {
+          0:  { halign: 'center', cellWidth: 6 },
+          1:  { halign: 'center', cellWidth: hasRemark ? 12 : 14 },
+          2:  { halign: 'center', cellWidth: hasRemark ? 12 : 14 },
+          3:  { halign: 'center', cellWidth: hasRemark ? 9 : 10 },
+          4:  { cellWidth: 'auto' },
+          5:  { cellWidth: 'auto' },
+          6:  { cellWidth: 'auto' },
+          7:  { halign: 'center', cellWidth: hasRemark ? 9 : 11 },
+          8:  { halign: 'center', cellWidth: 7 },
+          9:  { halign: 'right', cellWidth: hasRemark ? 8 : 9 },
+          10: { halign: 'right', cellWidth: hasRemark ? 9 : 11 },
+          11: { halign: 'right', cellWidth: hasRemark ? 7 : 9 },
+          12: { halign: 'right', cellWidth: hasRemark ? 9 : 11 },
+          13: { halign: 'right', cellWidth: hasRemark ? 9 : 11, fontStyle: 'bold' }
+        };
+        if (hasRemark) {
+          columnStyles[14] = { cellWidth: 16, halign: 'left' };
+        }
       }
       
       // Generate table
@@ -402,16 +441,19 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       doc.setTextColor(...PDF_CONFIG.colors.darkGray);
       
       const subtotalY = yPosition + 5.5;
+      const sp = isLandscape
+        ? { pkg: margin + 70, wt: margin + 100, amt: margin + 135, dd: margin + 170, kaat: margin + 205 }
+        : { pkg: margin + 50, wt: margin + 70, amt: margin + 92, dd: margin + 115, kaat: margin + 140 };
       doc.text(`Challan ${kaatBill.challan_no} Total:`, margin + 3, subtotalY);
-      doc.text(`Pkg: ${Math.round(billTotalPackages)}`, margin + 50, subtotalY);
-      doc.text(`Wt: ${billTotalWeight.toFixed(1)}`, margin + 70, subtotalY);
-      doc.text(`Amt: ${billTotalAmount.toFixed(0)}`, margin + 92, subtotalY);
+      doc.text(`Pkg: ${Math.round(billTotalPackages)}`, sp.pkg, subtotalY);
+      doc.text(`Wt: ${billTotalWeight.toFixed(1)}`, sp.wt, subtotalY);
+      doc.text(`Amt: ${billTotalAmount.toFixed(0)}`, sp.amt, subtotalY);
       if (billTotalDD > 0) {
         doc.setTextColor(220, 50, 50);
-        doc.text(`DD: -${billTotalDD.toFixed(0)}`, margin + 115, subtotalY);
+        doc.text(`DD: -${billTotalDD.toFixed(0)}`, sp.dd, subtotalY);
         doc.setTextColor(...PDF_CONFIG.colors.darkGray);
       }
-      doc.text(`Kaat: ${billTotalKaat.toFixed(0)}`, margin + 140, subtotalY);
+      doc.text(`Kaat: ${billTotalKaat.toFixed(0)}`, sp.kaat, subtotalY);
       doc.setTextColor(...PDF_CONFIG.colors.primary);
       doc.text(`PF: ${(billTotalAmount - billTotalKaat - billTotalDD).toFixed(0)}`, pageWidth - margin - 3, subtotalY, { align: 'right' });
       
@@ -441,8 +483,8 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     
     // Grand total details - Row 1
     const col1X = margin + 5;
-    const col2X = margin + 55;
-    const col3X = margin + 105;
+    const col2X = margin + (isLandscape ? 80 : 55);
+    const col3X = margin + (isLandscape ? 160 : 105);
     const col4X = pageWidth - margin - 5;
     
     doc.text(`Challans: ${sortedBills.length}`, col1X, yPosition + 15);

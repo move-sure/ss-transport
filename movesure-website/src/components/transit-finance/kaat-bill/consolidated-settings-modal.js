@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Settings, FileText, Building2, Calendar, Truck, ArrowDownAZ } from 'lucide-react';
+import { X, Settings, FileText, Building2, Calendar, Truck, ArrowDownAZ, Maximize2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ConsolidatedSettingsModal({ 
@@ -19,6 +19,7 @@ export default function ConsolidatedSettingsModal({
   const [showPerBillTransport, setShowPerBillTransport] = useState(false);
   const [sortOrder, setSortOrder] = useState('challan'); // 'challan' or 'city'
   const [showRemarkColumn, setShowRemarkColumn] = useState(false);
+  const [orientation, setOrientation] = useState('portrait');
 
   useEffect(() => {
     if (isOpen && firstBill) {
@@ -45,7 +46,8 @@ export default function ConsolidatedSettingsModal({
       toDate: toDate || null,
       showPerBillTransport,
       sortOrder,
-      showRemarkColumn
+      showRemarkColumn,
+      orientation
     });
   };
 
@@ -265,6 +267,41 @@ export default function ConsolidatedSettingsModal({
             </label>
           </div>
 
+          {/* ══════ Page Orientation ══════ */}
+          <div>
+            <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <Maximize2 className="w-4 h-4 text-indigo-600" />
+              Page Orientation
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setOrientation('portrait')}
+                className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors text-center ${
+                  orientation === 'portrait'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Portrait (A4)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrientation('landscape')}
+                className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors text-center ${
+                  orientation === 'landscape'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Landscape (Wide)
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {orientation === 'landscape' ? 'Wider layout — more room for columns' : 'Standard vertical A4 layout'}
+            </p>
+          </div>
+
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <div className="flex items-start gap-2">
@@ -273,9 +310,11 @@ export default function ConsolidatedSettingsModal({
                 <p className="font-medium mb-1">PDF will include:</p>
                 <ul className="list-disc list-inside space-y-0.5 text-blue-700">
                   <li>Company header with GST &amp; Customer Care</li>
+                  <li>Pohonch/Bilty No. column from kaat data</li>
                   <li>Bills sorted {sortOrder === 'city' ? 'alphabetically by city name' : 'by challan number (ascending)'}</li>
                   {showPerBillTransport && <li className="font-semibold">Transport Name &amp; GST on each challan header</li>}
                   {showRemarkColumn && <li className="font-semibold">Remark column for handwritten notes</li>}
+                  {orientation === 'landscape' && <li className="font-semibold">Landscape (wider) page layout</li>}
                   <li>Dispatch dates for each challan</li>
                   <li>Grand total summary at the end</li>
                 </ul>

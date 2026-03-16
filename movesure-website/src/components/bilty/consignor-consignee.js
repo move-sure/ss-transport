@@ -1009,7 +1009,7 @@ const ConsignorConsigneeSection = ({
       <div className="grid grid-cols-12 gap-2 items-center">
         {/* Consignor Label + Status Badge */}
         <div className="col-span-1">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
+          <span className="bg-violet-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
             CONSIGNOR
           </span>
           {newConsignorSaved && (
@@ -1068,7 +1068,7 @@ const ConsignorConsigneeSection = ({
               className={`w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border rounded-lg shadow-sm placeholder-slate-400 focus:ring-0 transition-colors duration-200 uppercase ${
                 newConsignorSaved
                   ? 'border-emerald-400 bg-emerald-50'
-                  : 'border-slate-300 bg-white focus:border-indigo-400 hover:border-indigo-300'
+                  : 'border-slate-300 bg-white focus:border-violet-400 hover:border-violet-300'
               }`}
               tabIndex={5}
               aria-expanded={showConsignorDropdown ? 'true' : 'false'}
@@ -1077,11 +1077,11 @@ const ConsignorConsigneeSection = ({
             />
             {isSearching && (
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             )}
             {!isSearching && consignorSearch && (
-              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-500" />
+              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-violet-500" />
             )}
           </div>
             {showConsignorDropdown && (
@@ -1103,7 +1103,7 @@ const ConsignorConsigneeSection = ({
                   
                   {/* Search Results Header */}
                   {searchResults.consignors && searchResults.consignors.length > 0 && (
-                    <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
+                    <div className="p-3 bg-violet-500 text-white text-xs font-semibold rounded-t-lg">
                       EXISTING CONSIGNORS ({searchResults.consignors.filter(c => 
                         c.company_name.toLowerCase().startsWith(consignorSearch.toLowerCase())
                       ).length})
@@ -1123,14 +1123,14 @@ const ConsignorConsigneeSection = ({
                         onClick={() => handleConsignorSelect(consignor)}
                         className={`w-full px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 ${
                           index === consignorSelectedIndex 
-                            ? 'bg-indigo-200 border-l-4 border-l-indigo-700 font-bold shadow-sm' 
-                            : 'hover:bg-indigo-200 hover:border-l-4 hover:border-l-indigo-700 hover:shadow-sm'
+                            ? 'bg-violet-200 border-l-4 border-l-violet-700 font-bold shadow-sm' 
+                            : 'hover:bg-violet-200 hover:border-l-4 hover:border-l-violet-700 hover:shadow-sm'
                         }`}
                       >
-                        <div className={`${index === consignorSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium hover:text-indigo-900 hover:font-bold'}`}>
+                        <div className={`${index === consignorSelectedIndex ? 'text-violet-900 font-bold' : 'text-black font-medium hover:text-violet-900 hover:font-bold'}`}>
                           {consignor.company_name}
                         </div>
-                        <div className={`text-xs ${index === consignorSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600 hover:text-indigo-800 hover:font-semibold'}`}>
+                        <div className={`text-xs ${index === consignorSelectedIndex ? 'text-violet-800 font-semibold' : 'text-gray-600 hover:text-violet-800 hover:font-semibold'}`}>
                           {consignor.gst_num && `GST: ${consignor.gst_num}`}
                           {consignor.number && ` | Ph: ${consignor.number}`}
                         </div>
@@ -1151,7 +1151,7 @@ const ConsignorConsigneeSection = ({
         
         {/* Consignor GST */}
         <div className="col-span-3 flex items-center gap-1">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+          <span className="bg-violet-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
             GST
           </span>
           <input
@@ -1169,7 +1169,7 @@ const ConsignorConsigneeSection = ({
                 handleEnter(e, 6);
               }
             }}
-            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-violet-400 focus:ring-0 transition-colors duration-200 hover:border-violet-300"
             placeholder="GST..."
             tabIndex={6}
           />
@@ -1177,7 +1177,7 @@ const ConsignorConsigneeSection = ({
         
         {/* Consignor Phone */}
         <div className="col-span-3 flex items-center gap-1">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+          <span className="bg-violet-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
             PHONE
           </span>
           <input
@@ -1191,7 +1191,7 @@ const ConsignorConsigneeSection = ({
                 handleEnter(e, 7);
               }
             }}
-            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-violet-400 focus:ring-0 transition-colors duration-200 hover:border-violet-300"
             placeholder="Phone..."
             tabIndex={7}
           />
@@ -1202,7 +1202,7 @@ const ConsignorConsigneeSection = ({
       <div className="grid grid-cols-12 gap-2 items-center">
         {/* Consignee Label + Status Badge */}
         <div className="col-span-1">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
+          <span className="bg-violet-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm block">
             CONSIGNEE
           </span>
           {newConsigneeSaved && (
@@ -1250,7 +1250,7 @@ const ConsignorConsigneeSection = ({
               className={`w-full px-2 py-1.5 pr-8 text-sm text-slate-900 font-semibold border rounded-lg shadow-sm placeholder-slate-400 focus:ring-0 transition-colors duration-200 uppercase ${
                 newConsigneeSaved
                   ? 'border-emerald-400 bg-emerald-50'
-                  : 'border-slate-300 bg-white focus:border-indigo-400 hover:border-indigo-300'
+                  : 'border-slate-300 bg-white focus:border-violet-400 hover:border-violet-300'
               }`}
               tabIndex={8}
               aria-expanded={showConsigneeDropdown}
@@ -1259,11 +1259,11 @@ const ConsignorConsigneeSection = ({
             />
             {isSearching && (
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             )}
             {!isSearching && consigneeSearch && (
-              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-600" />
+              <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-violet-600" />
             )}
           </div>
               {showConsigneeDropdown && (
@@ -1285,7 +1285,7 @@ const ConsignorConsigneeSection = ({
                 
                 {/* Search Results Header */}
                 {searchResults.consignees && searchResults.consignees.length > 0 && (
-                  <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
+                  <div className="p-3 bg-violet-500 text-white text-xs font-semibold rounded-t-lg">
                     EXISTING CONSIGNEES ({searchResults.consignees.filter(c => 
                       c.company_name.toLowerCase().startsWith(consigneeSearch.toLowerCase())
                     ).length})
@@ -1305,14 +1305,14 @@ const ConsignorConsigneeSection = ({
                       onClick={() => handleConsigneeSelect(consignee)}
                       className={`w-full px-4 py-3 text-left text-sm transition-colors border-b border-slate-100 ${
                         index === consigneeSelectedIndex 
-                          ? 'bg-indigo-200 border-l-4 border-l-indigo-700 font-bold shadow-sm' 
-                          : 'hover:bg-indigo-200 hover:border-l-4 hover:border-l-indigo-700 hover:shadow-sm'
+                          ? 'bg-violet-200 border-l-4 border-l-violet-700 font-bold shadow-sm' 
+                          : 'hover:bg-violet-200 hover:border-l-4 hover:border-l-violet-700 hover:shadow-sm'
                       }`}
                     >
-                      <div className={`${index === consigneeSelectedIndex ? 'text-indigo-900 font-bold' : 'text-black font-medium hover:text-indigo-900 hover:font-bold'}`}>
+                      <div className={`${index === consigneeSelectedIndex ? 'text-violet-900 font-bold' : 'text-black font-medium hover:text-violet-900 hover:font-bold'}`}>
                         {consignee.company_name}
                       </div>
-                      <div className={`text-xs ${index === consigneeSelectedIndex ? 'text-indigo-800 font-semibold' : 'text-gray-600 hover:text-indigo-800 hover:font-semibold'}`}>
+                      <div className={`text-xs ${index === consigneeSelectedIndex ? 'text-violet-800 font-semibold' : 'text-gray-600 hover:text-violet-800 hover:font-semibold'}`}>
                         {consignee.gst_num && `GST: ${consignee.gst_num}`}
                         {consignee.number && ` | Ph: ${consignee.number}`}
                       </div>
@@ -1333,7 +1333,7 @@ const ConsignorConsigneeSection = ({
         
         {/* Consignee GST */}
         <div className="col-span-3 flex items-center gap-1">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+          <span className="bg-violet-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
             GST
           </span>
           <input
@@ -1351,7 +1351,7 @@ const ConsignorConsigneeSection = ({
                 handleEnter(e, 9);
               }
             }}
-            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-violet-400 focus:ring-0 transition-colors duration-200 hover:border-violet-300"
             placeholder="GST..."
             tabIndex={9}
           />
@@ -1359,7 +1359,7 @@ const ConsignorConsigneeSection = ({
         
         {/* Consignee Phone */}
         <div className="col-span-3 flex items-center gap-1">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
+          <span className="bg-violet-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap text-center shadow-sm min-w-[55px]">
             PHONE
           </span>
           <input
@@ -1373,7 +1373,7 @@ const ConsignorConsigneeSection = ({
                 handleEnter(e, 10);
               }
             }}
-            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+            className="flex-1 px-2 py-1.5 text-sm text-slate-900 font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-violet-400 focus:ring-0 transition-colors duration-200 hover:border-violet-300"
             placeholder="Phone..."
             tabIndex={10}
           />

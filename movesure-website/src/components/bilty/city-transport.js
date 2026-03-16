@@ -338,7 +338,7 @@ const CityTransportSection = ({
         {/* To City */}
         <div className="col-span-3">
           <div className="flex items-center gap-2">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[65px] text-center shadow-sm">
+            <span className="bg-teal-600 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[65px] text-center shadow-sm">
               TO CITY
             </span>
             <div className="relative flex-1" ref={cityRef}>
@@ -349,14 +349,14 @@ const CityTransportSection = ({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 placeholder="🔍 City..."
-                className="w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+                className="w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-teal-400 focus:ring-0 transition-colors duration-200 hover:border-teal-300"
                 tabIndex={1}
                 aria-expanded={showCityDropdown}
                 role="combobox"
               />
               {showCityDropdown && (
                 <div className="absolute z-30 mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                  <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg">
+                  <div className="p-3 bg-teal-600 text-white text-xs font-semibold rounded-t-lg">
                     CITY WISE AUTO FILL DETAILS HERE
                   </div>
                   {filteredCities.length > 0 ? (
@@ -364,8 +364,8 @@ const CityTransportSection = ({
                       <button
                         key={city.id}
                         onClick={() => handleCitySelect(city)}
-                        className={`w-full px-4 py-3 text-left hover:bg-indigo-50 text-xs border-b border-slate-100 transition-colors ${
-                          index === selectedIndex ? 'bg-indigo-100' : ''
+                        className={`w-full px-4 py-3 text-left hover:bg-teal-50 text-xs border-b border-slate-100 transition-colors ${
+                          index === selectedIndex ? 'bg-teal-100' : ''
                         }`}
                       >
                         <div className="font-semibold text-slate-800">{city.city_name}</div>
@@ -387,7 +387,7 @@ const CityTransportSection = ({
         <div className="col-span-4">
           <div className="flex items-center gap-1">
             <span className={`px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[40px] text-center shadow-sm ${
-              availableTransports.length > 1 ? 'bg-amber-500 text-white animate-pulse' : 'bg-indigo-500 text-white'
+              availableTransports.length > 1 ? 'bg-amber-500 text-white animate-pulse' : 'bg-teal-600 text-white'
             }`}>
               TRP{availableTransports.length > 1 ? ` (${availableTransports.length})` : ''}
             </span>
@@ -436,7 +436,7 @@ const CityTransportSection = ({
                   className={`flex-1 w-full px-2 py-1.5 text-slate-900 text-sm font-semibold border rounded-lg bg-white shadow-sm focus:ring-0 transition-colors duration-200 ${
                     availableTransports.length > 1 && !formData.transport_name
                       ? 'border-amber-400 focus:border-amber-500 hover:border-amber-400 bg-amber-50'
-                      : 'border-slate-300 focus:border-indigo-400 hover:border-indigo-300'
+                      : 'border-slate-300 focus:border-teal-400 hover:border-teal-300'
                   }`}
                   placeholder={availableTransports.length > 1 ? `Click ▼ to change transport` : 'Transport name'}
                   tabIndex={2}
@@ -499,7 +499,7 @@ const CityTransportSection = ({
         {/* Transport GST */}
         <div className="col-span-3">
           <div className="flex items-center gap-1">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[45px] text-center shadow-sm">
+            <span className="bg-teal-600 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[45px] text-center shadow-sm">
               GST
             </span>
             <input
@@ -513,7 +513,7 @@ const CityTransportSection = ({
                   handleEnter(e, 3);
                 }
               }}
-              className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+              className="flex-1 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-teal-400 focus:ring-0 transition-colors duration-200 hover:border-teal-300"
               placeholder="GST"
               tabIndex={3}
             />
@@ -523,7 +523,7 @@ const CityTransportSection = ({
         {/* Transport Phone */}
         <div className="col-span-2">
           <div className="flex items-center gap-1">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[32px] flex items-center justify-center shadow-sm">
+            <span className="bg-teal-600 text-white px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[32px] flex items-center justify-center shadow-sm">
               <Phone className="w-3.5 h-3.5" />
             </span>
             <input
@@ -538,7 +538,7 @@ const CityTransportSection = ({
                 }
               }}
               maxLength={10}
-              className="w-40 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+              className="w-40 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-teal-400 focus:ring-0 transition-colors duration-200 hover:border-teal-300"
               placeholder="Phone"
               tabIndex={4}
             />

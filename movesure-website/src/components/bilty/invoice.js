@@ -331,7 +331,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             value={localInputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            className="ewb-input flex-1 px-2 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm"
+            className="ewb-input flex-1 px-2 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 text-input-focus transition-all duration-200 text-sm"
             placeholder="🚛 E-way bill (e.g., 4521-1235-5451)"
             tabIndex={17}
             maxLength={14}
@@ -341,7 +341,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
           {localInputValue.trim() && localInputValue.replace(/\D/g, '').length === 12 && (
             <button
               onClick={handleAddClick}
-              className="px-2 py-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md text-sm font-semibold"
+              className="px-2 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 shadow-md text-sm font-semibold"
               title="Add E-way bill"
               type="button"
             >
@@ -353,7 +353,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
         {/* EWB List - Compact Grid Layout */}
         {ewbList.length > 0 && (
           <div className="mt-1.5">
-            <div className="text-[10px] font-semibold text-indigo-700 mb-1">
+            <div className="text-[10px] font-semibold text-amber-700 mb-1">
               Added ({ewbList.length})
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
@@ -387,7 +387,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
         {/* Row 1 - Main Options */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[80px]">
+            <span className="bg-amber-600 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[80px]">
               DELIVERY
             </span>
             <select
@@ -406,7 +406,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
                   }
                 }, 100);
               }}
-              className="flex-1 px-2 lg:px-3 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm"
+              className="flex-1 px-2 lg:px-3 py-1.5 text-black font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 bilty-input-focus transition-all duration-200 text-sm"
               tabIndex={11}
             >
               <option value="godown-delivery">Godown</option>
@@ -457,14 +457,14 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
 
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
+            <span className="bg-amber-600 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
               PAYMENT
             </span>
             <select
               ref={paymentModeRef}
               value={formData.payment_mode}
               onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-              className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 bilty-input-focus transition-all duration-200"
+              className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 bilty-input-focus transition-all duration-200"
               tabIndex={12}
             >
               <option value="to-pay">To Pay</option>
@@ -516,7 +516,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
 
         {/* Simple Content Field */}
         <div className="flex items-center gap-2 lg:col-span-1">
-          <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
+          <span className="bg-amber-600 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             CONTENT
           </span>
           <input
@@ -525,7 +525,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             value={formData.contain || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, contain: e.target.value.toUpperCase() }))}
             placeholder="📦 Goods description..."
-            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
+            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 text-input-focus transition-all duration-200"
             tabIndex={13}
             style={{ textTransform: 'uppercase' }}
           />
@@ -533,7 +533,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
 
         {/* Row 2 - Invoice Details with Date */}
         <div className="flex items-center gap-2">
-          <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
+          <span className="bg-amber-600 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             INV NO
           </span>
           <input
@@ -541,14 +541,14 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             ref={invoiceNoRef}
             value={formData.invoice_no || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value.toUpperCase() }))}
-            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
+            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 text-input-focus transition-all duration-200"
             placeholder="📄 Invoice number"
             tabIndex={14}
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="bg-indigo-500 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
+          <span className="bg-amber-600 text-white px-2 lg:px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[70px] lg:min-w-[75px]">
             INV VAL
           </span>
           <input
@@ -561,14 +561,14 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
               setFormData(prev => ({ ...prev, invoice_value: value ? parseFloat(value) : 0 }));
             }}
             onFocus={(e) => e.target.select()}
-            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 number-input-focus transition-all duration-200"
+            className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 number-input-focus transition-all duration-200"
             placeholder="0"
             tabIndex={15}
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[65px]">
+          <span className="bg-amber-600 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[65px]">
             INV DATE
           </span>
           <div className="flex items-center gap-2 flex-1">
@@ -668,7 +668,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
                 "📅 Date"
               }
               maxLength={10}
-              className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-indigo-300 focus:border-indigo-400 focus:ring-0 text-input-focus transition-all duration-200"
+              className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 text-input-focus transition-all duration-200"
               tabIndex={16}
             />
             
@@ -693,7 +693,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
               />
               <button
                 type="button"
-                className="flex items-center justify-center w-9 h-9 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-all duration-200 shadow-md border border-slate-300 hover:border-indigo-300 focus:border-indigo-400 focus:ring-0"
+                className="flex items-center justify-center w-9 h-9 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 shadow-md border border-slate-300 hover:border-amber-300 focus:border-amber-400 focus:ring-0"
                 title="Open calendar picker"
                 tabIndex="-1"
               >
@@ -708,7 +708,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
         {/* Row 3 - E-WAY Bill (Full Width) */}
         <div className="lg:col-span-3">
           <div className="flex items-start gap-2">
-            <span className="bg-indigo-500 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[50px]">
+            <span className="bg-amber-600 text-white px-2 py-1.5 text-xs font-semibold rounded-lg text-center shadow-lg whitespace-nowrap min-w-[50px]">
               EWB
             </span>
             <div className="flex-1">

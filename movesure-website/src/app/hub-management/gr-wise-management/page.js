@@ -10,8 +10,10 @@ import {
   Search, AlertCircle, RefreshCw, Hash, MapPin, User, Package, Calendar,
   CheckCircle2, Clock, Truck, Phone, Edit3, Save, X, Loader2, ArrowLeft,
   CircleDot, Box, Building2, Navigation, CheckCircle, ClipboardList,
-  Tag, FileText, IndianRupee,
+  Tag, FileText, IndianRupee, Plus,
 } from 'lucide-react';
+import AddTransportModal from '../../../components/hub-management/AddTransportModal';
+import { getHubRateForTransport } from '../../../components/hub-management/HubHelpers';
 
 export default function GRWiseManagementPage() {
   const { user } = useAuth();
@@ -46,18 +48,57 @@ export default function GRWiseManagementPage() {
   const [kaatForm, setKaatForm] = useState({});
   const [savingKaat, setSavingKaat] = useState(false);
 
-  // Fetch branches & cities on mount
+  // Transport selection
+  const [transports, setTransports] = useState([]);
+  const [transportsByCity, setTransportsByCity] = useState({});
+  const [savingTransport, setSavingTransport] = useState(false);
+
+  // Hub rates
+  const [hubRates, setHubRates] = useState([]);
+  const [hubRatesByTransport, setHubRatesByTransport] = useState({});
+
+  // Add Transport modal
+  const [showAddTransport, setShowAddTransport] = useState(false);
+  const [addTransportForm, setAddTransportForm] = useState({ transport_name: '', city_id: '', city_name: '', address: '', gst_number: '', mob_number: '', branch_owner_name: '', website: '' });
+  const [savingNewTransport, setSavingNewTransport] = useState(false);
+
+  // Fetch branches, cities, transports, hub rates on mount
   useEffect(() => {
     const fetchLookups = async () => {
       try {
-        const [brRes, ciRes] = await Promise.all([
+        const [brRes, ciRes, trRes, hrRes] = await Promise.all([
           supabase.from('branches').select('id, branch_name').eq('is_active', true),
           supabase.from('cities').select('id, city_name, city_code').order('city_name'),
+          supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number, gst_number').order('transport_name'),
+          supabase.from('transport_hub_rates').select('*').eq('is_active', true),
         ]);
         const bMap = {};
         (brRes.data || []).forEach(b => { bMap[b.id] = b.branch_name; });
         setBranches(bMap);
         setCities(ciRes.data || []);
+
+        const allTransports = trRes.data || [];
+        setTransports(allTransports);
+        const tByCityMap = {};
+        allTransports.forEach(t => {
+          if (t.city_id) {
+            if (!tByCityMap[t.city_id]) tByCityMap[t.city_id] = [];
+            tByCityMap[t.city_id].push(t);
+          }
+        });
+        setTransportsByCity(tByCityMap);
+
+        const allHubRates = hrRes.data || [];
+        setHubRates(allHubRates);
+        const hrMap = {};
+        allHubRates.forEach(hr => {
+          if (hr.transport_id) {
+            if (!hrMap[hr.transport_id]) hrMap[hr.transport_id] = {};
+            if (!hrMap[hr.transport_id][hr.destination_city_id]) hrMap[hr.transport_id][hr.destination_city_id] = [];
+            hrMap[hr.transport_id][hr.destination_city_id].push(hr);
+          }
+        });
+        setHubRatesByTransport(hrMap);
       } catch (err) {
         console.error('Error fetching lookups:', err);
       }
@@ -311,6 +352,7 @@ export default function GRWiseManagementPage() {
       ewb_chrg: k.ewb_chrg || 0,
       labour_chrg: k.labour_chrg || 0,
       other_chrg: k.other_chrg || 0,
+      transport_id: k.transport_id || '',
     });
     setEditingKaat(true);
   };
@@ -320,6 +362,7 @@ export default function GRWiseManagementPage() {
     if (!grData?.gr_no || !user?.id) return;
     setSavingKaat(true);
     try {
+      const hubRate = kaatForm.transport_id && grData.to_city_id ? getHubRateForTransport(hubRatesByTransport, kaatForm.transport_id, grData.to_city_id) : null;
       const payload = {
         gr_no: grData.gr_no,
         challan_no: grData.challan_no || null,
@@ -334,6 +377,11 @@ export default function GRWiseManagementPage() {
         ewb_chrg: parseFloat(kaatForm.ewb_chrg) || 0,
         labour_chrg: parseFloat(kaatForm.labour_chrg) || 0,
         other_chrg: parseFloat(kaatForm.other_chrg) || 0,
+        transport_id: kaatForm.transport_id || null,
+        transport_hub_rate_id: hubRate?.id || null,
+        rate_type: hubRate?.pricing_mode || null,
+        rate_per_kg: hubRate?.rate_per_kg || 0,
+        rate_per_pkg: hubRate?.rate_per_pkg || 0,
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       };
@@ -400,6 +448,91 @@ export default function GRWiseManagementPage() {
     if (!grData || grData.out_for_door_delivery) return;
     if (!confirm(`Mark GR ${grData.gr_no} as "Out for Door Delivery"?`)) return;
     updateTransitStatus('out_for_door_delivery', 'out_for_door_delivery_date');
+  };
+
+  // Delivered at Destination (auto-fills all previous steps)
+  const handleDeliveredAtDestination = async () => {
+    if (!grData || grData.is_delivered_at_destination || !user?.id || !grData?.id) return;
+    if (!confirm(`Mark GR ${grData.gr_no} as "Delivered at Destination"? This will also auto-fill previous steps.`)) return;
+    const key = `${grData.id}-is_delivered_at_destination`;
+    try {
+      setUpdatingTransit(p => ({ ...p, [key]: true }));
+      const now = new Date().toISOString();
+      const updateData = { is_delivered_at_destination: true, delivered_at_destination_date: now, updated_by: user.id };
+      if (!grData.is_out_of_delivery_from_branch1) { updateData.is_out_of_delivery_from_branch1 = true; updateData.out_of_delivery_from_branch1_date = now; }
+      if (!grData.is_delivered_at_branch2) { updateData.is_delivered_at_branch2 = true; updateData.delivered_at_branch2_date = now; }
+      if (!grData.is_out_of_delivery_from_branch2) { updateData.is_out_of_delivery_from_branch2 = true; updateData.out_of_delivery_from_branch2_date = now; }
+      const { error: e } = await supabase.from('transit_details').update(updateData).eq('id', grData.id);
+      if (e) throw e;
+      setGrData(p => ({ ...p, ...updateData }));
+    } catch (e) { console.error(e); alert('Failed to update.'); }
+    finally { setUpdatingTransit(p => ({ ...p, [key]: false })); }
+  };
+
+  // Transport change handler (same as challan page)
+  const handleTransportChange = async (transportId) => {
+    if (!user?.id || !grData?.gr_no || savingTransport) return;
+    try {
+      setSavingTransport(true);
+      const hubRate = transportId && grData.to_city_id ? getHubRateForTransport(hubRatesByTransport, transportId, grData.to_city_id) : null;
+      const payload = {
+        gr_no: grData.gr_no,
+        challan_no: grData.challan_no || null,
+        destination_city_id: grData.to_city_id || null,
+        transport_id: transportId || null,
+        transport_hub_rate_id: hubRate?.id || null,
+        rate_type: hubRate?.pricing_mode || null,
+        rate_per_kg: hubRate?.rate_per_kg || 0,
+        rate_per_pkg: hubRate?.rate_per_pkg || 0,
+        bilty_chrg: hubRate?.bilty_chrg || (kaatData?.bilty_chrg || 0),
+        ewb_chrg: hubRate?.ewb_chrg || (kaatData?.ewb_chrg || 0),
+        labour_chrg: hubRate?.labour_chrg || (kaatData?.labour_chrg || 0),
+        other_chrg: hubRate?.other_chrg || (kaatData?.other_chrg || 0),
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      };
+      if (!kaatData) payload.created_by = user.id;
+      const { data, error } = await supabase.from('bilty_wise_kaat').upsert(payload, { onConflict: 'gr_no' }).select().single();
+      if (error) throw error;
+      setKaatData(data);
+    } catch (e) { console.error('Transport save error:', e); alert('Failed to save transport.'); }
+    finally { setSavingTransport(false); }
+  };
+
+  // Add Transport modal
+  const openAddTransportModal = (cityId) => {
+    const city = cities.find(c => c.id === cityId);
+    setAddTransportForm({
+      transport_name: '', city_id: cityId || '', city_name: city?.city_name || '',
+      address: '', gst_number: '', mob_number: '', branch_owner_name: '', website: ''
+    });
+    setShowAddTransport(true);
+  };
+
+  const saveNewTransport = async () => {
+    if (!user?.id || !addTransportForm.transport_name?.trim() || !addTransportForm.city_name?.trim() || !addTransportForm.address?.trim()) {
+      alert('Transport name, city name, and address are required.'); return;
+    }
+    setSavingNewTransport(true);
+    try {
+      const payload = {
+        transport_name: addTransportForm.transport_name.trim(),
+        city_id: addTransportForm.city_id || null,
+        city_name: addTransportForm.city_name.trim(),
+        address: addTransportForm.address.trim(),
+        gst_number: addTransportForm.gst_number?.trim() || null,
+        mob_number: addTransportForm.mob_number?.trim() || null,
+        branch_owner_name: addTransportForm.branch_owner_name?.trim() || null,
+        website: addTransportForm.website?.trim() || null,
+      };
+      const { data, error } = await supabase.from('transports').insert(payload).select().single();
+      if (error) throw error;
+      setTransports(p => [...p, data]);
+      if (data.city_id) setTransportsByCity(p => ({ ...p, [data.city_id]: [...(p[data.city_id] || []), data] }));
+      setShowAddTransport(false);
+      alert('Transport added successfully!');
+    } catch (e) { console.error(e); alert('Failed to add transport.'); }
+    finally { setSavingNewTransport(false); }
   };
 
   return (
@@ -675,6 +808,93 @@ export default function GRWiseManagementPage() {
               </div>
             </div>
 
+            {/* Transport Selection (same as challan page) */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-teal-600" />
+                  Transport Assignment
+                </h3>
+                {kaatData?.transport_id && (() => {
+                  const t = transports.find(tr => tr.id === kaatData.transport_id);
+                  return t ? (
+                    <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-xs font-bold border border-teal-200">
+                      <CheckCircle className="h-3 w-3" /> {t.transport_name}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              {(() => {
+                const cityTransports = grData.to_city_id ? (transportsByCity[grData.to_city_id] || []) : [];
+                const selectedTransportId = kaatData?.transport_id || '';
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        {cityTransports.length > 0 ? (
+                          <div className="relative">
+                            <select
+                              value={selectedTransportId}
+                              onChange={(e) => handleTransportChange(e.target.value || null)}
+                              disabled={savingTransport}
+                              className={`w-full text-sm border-2 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold ${
+                                selectedTransportId
+                                  ? 'border-teal-300 bg-teal-50 text-teal-800 focus:ring-2 focus:ring-teal-300'
+                                  : 'border-gray-200 bg-white text-gray-700 focus:ring-2 focus:ring-indigo-300'
+                              } disabled:opacity-50 disabled:cursor-wait`}
+                            >
+                              <option value="">-- Select Transport --</option>
+                              {cityTransports.map(t => (
+                                <option key={t.id} value={t.id}>{t.transport_name}{t.mob_number ? ` (${t.mob_number})` : ''}</option>
+                              ))}
+                            </select>
+                            {savingTransport && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-indigo-500" />}
+                          </div>
+                        ) : grData.to_city_id ? (
+                          <div className="flex items-center gap-3 bg-amber-50 rounded-xl p-3 border border-amber-200">
+                            <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                            <p className="text-xs text-amber-700">No transports available for <b>{grData.destination}</b></p>
+                            <button onClick={() => openAddTransportModal(grData.to_city_id)}
+                              className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-bold hover:bg-teal-700">
+                              <Plus className="h-3 w-3" /> Add Transport
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">No destination city mapped to assign transport.</p>
+                        )}
+                      </div>
+                      {cityTransports.length > 0 && grData.to_city_id && (
+                        <button onClick={() => openAddTransportModal(grData.to_city_id)}
+                          className="inline-flex items-center gap-1 px-3 py-2.5 bg-teal-50 text-teal-700 rounded-xl text-xs font-bold border border-teal-200 hover:bg-teal-100 transition-colors flex-shrink-0">
+                          <Plus className="h-3 w-3" /> Add New
+                        </button>
+                      )}
+                    </div>
+                    {/* Show hub rate info if transport is assigned */}
+                    {selectedTransportId && grData.to_city_id && (() => {
+                      const hr = getHubRateForTransport(hubRatesByTransport, selectedTransportId, grData.to_city_id);
+                      if (!hr) return <p className="text-[10px] text-gray-400">No hub rate configured for this transport + city.</p>;
+                      return (
+                        <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                          <p className="text-[10px] text-emerald-700 font-bold uppercase mb-1">Hub Rate Applied</p>
+                          <div className="flex flex-wrap gap-3 text-[11px] text-black font-semibold">
+                            <span>Mode: <span className="text-emerald-700 font-bold">{hr.pricing_mode}</span></span>
+                            {hr.pricing_mode === 'per_kg' && <span>Rate/kg: <b className="text-emerald-800">₹{hr.rate_per_kg}</b></span>}
+                            {hr.pricing_mode === 'per_pkg' && <span>Rate/pkg: <b className="text-emerald-800">₹{hr.rate_per_pkg}</b></span>}
+                            {hr.min_charge > 0 && <span>Min: <b className="text-emerald-800">₹{hr.min_charge}</b></span>}
+                            {hr.bilty_chrg > 0 && <span>Bilty: <b>₹{hr.bilty_chrg}</b></span>}
+                            {hr.ewb_chrg > 0 && <span>EWB: <b>₹{hr.ewb_chrg}</b></span>}
+                            {hr.labour_chrg > 0 && <span>Labour: <b>₹{hr.labour_chrg}</b></span>}
+                            {hr.other_chrg > 0 && <span>Other: <b>₹{hr.other_chrg}</b></span>}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Summary Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <StatBox label="Packets" value={grData.packets || 0} color="blue" />
@@ -810,7 +1030,7 @@ export default function GRWiseManagementPage() {
                             done={grData.is_delivered_at_branch2}
                             loading={updatingTransit[`${grData.id}-is_delivered_at_branch2`]}
                             onClick={handleDeliveredAtBranch2}
-                            label="Delivered"
+                            label="Delivered at Branch"
                             doneLabel="✓ Delivered"
                             color="green"
                           />
@@ -824,16 +1044,42 @@ export default function GRWiseManagementPage() {
                               color="blue"
                             />
                           )}
+                          <ActionBtn
+                            done={grData.is_delivered_at_destination}
+                            loading={updatingTransit[`${grData.id}-is_delivered_at_destination`]}
+                            onClick={handleDeliveredAtDestination}
+                            label="Delivered at Destination"
+                            doneLabel="✓ Destination"
+                            color="purple"
+                          />
                         </>
                       ) : (
-                        <ActionBtn
-                          done={grData.is_out_of_delivery_from_branch2}
-                          loading={updatingTransit[`${grData.id}-is_out_of_delivery_from_branch2`]}
-                          onClick={handleOutFromBranch2}
-                          label="Out for Delivery"
-                          doneLabel="✓ Out"
-                          color="cyan"
-                        />
+                        <>
+                          <ActionBtn
+                            done={grData.is_delivered_at_branch2}
+                            loading={updatingTransit[`${grData.id}-is_delivered_at_branch2`]}
+                            onClick={handleDeliveredAtBranch2}
+                            label="Delivered at Branch"
+                            doneLabel="✓ At Branch"
+                            color="green"
+                          />
+                          <ActionBtn
+                            done={grData.is_out_of_delivery_from_branch2}
+                            loading={updatingTransit[`${grData.id}-is_out_of_delivery_from_branch2`]}
+                            onClick={handleOutFromBranch2}
+                            label="Out for Delivery"
+                            doneLabel="✓ Out"
+                            color="cyan"
+                          />
+                          <ActionBtn
+                            done={grData.is_delivered_at_destination}
+                            loading={updatingTransit[`${grData.id}-is_delivered_at_destination`]}
+                            onClick={handleDeliveredAtDestination}
+                            label="Delivered at Destination"
+                            doneLabel="✓ Destination"
+                            color="purple"
+                          />
+                        </>
                       )}
                     </div>
                   </div>
@@ -927,6 +1173,17 @@ export default function GRWiseManagementPage() {
         )}
       </div>
 
+      {/* ADD TRANSPORT MODAL */}
+      <AddTransportModal
+        show={showAddTransport}
+        onClose={() => setShowAddTransport(false)}
+        form={addTransportForm}
+        setForm={setAddTransportForm}
+        saving={savingNewTransport}
+        onSave={saveNewTransport}
+        cities={cities}
+      />
+
       {/* KAAT MODAL (same as challan detail page) */}
       {editingKaat && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditingKaat(false)}>
@@ -957,6 +1214,20 @@ export default function GRWiseManagementPage() {
                     type="text" big disabled={!!kaatForm.pohonch_no} />
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1">Only one can be filled at a time.</p>
+              </div>
+              {/* Transport in Kaat modal */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-bold text-gray-700 uppercase mb-2">Transport</p>
+                <select
+                  value={kaatForm.transport_id || ''}
+                  onChange={e => setKaatForm(p => ({ ...p, transport_id: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-black focus:ring-2 focus:ring-indigo-300 outline-none"
+                >
+                  <option value="">-- Select Transport --</option>
+                  {(grData?.to_city_id ? (transportsByCity[grData.to_city_id] || []) : transports).map(t => (
+                    <option key={t.id} value={t.id}>{t.transport_name}{t.mob_number ? ` (${t.mob_number})` : ''}</option>
+                  ))}
+                </select>
               </div>
               {/* Charges */}
               <div className="border-t border-gray-100 pt-3">

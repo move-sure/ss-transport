@@ -48,20 +48,10 @@ const AddTransportModal = React.memo(function AddTransportModal({
               <textarea value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-black focus:ring-2 focus:ring-teal-300 outline-none resize-none" rows={2} placeholder="Full address"/>
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-[11px] font-bold text-gray-600 mb-1 uppercase">GST Number</label>
               <input type="text" value={form.gst_number} onChange={e => setForm(p => ({...p, gst_number: e.target.value}))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-black focus:ring-2 focus:ring-teal-300 outline-none" placeholder="GSTIN"/>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-gray-600 mb-1 uppercase">Owner Name</label>
-              <input type="text" value={form.branch_owner_name} onChange={e => setForm(p => ({...p, branch_owner_name: e.target.value}))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-black focus:ring-2 focus:ring-teal-300 outline-none" placeholder="Branch owner name"/>
-            </div>
-            <div className="col-span-2">
-              <label className="block text-[11px] font-bold text-gray-600 mb-1 uppercase">Website</label>
-              <input type="text" value={form.website} onChange={e => setForm(p => ({...p, website: e.target.value}))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-black focus:ring-2 focus:ring-teal-300 outline-none" placeholder="https://..."/>
             </div>
           </div>
           <div className="border-t border-gray-100 pt-4 flex items-center justify-between">

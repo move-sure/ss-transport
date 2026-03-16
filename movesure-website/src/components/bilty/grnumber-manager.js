@@ -366,8 +366,8 @@ const GRNumberSection = ({
               onClick={toggleEditMode}
               className={`px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all shadow-sm ${
                 isEditMode 
-                  ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-500' 
-                  : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'
+                  ? 'bg-slate-700 text-white border-slate-700 hover:bg-slate-600' 
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
               }`}
             >
               <Edit3 className="w-3 h-3 inline mr-1" />
@@ -379,8 +379,8 @@ const GRNumberSection = ({
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <span className={`px-3 py-1.5 text-xs font-semibold rounded-lg min-w-20 text-center shadow-sm whitespace-nowrap ${
               isEditMode && currentEditingGR 
-                ? 'bg-indigo-600 text-white border border-indigo-500' 
-                : 'bg-indigo-500 text-white'
+                ? 'bg-slate-700 text-white border border-slate-600' 
+                : 'bg-slate-600 text-white'
             }`}>
               {isEditMode && currentEditingGR ? 'EDITING' : isEditMode ? 'SEARCH' : 'GR NO'}
             </span>
@@ -393,13 +393,13 @@ const GRNumberSection = ({
                       <input
                         type="text"
                         value={currentEditingGR}
-                        className="w-full sm:w-40 px-2 py-1.5 text-indigo-700 text-sm font-semibold border border-indigo-200 rounded-lg bg-indigo-50/80 shadow-inner cursor-not-allowed"
+                        className="w-full sm:w-40 px-2 py-1.5 text-slate-700 text-sm font-semibold border border-slate-200 rounded-lg bg-slate-50/80 shadow-inner cursor-not-allowed"
                         readOnly
                         tabIndex={-1}
                       />
                       <button
                         onClick={handleClearEditingGR}
-                        className="px-3 py-2 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 hover:bg-indigo-200 transition-all shadow-sm whitespace-nowrap"
+                        className="px-3 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-200 transition-all shadow-sm whitespace-nowrap"
                         title="Search different GR"
                       >
                         <Search className="w-3 h-3 inline mr-1" />
@@ -419,7 +419,7 @@ const GRNumberSection = ({
                         setShowGRDropdown(true);
                         setDisplayLimit(50); // Reset display limit when opening dropdown
                       }}                      onKeyDown={handleKeyDown}
-                      className="w-full sm:w-40 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-0 transition-colors duration-200 hover:border-indigo-300"
+                      className="w-full sm:w-40 px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm placeholder-slate-400 focus:border-slate-400 focus:ring-0 transition-colors duration-200 hover:border-slate-400"
                       placeholder="🔍 Search GR..."
                       tabIndex={-1}
                     />
@@ -443,8 +443,8 @@ const GRNumberSection = ({
                   />
                   {/* Reserve / Status buttons */}
                   {grReservation?.reserving ? (
-                    <div className="flex items-center gap-1 text-xs text-indigo-600">
-                      <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex items-center gap-1 text-xs text-slate-600">
+                      <div className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
                       <span className="font-medium whitespace-nowrap">Reserving...</span>
                     </div>
                   ) : grReservation?.hasReservation ? (
@@ -479,7 +479,7 @@ const GRNumberSection = ({
                           grReservation.reserveNext();
                         }
                       }}
-                      className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+                      className="px-3 py-1.5 text-xs font-bold bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
                       title="Reserve this GR number so no one else can use it"
                     >
                       🎫 RESERVE
@@ -496,7 +496,7 @@ const GRNumberSection = ({
                 <div className="absolute z-30 mt-2 w-full sm:w-96 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                      ref={dropdownRef}
                      onScroll={handleScroll}>
-                  <div className="p-3 bg-indigo-500 text-white text-xs font-semibold rounded-t-lg sticky top-0 z-10">
+                  <div className="p-3 bg-slate-600 text-white text-xs font-semibold rounded-t-lg sticky top-0 z-10">
                     <Search className="w-3 h-3 inline mr-1" />
                     SELECT BILTY TO EDIT ({filteredBilties.length} total, showing {displayedBilties.length})
                   </div>
@@ -506,13 +506,13 @@ const GRNumberSection = ({
                         <button
                           key={bilty.id}
                           onClick={() => handleGRSelect(bilty)}
-                          className={`w-full px-3 py-3 text-left hover:bg-indigo-50 border-b border-slate-100 transition-colors text-xs ${
-                            index === selectedIndex ? 'bg-indigo-100' : ''
+                          className={`w-full px-3 py-3 text-left hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs ${
+                            index === selectedIndex ? 'bg-slate-100' : ''
                           }`}
                         >
                           <div className="flex justify-between items-start gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs font-semibold text-indigo-600 truncate">{bilty.gr_no}</div>
+                              <div className="text-xs font-semibold text-slate-700 truncate">{bilty.gr_no}</div>
                               <div className="text-xs text-black font-medium truncate">
                                 {bilty.consignor_name} → {bilty.consignee_name}
                               </div>
@@ -534,11 +534,11 @@ const GRNumberSection = ({
                         <div className="px-3 py-3 text-xs text-gray-600 text-center border-b border-slate-100">
                           {isLoadingMore ? (
                             <div className="flex items-center justify-center gap-2">
-                              <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                              <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
                               Loading more bilties...
                             </div>
                           ) : (
-                            <div className="text-indigo-600 font-medium">
+                            <div className="text-slate-600 font-medium">
                               Scroll down to load more bilties...
                             </div>
                           )}
@@ -562,7 +562,7 @@ const GRNumberSection = ({
           {/* Date Fields */}
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex items-center gap-2">
-              <span className="bg-indigo-500 text-white px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-sm whitespace-nowrap">
+              <span className="bg-slate-600 text-white px-3 py-1.5 text-xs font-semibold rounded-lg text-center shadow-sm whitespace-nowrap">
                 BILTY DATE
               </span>
               <input
@@ -571,7 +571,7 @@ const GRNumberSection = ({
                 value={formData.bilty_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, bilty_date: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} // Prevent Enter navigation
-                className="px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-indigo-400 focus:ring-0"
+                className="px-2 py-1.5 text-slate-900 text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm focus:border-slate-400 focus:ring-0"
               />
             </div>
           </div>
@@ -598,7 +598,7 @@ const GRNumberSection = ({
                 DRAFT MODE
               </div>
             )}
-            <div className="bg-indigo-500 text-white px-3 py-2 rounded-lg font-semibold text-xs border border-indigo-500 shadow-sm flex items-center gap-1 whitespace-nowrap">
+            <div className="bg-slate-700 text-white px-3 py-2 rounded-lg font-semibold text-xs border border-slate-600 shadow-sm flex items-center gap-1 whitespace-nowrap">
               <Edit3 className="w-3 h-3" />
               EDITING: {currentEditingGR}
             </div>

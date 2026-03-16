@@ -624,7 +624,7 @@ export default function ChallanBiltyTable({
       return;
     }
     setAutoAssigningTransport(true);
-    let assigned = 0, skipped = 0, multiCity = 0;
+    let assigned = 0, skipped = 0, noTransport = 0;
     try {
       for (const transit of challanTransits) {
         // Skip if already has a kaat transport_id
@@ -640,17 +640,15 @@ export default function ChallanBiltyTable({
         if (!destCityId) { skipped++; continue; }
 
         const cityTransports = transportsByCity[destCityId] || [];
-        if (cityTransports.length === 1) {
-          // Auto-assign the only transport
+        if (cityTransports.length >= 1) {
+          // Auto-assign the first transport (works for single & multi-transport cities)
           await handleTransportChanged(transit.gr_no, cityTransports[0].id);
           assigned++;
-        } else if (cityTransports.length === 0) {
-          skipped++;
         } else {
-          multiCity++;
+          noTransport++;
         }
       }
-      alert(`✅ Transport Update Complete!\nAuto-assigned: ${assigned}\nMultiple choices (pick manually): ${multiCity}\nSkipped (already set): ${skipped}`);
+      alert(`✅ Transport Update Complete!\nAuto-assigned: ${assigned}\nNo transport available: ${noTransport}\nSkipped (already set): ${skipped}`);
     } catch (err) {
       console.error('Auto assign transport error:', err);
       alert('Error during auto-assign: ' + err.message);
@@ -782,98 +780,182 @@ export default function ChallanBiltyTable({
     }
   };
 
-  // ========== BULK CREATE ==========
+  // ========== BULK CREATE (uses transport_id from bilty_wise_kaat) ==========
+  // Groups bilties by their kaat transport_id, then merges groups sharing same GSTIN / exact name / transport_admin.
+  // Ensures: one bilty in exactly one bill, no duplicate GSTIN bills per challan.
   const getBulkAdminBiltyGroups = () => {
-    const groups = [];
-    for (const adminId of bulkSelectedAdmins) {
-      const admin = transportAdmins.find(a => a.transport_id === adminId);
-      const subTransports = transportAdminSubTransports[adminId] || [];
-      if (!admin || subTransports.length === 0) continue;
+    // Step 1: Collect unsaved bilties that have a transport_id in bilty_wise_kaat
+    const unsavedTransits = challanTransits.filter(t => {
+      const grNo = String(t.gr_no).trim().toUpperCase();
+      return !alreadySavedGrNos.includes(grNo);
+    });
 
-      const subGsts = subTransports.map(t => t.gst_number?.toLowerCase().trim()).filter(Boolean);
-      const subNames = subTransports.map(t => t.transport_name?.toLowerCase().trim()).filter(Boolean);
-      const subCityIds = subTransports.map(t => t.city_id).filter(Boolean);
-      if (admin.gstin?.trim()) subGsts.push(admin.gstin.toLowerCase().trim());
-      if (admin.transport_name?.trim()) subNames.push(admin.transport_name.toLowerCase().trim());
+    // Step 2: Build a map of transport_id -> bilties using bilty_wise_kaat data
+    const transportBiltyMap = {}; // key = transport_id, value = { transport, bilties[] }
+    const noTransportBilties = [];
 
-      const matching = challanTransits.filter(t => {
-        const grNo = String(t.gr_no).trim().toUpperCase();
-        if (alreadySavedGrNos.includes(grNo)) return false;
-        const biltyGst = t.bilty?.transport_gst?.toLowerCase().trim();
-        const biltyName = t.bilty?.transport_name?.toLowerCase().trim();
-        const stationCode = t.station?.station;
-        const stationCityId = stationCode ? cities?.find(c => c.city_code === stationCode)?.id : null;
-        if (biltyGst && subGsts.includes(biltyGst)) return true;
-        if (biltyName && subNames.includes(biltyName)) return true;
-        if (stationCityId && subCityIds.includes(stationCityId)) return true;
-        if (t.bilty?.to_city_id && subCityIds.includes(t.bilty.to_city_id)) return true;
-        return false;
+    unsavedTransits.forEach(t => {
+      const kaatData = allKaatData[t.gr_no];
+      const transportId = kaatData?.transport_id;
+      if (!transportId) {
+        noTransportBilties.push(t);
+        return;
+      }
+      if (!transportBiltyMap[transportId]) {
+        const transport = transportLookup[transportId];
+        transportBiltyMap[transportId] = {
+          transportId,
+          transportName: transport?.transport_name || 'Unknown',
+          transportGst: transport?.gst_number || null,
+          transportAdminId: transport?.transport_admin_id || null,
+          bilties: []
+        };
+      }
+      transportBiltyMap[transportId].bilties.push(t);
+    });
+
+    // Step 3: Merge groups that share same GSTIN, same exact name, or same transport_admin_id
+    // Use a union-find approach: build merge key -> canonical key
+    const entries = Object.values(transportBiltyMap);
+    const mergedGroups = []; // { transportName, transportGst, transportAdminId, bilties[], transportIds[] }
+    const usedBilties = new Set(); // ensure each bilty only in one bill
+
+    // Index for merging: gst -> group index, name -> group index, adminId -> group index
+    const gstIndex = {};
+    const nameIndex = {};
+    const adminIndex = {};
+
+    entries.forEach(entry => {
+      const gstKey = entry.transportGst?.toLowerCase().trim() || null;
+      const nameKey = entry.transportName?.toLowerCase().trim() || null;
+      const adminKey = entry.transportAdminId || null;
+
+      // Find existing group to merge into
+      let targetGroup = null;
+      if (gstKey && gstIndex[gstKey] !== undefined) targetGroup = mergedGroups[gstIndex[gstKey]];
+      if (!targetGroup && nameKey && nameIndex[nameKey] !== undefined) targetGroup = mergedGroups[nameIndex[nameKey]];
+      if (!targetGroup && adminKey && adminIndex[adminKey] !== undefined) targetGroup = mergedGroups[adminIndex[adminKey]];
+
+      if (targetGroup) {
+        // Merge into existing group
+        entry.bilties.forEach(b => {
+          const grNo = String(b.gr_no).trim().toUpperCase();
+          if (!usedBilties.has(grNo)) {
+            targetGroup.bilties.push(b);
+            usedBilties.add(grNo);
+          }
+        });
+        targetGroup.transportIds.push(entry.transportId);
+        // Fill in missing data
+        if (!targetGroup.transportGst && gstKey) targetGroup.transportGst = entry.transportGst;
+        if (!targetGroup.transportAdminId && adminKey) targetGroup.transportAdminId = adminKey;
+      } else {
+        // Create new group
+        const newGroup = {
+          transportName: entry.transportName,
+          transportGst: entry.transportGst,
+          transportAdminId: entry.transportAdminId,
+          bilties: [],
+          transportIds: [entry.transportId]
+        };
+        entry.bilties.forEach(b => {
+          const grNo = String(b.gr_no).trim().toUpperCase();
+          if (!usedBilties.has(grNo)) {
+            newGroup.bilties.push(b);
+            usedBilties.add(grNo);
+          }
+        });
+        const idx = mergedGroups.length;
+        mergedGroups.push(newGroup);
+        if (gstKey) gstIndex[gstKey] = idx;
+        if (nameKey) nameIndex[nameKey] = idx;
+        if (adminKey) adminIndex[adminKey] = idx;
+      }
+    });
+
+    // Step 4: Resolve admin name from transportAdmins, add stable id
+    const groups = mergedGroups
+      .filter(g => g.bilties.length > 0)
+      .map((g, i) => {
+        const admin = g.transportAdminId
+          ? transportAdmins.find(a => a.transport_id === g.transportAdminId)
+          : null;
+        return {
+          id: `group_${i}`,
+          adminId: g.transportAdminId || null,
+          adminName: admin?.transport_name || g.transportName,
+          adminGstin: admin?.gstin || g.transportGst,
+          transports: [{ name: g.transportName, gst: g.transportGst, bilties: g.bilties }],
+          totalBilties: g.bilties.length,
+          skippedBilties: 0
+        };
       });
 
-      if (matching.length > 0) {
-        const transportMap = {};
-        let skippedCount = 0;
-        matching.forEach(t => {
-          let tName = t.bilty?.transport_name?.trim();
-          let tGst = t.bilty?.transport_gst || '';
-          if (!tName && t.station?.station) {
-            const stationCity = cities?.find(c => c.city_code === t.station.station);
-            if (stationCity?.id) {
-              const cityTransports = transportsByCity[stationCity.id] || [];
-              const match = cityTransports.find(ct => {
-                if (ct.gst_number?.toLowerCase().trim() && subGsts.includes(ct.gst_number.toLowerCase().trim())) return true;
-                if (ct.transport_name?.toLowerCase().trim() && subNames.includes(ct.transport_name.toLowerCase().trim())) return true;
-                return false;
-              });
-              if (match) { tName = match.transport_name?.trim(); tGst = match.gst_number || ''; }
-              else if (cityTransports.length === 1) { tName = cityTransports[0].transport_name?.trim(); tGst = cityTransports[0].gst_number || ''; }
-            }
-          }
-          if (!tName) { skippedCount++; return; }
-          const key = `${tName}|||${tGst}`;
-          if (!transportMap[key]) transportMap[key] = { name: tName, gst: tGst || null, bilties: [] };
-          transportMap[key].bilties.push(t);
-        });
-        const valid = Object.values(transportMap).filter(tp => tp.bilties.length > 0);
-        const count = valid.reduce((s, tp) => s + tp.bilties.length, 0);
-        if (valid.length > 0) groups.push({ adminId, adminName: admin.transport_name, adminGstin: admin.gstin, transports: valid, totalBilties: count, skippedBilties: skippedCount });
-      }
+    // Filter by selected group IDs from the modal
+    if (bulkSelectedAdmins.length > 0) {
+      return groups.filter(g => bulkSelectedAdmins.includes(g.id));
     }
     return groups;
   };
 
   const handleBulkCreateKaatBills = async () => {
     const groups = getBulkAdminBiltyGroups();
-    if (groups.length === 0) { alert('No bilties found for selected admins.'); return; }
-    const totalBills = groups.reduce((s, g) => s + g.transports.length, 0);
-    if (!window.confirm(`Create ${totalBills} kaat bill(s) for ${groups.length} admin(s)?`)) return;
+    if (groups.length === 0) { alert('No bilties with assigned transports found for selected admins.\nPlease run "Update Transport" first to assign transports.'); return; }
+
+    // Validate: no duplicate GSTIN across bills
+    const gstSet = new Set();
+    let duplicateGst = false;
+    groups.forEach(g => {
+      const gst = g.transports[0]?.gst?.toLowerCase().trim();
+      if (gst) {
+        if (gstSet.has(gst)) duplicateGst = true;
+        gstSet.add(gst);
+      }
+    });
+    if (duplicateGst) {
+      alert('⚠️ Duplicate GSTIN detected across groups. Bills have been merged but a conflict remains. Please check transport assignments.');
+      return;
+    }
+
+    const totalBills = groups.length;
+    const totalBilties = groups.reduce((s, g) => s + g.totalBilties, 0);
+    if (!window.confirm(`Create ${totalBills} kaat bill(s) with ${totalBilties} total bilties?`)) return;
+
     setBulkCreating(true);
     setBulkProgress({ current: 0, total: totalBills, results: [] });
     const currentUser = getCurrentUser();
     const results = [];
     let processed = 0;
+
     for (const group of groups) {
-      for (const transport of group.transports) {
-        processed++;
-        setBulkProgress(prev => ({ ...prev, current: processed }));
-        try {
-          const grNumbers = transport.bilties.map(t => String(t.gr_no).trim().toUpperCase());
-          const { totalKaatAmount, error: calcError } = await calculateTotalKaatAmount(transport.bilties);
-          if (calcError) throw calcError;
-          const { success, error } = await saveKaatBillToDatabase({
-            challan_no: selectedChallan.challan_no, transport_name: transport.name, transport_gst: transport.gst,
-            transport_admin_id: group.adminId, gr_numbers: grNumbers, total_bilty_count: grNumbers.length,
-            total_kaat_amount: totalKaatAmount, created_by: currentUser.id, updated_by: currentUser.id, printed_yet: false
-          });
-          if (!success) throw error;
-          results.push({ admin: group.adminName, transport: transport.name, bilties: grNumbers.length, amount: totalKaatAmount, status: 'success' });
-        } catch (err) {
-          results.push({ admin: group.adminName, transport: transport.name, bilties: transport.bilties.length, amount: 0, status: 'error', error: err.message });
-        }
+      const transport = group.transports[0]; // merged into single transport per group
+      processed++;
+      setBulkProgress(prev => ({ ...prev, current: processed }));
+      try {
+        const grNumbers = transport.bilties.map(t => String(t.gr_no).trim().toUpperCase());
+        const { totalKaatAmount, error: calcError } = await calculateTotalKaatAmount(transport.bilties);
+        if (calcError) throw calcError;
+        const { success, error } = await saveKaatBillToDatabase({
+          challan_no: selectedChallan.challan_no,
+          transport_name: transport.name,
+          transport_gst: transport.gst,
+          transport_admin_id: group.adminId,
+          gr_numbers: grNumbers,
+          total_bilty_count: grNumbers.length,
+          total_kaat_amount: totalKaatAmount,
+          created_by: currentUser.id,
+          updated_by: currentUser.id,
+          printed_yet: false
+        });
+        if (!success) throw error;
+        results.push({ admin: group.adminName, transport: transport.name, bilties: grNumbers.length, amount: totalKaatAmount, status: 'success' });
+      } catch (err) {
+        results.push({ admin: group.adminName, transport: transport.name, bilties: transport.bilties.length, amount: 0, status: 'error', error: err.message });
       }
     }
+
     setBulkProgress(prev => ({ ...prev, results }));
-    // Refresh
+    // Refresh saved GR numbers
     const { data: updatedData } = await supabase.from('kaat_bill_master').select('gr_numbers').eq('challan_no', selectedChallan.challan_no);
     if (updatedData) {
       const all = updatedData.reduce((acc, b) => [...acc, ...(b.gr_numbers || []).map(gr => String(gr).trim().toUpperCase())], []);
@@ -883,7 +965,7 @@ export default function ChallanBiltyTable({
     const successCount = results.filter(r => r.status === 'success').length;
     const failCount = results.filter(r => r.status === 'error').length;
     if (failCount === 0) {
-      alert(`✅ All ${successCount} bills created!`);
+      alert(`✅ All ${successCount} bill(s) created with ${totalBilties} bilties!`);
       setShowBulkCreateModal(false);
       setBulkSelectedAdmins([]);
       setBulkProgress({ current: 0, total: 0, results: [] });
@@ -1097,6 +1179,8 @@ export default function ChallanBiltyTable({
         transportsByCity={transportsByCity}
         onCreateBills={handleBulkCreateKaatBills}
         getBulkAdminBiltyGroups={getBulkAdminBiltyGroups}
+        allKaatData={allKaatData}
+        transportLookup={transportLookup}
       />
 
       <KaatFinancePDFPreview

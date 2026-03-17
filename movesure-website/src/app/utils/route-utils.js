@@ -22,6 +22,7 @@ export const ROUTE_MODULE_MAP = {
   '/analytics': 'analytics',
   '/company-profile': 'company-profile',
   '/hub-management': 'hub-management',
+  '/notifications': 'notifications',
   
   // Nested routes - Bilty
   '/bilty/create': 'bilty',
@@ -102,7 +103,6 @@ export const AUTH_ONLY_ROUTES = [
   '/profile',
   '/dashboard',
   '/help',
-  '/notifications',
   '/account'
 ];
 

@@ -5,7 +5,7 @@ import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
 import Link from 'next/link';
-import { Users, Save, Search, CheckCircle, XCircle, Shield, User, ChevronDown, ChevronUp, X, Check, ToggleLeft, ToggleRight, Activity } from 'lucide-react';
+import { Users, Save, Search, CheckCircle, XCircle, Shield, User, ChevronDown, ChevronUp, X, Check, ToggleLeft, ToggleRight, Activity, Bell } from 'lucide-react';
 
 const AVAILABLE_MODULES = [
   { name: 'bilty', label: 'Bilty', description: 'Create and manage bilty documents' },
@@ -32,7 +32,8 @@ const AVAILABLE_MODULES = [
   { name: 'analytics', label: 'Analytics', description: 'Business insights and metrics' },
   { name: 'company-profile', label: 'Company Profile', description: 'Manage company profile and settings' },
   { name: 'company-ledger', label: 'Company Ledger', description: 'View and manage company financial records' },
-  { name: 'hub-management', label: 'Hub Management', description: 'Monitor challans, dispatch status & transit operations' }
+  { name: 'hub-management', label: 'Hub Management', description: 'Monitor challans, dispatch status & transit operations' },
+  { name: 'notifications', label: 'EWB Notifications', description: 'View E-Way Bill expiry alerts and notifications' }
 ];
 
 export default function UserModulesPage() {
@@ -208,6 +209,13 @@ export default function UserModulesPage() {
             >
               <Activity className="w-4 h-4" />
               User Sessions
+            </Link>
+            <Link
+              href="/notifications"
+              className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white text-sm font-bold rounded-xl hover:from-orange-600 hover:to-red-700 transition shadow-sm flex items-center gap-2"
+            >
+              <Bell className="w-4 h-4" />
+              EWB Alerts
             </Link>
           </div>
         </div>

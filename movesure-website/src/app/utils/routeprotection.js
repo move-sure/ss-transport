@@ -34,6 +34,7 @@ const ROUTE_MODULE_MAP = {
   '/analytics': 'analytics',
   '/company-ledger': 'company-ledger',
   '/hub-management': 'hub-management',
+  '/notifications': 'notifications',
 };
 
 // Routes that don't require any module (public or auth-only routes)

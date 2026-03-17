@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
-import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3, Building2, Warehouse } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, FileText, Truck, Database, Wrench, Receipt, Search, AlertTriangle, BookOpen, Shield, Users, Package, Menu, X, MapPin, DollarSign, BarChart3, Building2, Warehouse, Bell } from 'lucide-react';
 
 // Module configuration - MUST match routeprotection.js ROUTE_MODULE_MAP
 const MODULE_CONFIG = {
@@ -149,6 +149,11 @@ const MODULE_CONFIG = {
     path: '/hub-management',
     icon: 'Warehouse',
     shortcut: 'Alt+H'
+  },
+  'notifications': {
+    name: 'EWB Alerts',
+    path: '/notifications',
+    icon: 'Bell',
   }
 };
 
@@ -177,6 +182,7 @@ const ROUTE_MODULE_MAP = {
   '/analytics': 'analytics',
   '/company-ledger': 'company-ledger',
   '/hub-management': 'hub-management',
+  '/notifications': 'notifications',
 };
 
 // Public routes that don't require module access
@@ -192,6 +198,7 @@ export default function Navbar() {
   const [navigationItems, setNavigationItems] = useState([]);
   const [navigating, setNavigating] = useState(null);
   const [modulesLoading, setModulesLoading] = useState(true);
+  const [notifCount, setNotifCount] = useState(0);
 
   // Fetch user modules on component mount
   useEffect(() => {
@@ -203,6 +210,31 @@ export default function Navbar() {
       setModulesLoading(false);
     }
   }, [user?.id]);
+
+  // Fetch notif count only when user has notifications module
+  useEffect(() => {
+    if (userModules.includes('notifications')) {
+      fetchNotifCount();
+    } else {
+      setNotifCount(0);
+    }
+  }, [userModules]);
+
+  // Fetch EWB notification count (expired + expiring within 2 days)
+  const fetchNotifCount = async () => {
+    try {
+      const now = new Date();
+      const twoDaysAgo = new Date(now); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const twoDaysAhead = new Date(now); twoDaysAhead.setDate(twoDaysAhead.getDate() + 2);
+      const { count, error } = await supabase
+        .from('ewb_validations')
+        .select('id', { count: 'exact', head: true })
+        .not('valid_upto', 'is', null)
+        .gte('valid_upto', twoDaysAgo.toISOString())
+        .lte('valid_upto', twoDaysAhead.toISOString());
+      if (!error) setNotifCount(count || 0);
+    } catch (e) { console.error('Notif count error:', e); }
+  };
 
   // Update navigation items when modules change
   useEffect(() => {
@@ -640,8 +672,24 @@ export default function Navbar() {
                 );
               })}
             </div>
-          </div>          {/* Right side - User menu */}
-          <div className="flex items-center">
+          </div>          {/* Right side - Notification Bell + User menu */}
+          <div className="flex items-center gap-1">
+            {/* Notification Bell - only if user has notifications module */}
+            {userModules.includes('notifications') && (
+              <button
+                onClick={() => router.push('/notifications')}
+                className="relative p-2 rounded-lg text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                title="EWB Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {notifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1 border-2 border-slate-900 shadow">
+                    {notifCount > 99 ? '99+' : notifCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {/* User menu */}
             <div className="relative">
               <button
                 onClick={toggleDropdown}
@@ -835,6 +883,21 @@ export default function Navbar() {
                 <User className="h-4 w-4" />
                 <span>My Profile</span>
               </button>
+
+              {userModules.includes('notifications') && (
+                <button
+                  onClick={() => { setIsMobileMenuOpen(false); router.push('/notifications'); }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-orange-200 hover:bg-orange-600 hover:text-white transition-all duration-200"
+                >
+                  <Bell className="h-4 w-4" />
+                  <span>Notifications</span>
+                  {notifCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                      {notifCount > 99 ? '99+' : notifCount}
+                    </span>
+                  )}
+                </button>
+              )}
               
               <button
                 onClick={handleLogout}

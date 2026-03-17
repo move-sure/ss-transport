@@ -1,7 +1,7 @@
 /* Shared utility functions for Hub Management */
 
 export const kTotal = (k) =>
-  !k ? 0 : ['kaat','pf','dd_chrg','bilty_chrg','ewb_chrg','labour_chrg','other_chrg']
+  !k ? 0 : ['kaat','dd_chrg','bilty_chrg','ewb_chrg','labour_chrg','other_chrg']
     .reduce((s, f) => s + (parseFloat(k[f]) || 0), 0);
 
 export const getStatus = (t) => {

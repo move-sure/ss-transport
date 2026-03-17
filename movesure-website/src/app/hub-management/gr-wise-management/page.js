@@ -415,7 +415,7 @@ export default function GRWiseManagementPage() {
     }
   };
 
-  const kTotal = (k) => !k ? 0 : ['kaat','pf','dd_chrg','bilty_chrg','ewb_chrg','labour_chrg','other_chrg']
+  const kTotal = (k) => !k ? 0 : ['kaat','dd_chrg','bilty_chrg','ewb_chrg','labour_chrg','other_chrg']
     .reduce((s, f) => s + (parseFloat(k[f]) || 0), 0);
 
   // Status helpers (same as challan detail page)
@@ -967,7 +967,7 @@ export default function GRWiseManagementPage() {
                       <p className="text-sm font-bold text-gray-900">{kaatData.bilty_number || '-'}</p>
                     </div>
                     <div className="bg-violet-50 rounded-lg p-3">
-                      <p className="text-[10px] text-violet-600 uppercase font-semibold mb-1">Total Kaat</p>
+                      <p className="text-[10px] text-violet-600 uppercase font-semibold mb-1">Total Deductions</p>
                       <p className="text-sm font-bold text-violet-700">₹{kTotal(kaatData).toFixed(2)}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
@@ -1268,6 +1268,51 @@ export default function GRWiseManagementPage() {
                   ))}
                 </select>
               </div>
+              {/* Hub Rate Info & Kaat Mismatch Warning */}
+              {(() => {
+                const hr = kaatForm.transport_id && grData?.to_city_id
+                  ? getHubRateForTransport(hubRatesByTransport, kaatForm.transport_id, grData.to_city_id)
+                  : null;
+                if (!hr) return null;
+                const wt = parseFloat(grData?.weight || 0);
+                const pkg = parseFloat(grData?.packets || 0);
+                let expectedKaat = 0;
+                if (hr.pricing_mode === 'per_kg') expectedKaat = Math.max((hr.rate_per_kg || 0) * wt, hr.min_charge || 0);
+                else if (hr.pricing_mode === 'per_pkg') expectedKaat = Math.max((hr.rate_per_pkg || 0) * pkg, hr.min_charge || 0);
+                else expectedKaat = hr.min_charge || 0;
+                expectedKaat = Math.round(expectedKaat * 100) / 100;
+                const currentKaat = parseFloat(kaatForm.kaat) || 0;
+                const mismatch = currentKaat > 0 && Math.abs(currentKaat - expectedKaat) > 0.5;
+                return (
+                  <div className="border-t border-gray-100 pt-3 space-y-2">
+                    <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200">
+                      <p className="text-[10px] text-emerald-700 font-bold uppercase mb-1.5">Hub Kaat Rate</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-black font-semibold">
+                        <span>Mode: <span className="text-emerald-700 font-bold">{hr.pricing_mode === 'per_kg' ? 'Per KG' : hr.pricing_mode === 'per_pkg' ? 'Per PKG' : hr.pricing_mode}</span></span>
+                        {hr.pricing_mode === 'per_kg' && <span>Rate/kg: <b className="text-emerald-800">₹{hr.rate_per_kg}</b></span>}
+                        {hr.pricing_mode === 'per_pkg' && <span>Rate/pkg: <b className="text-emerald-800">₹{hr.rate_per_pkg}</b></span>}
+                        {hr.min_charge > 0 && <span>Min: <b className="text-emerald-800">₹{hr.min_charge}</b></span>}
+                        <span>Expected Kaat: <b className="text-emerald-800">₹{expectedKaat.toLocaleString('en-IN')}</b></span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-600 mt-1">
+                        {hr.bilty_chrg > 0 && <span>Bilty: <b>₹{hr.bilty_chrg}</b></span>}
+                        {hr.ewb_chrg > 0 && <span>EWB: <b>₹{hr.ewb_chrg}</b></span>}
+                        {hr.labour_chrg > 0 && <span>Labour: <b>₹{hr.labour_chrg}</b></span>}
+                        {hr.other_chrg > 0 && <span>Other: <b>₹{hr.other_chrg}</b></span>}
+                      </div>
+                    </div>
+                    {mismatch && (
+                      <div className="bg-red-50 rounded-xl p-2.5 border border-red-200 flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                        <div className="text-[11px]">
+                          <p className="font-bold text-red-700">Kaat Mismatch!</p>
+                          <p className="text-red-600">Current kaat <b>₹{currentKaat.toLocaleString('en-IN')}</b> does not match expected <b>₹{expectedKaat.toLocaleString('en-IN')}</b> from hub rate.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Charges */}
               <div className="border-t border-gray-100 pt-3">
                 <p className="text-xs font-bold text-gray-700 uppercase mb-2">Charges & Kaat</p>
@@ -1325,9 +1370,9 @@ export default function GRWiseManagementPage() {
               {/* Total & Save */}
               <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
                 <div className="text-xs">
-                  <span className="text-gray-500">Total Charges:</span>
+                  <span className="text-gray-500">Total Deductions:</span>
                   <span className="ml-1 font-bold text-violet-700 text-base">
-                    ₹{(['kaat', 'pf', 'dd_chrg', 'bilty_chrg', 'ewb_chrg', 'labour_chrg', 'other_chrg'].reduce((s, f) => s + (parseFloat(kaatForm[f]) || 0), 0)).toFixed(2)}
+                    ₹{(['kaat', 'dd_chrg', 'bilty_chrg', 'ewb_chrg', 'labour_chrg', 'other_chrg'].reduce((s, f) => s + (parseFloat(kaatForm[f]) || 0), 0)).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex gap-2">

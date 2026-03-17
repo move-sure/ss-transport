@@ -344,11 +344,19 @@ export default function GRWiseManagementPage() {
   // Open kaat modal
   const openKaatModal = () => {
     const k = kaatData || {};
+    const amt = parseFloat(grData?.amount || 0);
+    const kaat = parseFloat(k.kaat) || 0;
+    const dd = parseFloat(k.dd_chrg) || 0;
+    const biltyC = parseFloat(k.bilty_chrg) || 0;
+    const ewb = parseFloat(k.ewb_chrg) || 0;
+    const labour = parseFloat(k.labour_chrg) || 0;
+    const other = parseFloat(k.other_chrg) || 0;
+    const computedPf = Math.round((amt - kaat - dd - biltyC - ewb - labour - other) * 100) / 100;
     setKaatForm({
       pohonch_no: k.pohonch_no || '',
       bilty_number: k.bilty_number || '',
       kaat: k.kaat || 0,
-      pf: k.pf || 0,
+      pf: kaatData ? (k.pf || computedPf) : computedPf,
       actual_kaat_rate: k.actual_kaat_rate || 0,
       dd_chrg: k.dd_chrg || 0,
       bilty_chrg: k.bilty_chrg || 0,
@@ -1205,6 +1213,34 @@ export default function GRWiseManagementPage() {
               </button>
             </div>
             <div className="p-5 space-y-4">
+              {/* Bilty Amount Display */}
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-3 border border-indigo-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-100 rounded-lg">
+                      <IndianRupee className="h-3.5 w-3.5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-gray-500 uppercase font-semibold">Bilty Amount</p>
+                      <p className="text-lg font-extrabold text-indigo-700">₹{parseFloat(grData?.amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <div className="text-center">
+                      <p className="text-[9px] text-gray-500 uppercase">Pkg</p>
+                      <p className="font-bold text-gray-800">{grData?.packets || 0}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-gray-500 uppercase">Weight</p>
+                      <p className="font-bold text-gray-800">{parseFloat(grData?.weight || 0).toFixed(1)} kg</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-gray-500 uppercase">Payment</p>
+                      <p className={`font-bold ${grData?.payment?.toLowerCase() === 'paid' ? 'text-green-600' : 'text-amber-600'}`}>{grData?.payment || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               {/* Pohonch or Bilty Number */}
               <div>
                 <p className="text-xs font-bold text-gray-700 uppercase mb-2">Identification</p>
@@ -1236,15 +1272,55 @@ export default function GRWiseManagementPage() {
               <div className="border-t border-gray-100 pt-3">
                 <p className="text-xs font-bold text-gray-700 uppercase mb-2">Charges & Kaat</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <KF label="Kaat (₹)" value={kaatForm.kaat} onChange={v => setKaatForm(p => ({ ...p, kaat: v }))} />
-                  <KF label="PF (₹)" value={kaatForm.pf} onChange={v => setKaatForm(p => ({ ...p, pf: v }))} />
-                  <KF label="Actual Rate" value={kaatForm.actual_kaat_rate} onChange={v => setKaatForm(p => ({ ...p, actual_kaat_rate: v }))} />
-                  <KF label="DD Chrg (₹)" value={kaatForm.dd_chrg} onChange={v => setKaatForm(p => ({ ...p, dd_chrg: v }))} />
-                  <KF label="Bilty Chrg (₹)" value={kaatForm.bilty_chrg} onChange={v => setKaatForm(p => ({ ...p, bilty_chrg: v }))} />
-                  <KF label="EWB Chrg (₹)" value={kaatForm.ewb_chrg} onChange={v => setKaatForm(p => ({ ...p, ewb_chrg: v }))} />
-                  <KF label="Labour (₹)" value={kaatForm.labour_chrg} onChange={v => setKaatForm(p => ({ ...p, labour_chrg: v }))} />
-                  <KF label="Other (₹)" value={kaatForm.other_chrg} onChange={v => setKaatForm(p => ({ ...p, other_chrg: v }))} />
+                  <KF label="Kaat (₹)" value={kaatForm.kaat} onChange={v => {
+                    const newForm = { ...kaatForm, kaat: v };
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - (parseFloat(v) || 0) - (parseFloat(newForm.dd_chrg) || 0) - (parseFloat(newForm.bilty_chrg) || 0) - (parseFloat(newForm.ewb_chrg) || 0) - (parseFloat(newForm.labour_chrg) || 0) - (parseFloat(newForm.other_chrg) || 0);
+                    setKaatForm({ ...newForm, pf: Math.round(pf * 100) / 100 });
+                  }} />
+                  <div className="relative">
+                    <KF label="PF (₹) [Auto]" value={kaatForm.pf} onChange={() => {}} disabled />
+                  </div>
+                  <KF label="Actual Rate" value={kaatForm.actual_kaat_rate} onChange={v => {
+                    const rate = parseFloat(v) || 0;
+                    const wt = parseFloat(grData?.weight || 0);
+                    const newKaat = Math.round(rate * wt * 100) / 100;
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - newKaat - (parseFloat(kaatForm.dd_chrg) || 0) - (parseFloat(kaatForm.bilty_chrg) || 0) - (parseFloat(kaatForm.ewb_chrg) || 0) - (parseFloat(kaatForm.labour_chrg) || 0) - (parseFloat(kaatForm.other_chrg) || 0);
+                    setKaatForm(p => ({ ...p, actual_kaat_rate: v, kaat: newKaat, pf: Math.round(pf * 100) / 100 }));
+                  }} />
+                  <KF label="DD Chrg (₹)" value={kaatForm.dd_chrg} onChange={v => {
+                    const newForm = { ...kaatForm, dd_chrg: v };
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - (parseFloat(newForm.kaat) || 0) - (parseFloat(v) || 0) - (parseFloat(newForm.bilty_chrg) || 0) - (parseFloat(newForm.ewb_chrg) || 0) - (parseFloat(newForm.labour_chrg) || 0) - (parseFloat(newForm.other_chrg) || 0);
+                    setKaatForm({ ...newForm, pf: Math.round(pf * 100) / 100 });
+                  }} />
+                  <KF label="Bilty Chrg (₹)" value={kaatForm.bilty_chrg} onChange={v => {
+                    const newForm = { ...kaatForm, bilty_chrg: v };
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - (parseFloat(newForm.kaat) || 0) - (parseFloat(newForm.dd_chrg) || 0) - (parseFloat(v) || 0) - (parseFloat(newForm.ewb_chrg) || 0) - (parseFloat(newForm.labour_chrg) || 0) - (parseFloat(newForm.other_chrg) || 0);
+                    setKaatForm({ ...newForm, pf: Math.round(pf * 100) / 100 });
+                  }} />
+                  <KF label="EWB Chrg (₹)" value={kaatForm.ewb_chrg} onChange={v => {
+                    const newForm = { ...kaatForm, ewb_chrg: v };
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - (parseFloat(newForm.kaat) || 0) - (parseFloat(newForm.dd_chrg) || 0) - (parseFloat(newForm.bilty_chrg) || 0) - (parseFloat(v) || 0) - (parseFloat(newForm.labour_chrg) || 0) - (parseFloat(newForm.other_chrg) || 0);
+                    setKaatForm({ ...newForm, pf: Math.round(pf * 100) / 100 });
+                  }} />
+                  <KF label="Labour (₹)" value={kaatForm.labour_chrg} onChange={v => {
+                    const newForm = { ...kaatForm, labour_chrg: v };
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - (parseFloat(newForm.kaat) || 0) - (parseFloat(newForm.dd_chrg) || 0) - (parseFloat(newForm.bilty_chrg) || 0) - (parseFloat(newForm.ewb_chrg) || 0) - (parseFloat(v) || 0) - (parseFloat(newForm.other_chrg) || 0);
+                    setKaatForm({ ...newForm, pf: Math.round(pf * 100) / 100 });
+                  }} />
+                  <KF label="Other (₹)" value={kaatForm.other_chrg} onChange={v => {
+                    const newForm = { ...kaatForm, other_chrg: v };
+                    const amt = parseFloat(grData?.amount || 0);
+                    const pf = amt - (parseFloat(newForm.kaat) || 0) - (parseFloat(newForm.dd_chrg) || 0) - (parseFloat(newForm.bilty_chrg) || 0) - (parseFloat(newForm.ewb_chrg) || 0) - (parseFloat(newForm.labour_chrg) || 0) - (parseFloat(v) || 0);
+                    setKaatForm({ ...newForm, pf: Math.round(pf * 100) / 100 });
+                  }} />
                 </div>
+                <p className="text-[10px] text-gray-400 mt-1.5">PF = Bilty Amount ({parseFloat(grData?.amount || 0).toLocaleString('en-IN')}) − Kaat − DD − Bilty Chrg − EWB − Labour − Other</p>
               </div>
               {/* Total & Save */}
               <div className="border-t border-gray-100 pt-3 flex items-center justify-between">

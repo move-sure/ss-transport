@@ -784,6 +784,7 @@ export default function PohonchListPage() {
                                         <th className="px-2 py-1.5 text-right font-bold text-gray-500">Wt</th>
                                         <th className="px-2 py-1.5 text-right font-bold text-gray-500">Amt</th>
                                         <th className="px-2 py-1.5 text-right font-bold text-gray-500">Kaat</th>
+                                        <th className="px-2 py-1.5 text-right font-bold text-gray-500">Rate</th>
                                         <th className="px-2 py-1.5 text-right font-bold text-gray-500">DD</th>
                                         <th className="px-2 py-1.5 text-right font-bold text-gray-500">PF</th>
                                       </tr>
@@ -805,6 +806,7 @@ export default function PohonchListPage() {
                                             <td className="px-2 py-1 text-right">{(b.weight || 0).toFixed(1)}</td>
                                             <td className="px-2 py-1 text-right font-medium">{b.is_paid ? 'PAID' : `₹${Math.round(b.amount || 0)}`}</td>
                                             <td className="px-2 py-1 text-right text-emerald-700">₹{Math.round(b.kaat || 0)}</td>
+                                            <td className="px-2 py-1 text-right text-gray-500 text-[10px]">{b.kaat_rate ? `₹${b.kaat_rate}` : '-'}</td>
                                             <td className="px-2 py-1 text-right text-red-600">{b.dd > 0 ? `-₹${Math.round(b.dd)}` : '-'}</td>
                                             <td className="px-2 py-1 text-right font-bold text-teal-700">₹{Math.round(b.pf || 0)}</td>
                                           </tr>

@@ -199,7 +199,7 @@ export default function PohonchPrintPage() {
         gr_no: b.gr_no, challan_no: b.challan_no, pohonch_bilty: b.pohonch_bilty || null,
         consignor: b.consignor, consignee: b.consignee,
         destination: b.destination, packages: b.packages, weight: b.weight, amount: b.amount,
-        kaat: b.kaat, dd: b.dd, pf: b.pf, payment_mode: b.payment_mode, is_paid: b.is_paid,
+        kaat: b.kaat, kaat_rate: b.kaat_rate || 0, dd: b.dd, pf: b.pf, payment_mode: b.payment_mode, is_paid: b.is_paid,
         date: b.date || null,
       }));
 
@@ -419,13 +419,8 @@ export default function PohonchPrintPage() {
       const station = detail?.station;
       const weight = parseFloat(bilty?.wt || station?.weight || 0);
       const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-      const rateKg = parseFloat(k.rate_per_kg) || 0;
-      const ratePkg = parseFloat(k.rate_per_pkg) || 0;
-      const effectiveWeight = Math.max(weight, 50);
-      let kaatAmt = 0;
-      if (k.rate_type === 'per_kg') kaatAmt = effectiveWeight * rateKg;
-      else if (k.rate_type === 'per_pkg') kaatAmt = packages * ratePkg;
-      else if (k.rate_type === 'hybrid') kaatAmt = (effectiveWeight * rateKg) + (packages * ratePkg);
+      const kaatAmt = parseFloat(k.kaat) || 0;
+      const pfAmt = parseFloat(k.pf) || 0;
       const ddChrg = parseFloat(k.dd_chrg) || 0;
       const payMode = (bilty?.payment_mode || station?.payment_status || '').toUpperCase();
       const isPaid = payMode.includes('PAID');
@@ -433,7 +428,7 @@ export default function PohonchPrintPage() {
       totalKaat += kaatAmt;
       totalDD += ddChrg;
       totalAmt += amt;
-      totalPF += (amt - kaatAmt - ddChrg);
+      totalPF += pfAmt;
       totalWt += weight;
       totalPkg += packages;
     });
@@ -494,18 +489,12 @@ export default function PohonchPrintPage() {
           const station = detail.station;
           const weight = parseFloat(bilty?.wt || station?.weight || 0);
           const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-          const effectiveWeight = Math.max(weight, 50);
-          const rateKg = parseFloat(k.rate_per_kg) || 0;
-          const ratePkg = parseFloat(k.rate_per_pkg) || 0;
-          let kaatAmt = 0;
-          if (k.rate_type === 'per_kg') kaatAmt = effectiveWeight * rateKg;
-          else if (k.rate_type === 'per_pkg') kaatAmt = packages * ratePkg;
-          else if (k.rate_type === 'hybrid') kaatAmt = (effectiveWeight * rateKg) + (packages * ratePkg);
+          const kaatAmt = parseFloat(k.kaat) || 0;
+          const pfAmt = parseFloat(k.pf) || 0;
           const ddChrg = parseFloat(k.dd_chrg) || 0;
           const payMode = (bilty?.payment_mode || station?.payment_status || '').toUpperCase();
           const isPaid = payMode.includes('PAID');
           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-          const pf = amt - kaatAmt - ddChrg;
 
           let destName = '-';
           if (k.destination_city_id && sbCitiesMap[k.destination_city_id]) destName = sbCitiesMap[k.destination_city_id];
@@ -530,8 +519,9 @@ export default function PohonchPrintPage() {
             weight,
             amount: amt,
             kaat: kaatAmt,
+            kaat_rate: parseFloat(k.actual_kaat_rate) || 0,
             dd: ddChrg,
-            pf,
+            pf: pfAmt,
             payment_mode: bilty?.payment_mode || station?.payment_status || '-',
             is_paid: isPaid,
             date: bilty?.bilty_date || station?.created_at || null,
@@ -560,18 +550,12 @@ export default function PohonchPrintPage() {
           const station = detail.station;
           const weight = parseFloat(bilty?.wt || station?.weight || 0);
           const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-          const effectiveWeight = Math.max(weight, 50);
-          const rateKg = parseFloat(k.rate_per_kg) || 0;
-          const ratePkg = parseFloat(k.rate_per_pkg) || 0;
-          let kaatAmt = 0;
-          if (k.rate_type === 'per_kg') kaatAmt = effectiveWeight * rateKg;
-          else if (k.rate_type === 'per_pkg') kaatAmt = packages * ratePkg;
-          else if (k.rate_type === 'hybrid') kaatAmt = (effectiveWeight * rateKg) + (packages * ratePkg);
+          const kaatAmt = parseFloat(k.kaat) || 0;
+          const pfAmt = parseFloat(k.pf) || 0;
           const ddChrg = parseFloat(k.dd_chrg) || 0;
           const payMode = (bilty?.payment_mode || station?.payment_status || '').toUpperCase();
           const isPaid = payMode.includes('PAID');
           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-          const pf = amt - kaatAmt - ddChrg;
 
           let destName = '-';
           if (k.destination_city_id && sbCitiesMap[k.destination_city_id]) destName = sbCitiesMap[k.destination_city_id];
@@ -596,8 +580,9 @@ export default function PohonchPrintPage() {
             weight,
             amount: amt,
             kaat: kaatAmt,
+            kaat_rate: parseFloat(k.actual_kaat_rate) || 0,
             dd: ddChrg,
-            pf,
+            pf: pfAmt,
             payment_mode: bilty?.payment_mode || station?.payment_status || '-',
             is_paid: isPaid,
             date: bilty?.bilty_date || station?.created_at || null,
@@ -856,27 +841,21 @@ export default function PohonchPrintPage() {
             const allChallanSelected = challanGrNos.length > 0 && challanGrNos.every(gr => selectedGrNos.has(gr));
             const someChallanSelected = challanGrNos.some(gr => selectedGrNos.has(gr));
             // Challan subtotals
-            let cPkg = 0, cWt = 0, cAmt = 0, cKaat = 0, cDD = 0;
+            let cPkg = 0, cWt = 0, cAmt = 0, cKaat = 0, cDD = 0, cPF = 0;
             kaatItems.forEach(k => {
               const detail = sbBiltyDetails[k.gr_no];
               const bilty = detail?.bilty;
               const station = detail?.station;
               const weight = parseFloat(bilty?.wt || station?.weight || 0);
               const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-              const effectiveWeight = Math.max(weight, 50);
-              const rateKg = parseFloat(k.rate_per_kg) || 0;
-              const ratePkg = parseFloat(k.rate_per_pkg) || 0;
-              let kaatAmt = 0;
-              if (k.rate_type === 'per_kg') kaatAmt = effectiveWeight * rateKg;
-              else if (k.rate_type === 'per_pkg') kaatAmt = packages * ratePkg;
-              else if (k.rate_type === 'hybrid') kaatAmt = (effectiveWeight * rateKg) + (packages * ratePkg);
+              const kaatAmt = parseFloat(k.kaat) || 0;
+              const pfAmt = parseFloat(k.pf) || 0;
               const ddChrg = parseFloat(k.dd_chrg) || 0;
               const payMode = (bilty?.payment_mode || station?.payment_status || '').toUpperCase();
               const isPaid = payMode.includes('PAID');
               const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-              cPkg += packages; cWt += weight; cAmt += amt; cKaat += kaatAmt; cDD += ddChrg;
+              cPkg += packages; cWt += weight; cAmt += amt; cKaat += kaatAmt; cDD += ddChrg; cPF += pfAmt;
             });
-            const cPF = cAmt - cKaat - cDD;
 
             return (
               <div key={challanNo} className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -947,18 +926,14 @@ export default function PohonchPrintPage() {
                           const station = detail.station;
                           const weight = parseFloat(bilty?.wt || station?.weight || 0);
                           const packages = parseFloat(bilty?.no_of_pkg || station?.no_of_packets || 0);
-                          const effectiveWeight = Math.max(weight, 50);
-                          const rateKg = parseFloat(k.rate_per_kg) || 0;
-                          const ratePkg = parseFloat(k.rate_per_pkg) || 0;
-                          let kaatAmt = 0;
-                          if (k.rate_type === 'per_kg') kaatAmt = effectiveWeight * rateKg;
-                          else if (k.rate_type === 'per_pkg') kaatAmt = packages * ratePkg;
-                          else if (k.rate_type === 'hybrid') kaatAmt = (effectiveWeight * rateKg) + (packages * ratePkg);
+                          const kaatAmt = parseFloat(k.kaat) || 0;
+                          const pfAmt = parseFloat(k.pf) || 0;
+                          const actualKaatRate = parseFloat(k.actual_kaat_rate) || 0;
                           const ddChrg = parseFloat(k.dd_chrg) || 0;
                           const payMode = (bilty?.payment_mode || station?.payment_status || '').toUpperCase();
                           const isPaid = payMode.includes('PAID');
                           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-                          const pf = amt - kaatAmt - ddChrg;
+                          const pf = pfAmt;
                           const payDisplay = bilty?.payment_mode?.toUpperCase() || station?.payment_status?.toUpperCase() || '-';
                           const ddSuffix = (bilty?.delivery_type || station?.delivery_type || '').toLowerCase().includes('door') ? '/DD' : '';
                           const dateStr = bilty?.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM/yy') : station?.created_at ? format(new Date(station.created_at), 'dd/MM/yy') : '-';
@@ -967,10 +942,7 @@ export default function PohonchPrintPage() {
                           if (k.destination_city_id && sbCitiesMap[k.destination_city_id]) destName = sbCitiesMap[k.destination_city_id];
                           else if (bilty?.to_city_id && sbCitiesMap[bilty.to_city_id]) destName = sbCitiesMap[bilty.to_city_id];
 
-                          let rateDisplay = '-';
-                          if (k.rate_type === 'per_kg') rateDisplay = `₹${rateKg}/kg`;
-                          else if (k.rate_type === 'per_pkg') rateDisplay = `₹${ratePkg}/pkg`;
-                          else if (k.rate_type === 'hybrid') rateDisplay = `₹${rateKg}/kg + ₹${ratePkg}/pkg`;
+                          const rateDisplay = actualKaatRate > 0 ? `₹${actualKaatRate}` : '-';
 
                           const pohonchBilty = k.pohonch_no && k.bilty_number ? `${k.pohonch_no}/${k.bilty_number}` : k.pohonch_no || k.bilty_number || '-';
                           const isSelected = selectedGrNos.has(k.gr_no);

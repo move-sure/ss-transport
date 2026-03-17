@@ -13,7 +13,7 @@ export default function NotificationsPage() {
   const [challanData, setChallanData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('expiring');
   const [expandedChallans, setExpandedChallans] = useState({});
 
   useEffect(() => {
@@ -344,9 +344,16 @@ export default function NotificationsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-gray-900">
-                        {challan.challan_no || 'No Challan'}
-                      </span>
+                      {challan.challan_no ? (
+                        <span
+                          onClick={(e) => { e.stopPropagation(); router.push(`/ewb/${challan.challan_no}`); }}
+                          className="text-sm font-bold text-indigo-700 hover:text-indigo-900 underline decoration-indigo-300 hover:decoration-indigo-500 cursor-pointer transition-colors"
+                        >
+                          {challan.challan_no}
+                        </span>
+                      ) : (
+                        <span className="text-sm font-bold text-gray-900">No Challan</span>
+                      )}
                       {ci?.is_dispatched && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
                           <Truck className="h-3 w-3" /> Dispatched

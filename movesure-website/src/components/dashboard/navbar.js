@@ -220,18 +220,17 @@ export default function Navbar() {
     }
   }, [userModules]);
 
-  // Fetch EWB notification count (expired + expiring within 2 days)
+  // Fetch EWB notification count (expiring within 24 hours)
   const fetchNotifCount = async () => {
     try {
       const now = new Date();
-      const twoDaysAgo = new Date(now); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-      const twoDaysAhead = new Date(now); twoDaysAhead.setDate(twoDaysAhead.getDate() + 2);
+      const oneDayAhead = new Date(now); oneDayAhead.setDate(oneDayAhead.getDate() + 1);
       const { count, error } = await supabase
         .from('ewb_validations')
         .select('id', { count: 'exact', head: true })
         .not('valid_upto', 'is', null)
-        .gte('valid_upto', twoDaysAgo.toISOString())
-        .lte('valid_upto', twoDaysAhead.toISOString());
+        .gte('valid_upto', now.toISOString())
+        .lte('valid_upto', oneDayAhead.toISOString());
       if (!error) setNotifCount(count || 0);
     } catch (e) { console.error('Notif count error:', e); }
   };

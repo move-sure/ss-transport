@@ -10,7 +10,7 @@ import {
   Warehouse, Truck, Package, CheckCircle2, Clock, AlertCircle, RefreshCw,
   ArrowLeft, MapPin, User, CheckCircle, Navigation, Box,
   Building2, ClipboardList, ShieldCheck, Filter, X, Loader2,
-  Search, Square, CheckSquare,
+  Search, Square, CheckSquare, FileText,
 } from 'lucide-react';
 
 import { IC, DI, SC } from '../../../components/hub-management/SmallComponents';
@@ -49,6 +49,10 @@ export default function ChallanDetailPage() {
 
   const [selectedGrs, setSelectedGrs] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(null);
+
+  const [showBulkPohonch, setShowBulkPohonch] = useState(false);
+  const [bulkPohonchNo, setBulkPohonchNo] = useState('');
+  const [savingBulkPohonch, setSavingBulkPohonch] = useState(false);
 
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -337,6 +341,58 @@ export default function ChallanDetailPage() {
     } catch (e) { console.error(e); alert('Bulk action failed.'); }
     finally { setBulkLoading(null); }
   }, [selectedGrs, user?.id]);
+
+  /* ========== BULK POHONCH ASSIGNMENT ========== */
+  const bulkAssignPohonch = useCallback(async () => {
+    if (!selectedGrs.size || !user?.id || !bulkPohonchNo.trim()) return;
+    const selected = enrichedBilties.filter(b => selectedGrs.has(b.id));
+    if (!selected.length) return;
+    setSavingBulkPohonch(true);
+    try {
+      const now = new Date().toISOString();
+      const upsertPayloads = selected.map(b => {
+        const existing = kaatData[b.gr_no];
+        return {
+          gr_no: b.gr_no,
+          challan_no: challan.challan_no,
+          destination_city_id: b.to_city_id || null,
+          pohonch_no: bulkPohonchNo.trim(),
+          // preserve existing fields
+          bilty_number: existing?.bilty_number || null,
+          kaat: existing?.kaat || 0,
+          pf: existing?.pf || 0,
+          actual_kaat_rate: existing?.actual_kaat_rate || 0,
+          dd_chrg: existing?.dd_chrg || 0,
+          bilty_chrg: existing?.bilty_chrg || 0,
+          ewb_chrg: existing?.ewb_chrg || 0,
+          labour_chrg: existing?.labour_chrg || 0,
+          other_chrg: existing?.other_chrg || 0,
+          transport_id: existing?.transport_id || null,
+          transport_hub_rate_id: existing?.transport_hub_rate_id || null,
+          rate_type: existing?.rate_type || null,
+          rate_per_kg: existing?.rate_per_kg || 0,
+          rate_per_pkg: existing?.rate_per_pkg || 0,
+          updated_by: user.id,
+          updated_at: now,
+          ...(existing ? {} : { created_by: user.id }),
+        };
+      });
+      const { data, error } = await supabase.from('bilty_wise_kaat').upsert(upsertPayloads, { onConflict: 'gr_no' }).select();
+      if (error) throw error;
+      const newKaat = { ...kaatData };
+      (data || []).forEach(k => { newKaat[k.gr_no] = k; });
+      setKaatData(newKaat);
+      setShowBulkPohonch(false);
+      setBulkPohonchNo('');
+      setSelectedGrs(new Set());
+      alert(`Pohonch "${bulkPohonchNo.trim()}" assigned to ${selected.length} GRs!`);
+    } catch (e) {
+      console.error('Bulk pohonch error:', e);
+      alert('Failed to assign pohonch number.');
+    } finally {
+      setSavingBulkPohonch(false);
+    }
+  }, [selectedGrs, user?.id, bulkPohonchNo, enrichedBilties, kaatData, challan?.challan_no]);
 
   /* ========== KAAT MANAGEMENT ========== */
   const openKaatModal = useCallback((grNo) => {
@@ -804,6 +860,10 @@ export default function ChallanDetailPage() {
                 <button onClick={() => setSelectedGrs(new Set())} className="text-[10px] px-2 py-0.5 bg-white border border-gray-200 rounded hover:bg-gray-50">Clear</button>
               </div>
               <div className="flex items-center gap-2">
+                <button onClick={() => setShowBulkPohonch(true)} disabled={!!bulkLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 shadow-sm transition-all">
+                  <FileText className="h-3 w-3"/>Assign Pohonch
+                </button>
                 <button onClick={() => bulkAction('branch', displayed)} disabled={!!bulkLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-40 shadow-sm transition-all">
                   {bulkLoading === 'branch' ? <Loader2 className="h-3 w-3 animate-spin"/> : <span className="w-3 h-3 rounded-full bg-white/30 inline-block"/>}
@@ -964,6 +1024,54 @@ export default function ChallanDetailPage() {
         form={addHubRateForm} setForm={setAddHubRateForm}
         saving={savingNewHubRate} onSave={saveNewHubRate}
       />
+
+      {/* BULK POHONCH MODAL */}
+      {showBulkPohonch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-100 rounded-xl"><FileText className="h-4 w-4 text-indigo-600"/></div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Assign Pohonch Number</h3>
+                  <p className="text-[10px] text-gray-500">{selectedGrs.size} GR{selectedGrs.size > 1 ? 's' : ''} selected</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowBulkPohonch(false); setBulkPohonchNo(''); }} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500"/></button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-indigo-700 mb-1">Selected GR Numbers:</p>
+                <div className="flex flex-wrap gap-1">
+                  {enrichedBilties.filter(b => selectedGrs.has(b.id)).map(b => (
+                    <span key={b.id} className="text-[10px] font-bold bg-white text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-200">{b.gr_no}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-700 mb-1 block">Pohonch Number</label>
+                <input
+                  type="text"
+                  value={bulkPohonchNo}
+                  onChange={e => setBulkPohonchNo(e.target.value)}
+                  placeholder="Enter pohonch number..."
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-300 focus:border-transparent text-gray-900 placeholder-gray-400"
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter' && bulkPohonchNo.trim()) bulkAssignPohonch(); }}
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+              <button onClick={() => { setShowBulkPohonch(false); setBulkPohonchNo(''); }}
+                className="px-4 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Cancel</button>
+              <button onClick={bulkAssignPohonch} disabled={savingBulkPohonch || !bulkPohonchNo.trim()}
+                className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl hover:from-indigo-600 hover:to-purple-700 shadow-sm disabled:opacity-50 flex items-center gap-1.5">
+                {savingBulkPohonch ? <><Loader2 className="h-3 w-3 animate-spin"/>Saving...</> : <>Assign to {selectedGrs.size} GRs</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

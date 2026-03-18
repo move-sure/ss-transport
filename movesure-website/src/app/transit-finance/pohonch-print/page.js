@@ -41,8 +41,6 @@ export default function PohonchPrintPage() {
   const [transportSuggestions, setTransportSuggestions] = useState([]);
   const [selectedTransport, setSelectedTransport] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [sbChallanFrom, setSbChallanFrom] = useState('');
-  const [sbChallanTo, setSbChallanTo] = useState('');
   const [sbLoading, setSbLoading] = useState(false);
   const [sbBilties, setSbBilties] = useState([]);
   const [sbBiltyDetails, setSbBiltyDetails] = useState({});
@@ -54,10 +52,11 @@ export default function PohonchPrintPage() {
   // Selection state for printing
   const [selectedGrNos, setSelectedGrNos] = useState(new Set());
 
-  // Challan suggestions state
+  // Multi-challan select state
+  const [challanSearchText, setChallanSearchText] = useState('');
   const [challanSuggestions, setChallanSuggestions] = useState([]);
-  const [showChallanFromSugg, setShowChallanFromSugg] = useState(false);
-  const [showChallanToSugg, setShowChallanToSugg] = useState(false);
+  const [showChallanSuggestions, setShowChallanSuggestions] = useState(false);
+  const [selectedChallans, setSelectedChallans] = useState([]); // array of selected challan numbers
 
   // PDF generation state
   const [generating, setGenerating] = useState(false);
@@ -71,6 +70,19 @@ export default function PohonchPrintPage() {
   const [recentKey, setRecentKey] = useState(0); // to trigger refresh in RecentPohonch
 
   useEffect(() => { setMounted(true); }, []);
+
+  // ====== Destination Resolver Helper ======
+  // Resolves the best available destination name for a bilty from multiple sources
+  const resolveDestination = useCallback((kaatItem, bilty, station, citiesMap) => {
+    // Priority: 1) bilty_wise_kaat destination_city_id → city name
+    //           2) bilty's to_city_id → city name
+    //           3) station's station field (station name text)
+    //           4) fallback '-'
+    if (kaatItem?.destination_city_id && citiesMap[kaatItem.destination_city_id]) return citiesMap[kaatItem.destination_city_id];
+    if (bilty?.to_city_id && citiesMap[bilty.to_city_id]) return citiesMap[bilty.to_city_id];
+    if (station?.station && station.station !== '-') return station.station;
+    return '-';
+  }, []);
 
   // ====== Pohonch Number Generator ======
   // Uses transport name initials + last 4 digits of GST for uniqueness per GST
@@ -238,9 +250,9 @@ export default function PohonchPrintPage() {
     }
   };
 
-  // ====== Challan Search Function ======
+  // ====== Challan Search Function (multi-select) ======
   const fetchChallanSuggestions = async (value) => {
-    if (value.length < 1) { setChallanSuggestions([]); return; }
+    if (value.length < 1) { setChallanSuggestions([]); setShowChallanSuggestions(false); return; }
     try {
       const { data } = await supabase
         .from('challan_details')
@@ -248,11 +260,26 @@ export default function PohonchPrintPage() {
         .ilike('challan_no', `%${value}%`)
         .eq('is_active', true)
         .order('challan_no')
-        .limit(10);
-      setChallanSuggestions((data || []).map(d => d.challan_no));
+        .limit(20);
+      const results = (data || []).map(d => d.challan_no).filter(c => !selectedChallans.includes(c));
+      setChallanSuggestions(results);
+      setShowChallanSuggestions(results.length > 0);
     } catch (err) {
       setChallanSuggestions([]);
     }
+  };
+
+  const addChallan = (challanNo) => {
+    if (!selectedChallans.includes(challanNo)) {
+      setSelectedChallans(prev => [...prev, challanNo]);
+    }
+    setChallanSearchText('');
+    setChallanSuggestions([]);
+    setShowChallanSuggestions(false);
+  };
+
+  const removeChallan = (challanNo) => {
+    setSelectedChallans(prev => prev.filter(c => c !== challanNo));
   };
 
   // ====== Transport Search Functions ======
@@ -342,19 +369,15 @@ export default function PohonchPrintPage() {
 
       let filteredKaat = kaatData || [];
 
-      // Apply challan range filter
-      if (sbChallanFrom || sbChallanTo) {
-        filteredKaat = filteredKaat.filter(k => {
-          const num = parseInt(k.challan_no?.replace(/\D/g, '') || '0', 10);
-          if (sbChallanFrom) { const fromNum = parseInt(sbChallanFrom.replace(/\D/g, '') || '0', 10); if (num < fromNum) return false; }
-          if (sbChallanTo) { const toNum = parseInt(sbChallanTo.replace(/\D/g, '') || '0', 10); if (num > toNum) return false; }
-          return true;
-        });
+      // Apply multi-challan filter if any challans are selected
+      if (selectedChallans.length > 0) {
+        const challanSet = new Set(selectedChallans);
+        filteredKaat = filteredKaat.filter(k => challanSet.has(k.challan_no));
       }
 
       setSbBilties(filteredKaat);
 
-      // Fetch bilty + station details for all gr_nos
+      // Fetch bilty + station details + challan destination for all gr_nos
       if (filteredKaat.length > 0) {
         const grNos = filteredKaat.map(k => k.gr_no).filter(Boolean);
         const batchSize = 200;
@@ -366,7 +389,7 @@ export default function PohonchPrintPage() {
             supabase.from('station_bilty_summary').select('gr_no, created_at, consignor, consignee, no_of_packets, weight, amount, payment_status, delivery_type, station').in('gr_no', batch)
           ]);
           (biltyRes.data || []).forEach(b => { detailsMap[b.gr_no] = { ...detailsMap[b.gr_no], bilty: b }; });
-          (stationRes.data || []).forEach(s => { if (!detailsMap[s.gr_no]?.bilty) detailsMap[s.gr_no] = { ...detailsMap[s.gr_no], station: s }; else detailsMap[s.gr_no] = { ...detailsMap[s.gr_no], station: s }; });
+          (stationRes.data || []).forEach(s => { detailsMap[s.gr_no] = { ...detailsMap[s.gr_no], station: s }; });
         }
         setSbBiltyDetails(detailsMap);
       }
@@ -387,8 +410,8 @@ export default function PohonchPrintPage() {
   const handleClearSbSearch = () => {
     setTransportSearch('');
     setSelectedTransport(null);
-    setSbChallanFrom('');
-    setSbChallanTo('');
+    setSelectedChallans([]);
+    setChallanSearchText('');
     setSbBilties([]);
     setSbBiltyDetails({});
     setSbError(null);
@@ -496,9 +519,7 @@ export default function PohonchPrintPage() {
           const isPaid = payMode.includes('PAID');
           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
 
-          let destName = '-';
-          if (k.destination_city_id && sbCitiesMap[k.destination_city_id]) destName = sbCitiesMap[k.destination_city_id];
-          else if (bilty?.to_city_id && sbCitiesMap[bilty.to_city_id]) destName = sbCitiesMap[bilty.to_city_id];
+          const destName = resolveDestination(k, bilty, station, sbCitiesMap);
           
           let fromName = '-';
           if (bilty?.from_city_id && sbCitiesMap[bilty.from_city_id]) fromName = sbCitiesMap[bilty.from_city_id];
@@ -557,9 +578,7 @@ export default function PohonchPrintPage() {
           const isPaid = payMode.includes('PAID');
           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
 
-          let destName = '-';
-          if (k.destination_city_id && sbCitiesMap[k.destination_city_id]) destName = sbCitiesMap[k.destination_city_id];
-          else if (bilty?.to_city_id && sbCitiesMap[bilty.to_city_id]) destName = sbCitiesMap[bilty.to_city_id];
+          const destName = resolveDestination(k, bilty, station, sbCitiesMap);
           
           let fromName = '-';
           if (bilty?.from_city_id && sbCitiesMap[bilty.from_city_id]) fromName = sbCitiesMap[bilty.from_city_id];
@@ -649,7 +668,7 @@ export default function PohonchPrintPage() {
               <Truck className="w-5 h-5 text-teal-600" />
               <h2 className="text-lg font-bold text-gray-800">Search Bilties by Transport</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
               {/* Transport Search with Autocomplete */}
               <div className="md:col-span-2 relative">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Transport Name / GST</label>
@@ -691,41 +710,47 @@ export default function PohonchPrintPage() {
                   </div>
                 )}
               </div>
+              {/* Multi Challan Select */}
               <div className="relative">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Challan From</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Select Challans (optional)</label>
                 <input
                   type="text"
-                  value={sbChallanFrom}
-                  onChange={(e) => { setSbChallanFrom(e.target.value); fetchChallanSuggestions(e.target.value); setShowChallanFromSugg(true); setShowChallanToSugg(false); }}
-                  onFocus={() => { if (challanSuggestions.length > 0) setShowChallanFromSugg(true); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchBilties()}
-                  placeholder="e.g. 020"
+                  value={challanSearchText}
+                  onChange={(e) => { setChallanSearchText(e.target.value); fetchChallanSuggestions(e.target.value); }}
+                  onFocus={() => { if (challanSuggestions.length > 0) setShowChallanSuggestions(true); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (challanSuggestions.length > 0) addChallan(challanSuggestions[0]);
+                      else handleSearchBilties();
+                    }
+                    if (e.key === 'Backspace' && challanSearchText === '' && selectedChallans.length > 0) {
+                      removeChallan(selectedChallans[selectedChallans.length - 1]);
+                    }
+                  }}
+                  placeholder={selectedChallans.length > 0 ? 'Add more...' : 'Type challan no...'}
                   className="w-full px-3 py-2 border-2 border-teal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-teal-50/30 font-mono text-sm"
                 />
-                {showChallanFromSugg && challanSuggestions.length > 0 && (
-                  <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                {showChallanSuggestions && challanSuggestions.length > 0 && (
+                  <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                     {challanSuggestions.map((c) => (
-                      <button key={c} onClick={() => { setSbChallanFrom(c); setShowChallanFromSugg(false); }} className="w-full text-left px-3 py-1.5 hover:bg-teal-50 text-sm font-mono border-b border-gray-50 last:border-0">{c}</button>
+                      <button key={c} onClick={() => addChallan(c)} className="w-full text-left px-3 py-1.5 hover:bg-teal-50 text-sm font-mono border-b border-gray-50 last:border-0 flex items-center gap-2">
+                        <Hash className="w-3 h-3 text-teal-500" /> {c}
+                      </button>
                     ))}
                   </div>
                 )}
-              </div>
-              <div className="relative">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Challan To</label>
-                <input
-                  type="text"
-                  value={sbChallanTo}
-                  onChange={(e) => { setSbChallanTo(e.target.value); fetchChallanSuggestions(e.target.value); setShowChallanToSugg(true); setShowChallanFromSugg(false); }}
-                  onFocus={() => { if (challanSuggestions.length > 0) setShowChallanToSugg(true); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchBilties()}
-                  placeholder="e.g. 030"
-                  className="w-full px-3 py-2 border-2 border-teal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-teal-50/30 font-mono text-sm"
-                />
-                {showChallanToSugg && challanSuggestions.length > 0 && (
-                  <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-40 overflow-y-auto">
-                    {challanSuggestions.map((c) => (
-                      <button key={c} onClick={() => { setSbChallanTo(c); setShowChallanToSugg(false); }} className="w-full text-left px-3 py-1.5 hover:bg-teal-50 text-sm font-mono border-b border-gray-50 last:border-0">{c}</button>
+                {/* Selected challan chips */}
+                {selectedChallans.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {selectedChallans.map(c => (
+                      <span key={c} className="inline-flex items-center gap-0.5 bg-teal-100 text-teal-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {c}
+                        <button onClick={() => removeChallan(c)} className="ml-0.5 hover:text-red-600 transition-colors"><X className="w-3 h-3" /></button>
+                      </span>
                     ))}
+                    {selectedChallans.length > 1 && (
+                      <button onClick={() => setSelectedChallans([])} className="text-xs text-red-500 hover:text-red-700 font-medium px-1">Clear all</button>
+                    )}
                   </div>
                 )}
               </div>
@@ -738,7 +763,7 @@ export default function PohonchPrintPage() {
                   {sbLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   {sbLoading ? 'Searching...' : 'Search'}
                 </button>
-                {(transportSearch || sbChallanFrom || sbChallanTo) && (
+                {(transportSearch || selectedChallans.length > 0) && (
                   <button
                     onClick={handleClearSbSearch}
                     className="px-3 py-2 bg-red-100 text-red-600 rounded-lg font-semibold text-sm hover:bg-red-200 transition-colors"
@@ -773,8 +798,7 @@ export default function PohonchPrintPage() {
                     </div>
                     <div className="text-sm text-gray-600">
                       {sbBilties.length} bilties in {sbGroupedByChallan.length} challans
-                      {sbChallanFrom && ` | From: ${sbChallanFrom}`}
-                      {sbChallanTo && ` | To: ${sbChallanTo}`}
+                      {selectedChallans.length > 0 && ` | Challans: ${selectedChallans.join(', ')}`}
                     </div>
                   </div>
                 </div>
@@ -938,9 +962,7 @@ export default function PohonchPrintPage() {
                           const ddSuffix = (bilty?.delivery_type || station?.delivery_type || '').toLowerCase().includes('door') ? '/DD' : '';
                           const dateStr = bilty?.bilty_date ? format(new Date(bilty.bilty_date), 'dd/MM/yy') : station?.created_at ? format(new Date(station.created_at), 'dd/MM/yy') : '-';
 
-                          let destName = '-';
-                          if (k.destination_city_id && sbCitiesMap[k.destination_city_id]) destName = sbCitiesMap[k.destination_city_id];
-                          else if (bilty?.to_city_id && sbCitiesMap[bilty.to_city_id]) destName = sbCitiesMap[bilty.to_city_id];
+                          const destName = resolveDestination(k, bilty, station, sbCitiesMap);
 
                           const rateDisplay = actualKaatRate > 0 ? `₹${actualKaatRate}` : '-';
 

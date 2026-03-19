@@ -421,9 +421,15 @@ const PDFGenerator = ({
       setFromCityData(effectiveFromCity);
       setToCityData(toCityRes.data);
 
-      // Load transport data based on to_city_id
+      // Load transport data - use transport_id if available (exact match), else fall back to city_id
       let transportRes = { data: null };
-      if (biltyData.to_city_id) {
+      if (biltyData.transport_id) {
+        transportRes = await supabase
+          .from('transports')
+          .select('*')
+          .eq('id', biltyData.transport_id)
+          .single();
+      } else if (biltyData.to_city_id) {
         transportRes = await supabase
           .from('transports')
           .select('*')
@@ -592,14 +598,14 @@ const PDFGenerator = ({
     // GSTIN - Bold label - ENHANCED DARK & BOLD
     addStyledText(
       pdf, 
-      `GSTIN: ${transport?.gst_number || '24503825250'}`, 
+      `GSTIN: ${transport?.gst_number || biltyData.transport_gst || ''}`, 
       COORDINATES.DELIVERY_SECTION.GSTIN.x, 
       y + COORDINATES.DELIVERY_SECTION.GSTIN.y,
       STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
     );
     
     // Mobile number - Bold label - ENHANCED DARK & BOLD
-    const mobileNumber = transport?.mob_number || permDetails?.mobile_number || '7668291228';
+    const mobileNumber = transport?.mob_number || biltyData.transport_number || permDetails?.mobile_number || '';
     addStyledText(
       pdf, 
       `MOB: ${mobileNumber}`, 

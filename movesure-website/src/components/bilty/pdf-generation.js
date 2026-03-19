@@ -585,7 +585,7 @@ const PDFGenerator = ({
       STYLES.FONTS.NOTICE
     );
       // 🚚 DELIVERY SECTION - Transport name only (delivery type moved) - ENHANCED DARK & BOLD
-    const deliveryText = transport?.transport_name || biltyData.transport_name || 'SWASTIK TRANSPORT';
+    const deliveryText = transport?.transport_name || biltyData.transport_name || '';
     
     addStyledText(
       pdf, 

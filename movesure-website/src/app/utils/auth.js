@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Periodically check if session is still active (every 30 seconds)
+  // Periodically check if session is still active (every 5 minutes)
   useEffect(() => {
     if (!isAuthenticated || !sessionId) return;
 
@@ -40,17 +40,20 @@ export const AuthProvider = ({ children }) => {
           .eq('id', sessionId)
           .single();
 
-        if (error || !data || !data.is_active) {
-          console.log('Session ended remotely, logging out');
+        // ONLY logout when the server explicitly says session is inactive
+        // Ignore network errors, query errors, or missing data — those are transient
+        if (!error && data && data.is_active === false) {
+          console.log('Session ended remotely by admin, logging out');
           await clearAuth();
           router.push('/login');
         }
       } catch (err) {
         // Network error — skip this check, will retry next interval
+        console.warn('Session check skipped due to network error');
       }
     };
 
-    const interval = setInterval(checkSessionActive, 30000);
+    const interval = setInterval(checkSessionActive, 300000); // 5 minutes
     return () => clearInterval(interval);
   }, [isAuthenticated, sessionId]);
 

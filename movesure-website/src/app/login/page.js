@@ -169,34 +169,55 @@ export default function LoginPage() {
       const normalizedUsername = formData.username.trim().toLowerCase();
       const trimmedPassword = formData.password.trim();
 
-      // Retry wrapper for old/slow devices with flaky connections
-      const queryWithRetry = async (retries = 2) => {
+      // Start fetching client info early (runs in parallel with auth queries)
+      const clientInfoPromise = getClientInfo();
+
+      // Generic retry wrapper for any Supabase operation
+      const withRetry = async (operation, label = 'operation', retries = 2) => {
         for (let i = 0; i <= retries; i++) {
           try {
-            const { data, error } = await supabase
-              .from('users')
-              .select('*')
-              .ilike('username', normalizedUsername)
-              .eq('is_active', true)
-              .limit(1);
-            
-            if (error) {
-              console.error(`Supabase query error (attempt ${i + 1}):`, JSON.stringify(error));
-              if (i === retries) return { data: null, error };
-              await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+            const result = await operation();
+            if (result.error) {
+              console.error(`${label} error (attempt ${i + 1}/${retries + 1}):`, JSON.stringify(result.error));
+              if (i === retries) return result;
+              await new Promise(r => setTimeout(r, 1000 * (i + 1))); // progressive backoff
               continue;
             }
-            return { data, error: null };
+            return result;
           } catch (networkErr) {
-            console.error(`Network error (attempt ${i + 1}):`, networkErr?.message || networkErr);
+            console.error(`${label} network error (attempt ${i + 1}/${retries + 1}):`, networkErr?.message || networkErr);
             if (i === retries) return { data: null, error: networkErr };
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
           }
         }
-        return { data: null, error: new Error('Connection failed') };
+        return { data: null, error: new Error(`${label} failed after retries`) };
       };
 
-      const { data: users, error: userError } = await queryWithRetry();
+      // Fetch user with retry — also retry when data comes back empty (transient Supabase issue)
+      let users = null;
+      let userError = null;
+      for (let attempt = 0; attempt <= 2; attempt++) {
+        const result = await withRetry(
+          () => supabase
+            .from('users')
+            .select('*')
+            .ilike('username', normalizedUsername)
+            .eq('is_active', true)
+            .limit(1),
+          'User query'
+        );
+        users = result.data;
+        userError = result.error;
+
+        if (userError) break; // real error, stop
+        if (users && users.length > 0) break; // found user, stop
+
+        // Empty data with no error — possible transient issue, retry once more
+        if (attempt < 2) {
+          console.warn(`User query returned empty (attempt ${attempt + 1}), retrying...`);
+          await new Promise(r => setTimeout(r, 800));
+        }
+      }
 
       if (userError) {
         console.error('User fetch error details:', JSON.stringify(userError));
@@ -228,24 +249,30 @@ export default function LoginPage() {
 
       console.log('Password verified successfully');
 
-      const clientInfo = await getClientInfo();
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('user_sessions')
-        .insert([
-          {
-            user_id: userData.id,
-            login_time: new Date().toISOString(),
-            ip_address: clientInfo.ip_address,
-            user_agent: clientInfo.user_agent,
-            is_active: true
-          }
-        ])
-        .select()
-        .single();
+      // Await the client info that was started in parallel earlier
+      const clientInfo = await clientInfoPromise;
+
+      // Create session with retry
+      const { data: sessionData, error: sessionError } = await withRetry(
+        () => supabase
+          .from('user_sessions')
+          .insert([
+            {
+              user_id: userData.id,
+              login_time: new Date().toISOString(),
+              ip_address: clientInfo.ip_address,
+              user_agent: clientInfo.user_agent,
+              is_active: true
+            }
+          ])
+          .select()
+          .single(),
+        'Session creation'
+      );
 
       if (sessionError) {
-        console.error('Session creation error:', sessionError);
-        throw new Error('Failed to create session');
+        console.error('Session creation error after retries:', sessionError);
+        throw new Error('Failed to create session. Please try again.');
       }
 
       console.log('Session created:', sessionData);
@@ -255,22 +282,26 @@ export default function LoginPage() {
 
       const tokenString = `${userData.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('user_tokens')
-        .insert([
-          {
-            user_id: userData.id,
-            token: tokenString,
-            expires_at: tokenExpiry.toISOString(),
-            is_revoked: false
-          }
-        ])
-        .select()
-        .single();
+      // Create token with retry
+      const { data: tokenData, error: tokenError } = await withRetry(
+        () => supabase
+          .from('user_tokens')
+          .insert([
+            {
+              user_id: userData.id,
+              token: tokenString,
+              expires_at: tokenExpiry.toISOString(),
+              is_revoked: false
+            }
+          ])
+          .select()
+          .single(),
+        'Token creation'
+      );
 
       if (tokenError) {
-        console.error('Token creation error:', tokenError);
-        throw new Error('Failed to create authentication token');
+        console.error('Token creation error after retries:', tokenError);
+        throw new Error('Failed to create authentication token. Please try again.');
       }
 
       console.log('Token created:', tokenData);

@@ -119,7 +119,8 @@ function ChallanTableRow({
   }
 
   const totalAmount = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
-  const profit = kaatData ? totalAmount - kaatAmount - ddChrg : totalAmount - ddChrg;
+  // kaat in DB already includes DD, so profit = amount - kaat (no separate DD subtraction)
+  const profit = kaatData ? totalAmount - kaatAmount : totalAmount - ddChrg;
 
   return (
     <tr
@@ -280,6 +281,7 @@ function ChallanTableRow({
           destinationCityId={bilty?.to_city_id || getCityIdByCode(station?.station, cities)}
           biltyWeight={bilty?.wt || station?.weight || 0}
           biltyPackages={bilty?.no_of_pkg || station?.no_of_packets || 0}
+          biltyAmount={totalAmount}
           biltyTransportGst={bilty?.transport_gst || null}
           paymentMode={paymentMode || ''}
           deliveryType={deliveryType}
@@ -291,15 +293,14 @@ function ChallanTableRow({
         />
       </td>
 
-      {/* PF */}
+      {/* Kaat (includes DD from DB) */}
       <td className="px-1 py-1.5 text-right whitespace-nowrap">
-        {kaatData?.pf != null ? (
+        {kaatData ? (
           <span className={`font-bold text-[10px] px-1 py-0.5 rounded border inline-block ${
-            parseFloat(kaatData.pf) > 0 ? 'text-green-700 bg-green-50 border-green-100' :
-            parseFloat(kaatData.pf) < 0 ? 'text-red-700 bg-red-50 border-red-100' :
+            kaatAmount > 0 ? 'text-orange-700 bg-orange-50 border-orange-100' :
             'text-gray-600 bg-gray-50 border-gray-100'
           }`}>
-            ₹{parseFloat(kaatData.pf).toFixed(0)}
+            ₹{kaatAmount.toFixed(0)}
           </span>
         ) : <span className="text-gray-200 text-[10px]">-</span>}
       </td>
@@ -311,7 +312,7 @@ function ChallanTableRow({
         ) : <span className="text-gray-200 text-[10px]">-</span>}
       </td>
 
-      {/* Profit */}
+      {/* PF (Profit) */}
       <td className="px-1 py-1.5 text-right whitespace-nowrap">
         {(kaatData || totalAmount > 0 || ddChrg > 0) ? (
           <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded border inline-block ${

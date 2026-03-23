@@ -49,24 +49,28 @@ export default function ChallanTableFooter({ financialSummary, footerTotals }) {
                 <span className="text-gray-400 text-[10px]">0</span>
               )}
             </td>
-            {/* Kaat */}
+            {/* Pohonch - empty */}
+            <td className="px-1.5 py-2" />
+            {/* Bilty# - empty */}
+            <td className="px-1.5 py-2" />
+            {/* Kaat (interactive cell) */}
             <td className="px-1.5 py-2 text-center">
               <span className="text-orange-800 font-extrabold text-xs bg-orange-50 px-2 py-0.5 rounded border border-orange-200 inline-flex items-center gap-1">
                 <FileText className="w-3 h-3 text-orange-600" />
                 {footerTotals.totalKaat.toFixed(0)}
               </span>
             </td>
-            {/* PF */}
+            {/* Kaat (kaat + DD) */}
             <td className="px-1.5 py-2 text-right">
               <span className={`font-extrabold text-xs px-2 py-0.5 rounded border inline-block ${
-                footerTotals.totalPf >= 0 ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200'
+                footerTotals.totalPf >= 0 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-red-700 bg-red-50 border-red-200'
               }`}>
-                {footerTotals.totalPf.toFixed(0)}
+                ₹{footerTotals.totalPf.toFixed(0)}
               </span>
             </td>
             {/* Act.Rate - empty */}
             <td className="px-1.5 py-2" />
-            {/* Profit */}
+            {/* PF (Profit) */}
             <td className="px-1.5 py-2 text-right">
               <span className={`font-extrabold text-xs px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
                 footerTotals.totalProfit > 0 ? 'text-green-700 bg-green-50 border-green-200' :

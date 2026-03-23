@@ -113,6 +113,17 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
     }
 
     // Prepare bulk upsert data
+    // First, fetch existing kaat records to preserve dd_chrg
+    const grNos = filteredTransits.map(t => t.gr_no).filter(Boolean);
+    let existingKaatMap = {};
+    if (grNos.length > 0) {
+      const { data: existingKaat } = await supabase
+        .from('bilty_wise_kaat')
+        .select('gr_no, dd_chrg')
+        .in('gr_no', grNos);
+      (existingKaat || []).forEach(k => { existingKaatMap[k.gr_no] = k; });
+    }
+
     const upsertData = filteredTransits.map(transit => {
       const bilty = transit.bilty;
       const station = transit.station;
@@ -148,8 +159,15 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
         actualKaatRate = (effectiveWeight * rateKg) / weight;
       }
 
-      // PF = total kaat amount (the deduction amount)
-      const pf = kaatAmount;
+      // PF = profit = amount - kaat (if amount is 0, pf is negative kaat)
+      const paymentMode = bilty?.payment_mode || station?.payment_status;
+      const isPaidOrDD = paymentMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+      const biltyAmt = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+
+      // Preserve existing DD charge and add it to kaat
+      const existingDdChrg = existingKaatMap[transit.gr_no]?.dd_chrg ? parseFloat(existingKaatMap[transit.gr_no].dd_chrg) : 0;
+      const kaatWithDD = parseFloat((kaatAmount + existingDdChrg).toFixed(4));
+      const pf = biltyAmt - kaatWithDD;
 
       return {
         gr_no: transit.gr_no,
@@ -159,9 +177,10 @@ export const applyHubRateToMultipleBilties = async (filteredTransits, selectedCh
         rate_type: rateType,
         rate_per_kg: selectedRate.rate_per_kg || 0,
         rate_per_pkg: selectedRate.rate_per_pkg || 0,
-        kaat: parseFloat(kaatAmount.toFixed(4)),
+        kaat: kaatWithDD,
         pf: parseFloat(pf.toFixed(4)),
         actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
+        dd_chrg: existingDdChrg,
         bilty_chrg: parseFloat(selectedRate.bilty_chrg || 0),
         ewb_chrg: parseFloat(selectedRate.ewb_chrg || 0),
         labour_chrg: parseFloat(selectedRate.labour_chrg || 0),
@@ -501,6 +520,21 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
     }
     
     // Prepare upsert data for each bilty
+    // First, fetch existing kaat records to preserve dd_chrg
+    const grNos = transitDetails.map(t => t.gr_no).filter(Boolean);
+    let existingKaatMap = {};
+    if (grNos.length > 0) {
+      const batchSize2 = 100;
+      for (let i = 0; i < grNos.length; i += batchSize2) {
+        const batch = grNos.slice(i, i + batchSize2);
+        const { data: existingKaat } = await supabase
+          .from('bilty_wise_kaat')
+          .select('gr_no, dd_chrg')
+          .in('gr_no', batch);
+        (existingKaat || []).forEach(k => { existingKaatMap[k.gr_no] = k; });
+      }
+    }
+
     const upsertData = [];
     let skipped = 0;
     
@@ -578,8 +612,15 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
         actualKaatRate = (effectiveWeight * rateKg) / weight;
       }
 
-      // PF = total kaat amount (the deduction amount)
-      const pf = kaatAmount;
+      // PF = profit = amount - kaat (if amount is 0, pf is negative kaat)
+      const payMode = bilty?.payment_mode || station?.payment_status;
+      const isPaidOrDD = payMode?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+      const biltyAmt = isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+
+      // Preserve existing DD charge and add it to kaat
+      const existingDdChrg = existingKaatMap[transit.gr_no]?.dd_chrg ? parseFloat(existingKaatMap[transit.gr_no].dd_chrg) : 0;
+      const kaatWithDD = parseFloat((kaatAmount + existingDdChrg).toFixed(4));
+      const pf = biltyAmt - kaatWithDD;
       
       upsertData.push({
         gr_no: transit.gr_no,
@@ -589,9 +630,10 @@ export const autoApplyKaatToAllBilties = async (transitDetails, selectedChallan,
         rate_type: rateType,
         rate_per_kg: selectedRate.rate_per_kg || 0,
         rate_per_pkg: selectedRate.rate_per_pkg || 0,
-        kaat: parseFloat(kaatAmount.toFixed(4)),
+        kaat: kaatWithDD,
         pf: parseFloat(pf.toFixed(4)),
         actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
+        dd_chrg: existingDdChrg,
         bilty_chrg: parseFloat(selectedRate.bilty_chrg || 0),
         ewb_chrg: parseFloat(selectedRate.ewb_chrg || 0),
         labour_chrg: parseFloat(selectedRate.labour_chrg || 0),

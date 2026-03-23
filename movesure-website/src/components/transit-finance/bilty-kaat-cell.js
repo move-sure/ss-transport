@@ -10,6 +10,7 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
   destinationCityId,
   biltyWeight,
   biltyPackages,
+  biltyAmount = 0,
   biltyTransportGst,
   paymentMode = '',
   deliveryType = '',
@@ -300,8 +301,9 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
     const otherChrg = parseFloat(rateData.other_chrg) || 0;
     kaatAmount += biltyChrg + ewbChrg + labourChrg + otherChrg;
 
-    // PF = total kaat amount (the deduction amount)
-    const pf = kaatAmount;
+    // PF = profit = amount - kaat (if amount is 0, pf will be negative kaat)
+    const amt = parseFloat(biltyAmount) || 0;
+    const pf = amt - kaatAmount;
 
     return {
       kaat: parseFloat(kaatAmount.toFixed(4)),
@@ -335,6 +337,11 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
 
       const ddCharge = isDDPayment && formData.dd_chrg ? parseFloat(formData.dd_chrg) : 0;
 
+      // kaat in DB = base kaat + DD charge (DD is part of the total kaat deduction)
+      const kaatWithDD = parseFloat((kaatCalc.kaat + ddCharge).toFixed(4));
+      // pf = profit = amount - total kaat (including DD)
+      const pfValue = parseFloat(((parseFloat(biltyAmount) || 0) - kaatWithDD).toFixed(4));
+
       const saveData = {
         gr_no: grNo,
         challan_no: challanNo,
@@ -343,8 +350,8 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
         rate_type: formData.rate_type,
         rate_per_kg: formData.rate_per_kg ? parseFloat(formData.rate_per_kg) : 0,
         rate_per_pkg: formData.rate_per_pkg ? parseFloat(formData.rate_per_pkg) : 0,
-        kaat: kaatCalc.kaat,
-        pf: kaatCalc.pf,
+        kaat: kaatWithDD,
+        pf: pfValue,
         actual_kaat_rate: kaatCalc.actual_kaat_rate,
         dd_chrg: ddCharge,
         bilty_chrg: formData.bilty_chrg ? parseFloat(formData.bilty_chrg) : 0,
@@ -653,24 +660,65 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
                   {kaatData.rate_type === 'per_kg' ? 'KG' : kaatData.rate_type === 'per_pkg' ? 'Pkg' : 'Both'}
                 </span>
               </div>
-              {kaatData.rate_per_kg > 0 && (
-                <div className="text-[8px] text-gray-700">
-                  <span className="font-semibold">₹{parseFloat(kaatData.rate_per_kg).toFixed(2)}</span>/kg
-                </div>
-              )}
-              {kaatData.rate_per_pkg > 0 && (
-                <div className="text-[8px] text-gray-700">
-                  <span className="font-semibold">₹{parseFloat(kaatData.rate_per_pkg).toFixed(2)}</span>/pkg
-                </div>
-              )}
-              <div className="text-[9px] font-bold text-orange-700 mt-0.5">
-                K: ₹{kaatData.kaat != null ? parseFloat(kaatData.kaat).toFixed(2) : calculateAmount()}
-              </div>
-              {kaatData.dd_chrg > 0 && (
-                <div className="text-[8px] font-semibold text-red-600 mt-0.5">
-                  DD: -₹{parseFloat(kaatData.dd_chrg).toFixed(2)}
-                </div>
-              )}
+              {/* Weight × Rate = Base Kaat breakdown */}
+              {(() => {
+                const weight = parseFloat(biltyWeight) || 0;
+                const packages = parseFloat(biltyPackages) || 0;
+                const rateKg = parseFloat(kaatData.rate_per_kg) || 0;
+                const ratePkg = parseFloat(kaatData.rate_per_pkg) || 0;
+                const ddChrg = parseFloat(kaatData.dd_chrg) || 0;
+                const totalKaat = parseFloat(kaatData.kaat) || 0;
+                const baseKaat = totalKaat - ddChrg;
+                const effectiveWeight = Math.max(weight, 50);
+
+                return (
+                  <>
+                    {kaatData.rate_type === 'per_kg' && rateKg > 0 && (
+                      <div className="text-[8px] text-gray-700">
+                        {effectiveWeight > weight && weight > 0 ? (
+                          <span><span className="text-orange-600" title={`Actual: ${weight}kg, Min 50kg applied`}>{effectiveWeight}</span></span>
+                        ) : (
+                          <span>{effectiveWeight}</span>
+                        )}
+                        <span className="text-gray-400"> × </span>
+                        <span className="font-semibold">₹{rateKg.toFixed(2)}</span>
+                        <span className="text-gray-400"> = </span>
+                        <span className="font-bold text-orange-700">₹{baseKaat.toFixed(0)}</span>
+                      </div>
+                    )}
+                    {kaatData.rate_type === 'per_pkg' && ratePkg > 0 && (
+                      <div className="text-[8px] text-gray-700">
+                        <span>{packages}</span>
+                        <span className="text-gray-400"> × </span>
+                        <span className="font-semibold">₹{ratePkg.toFixed(2)}</span>
+                        <span className="text-gray-400"> = </span>
+                        <span className="font-bold text-orange-700">₹{baseKaat.toFixed(0)}</span>
+                      </div>
+                    )}
+                    {kaatData.rate_type === 'hybrid' && (
+                      <div className="text-[8px] text-gray-700">
+                        <span>{effectiveWeight}×₹{rateKg.toFixed(2)} + {packages}×₹{ratePkg.toFixed(2)}</span>
+                        <span className="text-gray-400"> = </span>
+                        <span className="font-bold text-orange-700">₹{baseKaat.toFixed(0)}</span>
+                      </div>
+                    )}
+                    {/* DD line */}
+                    {ddChrg > 0 && (
+                      <div className="text-[8px] font-semibold text-red-600">
+                        DD = ₹{ddChrg.toFixed(0)}
+                      </div>
+                    )}
+                    {/* Total Kaat = base + DD */}
+                    <div className="text-[9px] font-bold text-orange-700 mt-0.5 border-t border-orange-100 pt-0.5">
+                      {ddChrg > 0 ? (
+                        <span>Total Kaat = ₹{baseKaat.toFixed(0)} + ₹{ddChrg.toFixed(0)} = <span className="text-orange-800">₹{totalKaat.toFixed(0)}</span></span>
+                      ) : (
+                        <span>Kaat: ₹{totalKaat.toFixed(0)}</span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
               {(kaatData.bilty_chrg > 0 || kaatData.ewb_chrg > 0 || kaatData.labour_chrg > 0 || kaatData.other_chrg > 0) && (
                 <div className="flex flex-wrap gap-0.5 mt-0.5">
                   {kaatData.bilty_chrg > 0 && <span className="text-[7px] px-1 rounded bg-teal-100 text-teal-700 font-semibold">B:₹{parseFloat(kaatData.bilty_chrg).toFixed(0)}</span>}
@@ -689,7 +737,7 @@ const BiltyKaatCell = memo(function BiltyKaatCell({
                   {kaatData.created_by && (
                     <span title={`Created by`}>By: {userNamesMap?.[kaatData.created_by] || '...'}</span>
                   )}
-                  {kaatData.updated_by && kaatData.updated_by !== kaatData.created_by && (
+                  {kaatData.updated_by && (
                     <span className="ml-1" title={`Updated by`}>| Upd: {userNamesMap?.[kaatData.updated_by] || '...'}</span>
                   )}
                 </div>

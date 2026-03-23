@@ -51,9 +51,9 @@ const TABLE_HEADERS = [
   { key: 'pohonch', label: 'Pohonch', align: 'left' },
   { key: 'bilty_no', label: 'Bilty#', align: 'left' },
   { key: 'kaat', label: 'Kaat', align: 'center' },
-  { key: 'pf', label: 'PF', align: 'right' },
+  { key: 'pf', label: 'Kaat', align: 'right' },
   { key: 'act_rate', label: 'Act.Rate', align: 'right' },
-  { key: 'profit', label: 'Profit', align: 'right' },
+  { key: 'profit', label: 'PF (Profit)', align: 'right' },
 ];
 
 export default function ChallanBiltyTable({
@@ -201,7 +201,6 @@ export default function ChallanBiltyTable({
       const ddChrg = kaatData?.dd_chrg ? parseFloat(kaatData.dd_chrg) : 0;
       totalDdChrg += ddChrg;
       if (kaatData) {
-        if (kaatData.pf != null) totalPf += parseFloat(kaatData.pf);
         let kaatAmount = 0;
         if (kaatData.kaat != null) {
           kaatAmount = parseFloat(kaatData.kaat);
@@ -217,9 +216,12 @@ export default function ChallanBiltyTable({
           kaatAmount += parseFloat(kaatData.bilty_chrg || 0) + parseFloat(kaatData.ewb_chrg || 0) + parseFloat(kaatData.labour_chrg || 0) + parseFloat(kaatData.other_chrg || 0);
         }
         totalKaat += kaatAmount;
-        totalProfit += amt - kaatAmount - ddChrg;
+        // kaat in DB already includes DD, so Kaat column = kaatAmount directly
+        totalPf += kaatAmount;
+        // profit = amount - kaat (kaat already has DD baked in)
+        totalProfit += amt - kaatAmount;
       } else {
-        totalProfit += amt - ddChrg;
+        totalProfit += amt;
       }
     });
     return { totalAmount, totalDdChrg, totalKaat, totalPf, totalProfit };

@@ -705,9 +705,10 @@ export default function FinanceBiltyTable({
           kaatAmount += parseFloat(kaatData.bilty_chrg || 0) + parseFloat(kaatData.ewb_chrg || 0) + parseFloat(kaatData.labour_chrg || 0) + parseFloat(kaatData.other_chrg || 0);
         }
         totalKaat += kaatAmount;
-        totalProfit += amt - kaatAmount - ddChrg;
+        // kaat in DB already includes DD, profit = amount - kaat
+        totalProfit += amt - kaatAmount;
       } else {
-        totalProfit += amt - ddChrg;
+        totalProfit += amt;
       }
     });
 
@@ -1627,6 +1628,11 @@ export default function FinanceBiltyTable({
                       destinationCityId={bilty?.to_city_id || getCityIdByCode(station?.station, cities)}
                       biltyWeight={bilty?.wt || station?.weight || 0}
                       biltyPackages={bilty?.no_of_pkg || station?.no_of_packets || 0}
+                      biltyAmount={(() => {
+                        const pm = bilty?.payment_mode || station?.payment_status;
+                        const isPaidOrDD = pm?.toLowerCase().includes('paid') || bilty?.delivery_type?.toLowerCase().includes('door');
+                        return isPaidOrDD ? 0 : parseFloat(bilty?.total || station?.amount || 0);
+                      })()}
                       biltyTransportGst={bilty?.transport_gst || null}
                       paymentMode={bilty?.payment_mode || station?.payment_status || ''}
                       deliveryType={bilty?.delivery_type || station?.delivery_type || ''}
@@ -1715,8 +1721,8 @@ export default function FinanceBiltyTable({
                         kaatAmount += parseFloat(kaatData.bilty_chrg || 0) + parseFloat(kaatData.ewb_chrg || 0) + parseFloat(kaatData.labour_chrg || 0) + parseFloat(kaatData.other_chrg || 0);
                       }
                       
-                      // Profit = Total Amount - Kaat Amount - DD Charge (can be negative for Paid/DD bilties)
-                      const profit = totalAmount - kaatAmount - ddChrg;
+                      // Profit = Total Amount - Kaat Amount (kaat already includes DD in DB)
+                      const profit = totalAmount - kaatAmount;
                       
                       return (
                         <div className={`px-1.5 py-0.5 rounded border inline-block ${

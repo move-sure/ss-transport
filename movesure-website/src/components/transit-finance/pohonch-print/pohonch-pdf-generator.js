@@ -1,42 +1,91 @@
 /**
- * Pohonch PDF Generator
- * Generates A4 portrait pages — each GR is ONE row in a table.
- * 20 GRs in upper half, same 20 GRs duplicated in lower half (Office / Transport copy).
- * All selected GRs in a single PDF.
+ * Crossing Challan PDF Generator
+ * Generates A4 portrait pages — upper half = Office Copy, lower half = Transport Copy.
+ * Bilties are grouped by challan_no with challan header rows on top of each group.
+ * No separate challan column — challan number appears as a spanning header row.
+ * Station uses city_code (short code) instead of full city name.
  * 
  * Features:
  * - (E) marker on GR numbers that have e-way bill
  * - Transport GSTIN shown in header
- * - SS Transport Kanpur Office number: 8840952946
+ * - SS Transport Kanpur Office number: 8840952946 (prominent)
+ * - Challan grouping with header rows
  */
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const ROWS_PER_HALF = 20;
+const ROWS_PER_HALF = 24; // max bilty rows per half (excluding challan headers)
 const HALF_HEIGHT = 148; // mm — half of A4 portrait height
 
 /**
- * @param {Array} bilties  – enriched bilty objects
+ * Group bilties by challan_no, preserving order
+ */
+function groupByChallan(bilties) {
+  const groups = {};
+  const order = [];
+  bilties.forEach(b => {
+    const c = b.challan_no || 'Unknown';
+    if (!groups[c]) { groups[c] = []; order.push(c); }
+    groups[c].push(b);
+  });
+  return order.map(c => ({ challan: c, bilties: groups[c] }));
+}
+
+/**
+ * Split grouped bilties into chunks that fit within ROWS_PER_HALF bilty rows.
+ * Each chunk is an array of { challan, bilties } groups (may split a challan across chunks).
+ * Returns: Array of { groups: [{challan, bilties}], totalBilties: number }
+ */
+function buildChunks(bilties) {
+  const grouped = groupByChallan(bilties);
+  const chunks = [];
+  let currentGroups = [];
+  let currentCount = 0;
+
+  grouped.forEach(g => {
+    let remaining = [...g.bilties];
+    while (remaining.length > 0) {
+      const space = ROWS_PER_HALF - currentCount;
+      if (space <= 0) {
+        // Push current chunk, start new
+        chunks.push({ groups: currentGroups, totalBilties: currentCount });
+        currentGroups = [];
+        currentCount = 0;
+        continue;
+      }
+      const take = remaining.slice(0, space);
+      remaining = remaining.slice(space);
+      currentGroups.push({ challan: g.challan, bilties: take });
+      currentCount += take.length;
+      if (currentCount >= ROWS_PER_HALF && remaining.length > 0) {
+        chunks.push({ groups: currentGroups, totalBilties: currentCount });
+        currentGroups = [];
+        currentCount = 0;
+      }
+    }
+  });
+  if (currentGroups.length > 0) {
+    chunks.push({ groups: currentGroups, totalBilties: currentCount });
+  }
+  return chunks;
+}
+
+/**
+ * @param {Array} bilties  – enriched bilty objects (with destination_code field)
  * @param {Object} transport – selected transport
  * @param {boolean} preview – true → blob URL, false → download
  */
 export function generatePohonchPDF(bilties, transport, preview = true) {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = 210;
+  const mx = 5; // 5mm margin each side
 
-  const mx = 5; // 5mm margin each side — full page width
+  const chunks = buildChunks(bilties);
 
-  // Split bilties into chunks of 20
-  const chunks = [];
-  for (let i = 0; i < bilties.length; i += ROWS_PER_HALF) {
-    chunks.push(bilties.slice(i, i + ROWS_PER_HALF));
-  }
-
-  // Column definitions for autoTable
+  // Column definitions — clean table, no challan column
   const columns = [
     { header: '#',          dataKey: 'sno' },
-    { header: 'C.NO',       dataKey: 'challan' },
     { header: 'GR No.',     dataKey: 'gr' },
     { header: 'P/B No.',    dataKey: 'pb' },
     { header: 'Consignor',  dataKey: 'consignor' },
@@ -51,62 +100,13 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
     { header: 'PF',         dataKey: 'pf' },
   ];
 
-  // Build row data from bilty object — append (E) if e_way_bill exists
-  const buildRows = (chunk, startIdx) =>
-    chunk.map((b, i) => {
-      const grText = String(b.gr_no || '-');
-      const hasEwb = !!(b.e_way_bill && b.e_way_bill.trim());
-      return {
-        sno:       String(startIdx + i + 1),
-        challan:   String(b.challan_no || '-'),
-        gr:        hasEwb ? `${grText} (E)` : grText,
-        pb:        String(b.pohonch_bilty || '-'),
-        consignor: (b.consignor || '-').substring(0, 14),
-        consignee: (b.consignee || '-').substring(0, 14),
-        dest:      (b.destination || '-').substring(0, 9),
-        pay:       b.is_paid ? 'PAID' : (b.payment_mode || '-').toUpperCase().substring(0, 6),
-        pkg:       String(Math.round(b.packages || 0)),
-        wt:        (b.weight || 0).toFixed(1),
-        amt:       b.is_paid ? 'PAID' : String(Math.round(b.amount || 0)),
-        kaat:      String(Math.round(b.kaat || 0)),
-        dd:        b.dd > 0 ? String(Math.round(b.dd)) : '-',
-        pf:        String(Math.round(b.pf || 0)),
-        _hasEwb:   hasEwb,
-      };
-    });
-
-  // Compute totals for a chunk
-  const buildTotals = (chunk) => {
-    let tPkg = 0, tWt = 0, tAmt = 0, tKaat = 0, tDD = 0, tPF = 0;
-    chunk.forEach(b => {
-      tPkg  += b.packages || 0;
-      tWt   += b.weight || 0;
-      tAmt  += b.is_paid ? 0 : (b.amount || 0);
-      tKaat += b.kaat || 0;
-      tDD   += b.dd || 0;
-      tPF   += b.pf || 0;
-    });
-    return {
-      sno: '', challan: '', gr: '', pb: '', consignor: '', consignee: '',
-      dest: '', pay: 'TOTAL',
-      pkg:  String(Math.round(tPkg)),
-      wt:   tWt.toFixed(1),
-      amt:  String(Math.round(tAmt)),
-      kaat: String(Math.round(tKaat)),
-      dd:   tDD > 0 ? String(Math.round(tDD)) : '-',
-      pf:   String(Math.round(tPF)),
-    };
-  };
-
   const tableW = pageW - mx * 2; // 200mm usable
 
-  // Column widths (mm) — sum = 200 to fill full width
   const colWidths = {
-    sno: 5, challan: 10, gr: 14, pb: 12, consignor: 28, consignee: 28,
-    dest: 18, pay: 14, pkg: 8, wt: 12, amt: 14, kaat: 12, dd: 8, pf: 12,
+    sno: 6, gr: 16, pb: 14, consignor: 28, consignee: 28,
+    dest: 16, pay: 18, pkg: 10, wt: 12, amt: 15, kaat: 13, dd: 10, pf: 14,
   };
 
-  // Style config for autoTable
   const tableStyles = {
     fontSize: 7.5,
     cellPadding: { top: 0.8, bottom: 0.8, left: 0.5, right: 0.5 },
@@ -127,7 +127,6 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
 
   const columnStyles = {
     sno:       { halign: 'center', cellWidth: colWidths.sno },
-    challan:   { halign: 'center', cellWidth: colWidths.challan },
     gr:        { halign: 'left',   cellWidth: colWidths.gr, fontStyle: 'bold' },
     pb:        { halign: 'left',   cellWidth: colWidths.pb },
     consignor: { halign: 'left',   cellWidth: colWidths.consignor },
@@ -143,14 +142,73 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
   };
 
   /**
-   * Draw one half-page block: header + table + totals + signature
+   * Build clean body rows (NO challan header rows).
+   * Returns { body, totalIdx }
+   */
+  const buildBody = (groups, globalStartIdx) => {
+    const body = [];
+    let sno = globalStartIdx;
+
+    groups.forEach(g => {
+      g.bilties.forEach(b => {
+        sno++;
+        const grText = String(b.gr_no || '-');
+        const hasEwb = !!(b.e_way_bill && b.e_way_bill.trim());
+        const ddSuffix = (b.delivery_type || '').toLowerCase().includes('door') ? '/DD' : '';
+        const payBase = b.is_paid ? 'PAID' : (b.payment_mode || '-').toUpperCase().replace('-', ' ');
+        body.push({
+          sno:       String(sno),
+          gr:        hasEwb ? `${grText} (E)` : grText,
+          pb:        String(b.pohonch_bilty || '-'),
+          consignor: (b.consignor || '-').substring(0, 16),
+          consignee: (b.consignee || '-').substring(0, 16),
+          dest:      (b.destination_code || b.destination || '-').substring(0, 10),
+          pay:       (payBase + ddSuffix).substring(0, 10),
+          pkg:       String(Math.round(b.packages || 0)),
+          wt:        (b.weight || 0).toFixed(1),
+          amt:       b.is_paid ? 'PAID' : String(Math.round(b.amount || 0)),
+          kaat:      String(Math.round(b.kaat || 0)),
+          dd:        b.dd > 0 ? String(Math.round(b.dd)) : '-',
+          pf:        String(Math.round(b.pf || 0)),
+          _hasEwb:   hasEwb,
+        });
+      });
+    });
+
+    // Grand total row
+    let tPkg = 0, tWt = 0, tAmt = 0, tKaat = 0, tDD = 0, tPF = 0;
+    groups.forEach(g => g.bilties.forEach(b => {
+      tPkg  += b.packages || 0;
+      tWt   += b.weight || 0;
+      tAmt  += b.is_paid ? 0 : (b.amount || 0);
+      tKaat += b.kaat || 0;
+      tDD   += b.dd || 0;
+      tPF   += b.pf || 0;
+    }));
+    const totalIdx = body.length;
+    body.push({
+      sno: '', gr: '', pb: '', consignor: '', consignee: '',
+      dest: '', pay: 'TOTAL',
+      pkg:  String(Math.round(tPkg)),
+      wt:   tWt.toFixed(1),
+      amt:  String(Math.round(tAmt)),
+      kaat: String(Math.round(tKaat)),
+      dd:   tDD > 0 ? String(Math.round(tDD)) : '-',
+      pf:   String(Math.round(tPF)),
+    });
+
+    return { body, totalIdx };
+  };
+
+  /**
+   * Draw one half-page block: header + challan info + table + signature
    */
   const drawHalf = (chunk, yStart, globalStartIdx, copyLabel) => {
-    // ── Header Line 1: Company name ──
+    // ── Header Line 1: Company name — CROSSING CHALLAN ──
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
-    pdf.text('SS TRANSPORT COMPANY — POHONCH', pageW / 2, yStart + 4.5, { align: 'center' });
+    pdf.text('SS TRANSPORT COMPANY — CROSSING CHALLAN', pageW / 2, yStart + 4.5, { align: 'center' });
 
     // Copy label (right side)
     pdf.setFont('helvetica', 'normal');
@@ -158,49 +216,51 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
     pdf.setTextColor(120, 120, 120);
     pdf.text(copyLabel, pageW - mx, yStart + 4.5, { align: 'right' });
 
-    // Office number (left side)
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(6);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text('Office: 8840952946', mx, yStart + 4.5);
+    // Office number (left side) — BIGGER
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Office: 8840952946 / 9690293140', mx, yStart + 4.5);
 
-    // ── Header Line 2: Transport info + GSTIN ──
+    // ── Header Line 2: Transport name | GSTIN ──
+    const tName = transport?.transport_name || '-';
+    const gstin = transport?.gst_number || transport?.transport_gstin || '';
+    const transportLine = gstin ? `Transport: ${tName}  |  ${gstin}` : `Transport: ${tName}`;
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(7.5);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(`Transport: ${transport?.transport_name || '-'}`, mx, yStart + 9);
-    
-    let xOffset = mx + 85;
-    // Show transport GST/GSTIN
-    const gstinToShow = transport?.gst_number || transport?.transport_gstin || '';
-    if (gstinToShow) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.setTextColor(40, 40, 40);
-      pdf.text(`GSTIN: ${gstinToShow}`, xOffset, yStart + 9);
-      xOffset += 55;
-    }
+    pdf.text(transportLine, mx, yStart + 9);
+
     if (transport?.mob_number) {
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(7);
+      pdf.setTextColor(40, 40, 40);
       pdf.text(`Mob: ${transport.mob_number}`, pageW - mx, yStart + 9, { align: 'right' });
     }
 
-    // ── E-Way Bill legend ──
+    // ── Challan numbers line (above table, black bold text) ──
+    const challanNos = [...new Set(chunk.groups.map(g => g.challan))];
+    const challanText = challanNos.length === 1
+      ? `Challan No: ${challanNos[0]}`
+      : `Challan Nos: ${challanNos.join(', ')}`;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(challanText, mx, yStart + 12.5);
+
+    // (E) legend on right
     pdf.setFont('helvetica', 'italic');
     pdf.setFontSize(5.5);
     pdf.setTextColor(100, 100, 100);
-    pdf.text('(E) = E-Way Bill', pageW - mx, yStart + 12, { align: 'right' });
+    pdf.text('(E) = E-Way Bill', pageW - mx, yStart + 12.5, { align: 'right' });
 
-    // ── Table ──
-    const rows = buildRows(chunk, globalStartIdx);
-    const totals = buildTotals(chunk);
-    const bodyWithTotals = [...rows, totals];
+    // ── Table (clean, no challan rows inside) ──
+    const { body, totalIdx } = buildBody(chunk.groups, globalStartIdx);
 
     autoTable(pdf, {
       columns,
-      body: bodyWithTotals,
-      startY: yStart + 13,
+      body,
+      startY: yStart + 14,
       tableWidth: tableW,
       margin: { left: mx, right: mx },
       styles: tableStyles,
@@ -208,17 +268,20 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
       columnStyles,
       theme: 'grid',
       didParseCell: (data) => {
+        if (data.section !== 'body') return;
+
         // Total row styling
-        if (data.section === 'body' && data.row.index === bodyWithTotals.length - 1) {
+        if (data.row.index === totalIdx) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [235, 235, 235];
           data.cell.styles.fontSize = 7.5;
         }
-        // (E) marker — highlight GR cells that have e-way bill
-        if (data.section === 'body' && data.column.dataKey === 'gr' && data.row.index < bodyWithTotals.length - 1) {
-          const rowData = bodyWithTotals[data.row.index];
-          if (rowData._hasEwb) {
-            data.cell.styles.textColor = [0, 100, 50]; // dark green for EWB GRs
+
+        // (E) marker — highlight GR cells green
+        if (data.column.dataKey === 'gr' && data.row.index !== totalIdx) {
+          const rowData = body[data.row.index];
+          if (rowData?._hasEwb) {
+            data.cell.styles.textColor = [0, 100, 50];
           }
         }
       },
@@ -260,7 +323,7 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
     return URL.createObjectURL(pdfBlob);
   } else {
     const tName = (transport?.transport_name || 'Transport').replace(/[^a-zA-Z0-9]/g, '_');
-    pdf.save(`Pohonch_${tName}_${bilties.length}bilties.pdf`);
+    pdf.save(`CrossingChallan_${tName}_${bilties.length}bilties.pdf`);
     return null;
   }
 }

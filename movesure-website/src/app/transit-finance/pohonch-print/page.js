@@ -45,6 +45,7 @@ export default function PohonchPrintPage() {
   const [sbBilties, setSbBilties] = useState([]);
   const [sbBiltyDetails, setSbBiltyDetails] = useState({});
   const [sbCitiesMap, setSbCitiesMap] = useState({});
+  const [sbCityCodeMap, setSbCityCodeMap] = useState({}); // city_id → city_code
   const [sbError, setSbError] = useState(null);
   const [sbExpandedChallans, setSbExpandedChallans] = useState({});
   const [cities, setCities] = useState([]);
@@ -92,6 +93,13 @@ export default function PohonchPrintPage() {
     if (bilty?.to_city_id && citiesMap[bilty.to_city_id]) return citiesMap[bilty.to_city_id];
     if (station?.station && station.station !== '-') return station.station;
     return '-';
+  }, []);
+
+  // Resolves destination city_code (short code) for PDF
+  const resolveDestinationCode = useCallback((kaatItem, bilty, station, codeMap) => {
+    if (kaatItem?.destination_city_id && codeMap[kaatItem.destination_city_id]) return codeMap[kaatItem.destination_city_id];
+    if (bilty?.to_city_id && codeMap[bilty.to_city_id]) return codeMap[bilty.to_city_id];
+    return null; // fallback handled by caller
   }, []);
 
   // ====== Pohonch Number Generator ======
@@ -359,17 +367,21 @@ export default function PohonchPrintPage() {
       setSbBiltyDetails({});
       setSelectedGrNos(new Set());
 
-      // Build cities map
+      // Build cities map (both city_name and city_code)
       if (cities.length === 0) {
         const { data: citiesData } = await supabase.from('cities').select('id, city_name, city_code').order('city_name');
         setCities(citiesData || []);
         const cMap = {};
-        (citiesData || []).forEach(c => { cMap[c.id] = c.city_name; });
+        const ccMap = {};
+        (citiesData || []).forEach(c => { cMap[c.id] = c.city_name; ccMap[c.id] = c.city_code || c.city_name; });
         setSbCitiesMap(cMap);
+        setSbCityCodeMap(ccMap);
       } else {
         const cMap = {};
-        cities.forEach(c => { cMap[c.id] = c.city_name; });
+        const ccMap = {};
+        cities.forEach(c => { cMap[c.id] = c.city_name; ccMap[c.id] = c.city_code || c.city_name; });
         setSbCitiesMap(cMap);
+        setSbCityCodeMap(ccMap);
       }
 
       // Find ALL transport IDs with the same GST or name (same transport, different cities)
@@ -588,6 +600,7 @@ export default function PohonchPrintPage() {
           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
 
           const destName = resolveDestination(k, bilty, station, sbCitiesMap);
+          const destCode = resolveDestinationCode(k, bilty, station, sbCityCodeMap) || destName;
           
           let fromName = '-';
           if (bilty?.from_city_id && sbCitiesMap[bilty.from_city_id]) fromName = sbCitiesMap[bilty.from_city_id];
@@ -605,6 +618,7 @@ export default function PohonchPrintPage() {
             consignor: bilty?.consignor_name || station?.consignor || '-',
             consignee: bilty?.consignee_name || station?.consignee || '-',
             destination: destName,
+            destination_code: destCode,
             from_city: fromName,
             packages,
             weight,
@@ -614,6 +628,7 @@ export default function PohonchPrintPage() {
             dd: ddChrg,
             pf: pfAmt,
             payment_mode: bilty?.payment_mode || station?.payment_status || '-',
+            delivery_type: bilty?.delivery_type || station?.delivery_type || '',
             is_paid: isPaid,
             date: bilty?.bilty_date || station?.created_at || null,
             e_way_bill: ewb,
@@ -650,6 +665,7 @@ export default function PohonchPrintPage() {
           const amt = isPaid ? 0 : parseFloat(bilty?.total || station?.amount || 0);
 
           const destName = resolveDestination(k, bilty, station, sbCitiesMap);
+          const destCode = resolveDestinationCode(k, bilty, station, sbCityCodeMap) || destName;
           
           let fromName = '-';
           if (bilty?.from_city_id && sbCitiesMap[bilty.from_city_id]) fromName = sbCitiesMap[bilty.from_city_id];
@@ -667,6 +683,7 @@ export default function PohonchPrintPage() {
             consignor: bilty?.consignor_name || station?.consignor || '-',
             consignee: bilty?.consignee_name || station?.consignee || '-',
             destination: destName,
+            destination_code: destCode,
             from_city: fromName,
             packages,
             weight,
@@ -676,6 +693,7 @@ export default function PohonchPrintPage() {
             dd: ddChrg,
             pf: pfAmt,
             payment_mode: bilty?.payment_mode || station?.payment_status || '-',
+            delivery_type: bilty?.delivery_type || station?.delivery_type || '',
             is_paid: isPaid,
             date: bilty?.bilty_date || station?.created_at || null,
             e_way_bill: ewb,
@@ -846,7 +864,7 @@ export default function PohonchPrintPage() {
                 {showChallanSuggestions && challanSuggestions.length > 0 && (
                   <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                     {challanSuggestions.map((c) => (
-                      <button key={c} onClick={() => addChallan(c)} className="w-full text-left px-3 py-1.5 hover:bg-teal-50 text-sm font-mono border-b border-gray-50 last:border-0 flex items-center gap-2">
+                      <button key={c} onClick={() => addChallan(c)} className="w-full text-left px-3 py-1.5 hover:bg-teal-50 text-sm font-mono text-gray-900 font-semibold border-b border-gray-50 last:border-0 flex items-center gap-2">
                         <Hash className="w-3 h-3 text-teal-500" /> {c}
                       </button>
                     ))}

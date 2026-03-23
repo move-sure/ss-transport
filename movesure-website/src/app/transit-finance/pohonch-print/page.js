@@ -58,6 +58,16 @@ export default function PohonchPrintPage() {
   const [showChallanSuggestions, setShowChallanSuggestions] = useState(false);
   const [selectedChallans, setSelectedChallans] = useState([]); // array of selected challan numbers
 
+  // City filter state
+  const [citySearch, setCitySearch] = useState('');
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+
+  // Challan range state
+  const [fromChallan, setFromChallan] = useState('');
+  const [toChallan, setToChallan] = useState('');
+
   // PDF generation state
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -212,7 +222,7 @@ export default function PohonchPrintPage() {
         consignor: b.consignor, consignee: b.consignee,
         destination: b.destination, packages: b.packages, weight: b.weight, amount: b.amount,
         kaat: b.kaat, kaat_rate: b.kaat_rate || 0, dd: b.dd, pf: b.pf, payment_mode: b.payment_mode, is_paid: b.is_paid,
-        date: b.date || null,
+        date: b.date || null, e_way_bill: b.e_way_bill || null,
       }));
 
       let tAmt = 0, tKaat = 0, tPF = 0, tDD = 0, tPkg = 0, tWt = 0;
@@ -282,6 +292,31 @@ export default function PohonchPrintPage() {
     setSelectedChallans(prev => prev.filter(c => c !== challanNo));
   };
 
+  // ====== City Search Functions ======
+  const handleCitySearchChange = async (value) => {
+    setCitySearch(value);
+    setSelectedCity(null);
+    if (value.length < 2) { setCitySuggestions([]); setShowCitySuggestions(false); return; }
+    try {
+      const { data } = await supabase
+        .from('cities')
+        .select('id, city_name, city_code')
+        .ilike('city_name', `%${value}%`)
+        .order('city_name')
+        .limit(15);
+      setCitySuggestions(data || []);
+      setShowCitySuggestions((data || []).length > 0);
+    } catch (err) {
+      setCitySuggestions([]);
+    }
+  };
+
+  const handleSelectCity = (city) => {
+    setSelectedCity(city);
+    setCitySearch(city.city_name);
+    setShowCitySuggestions(false);
+  };
+
   // ====== Transport Search Functions ======
   const handleTransportSearchChange = async (value) => {
     setTransportSearch(value);
@@ -316,7 +351,7 @@ export default function PohonchPrintPage() {
   };
 
   const handleSearchBilties = async () => {
-    if (!selectedTransport) { alert('Please select a transport first'); return; }
+    if (!selectedTransport && selectedChallans.length === 0 && !fromChallan && !toChallan) { alert('Please select a transport or enter challan number(s)'); return; }
     try {
       setSbLoading(true);
       setSbError(null);
@@ -338,31 +373,42 @@ export default function PohonchPrintPage() {
       }
 
       // Find ALL transport IDs with the same GST or name (same transport, different cities)
-      let allTransportIds = [selectedTransport.id];
-      if (selectedTransport.gst_number) {
-        const { data: sameGst } = await supabase
-          .from('transports')
-          .select('id')
-          .eq('gst_number', selectedTransport.gst_number);
-        if (sameGst && sameGst.length > 0) {
-          allTransportIds = sameGst.map(t => t.id);
-        }
-      } else if (selectedTransport.transport_name) {
-        const { data: sameName } = await supabase
-          .from('transports')
-          .select('id')
-          .eq('transport_name', selectedTransport.transport_name);
-        if (sameName && sameName.length > 0) {
-          allTransportIds = sameName.map(t => t.id);
+      let allTransportIds = [];
+      if (selectedTransport) {
+        allTransportIds = [selectedTransport.id];
+        if (selectedTransport.gst_number) {
+          const { data: sameGst } = await supabase
+            .from('transports')
+            .select('id')
+            .eq('gst_number', selectedTransport.gst_number);
+          if (sameGst && sameGst.length > 0) {
+            allTransportIds = sameGst.map(t => t.id);
+          }
+        } else if (selectedTransport.transport_name) {
+          const { data: sameName } = await supabase
+            .from('transports')
+            .select('id')
+            .eq('transport_name', selectedTransport.transport_name);
+          if (sameName && sameName.length > 0) {
+            allTransportIds = sameName.map(t => t.id);
+          }
         }
       }
 
-      // Fetch from bilty_wise_kaat by ALL matching transport IDs
+      // Fetch from bilty_wise_kaat — by transport IDs or by challan filter
       let query = supabase
         .from('bilty_wise_kaat')
         .select('*')
-        .in('transport_id', allTransportIds)
         .order('challan_no', { ascending: true });
+
+      if (allTransportIds.length > 0) {
+        query = query.in('transport_id', allTransportIds);
+      } else if (selectedChallans.length > 0) {
+        // Challan-only search (no transport selected)
+        query = query.in('challan_no', selectedChallans);
+      } else if (fromChallan || toChallan) {
+        // Range-only search — fetch all and filter client-side
+      }
 
       const { data: kaatData, error: kaatErr } = await query;
       if (kaatErr) throw kaatErr;
@@ -375,6 +421,22 @@ export default function PohonchPrintPage() {
         filteredKaat = filteredKaat.filter(k => challanSet.has(k.challan_no));
       }
 
+      // Apply challan range filter (from/to)
+      if (fromChallan || toChallan) {
+        filteredKaat = filteredKaat.filter(k => {
+          const challanNo = k.challan_no || '';
+          const challanNum = parseInt(challanNo.replace(/\D/g, '') || '0', 10);
+          const fromNum = fromChallan ? parseInt(fromChallan.replace(/\D/g, '') || '0', 10) : 0;
+          const toNum = toChallan ? parseInt(toChallan.replace(/\D/g, '') || '0', 10) : Infinity;
+          return challanNum >= fromNum && challanNum <= toNum;
+        });
+      }
+
+      // Apply city filter (destination_city_id)
+      if (selectedCity) {
+        filteredKaat = filteredKaat.filter(k => k.destination_city_id === selectedCity.id);
+      }
+
       setSbBilties(filteredKaat);
 
       // Fetch bilty + station details + challan destination for all gr_nos
@@ -385,8 +447,8 @@ export default function PohonchPrintPage() {
         for (let i = 0; i < grNos.length; i += batchSize) {
           const batch = grNos.slice(i, i + batchSize);
           const [biltyRes, stationRes] = await Promise.all([
-            supabase.from('bilty').select('gr_no, bilty_date, consignor_name, consignee_name, no_of_pkg, wt, total, payment_mode, delivery_type, to_city_id, from_city_id').in('gr_no', batch).eq('is_active', true),
-            supabase.from('station_bilty_summary').select('gr_no, created_at, consignor, consignee, no_of_packets, weight, amount, payment_status, delivery_type, station').in('gr_no', batch)
+            supabase.from('bilty').select('gr_no, bilty_date, consignor_name, consignee_name, no_of_pkg, wt, total, payment_mode, delivery_type, to_city_id, from_city_id, e_way_bill').in('gr_no', batch).eq('is_active', true),
+            supabase.from('station_bilty_summary').select('gr_no, created_at, consignor, consignee, no_of_packets, weight, amount, payment_status, delivery_type, station, e_way_bill').in('gr_no', batch)
           ]);
           (biltyRes.data || []).forEach(b => { detailsMap[b.gr_no] = { ...detailsMap[b.gr_no], bilty: b }; });
           (stationRes.data || []).forEach(s => { detailsMap[s.gr_no] = { ...detailsMap[s.gr_no], station: s }; });
@@ -412,6 +474,12 @@ export default function PohonchPrintPage() {
     setSelectedTransport(null);
     setSelectedChallans([]);
     setChallanSearchText('');
+    setCitySearch('');
+    setSelectedCity(null);
+    setCitySuggestions([]);
+    setShowCitySuggestions(false);
+    setFromChallan('');
+    setToChallan('');
     setSbBilties([]);
     setSbBiltyDetails({});
     setSbError(null);
@@ -526,6 +594,8 @@ export default function PohonchPrintPage() {
 
           const pohonchBilty = k.pohonch_no && k.bilty_number ? `${k.pohonch_no}/${k.bilty_number}` : k.pohonch_no || k.bilty_number || '-';
 
+          const ewb = bilty?.e_way_bill || station?.e_way_bill || '';
+
           return {
             gr_no: k.gr_no,
             challan_no: k.challan_no,
@@ -546,6 +616,7 @@ export default function PohonchPrintPage() {
             payment_mode: bilty?.payment_mode || station?.payment_status || '-',
             is_paid: isPaid,
             date: bilty?.bilty_date || station?.created_at || null,
+            e_way_bill: ewb,
           };
         });
 
@@ -585,6 +656,8 @@ export default function PohonchPrintPage() {
 
           const pohonchBilty = k.pohonch_no && k.bilty_number ? `${k.pohonch_no}/${k.bilty_number}` : k.pohonch_no || k.bilty_number || '-';
 
+          const ewb = detail.bilty?.e_way_bill || detail.station?.e_way_bill || '';
+
           return {
             gr_no: k.gr_no,
             challan_no: k.challan_no,
@@ -605,6 +678,7 @@ export default function PohonchPrintPage() {
             payment_mode: bilty?.payment_mode || station?.payment_status || '-',
             is_paid: isPaid,
             date: bilty?.bilty_date || station?.created_at || null,
+            e_way_bill: ewb,
           };
         });
 
@@ -637,7 +711,7 @@ export default function PohonchPrintPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50 to-emerald-50">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-6 max-w-[1400px]">
+      <div className="w-full mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6">
           <div className="flex items-start justify-between">
@@ -668,7 +742,8 @@ export default function PohonchPrintPage() {
               <Truck className="w-5 h-5 text-teal-600" />
               <h2 className="text-lg font-bold text-gray-800">Search Bilties by Transport</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            {/* Row 1: Transport + City */}
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
               {/* Transport Search with Autocomplete */}
               <div className="md:col-span-2 relative">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Transport Name / GST</label>
@@ -705,6 +780,44 @@ export default function PohonchPrintPage() {
                           {t.gst_number && <span className="mr-2">GST: {t.gst_number}</span>}
                           {t.mob_number && <span>Mob: {t.mob_number}</span>}
                         </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Destination City Search */}
+              <div className="relative">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Destination City</label>
+                <input
+                  type="text"
+                  value={citySearch}
+                  onChange={(e) => handleCitySearchChange(e.target.value)}
+                  onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchBilties()}
+                  placeholder="Type city name..."
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm ${
+                    selectedCity ? 'border-teal-400 bg-teal-50' : 'border-teal-200 bg-teal-50/30'
+                  }`}
+                />
+                {selectedCity && (
+                  <div className="mt-1 text-xs text-teal-700 font-medium flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    {selectedCity.city_name}
+                    <button onClick={() => { setSelectedCity(null); setCitySearch(''); }} className="ml-1 text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                  </div>
+                )}
+                {showCitySuggestions && citySuggestions.length > 0 && (
+                  <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {citySuggestions.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleSelectCity(c)}
+                        className={`w-full text-left px-3 py-2 hover:bg-teal-50 transition-colors border-b border-gray-100 last:border-0 ${
+                          selectedCity?.id === c.id ? 'bg-teal-50' : ''
+                        }`}
+                      >
+                        <div className="font-semibold text-sm text-gray-800">{c.city_name}</div>
+                        {c.city_code && <div className="text-xs text-gray-500">Code: {c.city_code}</div>}
                       </button>
                     ))}
                   </div>
@@ -754,16 +867,43 @@ export default function PohonchPrintPage() {
                   </div>
                 )}
               </div>
+              {/* From / To Challan Range */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Challan Range</label>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={fromChallan}
+                    onChange={(e) => setFromChallan(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchBilties()}
+                    placeholder="From"
+                    className="w-1/2 px-2 py-2 border-2 border-teal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-teal-50/30 font-mono text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={toChallan}
+                    onChange={(e) => setToChallan(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchBilties()}
+                    placeholder="To"
+                    className="w-1/2 px-2 py-2 border-2 border-teal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-teal-50/30 font-mono text-sm"
+                  />
+                </div>
+                {(fromChallan || toChallan) && (
+                  <div className="mt-1 text-xs text-teal-700 font-medium">
+                    Range: {fromChallan || '...'} → {toChallan || '...'}
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleSearchBilties}
-                  disabled={!selectedTransport || sbLoading}
+                  disabled={(!selectedTransport && selectedChallans.length === 0 && !fromChallan && !toChallan) || sbLoading}
                   className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg font-bold text-sm hover:bg-teal-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sbLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   {sbLoading ? 'Searching...' : 'Search'}
                 </button>
-                {(transportSearch || selectedChallans.length > 0) && (
+                {(transportSearch || selectedChallans.length > 0 || selectedCity || fromChallan || toChallan) && (
                   <button
                     onClick={handleClearSbSearch}
                     className="px-3 py-2 bg-red-100 text-red-600 rounded-lg font-semibold text-sm hover:bg-red-200 transition-colors"
@@ -799,6 +939,8 @@ export default function PohonchPrintPage() {
                     <div className="text-sm text-gray-600">
                       {sbBilties.length} bilties in {sbGroupedByChallan.length} challans
                       {selectedChallans.length > 0 && ` | Challans: ${selectedChallans.join(', ')}`}
+                      {selectedCity && ` | City: ${selectedCity.city_name}`}
+                      {(fromChallan || toChallan) && ` | Range: ${fromChallan || '...'} → ${toChallan || '...'}`}
                     </div>
                   </div>
                 </div>
@@ -926,21 +1068,22 @@ export default function PohonchPrintPage() {
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
                           <th className="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase w-8"></th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">#</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">GR No.</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">P/B No.</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Consignor</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Consignee</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase">Dest</th>
-                          <th className="px-3 py-2 text-center text-xs font-bold text-gray-500 uppercase">Pay</th>
-                          <th className="px-3 py-2 text-center text-xs font-bold text-gray-500 uppercase">Pkg</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Wt</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Amt</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">DD</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Kaat</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">Rate</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase">PF</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">#</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">GR No.</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">EWB</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">P/B No.</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Consignor</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Consignee</th>
+                          <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Dest</th>
+                          <th className="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase">Pay</th>
+                          <th className="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase">Pkg</th>
+                          <th className="px-2 py-2 text-right text-xs font-bold text-gray-500 uppercase">Wt</th>
+                          <th className="px-2 py-2 text-right text-xs font-bold text-gray-500 uppercase">Amt</th>
+                          <th className="px-2 py-2 text-right text-xs font-bold text-gray-500 uppercase">DD</th>
+                          <th className="px-2 py-2 text-right text-xs font-bold text-gray-500 uppercase">Kaat</th>
+                          <th className="px-2 py-2 text-right text-xs font-bold text-gray-500 uppercase">Rate</th>
+                          <th className="px-2 py-2 text-right text-xs font-bold text-gray-500 uppercase">PF</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -968,6 +1111,7 @@ export default function PohonchPrintPage() {
 
                           const pohonchBilty = k.pohonch_no && k.bilty_number ? `${k.pohonch_no}/${k.bilty_number}` : k.pohonch_no || k.bilty_number || '-';
                           const isSelected = selectedGrNos.has(k.gr_no);
+                          const ewb = bilty?.e_way_bill || station?.e_way_bill || '';
 
                           return (
                             <tr 
@@ -990,27 +1134,31 @@ export default function PohonchPrintPage() {
                                   <Square className="w-4 h-4 text-gray-300 mx-auto" />
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-gray-500 font-mono text-xs">{idx + 1}</td>
-                              <td className="px-3 py-2 font-mono font-semibold text-gray-800">{k.gr_no || '-'}</td>
-                              <td className="px-3 py-2 text-gray-700 text-xs">{pohonchBilty}</td>
-                              <td className="px-3 py-2 text-gray-600 text-xs">{dateStr}</td>
-                              <td className="px-3 py-2 text-gray-700 truncate max-w-[120px]" title={bilty?.consignor_name || station?.consignor || '-'}>{(bilty?.consignor_name || station?.consignor || '-').substring(0, 15)}</td>
-                              <td className="px-3 py-2 text-gray-700 truncate max-w-[120px]" title={bilty?.consignee_name || station?.consignee || '-'}>{(bilty?.consignee_name || station?.consignee || '-').substring(0, 15)}</td>
-                              <td className="px-3 py-2 text-gray-600 text-xs">{destName.substring(0, 12)}</td>
-                              <td className="px-3 py-2 text-center">
+                              <td className="px-2 py-2 text-gray-500 font-mono text-xs">{idx + 1}</td>
+                              <td className="px-2 py-2 font-mono font-semibold text-gray-800">
+                                {k.gr_no || '-'}
+                                {ewb && <span className="text-green-600 font-bold ml-0.5 text-[10px]">(E)</span>}
+                              </td>
+                              <td className="px-2 py-2 text-[10px] font-mono text-gray-500 max-w-[80px] truncate" title={ewb || '-'}>{ewb || '-'}</td>
+                              <td className="px-2 py-2 text-gray-700 text-xs">{pohonchBilty}</td>
+                              <td className="px-2 py-2 text-gray-600 text-xs">{dateStr}</td>
+                              <td className="px-2 py-2 text-gray-700 truncate max-w-[120px]" title={bilty?.consignor_name || station?.consignor || '-'}>{(bilty?.consignor_name || station?.consignor || '-').substring(0, 15)}</td>
+                              <td className="px-2 py-2 text-gray-700 truncate max-w-[120px]" title={bilty?.consignee_name || station?.consignee || '-'}>{(bilty?.consignee_name || station?.consignee || '-').substring(0, 15)}</td>
+                              <td className="px-2 py-2 text-gray-600 text-xs">{destName.substring(0, 12)}</td>
+                              <td className="px-2 py-2 text-center">
                                 <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
                                   isPaid ? 'bg-yellow-100 text-yellow-700' : payMode.includes('TO PAY') || payMode.includes('TO-PAY') ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                                 }`}>
                                   {payDisplay}{ddSuffix}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-center font-medium text-gray-900">{packages}</td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900">{weight.toFixed(1)}</td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-900">{isPaid ? <span className="text-yellow-600 text-xs">PAID</span> : `₹${amt.toFixed(0)}`}</td>
-                              <td className="px-3 py-2 text-right">{ddChrg > 0 ? <span className="text-red-600 font-medium">-₹{ddChrg.toFixed(0)}</span> : '-'}</td>
-                              <td className="px-3 py-2 text-right font-medium text-emerald-700">₹{kaatAmt.toFixed(0)}</td>
-                              <td className="px-3 py-2 text-right text-xs text-gray-500">{rateDisplay}</td>
-                              <td className="px-3 py-2 text-right font-bold text-teal-700">₹{pf.toFixed(0)}</td>
+                              <td className="px-2 py-2 text-center font-medium text-gray-900">{packages}</td>
+                              <td className="px-2 py-2 text-right font-medium text-gray-900">{weight.toFixed(1)}</td>
+                              <td className="px-2 py-2 text-right font-medium text-gray-900">{isPaid ? <span className="text-yellow-600 text-xs">PAID</span> : `₹${amt.toFixed(0)}`}</td>
+                              <td className="px-2 py-2 text-right">{ddChrg > 0 ? <span className="text-red-600 font-medium">-₹{ddChrg.toFixed(0)}</span> : '-'}</td>
+                              <td className="px-2 py-2 text-right font-medium text-emerald-700">₹{kaatAmt.toFixed(0)}</td>
+                              <td className="px-2 py-2 text-right text-xs text-gray-500">{rateDisplay}</td>
+                              <td className="px-2 py-2 text-right font-bold text-teal-700">₹{pf.toFixed(0)}</td>
                             </tr>
                           );
                         })}
@@ -1023,16 +1171,16 @@ export default function PohonchPrintPage() {
           })}
 
           {/* Empty state */}
-          {!sbLoading && sbBilties.length === 0 && selectedTransport && !sbError && (
+          {!sbLoading && sbBilties.length === 0 && (selectedTransport || selectedChallans.length > 0 || fromChallan || toChallan) && !sbError && (
             <div className="bg-white rounded-xl shadow-lg p-12 text-center">
               <Package className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No bilties found for this transport</p>
-              <p className="text-gray-400 text-sm mt-1">Try adjusting the challan range or search a different transport</p>
+              <p className="text-gray-500 font-medium">No bilties found</p>
+              <p className="text-gray-400 text-sm mt-1">Try adjusting the challan range, city filter, or search a different transport</p>
             </div>
           )}
 
           {/* Initial state */}
-          {!sbLoading && sbBilties.length === 0 && !selectedTransport && !sbError && (
+          {!sbLoading && sbBilties.length === 0 && !selectedTransport && selectedChallans.length === 0 && !fromChallan && !toChallan && !sbError && (
             <div className="bg-white rounded-xl shadow-lg p-12 text-center">
               <Truck className="w-16 h-16 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 font-medium">Search for a transport to view bilties</p>

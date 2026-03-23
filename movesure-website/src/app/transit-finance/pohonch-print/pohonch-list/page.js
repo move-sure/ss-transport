@@ -765,7 +765,7 @@ export default function PohonchListPage() {
                           {/* Expanded row — bilty details */}
                           {isExpanded && bilties.length > 0 && (
                             <tr>
-                              <td colSpan={15} className="px-4 py-3 bg-teal-50/70 border-b border-teal-100">
+                              <td colSpan={16} className="px-4 py-3 bg-teal-50/70 border-b border-teal-100">
                                 <div className="text-xs font-bold text-gray-600 mb-2">
                                   Bilties in {p.pohonch_number} ({bilties.length} GRs) — Challans: {challans.join(', ')}
                                 </div>
@@ -775,6 +775,7 @@ export default function PohonchListPage() {
                                       <tr className="bg-gray-100">
                                         <th className="px-2 py-1.5 text-left font-bold text-gray-500">#</th>
                                         <th className="px-2 py-1.5 text-left font-bold text-gray-500">GR No.</th>
+                                        <th className="px-2 py-1.5 text-left font-bold text-gray-500">EWB</th>
                                         <th className="px-2 py-1.5 text-left font-bold text-gray-500">P/B No.</th>
                                         <th className="px-2 py-1.5 text-left font-bold text-gray-500">Challan</th>
                                         <th className="px-2 py-1.5 text-left font-bold text-gray-500">Consignor</th>
@@ -796,7 +797,11 @@ export default function PohonchListPage() {
                                         return (
                                           <tr key={b.gr_no || bIdx} className={`${bIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${isHighlighted ? '!bg-yellow-100' : ''}`}>
                                             <td className="px-2 py-1 text-gray-400">{bIdx + 1}</td>
-                                            <td className={`px-2 py-1 font-mono font-semibold ${isHighlighted ? 'text-amber-800' : 'text-gray-800'}`}>{b.gr_no || '-'}</td>
+                                            <td className={`px-2 py-1 font-mono font-semibold ${isHighlighted ? 'text-amber-800' : 'text-gray-800'}`}>
+                                              {b.gr_no || '-'}
+                                              {b.e_way_bill && <span className="text-green-600 font-bold ml-0.5 text-[9px]">(E)</span>}
+                                            </td>
+                                            <td className="px-2 py-1 text-[9px] font-mono text-gray-500 max-w-[70px] truncate" title={b.e_way_bill || '-'}>{b.e_way_bill || '-'}</td>
                                             <td className="px-2 py-1 text-gray-600 font-mono">{b.pohonch_bilty || '-'}</td>
                                             <td className="px-2 py-1 text-gray-600">{b.challan_no || '-'}</td>
                                             <td className="px-2 py-1 text-gray-700 truncate max-w-[120px]">{b.consignor || '-'}</td>

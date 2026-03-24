@@ -739,9 +739,9 @@ export default function PohonchPrintPage() {
               </button>
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-900 via-emerald-800 to-teal-800 bg-clip-text text-transparent">
-                  Pohonch Print
+                  CROSSING CHALLAN
                 </h1>
-                <p className="text-gray-600 mt-1">Search bilties by transport and print pohonch slips</p>
+                <p className="text-gray-600 mt-1">Search bilties by transport and print crossing challan slips</p>
               </div>
             </div>
             <button

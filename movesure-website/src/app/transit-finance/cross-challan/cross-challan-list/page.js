@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import supabase from '../../../utils/supabase';
 import { useAuth } from '../../../utils/auth';
-import { generatePohonchPDF } from '../../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
+import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 import {
   Loader2,
   RefreshCw,
@@ -41,9 +41,6 @@ export default function PohonchListPage() {
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [usersMap, setUsersMap] = useState({});
-  const [printingId, setPrintingId] = useState(null);
-  const [printPreviewUrl, setPrintPreviewUrl] = useState(null);
-  const [printPreviewPohonch, setPrintPreviewPohonch] = useState(null);
   const [challanDatesMap, setChallanDatesMap] = useState({}); // challan_no -> { dispatch_date }
 
   // Search
@@ -65,37 +62,15 @@ export default function PohonchListPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // ====== Print a single pohonch (open in modal) ======
-  const handlePrintPohonch = async (pohonch) => {
-    try {
-      setPrintingId(pohonch.id);
-      const bilties = Array.isArray(pohonch.bilty_metadata) ? pohonch.bilty_metadata : [];
-      if (bilties.length === 0) { alert('No bilty data in this pohonch'); return; }
-      const transport = { transport_name: pohonch.transport_name, gst_number: pohonch.transport_gstin };
-      const url = generatePohonchPDF(bilties, transport, true);
-      if (url) {
-        setPrintPreviewUrl(url);
-        setPrintPreviewPohonch(pohonch);
-      }
-    } catch (err) {
-      alert('Failed to generate PDF: ' + err.message);
-    } finally {
-      setPrintingId(null);
-    }
-  };
-
-  const closePrintPreview = () => {
-    if (printPreviewUrl) URL.revokeObjectURL(printPreviewUrl);
-    setPrintPreviewUrl(null);
-    setPrintPreviewPohonch(null);
-  };
-
-  const handleDownloadPDF = () => {
-    if (!printPreviewPohonch) return;
-    const bilties = Array.isArray(printPreviewPohonch.bilty_metadata) ? printPreviewPohonch.bilty_metadata : [];
-    const transport = { transport_name: printPreviewPohonch.transport_name, gst_number: printPreviewPohonch.transport_gstin };
-    generatePohonchPDF(bilties, transport, false);
-  };
+  // Shared cross challan print hook — fetches fresh data on every print
+  const crossChallanPrint = useCrossChallanPrint({
+    onDataRefreshed: (pohonchNumber, updatedPohonch) => {
+      // Update local list with refreshed data
+      setAllPohonch(prev =>
+        prev.map(p => p.pohonch_number === pohonchNumber ? { ...p, ...updatedPohonch } : p)
+      );
+    },
+  });
 
   // ====== Fetch challan dispatch dates for Top PF analysis ======
   const fetchChallanDates = async (challanNos) => {
@@ -393,7 +368,7 @@ export default function PohonchListPage() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link
-            href="/transit-finance/pohonch-print"
+            href="/transit-finance/cross-challan"
             className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm border border-gray-200"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -710,12 +685,12 @@ export default function PohonchListPage() {
                             </td>
                             <td className="px-2 py-2 text-center">
                               <button
-                                onClick={() => handlePrintPohonch(p)}
-                                disabled={printingId === p.id}
+                                onClick={() => crossChallanPrint.handlePrint(p.pohonch_number)}
+                                disabled={crossChallanPrint.printingPohonch === p.pohonch_number}
                                 className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors shadow-sm border border-teal-200"
-                                title="Print Pohonch PDF"
+                                title="Print Pohonch PDF (fetches latest data)"
                               >
-                                {printingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
+                                {crossChallanPrint.printingPohonch === p.pohonch_number ? <Loader2 className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
                                 Print
                               </button>
                             </td>
@@ -875,42 +850,13 @@ export default function PohonchListPage() {
         </div>
       </div>
 
-      {/* Print Preview Modal */}
-      {printPreviewUrl && printPreviewPohonch && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
-              <div>
-                <h3 className="text-xl font-bold text-gray-800">Pohonch Print Preview</h3>
-                <p className="text-sm text-gray-500">
-                  {printPreviewPohonch.pohonch_number} &middot; {printPreviewPohonch.transport_name} &middot; {printPreviewPohonch.total_bilties} bilties
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Printer className="w-4 h-4" /> Download PDF
-                </button>
-                <button
-                  onClick={closePrintPreview}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 p-4 bg-gray-100">
-              <iframe
-                src={printPreviewUrl}
-                className="w-full h-full rounded-lg border border-gray-200"
-                title="Pohonch Print Preview"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Print Preview Modal (shared component — fetches fresh data) */}
+      <CrossChallanPrintModal
+        previewUrl={crossChallanPrint.previewUrl}
+        previewName={crossChallanPrint.previewName}
+        onDownload={crossChallanPrint.handleDownload}
+        onClose={crossChallanPrint.handleClose}
+      />
     </div>
   );
 }

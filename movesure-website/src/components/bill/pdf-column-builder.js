@@ -30,6 +30,8 @@ export const buildColumnConfig = (selectedColumnIds, totalTableWidth) => {
     switch (col.id) {
       case 'sno':
         return (detail, index) => (index + 1).toString();
+      case 'challanNo':
+        return (detail) => (detail.challan_no || 'N/A').substring(0, 10);
       case 'date':
         return (detail) => formatDate(detail.date);
       case 'grno':
@@ -102,6 +104,8 @@ export const buildColumnConfig = (selectedColumnIds, totalTableWidth) => {
         return (details) => formatCurrency(details.reduce((sum, d) => sum + parseFloat(d.bilty_total || 0), 0));
       case 'sno':
         return () => 'TOTAL';
+      case 'challanNo':
+        return () => '';
       default:
         return () => '';
     }

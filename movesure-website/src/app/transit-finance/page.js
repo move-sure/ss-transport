@@ -326,7 +326,7 @@ export default function TransitFinancePage() {
                 <span className="relative z-10">Transit Bill</span>
               </button>
               <button
-                onClick={() => router.push('/transit-finance/pohonch-print')}
+                onClick={() => router.push('/transit-finance/cross-challan')}
                 className="group relative bg-gradient-to-r from-teal-500 to-emerald-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
                 title="Search bilties by transport and print crossing challan"
               >

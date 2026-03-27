@@ -21,6 +21,7 @@ import KaatModal from '../../../components/hub-management/KaatModal';
 import AddTransportModal from '../../../components/hub-management/AddTransportModal';
 import AddHubRateModal from '../../../components/hub-management/AddHubRateModal';
 import { kTotal, getHubRateForTransport } from '../../../components/hub-management/HubHelpers';
+import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 
 export default function ChallanDetailPage() {
   const { challan_no } = useParams();
@@ -72,6 +73,35 @@ export default function ChallanDetailPage() {
   const [showAddHubRate, setShowAddHubRate] = useState(false);
   const [addHubRateForm, setAddHubRateForm] = useState({ transport_id: '', transport_name: '', destination_city_id: '', destination_city_name: '', goods_type: '', pricing_mode: 'per_kg', rate_per_kg: 0, rate_per_pkg: 0, min_charge: 0, bilty_chrg: 0, ewb_chrg: 0, labour_chrg: 0, other_chrg: 0 });
   const [savingNewHubRate, setSavingNewHubRate] = useState(false);
+
+  // Crossing challan (pohonch) mapping: gr_no -> pohonch_number
+  const [crossChallanMap, setCrossChallanMap] = useState({});
+
+  // Shared cross challan print hook (fetches fresh data, updates metadata)
+  const crossChallanPrint = useCrossChallanPrint();
+
+  // Fetch crossing challan data for given GR numbers
+  const fetchCrossChallanData = useCallback(async (grNos) => {
+    if (!grNos?.length) return;
+    try {
+      const { data: pohonchData } = await supabase
+        .from('pohonch')
+        .select('pohonch_number, bilty_metadata')
+        .eq('is_active', true);
+      if (pohonchData) {
+        const ccMap = {};
+        pohonchData.forEach(p => {
+          const bilties = Array.isArray(p.bilty_metadata) ? p.bilty_metadata : [];
+          bilties.forEach(b => {
+            if (b.gr_no && grNos.includes(b.gr_no)) {
+              ccMap[b.gr_no] = p.pohonch_number;
+            }
+          });
+        });
+        setCrossChallanMap(ccMap);
+      }
+    } catch (e) { console.error('Crossing challan fetch error:', e); }
+  }, []);
 
   /* ========== DATA FETCHING ========== */
   const fetchKaatData = useCallback(async (grNumbers) => {
@@ -237,7 +267,12 @@ export default function ChallanDetailPage() {
       });
 
       setEnrichedBilties(merged);
-      if (grNos.length) { fetchKanpurBilties(grNos, cList); fetchKaatData(grNos); }
+      if (grNos.length) {
+        fetchKanpurBilties(grNos, cList);
+        fetchKaatData(grNos);
+        // Fetch crossing challan (pohonch) data for these GR numbers
+        fetchCrossChallanData(grNos);
+      }
     } catch (err) {
       console.error('Error:', err);
       setError('Failed to load challan details.');
@@ -385,6 +420,9 @@ export default function ChallanDetailPage() {
       setShowBulkPohonch(false);
       setBulkPohonchNo('');
       setSelectedGrs(new Set());
+      // Refresh crossing challan data to reflect the new assignment
+      const allGrNos = enrichedBilties.map(b => b.gr_no).filter(Boolean);
+      if (allGrNos.length) fetchCrossChallanData(allGrNos);
       alert(`Pohonch "${bulkPohonchNo.trim()}" assigned to ${selected.length} GRs!`);
     } catch (e) {
       console.error('Bulk pohonch error:', e);
@@ -736,6 +774,13 @@ export default function ChallanDetailPage() {
               </div>
               <p className="text-[10px] text-gray-500">{challan.created_at ? format(new Date(challan.created_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
             </div>
+            <button
+              onClick={() => router.push('/transit-finance/cross-challan')}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-[11px] font-bold rounded-lg hover:from-violet-600 hover:to-purple-700 shadow-sm transition-all"
+              title="Go to Cross Challan page"
+            >
+              <FileText className="h-3 w-3"/>Cross Challan
+            </button>
             <button onClick={fetchChallanDetails} className="p-1.5 rounded-lg hover:bg-gray-100"><RefreshCw className="h-3.5 w-3.5 text-gray-500"/></button>
           </div>
         </div>
@@ -913,6 +958,7 @@ export default function ChallanDetailPage() {
                       <th className="px-1 py-2 text-center font-bold text-gray-700 text-[10px]">Pay</th>
                       <th className="px-1.5 py-2 text-left font-bold text-gray-700 text-[10px] min-w-[130px]">Transport</th>
                       <th className="px-1.5 py-2 text-center font-bold text-gray-700 text-[10px]">Pohonch/Bilty#</th>
+                      <th className="px-1.5 py-2 text-center font-bold text-gray-700 text-[10px]">Cross Challan</th>
                       <th className="px-1 py-2 text-center font-bold text-gray-700 text-[10px]">Kaat</th>
                       <th className="px-1 py-2 text-center font-bold text-gray-700 text-[10px]">Status</th>
                       <th className="px-1 py-2 text-center font-bold text-gray-700 text-[10px]">Transit</th>
@@ -940,6 +986,9 @@ export default function ChallanDetailPage() {
                         onOut={() => handleOutFromBranch2(b)}
                         onDelivered={() => handleDeliveredAtDestination(b)}
                         userName={userName}
+                        crossChallanNo={crossChallanMap[b.gr_no] || null}
+                        onPrintCrossChallan={crossChallanPrint.handlePrint}
+                        printingCrossChallan={crossChallanPrint.printingPohonch}
                       />
                     ))}
                   </tbody>
@@ -949,7 +998,7 @@ export default function ChallanDetailPage() {
                       <td className="px-1 py-2 text-center">{footerTotals.packets}</td>
                       <td className="px-1 py-2 text-center">{footerTotals.weight.toFixed(1)}</td>
                       <td className="px-1.5 py-2 text-right">₹{footerTotals.amount.toLocaleString('en-IN')}</td>
-                      <td colSpan={3}></td>
+                      <td colSpan={4}></td>
                       <td className="px-1 py-2 text-center text-emerald-700">₹{footerTotals.kaat.toFixed(0)}</td>
                       <td colSpan={3}></td>
                     </tr>
@@ -983,6 +1032,9 @@ export default function ChallanDetailPage() {
                       onOut={() => handleOutFromBranch2(b)}
                       onDelivered={() => handleDeliveredAtDestination(b)}
                       userName={userName}
+                      crossChallanNo={crossChallanMap[b.gr_no] || null}
+                      onPrintCrossChallan={crossChallanPrint.handlePrint}
+                      printingCrossChallan={crossChallanPrint.printingPohonch}
                     />
                   );
                 })}
@@ -1026,6 +1078,14 @@ export default function ChallanDetailPage() {
       />
 
       {/* BULK POHONCH MODAL */}
+      {/* CROSS CHALLAN PDF PREVIEW MODAL (shared component) */}
+      <CrossChallanPrintModal
+        previewUrl={crossChallanPrint.previewUrl}
+        previewName={crossChallanPrint.previewName}
+        onDownload={crossChallanPrint.handleDownload}
+        onClose={crossChallanPrint.handleClose}
+      />
+
       {showBulkPohonch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CheckCircle, Edit3, CircleDot, Square, CheckSquare, Loader2,
-  Image, ImageOff, Plus,
+  Image, ImageOff, Plus, FileText, Printer,
 } from 'lucide-react';
 import TransitCircles from './TransitCircles';
 import { getStatus, stClr, payBadge, kTotal } from './HubHelpers';
@@ -11,6 +11,7 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
   selectedTransportId, isSavingTransport,
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
+  crossChallanNo, onPrintCrossChallan, printingCrossChallan,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -98,6 +99,25 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
         <div className="text-[8px] text-gray-400">
           {kd?.pohonch_no ? 'Pohonch' : kd?.bilty_number ? 'Bilty#' : ''}
         </div>
+      </td>
+      <td className="px-1.5 py-1.5 text-center">
+        {crossChallanNo ? (
+          <div className="flex items-center justify-center gap-1">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-violet-100 text-violet-700 border border-violet-300" title={`Crossing Challan: ${crossChallanNo}`}>
+              <FileText className="h-2.5 w-2.5"/>{crossChallanNo}
+            </span>
+            <button
+              onClick={() => onPrintCrossChallan && onPrintCrossChallan(crossChallanNo)}
+              disabled={printingCrossChallan === crossChallanNo}
+              className="p-0.5 rounded hover:bg-violet-100 text-violet-500 hover:text-violet-700 transition-colors disabled:opacity-50"
+              title={`Print Crossing Challan ${crossChallanNo}`}
+            >
+              {printingCrossChallan === crossChallanNo ? <Loader2 className="h-3 w-3 animate-spin"/> : <Printer className="h-3 w-3"/>}
+            </button>
+          </div>
+        ) : (
+          <span className="text-[9px] text-gray-300">-</span>
+        )}
       </td>
       <td className="px-1 py-1.5 text-center">
         <button onClick={() => onOpenKaat(b.gr_no)}

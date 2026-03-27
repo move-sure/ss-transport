@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CheckCircle, Edit3, Square, CheckSquare, Loader2,
-  Image, ImageOff, Plus, Truck,
+  Image, ImageOff, Plus, Truck, Printer,
 } from 'lucide-react';
 import TransitCircles from './TransitCircles';
 import { getStatus, stClr, payBadge, kTotal } from './HubHelpers';
@@ -11,6 +11,7 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
   selectedTransportId, isSavingTransport, selectedTransport,
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
+  crossChallanNo, onPrintCrossChallan, printingCrossChallan,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -46,6 +47,12 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
         <div><span className="text-gray-400 text-[10px]">Pkts:</span> <b className="text-black text-[11px]">{b.packets}</b> <span className="text-gray-300">|</span> <span className="text-gray-400 text-[10px]">Wt:</span> <b className="text-black text-[11px]">{parseFloat(b.weight || 0).toFixed(1)}</b></div>
         <div><span className="text-gray-400 text-[10px]">Amt:</span> <b className="text-black text-[11px]">₹{parseFloat(b.amount || 0).toLocaleString('en-IN')}</b></div>
         {pohonchVal && <div><span className="text-gray-400 text-[10px]">{kd?.pohonch_no ? 'Pohonch:' : 'Bilty#:'}</span> <b className="text-black text-[11px]">{pohonchVal}</b></div>}
+        {crossChallanNo && <div className="flex items-center gap-1"><span className="text-gray-400 text-[10px]">Cross Challan:</span> <b className="text-violet-700 text-[11px]">{crossChallanNo}</b>
+          <button onClick={() => onPrintCrossChallan && onPrintCrossChallan(crossChallanNo)} disabled={printingCrossChallan === crossChallanNo}
+            className="p-0.5 rounded hover:bg-violet-100 text-violet-500 hover:text-violet-700 transition-colors disabled:opacity-50" title={`Print ${crossChallanNo}`}>
+            {printingCrossChallan === crossChallanNo ? <Loader2 className="h-3 w-3 animate-spin"/> : <Printer className="h-3 w-3"/>}
+          </button>
+        </div>}
         {kt > 0 && <div><span className="text-gray-400 text-[10px]">Kaat:</span> <b className="text-emerald-700 text-[11px]">₹{kt.toFixed(0)}</b></div>}
       </div>
       {/* Transport Selection - Mobile */}

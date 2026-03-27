@@ -19,7 +19,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { generatePohonchPDF } from './pohonch-pdf-generator';
+import CrossChallanPrintModal, { useCrossChallanPrint } from './CrossChallanPrintModal';
 
 export default function RecentPohonch({ onRefreshNeeded }) {
   const { user } = useAuth();
@@ -32,9 +32,16 @@ export default function RecentPohonch({ onRefreshNeeded }) {
   const [editPohonchNumber, setEditPohonchNumber] = useState('');
   const [actionLoading, setActionLoading] = useState(null); // id of row being actioned
   const [expandedRow, setExpandedRow] = useState(null);
-  const [printingId, setPrintingId] = useState(null);
-  const [printPreviewUrl, setPrintPreviewUrl] = useState(null);
-  const [printPreviewPohonch, setPrintPreviewPohonch] = useState(null);
+
+  // Shared cross challan print hook — fetches fresh data on every print
+  const crossChallanPrint = useCrossChallanPrint({
+    onDataRefreshed: (pohonchNumber, updatedPohonch) => {
+      // Update local list with refreshed data
+      setRecentPohonch(prev =>
+        prev.map(p => p.pohonch_number === pohonchNumber ? { ...p, ...updatedPohonch } : p)
+      );
+    },
+  });
 
   const fetchRecent = async () => {
     try {
@@ -352,12 +359,12 @@ export default function RecentPohonch({ onRefreshNeeded }) {
                           </td>
                           <td className="px-3 py-2.5 text-center">
                             <button
-                              onClick={() => handlePrintPohonch(p)}
-                              disabled={printingId === p.id}
+                              onClick={() => crossChallanPrint.handlePrint(p.pohonch_number)}
+                              disabled={crossChallanPrint.printingPohonch === p.pohonch_number}
                               className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors shadow-sm border border-teal-200"
-                              title="Print Pohonch PDF"
+                              title="Print Pohonch PDF (fetches latest data)"
                             >
-                              {printingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
+                              {crossChallanPrint.printingPohonch === p.pohonch_number ? <Loader2 className="w-3 h-3 animate-spin" /> : <Printer className="w-3 h-3" />}
                               Print
                             </button>
                           </td>
@@ -463,42 +470,13 @@ export default function RecentPohonch({ onRefreshNeeded }) {
         </div>
       )}
 
-      {/* Print Preview Modal */}
-      {printPreviewUrl && printPreviewPohonch && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
-              <div>
-                <h3 className="text-xl font-bold text-gray-800">Pohonch Print Preview</h3>
-                <p className="text-sm text-gray-500">
-                  {printPreviewPohonch.pohonch_number} &middot; {printPreviewPohonch.transport_name} &middot; {printPreviewPohonch.total_bilties} bilties
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Printer className="w-4 h-4" /> Download PDF
-                </button>
-                <button
-                  onClick={closePrintPreview}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 p-4 bg-gray-100">
-              <iframe
-                src={printPreviewUrl}
-                className="w-full h-full rounded-lg border border-gray-200"
-                title="Pohonch Print Preview"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Print Preview Modal (shared component — fetches fresh data) */}
+      <CrossChallanPrintModal
+        previewUrl={crossChallanPrint.previewUrl}
+        previewName={crossChallanPrint.previewName}
+        onDownload={crossChallanPrint.handleDownload}
+        onClose={crossChallanPrint.handleClose}
+      />
     </div>
   );
 }

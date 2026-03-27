@@ -159,17 +159,18 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     const totalTableWidth = contentWidth;
     const colWidths = [
       totalTableWidth * 0.03,  // S.No (3%)
-      totalTableWidth * 0.06,  // Date (6%)
-      totalTableWidth * 0.07,  // GR No (7%)
-      totalTableWidth * 0.14,  // Consignor (14%)
-      totalTableWidth * 0.14,  // Consignee (14%)
-      totalTableWidth * 0.11,  // City (11%)
-      totalTableWidth * 0.06,  // No. of Pkg (6%)
-      totalTableWidth * 0.06,  // Weight (6%)
+      totalTableWidth * 0.06,  // Challan No (6%)
+      totalTableWidth * 0.05,  // Date (5%)
+      totalTableWidth * 0.06,  // GR No (6%)
+      totalTableWidth * 0.12,  // Consignor (12%)
+      totalTableWidth * 0.12,  // Consignee (12%)
+      totalTableWidth * 0.09,  // City (9%)
+      totalTableWidth * 0.05,  // No. of Pkg (5%)
+      totalTableWidth * 0.05,  // Weight (5%)
       totalTableWidth * 0.06,  // Delivery Type (6%)
       totalTableWidth * 0.06,  // Payment Mode (6%)
       totalTableWidth * 0.09,  // Amount (9%)
-      totalTableWidth * 0.13   // Pvt Marks (13%)
+      totalTableWidth * 0.16   // Pvt Marks (16%)
     ];
 
     const drawColumnDividers = (startX, startY, height, widths) => {
@@ -195,26 +196,28 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     let currentX = tableStartX + 2;
     pdf.text('S.No', currentX, tableStartY + 6);
     currentX += colWidths[0];
-    pdf.text('Date', currentX, tableStartY + 6);
+    pdf.text('Challan', currentX, tableStartY + 6);
     currentX += colWidths[1];
-    pdf.text('GR No', currentX, tableStartY + 6);
+    pdf.text('Date', currentX, tableStartY + 6);
     currentX += colWidths[2];
-    pdf.text('Consignor', currentX, tableStartY + 6);
+    pdf.text('GR No', currentX, tableStartY + 6);
     currentX += colWidths[3];
-    pdf.text('Consignee', currentX, tableStartY + 6);
+    pdf.text('Consignor', currentX, tableStartY + 6);
     currentX += colWidths[4];
-    pdf.text('City', currentX, tableStartY + 6);
+    pdf.text('Consignee', currentX, tableStartY + 6);
     currentX += colWidths[5];
-    pdf.text('No.Pkg', currentX, tableStartY + 6);
+    pdf.text('City', currentX, tableStartY + 6);
     currentX += colWidths[6];
-    pdf.text('Wt', currentX, tableStartY + 6);
+    pdf.text('No.Pkg', currentX, tableStartY + 6);
     currentX += colWidths[7];
-    pdf.text('Del.Type', currentX, tableStartY + 6);
+    pdf.text('Wt', currentX, tableStartY + 6);
     currentX += colWidths[8];
-    pdf.text('Pay.Mode', currentX, tableStartY + 6);
+    pdf.text('Del.Type', currentX, tableStartY + 6);
     currentX += colWidths[9];
-    pdf.text('Amount', currentX, tableStartY + 6);
+    pdf.text('Pay.Mode', currentX, tableStartY + 6);
     currentX += colWidths[10];
+    pdf.text('Amount', currentX, tableStartY + 6);
+    currentX += colWidths[11];
     pdf.text('Pvt Marks', currentX, tableStartY + 6);
 
     yPosition = tableStartY + 8;
@@ -243,26 +246,28 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
         currentX = tableStartX + 2;
         pdf.text('S.No', currentX, yPosition + 6);
         currentX += colWidths[0];
-        pdf.text('Date', currentX, yPosition + 6);
+        pdf.text('Challan', currentX, yPosition + 6);
         currentX += colWidths[1];
-        pdf.text('GR No', currentX, yPosition + 6);
+        pdf.text('Date', currentX, yPosition + 6);
         currentX += colWidths[2];
-        pdf.text('Consignor', currentX, yPosition + 6);
+        pdf.text('GR No', currentX, yPosition + 6);
         currentX += colWidths[3];
-        pdf.text('Consignee', currentX, yPosition + 6);
+        pdf.text('Consignor', currentX, yPosition + 6);
         currentX += colWidths[4];
-        pdf.text('City', currentX, yPosition + 6);
+        pdf.text('Consignee', currentX, yPosition + 6);
         currentX += colWidths[5];
-        pdf.text('No.Pkg', currentX, yPosition + 6);
+        pdf.text('City', currentX, yPosition + 6);
         currentX += colWidths[6];
-        pdf.text('Wt', currentX, yPosition + 6);
+        pdf.text('No.Pkg', currentX, yPosition + 6);
         currentX += colWidths[7];
-        pdf.text('Del.Type', currentX, yPosition + 6);
+        pdf.text('Wt', currentX, yPosition + 6);
         currentX += colWidths[8];
-        pdf.text('Pay.Mode', currentX, yPosition + 6);
+        pdf.text('Del.Type', currentX, yPosition + 6);
         currentX += colWidths[9];
-        pdf.text('Amount', currentX, yPosition + 6);
+        pdf.text('Pay.Mode', currentX, yPosition + 6);
         currentX += colWidths[10];
+        pdf.text('Amount', currentX, yPosition + 6);
+        currentX += colWidths[11];
         pdf.text('Pvt Marks', currentX, yPosition + 6);
         
         yPosition += 8;
@@ -275,39 +280,44 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
       pdf.text(serialNumber.toString(), currentX, yPosition + 5);
       currentX += colWidths[0];
       
+      // Challan No
+      const challanNo = (bilty.challan_no || 'N/A').substring(0, 8);
+      pdf.text(challanNo, currentX, yPosition + 5);
+      currentX += colWidths[1];
+      
       // Date
       const date = formatDate(bilty.bilty_date || bilty.created_at);
       pdf.text(date, currentX, yPosition + 5);
-      currentX += colWidths[1];
+      currentX += colWidths[2];
       
       // GR No
       pdf.text(bilty.gr_no || 'N/A', currentX, yPosition + 5);
-      currentX += colWidths[2];
+      currentX += colWidths[3];
       
       // Consignor
       const consignor = bilty.consignor_name || bilty.consignor || 'N/A';
-      pdf.text(consignor.substring(0, 16), currentX, yPosition + 5);
-      currentX += colWidths[3];
+      pdf.text(consignor.substring(0, 14), currentX, yPosition + 5);
+      currentX += colWidths[4];
       
       // Consignee
       const consignee = bilty.consignee_name || bilty.consignee || 'N/A';
-      pdf.text(consignee.substring(0, 16), currentX, yPosition + 5);
-      currentX += colWidths[4];
+      pdf.text(consignee.substring(0, 14), currentX, yPosition + 5);
+      currentX += colWidths[5];
       
       // City
       const city = bilty.to_city_name || bilty.station_city_name || getCityName(bilty.to_city) || 'N/A';
-      pdf.text(city.substring(0, 12), currentX, yPosition + 5);
-      currentX += colWidths[5];
+      pdf.text(city.substring(0, 10), currentX, yPosition + 5);
+      currentX += colWidths[6];
       
       // No. of Packages
       const noPkg = (bilty.no_of_pkg || bilty.no_of_packets || '0').toString();
       pdf.text(noPkg, currentX, yPosition + 5);
-      currentX += colWidths[6];
+      currentX += colWidths[7];
       
       // Weight
       const weight = (bilty.wt || bilty.weight || '0').toString();
       pdf.text(weight, currentX, yPosition + 5);
-      currentX += colWidths[7];
+      currentX += colWidths[8];
       
       // Delivery Type
       const deliveryType = bilty.delivery_type || bilty.delivery || 'N/A';
@@ -315,22 +325,22 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
                           deliveryType === 'godown' ? 'GD' : 
                           deliveryType.toUpperCase().substring(0, 3);
       pdf.text(deliveryText, currentX, yPosition + 5);
-      currentX += colWidths[8];
+      currentX += colWidths[9];
       
       // Payment Mode
       const paymentMode = bilty.payment_mode || bilty.payment_status || 'N/A';
       const paymentText = paymentMode.toUpperCase().substring(0, 6);
       pdf.text(paymentText, currentX, yPosition + 5);
-      currentX += colWidths[9];
+      currentX += colWidths[10];
       
       // Amount
       const amount = formatCurrency(bilty.total || bilty.amount);
       pdf.text(amount, currentX, yPosition + 5);
-      currentX += colWidths[10];
+      currentX += colWidths[11];
       
       // Private Marks
       const pvtMarks = bilty.pvt_marks || bilty.private_marks || '-';
-      pdf.text(pvtMarks.substring(0, 15), currentX, yPosition + 5);
+      pdf.text(pvtMarks.substring(0, 18), currentX, yPosition + 5);
 
   // Row border
   pdf.rect(tableStartX, yPosition, totalWidth, rowHeight, 'S');
@@ -344,7 +354,7 @@ export const generateLandscapeBillPDF = async (selectedBilties, cities, filterDa
     pdf.setFont('times', 'bold');
     
     // Draw only the amount column cell with background
-    const amountColX = tableStartX + colWidths.slice(0, 10).reduce((a, b) => a + b, 0);
+    const amountColX = tableStartX + colWidths.slice(0, 11).reduce((a, b) => a + b, 0);
     pdf.setFillColor(summaryFillColor.r, summaryFillColor.g, summaryFillColor.b);
     pdf.rect(amountColX, yPosition, colWidths[10], rowHeight, 'FD');
     

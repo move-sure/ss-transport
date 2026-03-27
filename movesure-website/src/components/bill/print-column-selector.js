@@ -6,6 +6,7 @@ import { Settings, CheckSquare, Square } from 'lucide-react';
 // Available columns configuration
 export const AVAILABLE_COLUMNS = [
   { id: 'sno', label: 'S.No', width: 0.03, required: true },
+  { id: 'challanNo', label: 'Challan No', width: 0.06, required: false },
   { id: 'date', label: 'Date', width: 0.06, required: false },
   { id: 'grno', label: 'GR No', width: 0.07, required: true },
   { id: 'consignor', label: 'Consignor', width: 0.11, required: false },
@@ -28,7 +29,7 @@ export const AVAILABLE_COLUMNS = [
 
 // Default selected columns (commonly used ones)
 export const DEFAULT_SELECTED_COLUMNS = [
-  'sno', 'date', 'grno', 'consignor', 'consignee', 'city', 
+  'sno', 'challanNo', 'date', 'grno', 'consignor', 'consignee', 'city', 
   'packages', 'weight', 'payMode', 'freight', 'labour', 
   'billCharge', 'toll', 'dd', 'total'
 ];

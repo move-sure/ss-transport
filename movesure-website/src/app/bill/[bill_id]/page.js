@@ -74,6 +74,20 @@ export default function BillEditPage() {
             .select('gr_no, contents')
             .in('gr_no', grNumbers);
           
+          // Fetch challan_no from transit_details
+          const { data: transitData } = await supabase
+            .from('transit_details')
+            .select('gr_no, challan_no')
+            .in('gr_no', grNumbers);
+          
+          // Create a map of gr_no to challan_no
+          const challanMap = {};
+          if (transitData) {
+            transitData.forEach(t => {
+              challanMap[t.gr_no] = t.challan_no;
+            });
+          }
+          
           // Create a map of gr_no to content
           const contentMap = {};
           
@@ -89,10 +103,11 @@ export default function BillEditPage() {
             });
           }
           
-          // Merge content into details data
+          // Merge content and challan_no into details data
           const detailsWithContent = detailsData.map(detail => ({
             ...detail,
-            contain: contentMap[detail.grno] || detail.contain || 'N/A'
+            contain: contentMap[detail.grno] || detail.contain || 'N/A',
+            challan_no: challanMap[detail.grno] || null
           }));
           
           setBillDetails(detailsWithContent);

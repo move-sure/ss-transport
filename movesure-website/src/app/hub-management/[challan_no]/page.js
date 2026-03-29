@@ -347,9 +347,79 @@ export default function ChallanDetailPage() {
       const { error: e } = await supabase.from('challan_details').update({ is_received_at_hub: true, received_at_hub_timing: now, received_by_user: user.id }).eq('id', challan.id);
       if (e) throw e;
       setChallan(p => ({ ...p, is_received_at_hub: true, received_at_hub_timing: now }));
+
+      // Auto mark all bilties as "Delivered at Branch"
+      const pending = enrichedBilties.filter(b => !b.is_delivered_at_branch2);
+      if (pending.length > 0) {
+        const ids = pending.map(b => b.id);
+        const { error: e2 } = await supabase.from('transit_details').update({ is_delivered_at_branch2: true, delivered_at_branch2_date: now, updated_by: user.id }).in('id', ids);
+        if (e2) console.error('Auto branch update failed:', e2);
+        else {
+          setEnrichedBilties(p => p.map(b => ids.includes(b.id) ? { ...b, is_delivered_at_branch2: true, delivered_at_branch2_date: now } : b));
+          setTransitDetails(p => p.map(t => ids.includes(t.id) ? { ...t, is_delivered_at_branch2: true, delivered_at_branch2_date: now } : t));
+        }
+      }
+
+      // Auto-assign transport (single-option cities) + apply hub rates
+      let latestKaat = { ...kaatData };
+      const toAssign = enrichedBilties.filter(b => {
+        if (!b.to_city_id || latestKaat[b.gr_no]?.transport_id) return false;
+        return (transportsByCity[b.to_city_id] || []).length === 1;
+      });
+      if (toAssign.length > 0) {
+        const assignPayloads = toAssign.map(b => {
+          const transport = transportsByCity[b.to_city_id][0];
+          const hubRate = getHubRateForTransport(hubRatesByTransport, transport.id, b.to_city_id);
+          return {
+            gr_no: b.gr_no, challan_no: challan.challan_no, destination_city_id: b.to_city_id,
+            transport_id: transport.id, transport_hub_rate_id: hubRate?.id || null,
+            rate_type: hubRate?.pricing_mode || null, rate_per_kg: hubRate?.rate_per_kg || 0, rate_per_pkg: hubRate?.rate_per_pkg || 0,
+            bilty_chrg: hubRate?.bilty_chrg || 0, ewb_chrg: hubRate?.ewb_chrg || 0,
+            labour_chrg: hubRate?.labour_chrg || 0, other_chrg: hubRate?.other_chrg || 0,
+            updated_by: user.id, updated_at: now,
+          };
+        });
+        const { data: assignData, error: e3 } = await supabase.from('bilty_wise_kaat').upsert(assignPayloads, { onConflict: 'gr_no' }).select();
+        if (e3) console.error('Auto-assign transport failed:', e3);
+        else (assignData || []).forEach(k => { latestKaat[k.gr_no] = k; });
+      }
+
+      // Apply hub rates to all bilties that have transport assigned
+      const toApplyRates = enrichedBilties.filter(b => {
+        const kd = latestKaat[b.gr_no];
+        if (!kd?.transport_id || !b.to_city_id) return false;
+        return getHubRateForTransport(hubRatesByTransport, kd.transport_id, b.to_city_id) !== null;
+      });
+      if (toApplyRates.length > 0) {
+        const ratePayloads = toApplyRates.map(b => {
+          const kd = latestKaat[b.gr_no];
+          const hr = getHubRateForTransport(hubRatesByTransport, kd.transport_id, b.to_city_id);
+          let computedKaat = 0;
+          if (hr.pricing_mode === 'per_kg') computedKaat = (parseFloat(hr.rate_per_kg) || 0) * (parseFloat(b.weight) || 0);
+          else if (hr.pricing_mode === 'per_pkg') computedKaat = (parseFloat(hr.rate_per_pkg) || 0) * (b.packets || 0);
+          if (hr.min_charge && computedKaat < parseFloat(hr.min_charge)) computedKaat = parseFloat(hr.min_charge);
+          return {
+            gr_no: b.gr_no, challan_no: challan.challan_no, destination_city_id: b.to_city_id,
+            transport_id: kd.transport_id, transport_hub_rate_id: hr.id,
+            rate_type: hr.pricing_mode, rate_per_kg: parseFloat(hr.rate_per_kg) || 0, rate_per_pkg: parseFloat(hr.rate_per_pkg) || 0,
+            kaat: parseFloat(computedKaat.toFixed(2)),
+            actual_kaat_rate: hr.pricing_mode === 'per_kg' ? (parseFloat(hr.rate_per_kg) || 0) : (parseFloat(hr.rate_per_pkg) || 0),
+            bilty_chrg: parseFloat(hr.bilty_chrg) || 0, ewb_chrg: parseFloat(hr.ewb_chrg) || 0,
+            labour_chrg: parseFloat(hr.labour_chrg) || 0, other_chrg: parseFloat(hr.other_chrg) || 0,
+            pohonch_no: kd.pohonch_no || null, bilty_number: kd.bilty_number || null,
+            pf: parseFloat(kd.pf) || 0, dd_chrg: parseFloat(kd.dd_chrg) || 0,
+            updated_by: user.id, updated_at: now,
+          };
+        });
+        const { data: rateData, error: e4 } = await supabase.from('bilty_wise_kaat').upsert(ratePayloads, { onConflict: 'gr_no' }).select();
+        if (e4) console.error('Auto hub rates failed:', e4);
+        else (rateData || []).forEach(k => { latestKaat[k.gr_no] = k; });
+      }
+
+      setKaatData(latestKaat);
     } catch (e) { console.error(e); alert('Failed.'); }
     finally { setReceivingAtHub(false); }
-  }, [user?.id, challan?.id, challan?.is_received_at_hub]);
+  }, [user?.id, challan?.id, challan?.is_received_at_hub, challan?.challan_no, enrichedBilties, kaatData, transportsByCity, hubRatesByTransport]);
 
   /* ========== BULK ACTIONS ========== */
   const toggleSelect = useCallback((id) => setSelectedGrs(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }), []);

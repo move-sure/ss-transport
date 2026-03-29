@@ -666,6 +666,7 @@ export default function ChallanDetailPage() {
       result = result.filter(t => t.gr_no?.toLowerCase().includes(search));
     }
     if (citySearch) result = result.filter(t => t.destination === citySearch);
+    result = [...result].sort((a, b) => (a.destination || '').localeCompare(b.destination || ''));
     return result;
   }, [enrichedBilties, kanpurFilter, kanpurGrNos, grSearch, citySearch]);
 

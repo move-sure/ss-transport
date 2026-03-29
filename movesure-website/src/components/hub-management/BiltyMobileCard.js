@@ -1,7 +1,8 @@
 import React from 'react';
+import Link from 'next/link';
 import {
   CheckCircle, Edit3, Square, CheckSquare, Loader2,
-  Image, ImageOff, Plus, Truck, Printer,
+  Image, ImageOff, Plus, Truck, Printer, ExternalLink,
 } from 'lucide-react';
 import TransitCircles from './TransitCircles';
 import { getStatus, stClr, payBadge, kTotal } from './HubHelpers';
@@ -11,7 +12,7 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
   selectedTransportId, isSavingTransport, selectedTransport,
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
-  crossChallanNo, onPrintCrossChallan, printingCrossChallan,
+  crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, challanNo,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -26,7 +27,10 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
             {isSelected ? <CheckSquare className="h-4 w-4"/> : <Square className="h-4 w-4 text-gray-300"/>}
           </button>
           <span className="w-5 h-5 bg-indigo-100 rounded text-indigo-700 text-[10px] font-bold flex items-center justify-center">{b.idx}</span>
-          <span className="font-bold text-indigo-700 text-sm">{b.gr_no}</span>
+          <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
+            className="font-bold text-indigo-700 text-sm hover:underline" title="View bilty details">
+            {b.gr_no}
+          </Link>
           <button
             onClick={() => b.bilty_image ? onPreviewImage({ url: b.bilty_image, gr: b.gr_no, type: isMNL ? 'MNL' : 'REG' }) : null}
             className={`w-5 h-5 rounded-full flex items-center justify-center ${b.bilty_image ? 'bg-green-100 text-green-600 ring-1 ring-green-300' : 'bg-red-100 text-red-400 ring-1 ring-red-200'}`}
@@ -53,6 +57,10 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
             {printingCrossChallan === crossChallanNo ? <Loader2 className="h-3 w-3 animate-spin"/> : <Printer className="h-3 w-3"/>}
           </button>
         </div>}
+        {isKanpur && <div><button onClick={onPod} title="Print POD"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors">
+          <Printer className="h-3 w-3"/>POD
+        </button></div>}
         {kt > 0 && <div><span className="text-gray-400 text-[10px]">Kaat:</span> <b className="text-emerald-700 text-[11px]">₹{kt.toFixed(0)}</b></div>}
       </div>
       {/* Transport Selection - Mobile */}

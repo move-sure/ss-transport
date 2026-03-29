@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../utils/auth';
 import supabase from '../../utils/supabase';
 import Navbar from '../../../components/dashboard/navbar';
@@ -10,7 +11,7 @@ import {
   Warehouse, Truck, Package, CheckCircle2, Clock, AlertCircle, RefreshCw,
   ArrowLeft, MapPin, User, CheckCircle, Navigation, Box,
   Building2, ClipboardList, ShieldCheck, Filter, X, Loader2,
-  Search, Square, CheckSquare, FileText, ChevronDown,
+  Search, Square, CheckSquare, FileText, ChevronDown, Printer, ExternalLink,
 } from 'lucide-react';
 
 import { IC, DI, SC } from '../../../components/hub-management/SmallComponents';
@@ -21,6 +22,7 @@ import KaatModal from '../../../components/hub-management/KaatModal';
 import AddTransportModal from '../../../components/hub-management/AddTransportModal';
 import AddHubRateModal from '../../../components/hub-management/AddHubRateModal';
 import { kTotal, getHubRateForTransport } from '../../../components/hub-management/HubHelpers';
+import { generatePodPdf } from '../../../components/hub-management/PodPdfGenerator';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 
 export default function ChallanDetailPage() {
@@ -83,6 +85,10 @@ export default function ChallanDetailPage() {
   const [showAddHubRate, setShowAddHubRate] = useState(false);
   const [addHubRateForm, setAddHubRateForm] = useState({ transport_id: '', transport_name: '', destination_city_id: '', destination_city_name: '', goods_type: '', pricing_mode: 'per_kg', rate_per_kg: 0, rate_per_pkg: 0, min_charge: 0, bilty_chrg: 0, ewb_chrg: 0, labour_chrg: 0, other_chrg: 0 });
   const [savingNewHubRate, setSavingNewHubRate] = useState(false);
+
+  // POD preview modal
+  const [podPreviewUrl, setPodPreviewUrl] = useState(null);
+  const [podPreviewBilty, setPodPreviewBilty] = useState(null);
 
   // Crossing challan (pohonch) mapping: gr_no -> pohonch_number
   const [crossChallanMap, setCrossChallanMap] = useState({});
@@ -737,6 +743,19 @@ export default function ChallanDetailPage() {
     finally { setSavingNewHubRate(false); }
   }, [user?.id, addHubRateForm]);
 
+  /* ========== POD PRINT ========== */
+  const handlePodPrint = useCallback((b) => {
+    const url = generatePodPdf(b, kaatData[b.gr_no], challan);
+    setPodPreviewUrl(url);
+    setPodPreviewBilty(b);
+  }, [kaatData, challan]);
+
+  const closePodPreview = useCallback(() => {
+    if (podPreviewUrl) URL.revokeObjectURL(podPreviewUrl);
+    setPodPreviewUrl(null);
+    setPodPreviewBilty(null);
+  }, [podPreviewUrl]);
+
   /* ========== MEMOIZED COMPUTED VALUES ========== */
   const displayed = useMemo(() => {
     let result = enrichedBilties;
@@ -1126,6 +1145,8 @@ export default function ChallanDetailPage() {
                         crossChallanNo={crossChallanMap[b.gr_no] || null}
                         onPrintCrossChallan={crossChallanPrint.handlePrint}
                         printingCrossChallan={crossChallanPrint.printingPohonch}
+                        onPod={() => handlePodPrint(b)}
+                        challanNo={challan?.challan_no}
                       />
                     ))}
                   </tbody>
@@ -1172,6 +1193,8 @@ export default function ChallanDetailPage() {
                       crossChallanNo={crossChallanMap[b.gr_no] || null}
                       onPrintCrossChallan={crossChallanPrint.handlePrint}
                       printingCrossChallan={crossChallanPrint.printingPohonch}
+                      onPod={() => handlePodPrint(b)}
+                      challanNo={challan?.challan_no}
                     />
                   );
                 })}
@@ -1222,6 +1245,42 @@ export default function ChallanDetailPage() {
         onDownload={crossChallanPrint.handleDownload}
         onClose={crossChallanPrint.handleClose}
       />
+
+      {/* POD PREVIEW MODAL */}
+      {podPreviewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-100 rounded-xl"><FileText className="h-4 w-4 text-blue-600"/></div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Proof of Delivery (POD)</h3>
+                  <p className="text-[10px] text-gray-500">GR: {podPreviewBilty?.gr_no} | Dest: {podPreviewBilty?.destination}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={podPreviewUrl} download={`POD_${podPreviewBilty?.gr_no}.pdf`}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                  <FileText className="h-3.5 w-3.5"/>Download
+                </a>
+                <button onClick={() => { const w = window.open(podPreviewUrl, '_blank'); if(!w) alert('Please allow popups'); }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+                  Open Tab
+                </button>
+                <Link href={`/hub-management/${encodeURIComponent(challan?.challan_no || challan_no)}/${encodeURIComponent(podPreviewBilty?.gr_no)}`}
+                  onClick={closePodPreview}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors">
+                  <ExternalLink className="h-3.5 w-3.5"/>Detail Page
+                </Link>
+                <button onClick={closePodPreview} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500"/></button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <iframe src={podPreviewUrl} className="w-full h-full border-0" title="POD Preview"/>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showBulkPohonch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

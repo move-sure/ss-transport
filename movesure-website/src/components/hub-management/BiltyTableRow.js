@@ -1,7 +1,8 @@
 import React from 'react';
+import Link from 'next/link';
 import {
   CheckCircle, Edit3, CircleDot, Square, CheckSquare, Loader2,
-  Image, ImageOff, Plus, FileText, Printer,
+  Image, ImageOff, Plus, FileText, Printer, ExternalLink,
 } from 'lucide-react';
 import TransitCircles from './TransitCircles';
 import { getStatus, stClr, payBadge, kTotal } from './HubHelpers';
@@ -11,7 +12,7 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
   selectedTransportId, isSavingTransport,
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
-  crossChallanNo, onPrintCrossChallan, printingCrossChallan,
+  crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, challanNo,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -35,7 +36,16 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
         </button>
       </td>
       <td className="px-1.5 py-1.5">
-        <div className="font-bold text-indigo-700 text-[11px]">{b.gr_no}</div>
+        <div className="flex items-center gap-1">
+          <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
+            className="font-bold text-indigo-700 text-[11px] hover:underline hover:text-indigo-900" title="View bilty details">
+            {b.gr_no}
+          </Link>
+          <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
+            className="text-gray-300 hover:text-indigo-500" title="Open bilty page">
+            <ExternalLink className="h-2.5 w-2.5"/>
+          </Link>
+        </div>
         <div className="text-[9px] text-gray-400">{isMNL ? 'MNL' : 'REG'}{isKanpur && <span className="ml-1 text-orange-600 font-bold">•KNP</span>}</div>
       </td>
       <td className="px-1.5 py-1.5">
@@ -117,6 +127,12 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
           </div>
         ) : (
           <span className="text-[9px] text-gray-300">-</span>
+        )}
+        {isKanpur && (
+          <button onClick={onPod} title="Print POD"
+            className="mt-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors">
+            <FileText className="h-2.5 w-2.5"/>POD
+          </button>
         )}
       </td>
       <td className="px-1 py-1.5 text-center">

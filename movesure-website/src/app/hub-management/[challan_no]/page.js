@@ -42,6 +42,7 @@ export default function ChallanDetailPage() {
 
   const [grSearch, setGrSearch] = useState('');
   const [citySearch, setCitySearch] = useState('');
+  const [transportSearch, setTransportSearch] = useState('');
 
   const [kaatData, setKaatData] = useState({});
   const [editingKaat, setEditingKaat] = useState(null);
@@ -666,9 +667,19 @@ export default function ChallanDetailPage() {
       result = result.filter(t => t.gr_no?.toLowerCase().includes(search));
     }
     if (citySearch) result = result.filter(t => t.destination === citySearch);
+    if (transportSearch) result = result.filter(t => {
+      const assignedId = kaatData[t.gr_no]?.transport_id;
+      if (assignedId) {
+        const cityList = t.to_city_id ? (transportsByCity[t.to_city_id] || []) : [];
+        const match = cityList.find(tr => String(tr.id) === String(assignedId));
+        return match?.transport_name === transportSearch;
+      }
+      const cityList = t.to_city_id ? (transportsByCity[t.to_city_id] || []) : [];
+      return cityList.some(tr => tr.transport_name === transportSearch);
+    });
     result = [...result].sort((a, b) => (a.destination || '').localeCompare(b.destination || ''));
     return result;
-  }, [enrichedBilties, kanpurFilter, kanpurGrNos, grSearch, citySearch]);
+  }, [enrichedBilties, kanpurFilter, kanpurGrNos, grSearch, citySearch, transportSearch, kaatData, transportsByCity]);
 
   const kanpurCount = useMemo(() =>
     enrichedBilties.filter(t => kanpurGrNos.has(t.gr_no)).length,
@@ -677,6 +688,14 @@ export default function ChallanDetailPage() {
   const uniqueCities = useMemo(() =>
     [...new Set(enrichedBilties.map(b => b.destination).filter(d => d && d !== '-'))].sort(),
   [enrichedBilties]);
+
+  const uniqueTransports = useMemo(() => {
+    const names = new Set();
+    Object.values(transportsByCity).flat().forEach(t => {
+      if (t.transport_name) names.add(t.transport_name);
+    });
+    return [...names].sort();
+  }, [transportsByCity]);
 
   const { deliveredCount, inTransitCount, pendingCount, totalPkts, totalWt, totalAmt } = useMemo(() => ({
     deliveredCount: enrichedBilties.filter(t => t.is_delivered_at_destination).length,
@@ -871,8 +890,8 @@ export default function ChallanDetailPage() {
                 <span className="text-[10px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">{displayed.length}/{enrichedBilties.length}</span>
               </h2>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {(grSearch || citySearch || kanpurFilter) && (
-                  <button onClick={() => { setGrSearch(''); setCitySearch(''); setKanpurFilter(false); }}
+                {(grSearch || citySearch || transportSearch || kanpurFilter) && (
+                  <button onClick={() => { setGrSearch(''); setCitySearch(''); setTransportSearch(''); setKanpurFilter(false); }}
                     className="text-[10px] px-2 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-0.5"><X className="h-2.5 w-2.5"/>Clear All</button>
                 )}
                 <button onClick={() => setKanpurFilter(!kanpurFilter)} disabled={loadingKanpur}
@@ -893,6 +912,11 @@ export default function ChallanDetailPage() {
                 className="text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 outline-none min-w-[140px] bg-white">
                 <option value="">All Cities ({uniqueCities.length})</option>
                 {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={transportSearch} onChange={e => setTransportSearch(e.target.value)}
+                className="text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 outline-none min-w-[140px] bg-white">
+                <option value="">All Transports ({uniqueTransports.length})</option>
+                {uniqueTransports.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>
@@ -932,8 +956,8 @@ export default function ChallanDetailPage() {
           {displayed.length === 0 ? (
             <div className="p-10 text-center">
               <Box className="h-8 w-8 text-gray-300 mx-auto mb-2"/>
-              <p className="text-gray-500 text-xs">{grSearch || citySearch ? 'No matching bilties' : kanpurFilter ? 'No Kanpur bilties' : 'No bilties'}</p>
-              {(grSearch || citySearch || kanpurFilter) && <button onClick={() => { setGrSearch(''); setCitySearch(''); setKanpurFilter(false); }} className="mt-2 text-[10px] px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200">Clear Filters</button>}
+              <p className="text-gray-500 text-xs">{grSearch || citySearch || transportSearch ? 'No matching bilties' : kanpurFilter ? 'No Kanpur bilties' : 'No bilties'}</p>
+              {(grSearch || citySearch || transportSearch || kanpurFilter) && <button onClick={() => { setGrSearch(''); setCitySearch(''); setTransportSearch(''); setKanpurFilter(false); }} className="mt-2 text-[10px] px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200">Clear Filters</button>}
             </div>
           ) : (
             <>

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../utils/auth';
 import supabase from '../../utils/supabase';
@@ -10,7 +10,7 @@ import {
   Warehouse, Truck, Package, CheckCircle2, Clock, AlertCircle, RefreshCw,
   ArrowLeft, MapPin, User, CheckCircle, Navigation, Box,
   Building2, ClipboardList, ShieldCheck, Filter, X, Loader2,
-  Search, Square, CheckSquare, FileText,
+  Search, Square, CheckSquare, FileText, ChevronDown,
 } from 'lucide-react';
 
 import { IC, DI, SC } from '../../../components/hub-management/SmallComponents';
@@ -43,6 +43,15 @@ export default function ChallanDetailPage() {
   const [grSearch, setGrSearch] = useState('');
   const [citySearch, setCitySearch] = useState('');
   const [transportSearch, setTransportSearch] = useState('');
+  const [transportDropdownOpen, setTransportDropdownOpen] = useState(false);
+  const [transportFilterText, setTransportFilterText] = useState('');
+  const transportDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (transportDropdownRef.current && !transportDropdownRef.current.contains(e.target)) setTransportDropdownOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const [kaatData, setKaatData] = useState({});
   const [editingKaat, setEditingKaat] = useState(null);
@@ -913,11 +922,33 @@ export default function ChallanDetailPage() {
                 <option value="">All Cities ({uniqueCities.length})</option>
                 {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <select value={transportSearch} onChange={e => setTransportSearch(e.target.value)}
-                className="text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 outline-none min-w-[140px] bg-white">
-                <option value="">All Transports ({uniqueTransports.length})</option>
-                {uniqueTransports.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <div className="relative min-w-[220px]" ref={transportDropdownRef}>
+                <button type="button" onClick={() => { setTransportDropdownOpen(!transportDropdownOpen); setTransportFilterText(''); }}
+                  className={`w-full text-xs border rounded-lg px-3 py-2 focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 outline-none bg-white text-left flex items-center justify-between gap-1 ${transportSearch ? 'border-indigo-400 font-bold text-black' : 'border-gray-200 text-gray-500'}`}>
+                  <span className="truncate">{transportSearch || `All Transports (${uniqueTransports.length})`}</span>
+                  {transportSearch ? <X className="h-3.5 w-3.5 text-black hover:text-red-500 shrink-0" onClick={(e) => { e.stopPropagation(); setTransportSearch(''); setTransportDropdownOpen(false); }}/> : <ChevronDown className="h-3.5 w-3.5 text-gray-500 shrink-0"/>}
+                </button>
+                {transportDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
+                    <div className="p-2 border-b border-gray-100">
+                      <input type="text" autoFocus placeholder="Search transport..." value={transportFilterText} onChange={e => setTransportFilterText(e.target.value)}
+                        className="w-full text-xs border border-gray-200 rounded px-2.5 py-1.5 focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 outline-none"/>
+                    </div>
+                    <div className="overflow-y-auto max-h-56">
+                      <button onClick={() => { setTransportSearch(''); setTransportDropdownOpen(false); }}
+                        className={`w-full text-left text-xs px-3 py-2 hover:bg-indigo-50 ${!transportSearch ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-black'}`}>
+                        All Transports ({uniqueTransports.length})
+                      </button>
+                      {uniqueTransports.filter(t => t.toLowerCase().includes(transportFilterText.toLowerCase())).map(t => (
+                        <button key={t} onClick={() => { setTransportSearch(t); setTransportDropdownOpen(false); }}
+                          className={`w-full text-left text-xs px-3 py-2 hover:bg-indigo-50 ${transportSearch === t ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-black'}`}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

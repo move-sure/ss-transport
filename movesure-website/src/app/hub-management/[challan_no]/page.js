@@ -673,7 +673,18 @@ export default function ChallanDetailPage() {
     if (kanpurFilter) result = result.filter(t => kanpurGrNos.has(t.gr_no));
     if (grSearch.trim()) {
       const search = grSearch.trim().toLowerCase();
-      result = result.filter(t => t.gr_no?.toLowerCase().includes(search));
+      result = result.filter(t => {
+        if (t.gr_no?.toLowerCase().includes(search)) return true;
+        if (t.destination?.toLowerCase().includes(search)) return true;
+        const cityList = t.to_city_id ? (transportsByCity[t.to_city_id] || []) : [];
+        const assignedId = kaatData[t.gr_no]?.transport_id;
+        if (assignedId) {
+          const match = cityList.find(tr => String(tr.id) === String(assignedId));
+          if (match?.transport_name?.toLowerCase().includes(search)) return true;
+        }
+        if (cityList.some(tr => tr.transport_name?.toLowerCase().includes(search))) return true;
+        return false;
+      });
     }
     if (citySearch) result = result.filter(t => t.destination === citySearch);
     if (transportSearch) result = result.filter(t => {
@@ -913,7 +924,7 @@ export default function ChallanDetailPage() {
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400"/>
-                <input type="text" placeholder="Search GR No..." value={grSearch} onChange={e => setGrSearch(e.target.value)}
+                <input type="text" placeholder="Search GR No, City, Transport..." value={grSearch} onChange={e => setGrSearch(e.target.value)}
                   className="w-full pl-7 pr-7 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 outline-none"/>
                 {grSearch && <button onClick={() => setGrSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="h-3 w-3 text-gray-400 hover:text-gray-600"/></button>}
               </div>

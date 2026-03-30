@@ -56,6 +56,7 @@ export default function StationBiltySummaryPage() {
   const [biltyToDelete, setBiltyToDelete] = useState(null);
   const [isAdvancedSearch, setIsAdvancedSearch] = useState(false);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
+  const [selectedCityId, setSelectedCityId] = useState(null);
   
   // Branch management state
   const [branches, setBranches] = useState([]);
@@ -78,7 +79,7 @@ export default function StationBiltySummaryPage() {
     if (user?.id) {
       handleLoadData();
     }
-  }, [user?.id, currentPage]);
+  }, [user?.id, currentPage, selectedCityId]);
   
   // Note: Search is handled by debounced effect inside useStationBiltySummary hook
   
@@ -237,7 +238,7 @@ export default function StationBiltySummaryPage() {
     try {
       setIsAdvancedSearch(false); // Clear advanced search state
       const offset = (currentPage - 1) * recordsPerPage;
-      const result = await loadSummaryData(recordsPerPage, offset);
+      const result = await loadSummaryData(recordsPerPage, offset, selectedCityId);
       setTotalRecords(result.count);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -348,6 +349,12 @@ export default function StationBiltySummaryPage() {
     }
   };
 
+  // Handle city filter change
+  const handleCityFilter = (cityId) => {
+    setSelectedCityId(cityId);
+    setCurrentPage(1);
+  };
+
   // Calculate pagination info
   const totalPages = Math.ceil(totalRecords / recordsPerPage);
   const startRecord = (currentPage - 1) * recordsPerPage + 1;
@@ -405,6 +412,10 @@ export default function StationBiltySummaryPage() {
             onAdvancedSearch={handleAdvancedSearch}
             totalRecords={totalRecords}
             branches={branches}
+            cities={cities}
+            transports={transports}
+            selectedCityId={selectedCityId}
+            onCityFilter={handleCityFilter}
           />          {/* Data Table */}
           <ManualBiltyTable
             summaryData={summaryData}

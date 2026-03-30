@@ -40,7 +40,8 @@ export const useStationBiltySummary = () => {
     branch_id: null,
     transport_id: null,
     transport_name: '',
-    transport_gst: ''
+    transport_gst: '',
+    city_id: null
   });
 
   // Load reference data (cities only)
@@ -113,7 +114,8 @@ export const useStationBiltySummary = () => {
       branch_id: null,
       transport_id: null,
       transport_name: '',
-      transport_gst: ''
+      transport_gst: '',
+      city_id: null
     });
     setEditingId(null);
   }, []);
@@ -249,16 +251,19 @@ export const useStationBiltySummary = () => {
   // ─────────────────────────────────────────────────
   // Load all summary data with pagination support
   // ─────────────────────────────────────────────────
-  const loadSummaryData = useCallback(async (limit = 50, offset = 0) => {
+  const loadSummaryData = useCallback(async (limit = 50, offset = 0, cityId = null) => {
     try {
       setLoading(true);
       
       // Try DB function first (fast, includes transit join)
       try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('search_station_bilty_with_transit', {
+        const rpcParams = {
           p_limit: limit,
           p_offset: offset
-        });
+        };
+        if (cityId) rpcParams.p_city_id = cityId;
+
+        const { data: rpcData, error: rpcError } = await supabase.rpc('search_station_bilty_with_transit', rpcParams);
 
         if (!rpcError && rpcData) {
           const totalCount = rpcData.length > 0 ? Number(rpcData[0].total_count) : 0;
@@ -271,11 +276,14 @@ export const useStationBiltySummary = () => {
       }
 
       // Fallback: regular query + client-side transit fetch
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('station_bilty_summary')
         .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .order('created_at', { ascending: false });
+
+      if (cityId) query = query.eq('city_id', cityId);
+
+      const { data, error, count } = await query.range(offset, offset + limit - 1);
 
       if (error) throw error;
 
@@ -383,8 +391,7 @@ export const useStationBiltySummary = () => {
         if (filters.pvtMarks) rpcParams.p_pvt_marks = filters.pvtMarks;
         if (filters.paymentStatus) rpcParams.p_payment_status = filters.paymentStatus;
         if (filters.branchId) rpcParams.p_branch_id = filters.branchId;
-        if (filters.station) rpcParams.p_station = filters.station;
-        if (filters.transitStatus) rpcParams.p_transit_status = filters.transitStatus;
+        if (filters.station) rpcParams.p_city_id = filters.station;
         if (filters.challanNo) rpcParams.p_challan_no = filters.challanNo;
 
         const { data: rpcData, error: rpcError } = await supabase.rpc('search_station_bilty_with_transit', rpcParams);
@@ -425,7 +432,8 @@ export const useStationBiltySummary = () => {
         query = query.ilike('contents', `%${filters.contents.replace(/[%_\\]/g, '\\$&')}%`);
       }
       if (filters.station) {
-        query = query.ilike('station', `%${filters.station.replace(/[%_\\]/g, '\\$&')}%`);
+        // station filter is now a city_id (UUID) from city dropdown
+        query = query.eq('city_id', filters.station);
       }
       if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus);
       if (filters.deliveryType) query = query.eq('delivery_type', filters.deliveryType);
@@ -437,20 +445,6 @@ export const useStationBiltySummary = () => {
       if (error) throw error;
 
       let enriched = await enrichWithRelatedData(data || []);
-      
-      // Client-side transit status filtering (fallback when DB function unavailable)
-      if (filters.transitStatus && filters.transitStatus !== 'all') {
-        enriched = enriched.filter(item => {
-          switch (filters.transitStatus) {
-            case 'avl': return item.transit_status === 'AVL';
-            case 'in_transit': return item.transit_status !== 'AVL' && item.transit_status !== 'DELIVERED';
-            case 'delivered': return item.transit_status === 'DELIVERED';
-            case 'at_hub': return item.transit_status === 'AT_HUB';
-            case 'out_for_delivery': return item.transit_status === 'OUT_FOR_DELIVERY';
-            default: return true;
-          }
-        });
-      }
 
       // Client-side challan_no filtering (fallback)
       if (filters.challanNo) {
@@ -530,6 +524,7 @@ export const useStationBiltySummary = () => {
         transport_id: formData.transport_id || null,
         transport_name: formData.transport_name?.toString().trim() || null,
         transport_gst: formData.transport_gst?.toString().trim() || null,
+        city_id: formData.city_id || null,
         updated_at: new Date().toISOString()
       };
 
@@ -602,7 +597,8 @@ export const useStationBiltySummary = () => {
       branch_id: summary.branch_id || null,
       transport_id: summary.transport_id || null,
       transport_name: summary.transport_name || '',
-      transport_gst: summary.transport_gst || ''
+      transport_gst: summary.transport_gst || '',
+      city_id: summary.city_id || null
     });
     setEditingId(summary.id);
   }, []);

@@ -245,6 +245,8 @@ const ManualBiltyTable = ({
                   <td className="px-2 py-2.5 whitespace-nowrap text-xs font-bold text-gray-900">
                     {formatCurrency(summary.amount)}
                   </td>
+
+
                   
                   {/* User / Date */}
                   <td className="px-1.5 py-2.5">

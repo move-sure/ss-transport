@@ -478,6 +478,7 @@ const ManualBiltyForm = ({
           setFormData(prev => ({
             ...prev,
             station: value,
+            city_id: city.id,
             transport_id: transport.id,
             transport_name: transport.transport_name || '',
             transport_gst: transport.gst_number || ''
@@ -492,6 +493,7 @@ const ManualBiltyForm = ({
           setFormData(prev => ({
             ...prev,
             station: value,
+            city_id: city.id,
             transport_id: null,
             transport_name: '',
             transport_gst: ''
@@ -504,6 +506,7 @@ const ManualBiltyForm = ({
           setFormData(prev => ({
             ...prev,
             station: value,
+            city_id: city.id,
             transport_id: null,
             transport_name: '',
             transport_gst: ''
@@ -511,12 +514,13 @@ const ManualBiltyForm = ({
         }
       }
     } else {
-      // Invalid or empty station - clear transport
+      // Invalid or empty station - clear transport and city_id
       setAvailableTransports([]);
       setShowTransportDropdown(false);
       setFormData(prev => ({
         ...prev,
         station: value,
+        city_id: null,
         transport_id: null,
         transport_name: '',
         transport_gst: ''
@@ -557,6 +561,10 @@ const ManualBiltyForm = ({
         c.city_name?.toUpperCase() === trimmedCode
       );
       if (city) {
+        // Ensure city_id is set when editing
+        if (!formData.city_id) {
+          setFormData(prev => ({ ...prev, city_id: city.id }));
+        }
         const cityTransports = transports.filter(t => t.city_id === city.id);
         setAvailableTransports(cityTransports);
         // If no transport was saved, auto-select the first available one

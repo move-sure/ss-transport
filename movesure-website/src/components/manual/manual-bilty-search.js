@@ -1,8 +1,178 @@
 'use client';
 
-import { Search, RefreshCw, Filter, X, Calendar, FileText, Building2, MapPin, Sparkles, Truck, Hash } from 'lucide-react';
-import { useState } from 'react';
-import { TRANSIT_STATUS_OPTIONS, TRANSIT_STATUS_CONFIG } from './manual-helper';
+import { Search, RefreshCw, Filter, X, Calendar, FileText, Building2, MapPin, Sparkles, Hash, Truck } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+// City filter dropdown with autocomplete
+const CityFilterDropdown = ({ cities, selectedCityId, onCitySelect }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = cities.filter(c => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (c.city_code || '').toLowerCase().includes(term) || (c.city_name || '').toLowerCase().includes(term);
+  });
+
+  const selectedCity = cities.find(c => c.id === selectedCityId);
+
+  const handleSelect = (city) => {
+    onCitySelect(city ? city.id : null);
+    setSearchTerm('');
+    setShowDropdown(false);
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center gap-1">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <MapPin className="h-4 w-4 text-purple-400" />
+          </div>
+          <input
+            type="text"
+            placeholder={selectedCity ? `${selectedCity.city_code} - ${selectedCity.city_name}` : 'Filter by city...'}
+            value={showDropdown ? searchTerm : ''}
+            onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+            onFocus={() => setShowDropdown(true)}
+            className={`w-full pl-9 pr-8 py-3 bg-white/80 backdrop-blur-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm shadow-sm transition-all ${
+              selectedCityId ? 'border-purple-400 bg-purple-50/50' : 'border-blue-200/50'
+            }`}
+          />
+          {selectedCityId && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleSelect(null); }}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      {showDropdown && (
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 max-h-60 overflow-y-auto">
+          <button
+            onClick={() => handleSelect(null)}
+            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 transition-colors ${
+              !selectedCityId ? 'bg-purple-50 font-semibold text-purple-700' : 'text-gray-600'
+            }`}
+          >
+            All Cities
+          </button>
+          {filtered.map(city => (
+            <button
+              key={city.id}
+              onClick={() => handleSelect(city)}
+              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 transition-colors flex items-center justify-between ${
+                selectedCityId === city.id ? 'bg-purple-50 font-semibold text-purple-700' : 'text-gray-700'
+              }`}
+            >
+              <span>{city.city_code} - {city.city_name}</span>
+              {selectedCityId === city.id && <span className="text-purple-500 text-xs">✓</span>}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-4 py-3 text-sm text-gray-400 text-center">No cities found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Compact city dropdown for advanced filters
+const AdvancedCityDropdown = ({ cities, selectedCityId, onCitySelect }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = cities.filter(c => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (c.city_code || '').toLowerCase().includes(term) || (c.city_name || '').toLowerCase().includes(term);
+  });
+
+  const selectedCity = cities.find(c => c.id === selectedCityId);
+
+  const handleSelect = (city) => {
+    onCitySelect(city ? city.id : null);
+    setSearchTerm('');
+    setShowDropdown(false);
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="relative">
+        <input
+          type="text"
+          placeholder={selectedCity ? `${selectedCity.city_code} - ${selectedCity.city_name}` : 'Search city...'}
+          value={showDropdown ? searchTerm : ''}
+          onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+          onFocus={() => setShowDropdown(true)}
+          className={`w-full px-3 py-2.5 bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm shadow-sm ${
+            selectedCityId ? 'border-purple-400 bg-purple-50/30' : 'border-blue-200/50'
+          }`}
+        />
+        {selectedCityId && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleSelect(null); }}
+            className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-red-500"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {showDropdown && (
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 max-h-48 overflow-y-auto">
+          <button
+            onClick={() => handleSelect(null)}
+            className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 ${
+              !selectedCityId ? 'bg-purple-50 font-semibold text-purple-700' : 'text-gray-600'
+            }`}
+          >
+            All Cities
+          </button>
+          {filtered.map(city => (
+            <button
+              key={city.id}
+              onClick={() => handleSelect(city)}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 flex items-center justify-between ${
+                selectedCityId === city.id ? 'bg-purple-50 font-semibold text-purple-700' : 'text-gray-700'
+              }`}
+            >
+              <span>{city.city_code} - {city.city_name}</span>
+              {selectedCityId === city.id && <span className="text-purple-500 text-xs">✓</span>}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-3 py-2 text-sm text-gray-400 text-center">No cities found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ManualBiltySearch = ({
   searchTerm,
@@ -11,7 +181,11 @@ const ManualBiltySearch = ({
   loading,
   onAdvancedSearch,
   totalRecords = 0,
-  branches = []
+  branches = [],
+  cities = [],
+  transports = [],
+  selectedCityId = null,
+  onCityFilter
 }) => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -25,7 +199,6 @@ const ManualBiltySearch = ({
     paymentStatus: '',
     branchId: '',
     station: '',
-    transitStatus: '',
     challanNo: ''
   });
 
@@ -33,14 +206,14 @@ const ManualBiltySearch = ({
     setAdvancedFilters(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleApplyAdvancedSearch = () => {
+  const handleApplyAdvancedSearch = useCallback(() => {
     if (onAdvancedSearch) {
       onAdvancedSearch(advancedFilters);
     }
-  };
+  }, [advancedFilters, onAdvancedSearch]);
 
   const handleClearAdvancedFilters = () => {
-    setAdvancedFilters({
+    const cleared = {
       fromDate: '',
       toDate: '',
       grNumber: '',
@@ -50,9 +223,9 @@ const ManualBiltySearch = ({
       paymentStatus: '',
       branchId: '',
       station: '',
-      transitStatus: '',
       challanNo: ''
-    });
+    };
+    setAdvancedFilters(cleared);
     if (onAdvancedSearch) {
       onAdvancedSearch({});
     }
@@ -61,27 +234,19 @@ const ManualBiltySearch = ({
   const hasActiveFilters = Object.values(advancedFilters).some(value => value !== '');
   const activeFilterCount = Object.values(advancedFilters).filter(v => v !== '').length;
 
-  // Quick filter buttons for transit status
-  const handleQuickTransitFilter = (status) => {
-    const newFilters = { ...advancedFilters, transitStatus: status };
-    setAdvancedFilters(newFilters);
-    if (onAdvancedSearch) {
-      onAdvancedSearch(newFilters);
-    }
-  };
-
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 rounded-3xl shadow-xl border border-blue-100/50 mb-8">
+    <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 rounded-3xl shadow-xl border border-blue-100/50 mb-8">
       {/* Background Pattern */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
-      <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full -translate-y-32 translate-x-32"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 rounded-3xl"></div>
+      <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full -translate-y-32 translate-x-32 pointer-events-none"></div>
       
-      {/* Basic Search + Quick Filters */}
+      {/* Basic Search + City Filter */}
       <div className="relative p-6 lg:p-8 border-b border-blue-100/50">
         <div className="flex flex-col gap-4">
           {/* Search Row */}
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex-1 max-w-2xl w-full">
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch">
+            {/* Main search */}
+            <div className="flex-1 min-w-0">
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Search className="h-5 w-5 text-blue-400 group-focus-within:text-blue-600 transition-colors" />
@@ -94,15 +259,18 @@ const ManualBiltySearch = ({
                   className="block w-full pl-12 pr-4 py-3.5 bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-gray-900 placeholder-gray-500 shadow-lg transition-all duration-300 focus:shadow-xl focus:bg-white"
                 />
               </div>
-              <div className="flex items-center gap-4 mt-2">
-                <p className="text-sm text-blue-600 font-medium flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  {totalRecords > 0 ? `${totalRecords.toLocaleString()} total records` : 'Enter search terms above'}
-                </p>
-              </div>
+            </div>
+
+            {/* City Filter - Inline next to search */}
+            <div className="w-full lg:w-56 shrink-0">
+              <CityFilterDropdown
+                cities={cities}
+                selectedCityId={selectedCityId}
+                onCitySelect={onCityFilter}
+              />
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className={`flex items-center gap-2.5 px-5 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 ${
@@ -131,7 +299,30 @@ const ManualBiltySearch = ({
             </div>
           </div>
 
-
+          {/* Record count + Transport Info */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <p className="text-sm text-blue-600 font-medium flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              {totalRecords > 0 ? `${totalRecords.toLocaleString()} total records` : 'Enter search terms above'}
+            </p>
+            
+            {/* Transport info badge - shows when city is selected */}
+            {selectedCityId && (() => {
+              const cityTransports = transports.filter(t => t.city_id === selectedCityId);
+              if (cityTransports.length === 0) return null;
+              return cityTransports.map(t => (
+                <span key={t.id} className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/60 text-blue-800 text-sm font-medium px-3 py-1.5 rounded-xl shadow-sm">
+                  <Truck className="w-4 h-4 text-blue-500" />
+                  <span className="font-semibold">{t.transport_name}</span>
+                  {t.gst_number && (
+                    <span className="text-[11px] text-blue-500 font-mono border-l border-blue-200 pl-2 ml-0.5">
+                      GST: {t.gst_number}
+                    </span>
+                  )}
+                </span>
+              ));
+            })()}
+          </div>
         </div>
       </div>
 
@@ -154,31 +345,13 @@ const ManualBiltySearch = ({
               </button>
             </div>
 
-            {/* Transit-specific Filters Row */}
+            {/* Challan & City Filters Row */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-200/50">
               <h4 className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-4">
-                <Truck className="w-4 h-4" />
-                Transit & Challan Filters
+                <Hash className="w-4 h-4" />
+                Challan & City Filters
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Transit Status */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                    <Truck className="w-3.5 h-3.5 text-blue-500" />
-                    Transit Status
-                  </label>
-                  <select
-                    value={advancedFilters.transitStatus}
-                    onChange={(e) => handleAdvancedFilterChange('transitStatus', e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm"
-                  >
-                    <option value="">All Status</option>
-                    {TRANSIT_STATUS_OPTIONS.filter(o => o.value !== 'all').map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Challan Number */}
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
@@ -194,18 +367,16 @@ const ManualBiltySearch = ({
                   />
                 </div>
 
-                {/* Station */}
+                {/* City Search */}
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
                     <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                    Station
+                    City / Station
                   </label>
-                  <input
-                    type="text"
-                    value={advancedFilters.station}
-                    onChange={(e) => handleAdvancedFilterChange('station', e.target.value)}
-                    placeholder="Enter station name"
-                    className="w-full px-3 py-2.5 bg-white border border-blue-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm text-gray-900 shadow-sm placeholder-gray-400"
+                  <AdvancedCityDropdown
+                    cities={cities}
+                    selectedCityId={advancedFilters.station}
+                    onCitySelect={(cityId) => handleAdvancedFilterChange('station', cityId || '')}
                   />
                 </div>
               </div>
@@ -349,12 +520,12 @@ const ManualBiltySearch = ({
                     const labels = {
                       fromDate: 'From', toDate: 'To', grNumber: 'GR', consignor: 'Consignor',
                       consignee: 'Consignee', pvtMarks: 'PVT', paymentStatus: 'Payment',
-                      branchId: 'Branch', station: 'Station', transitStatus: 'Transit', challanNo: 'Challan'
+                      branchId: 'Branch', station: 'City', challanNo: 'Challan'
                     };
                     const displayValue = key === 'branchId' 
                       ? branches.find(b => b.id === value)?.branch_name || value
-                      : key === 'transitStatus'
-                        ? TRANSIT_STATUS_OPTIONS.find(o => o.value === value)?.label || value
+                      : key === 'station'
+                        ? (() => { const c = cities.find(c => c.id === value); return c ? `${c.city_code} - ${c.city_name}` : value; })()
                         : value;
                     return (
                       <span

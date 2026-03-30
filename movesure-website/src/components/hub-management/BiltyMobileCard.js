@@ -58,8 +58,8 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
           </button>
         </div>}
         {isKanpur && <div><button onClick={onPod} title="Print POD"
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors">
-          <Printer className="h-3 w-3"/>POD
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500 text-white hover:bg-blue-600 shadow-sm transition-colors">
+          <Printer className="h-3.5 w-3.5"/>POD
         </button></div>}
         {kt > 0 && <div><span className="text-gray-400 text-[10px]">Kaat:</span> <b className="text-emerald-700 text-[11px]">₹{kt.toFixed(0)}</b></div>}
       </div>

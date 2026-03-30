@@ -346,7 +346,7 @@ export default function ChallanDetailPage() {
 
   const handleReceivedAtHub = useCallback(async () => {
     if (!user?.id || !challan?.id || challan.is_received_at_hub) return;
-    if (!confirm('Mark as "Received at Hub"?')) return;
+    if (!confirm('Mark as "Received at Kanpur"?')) return;
     try {
       setReceivingAtHub(true);
       const now = new Date().toISOString();
@@ -800,11 +800,16 @@ export default function ChallanDetailPage() {
 
   const uniqueTransports = useMemo(() => {
     const names = new Set();
-    Object.values(transportsByCity).flat().forEach(t => {
-      if (t.transport_name) names.add(t.transport_name);
+    enrichedBilties.forEach(b => {
+      const assignedId = kaatData[b.gr_no]?.transport_id;
+      if (assignedId) {
+        const cityList = b.to_city_id ? (transportsByCity[b.to_city_id] || []) : [];
+        const match = cityList.find(tr => String(tr.id) === String(assignedId));
+        if (match?.transport_name) names.add(match.transport_name);
+      }
     });
     return [...names].sort();
-  }, [transportsByCity]);
+  }, [enrichedBilties, kaatData, transportsByCity]);
 
   const { deliveredCount, inTransitCount, pendingCount, totalPkts, totalWt, totalAmt } = useMemo(() => ({
     deliveredCount: enrichedBilties.filter(t => t.is_delivered_at_destination).length,
@@ -917,7 +922,7 @@ export default function ChallanDetailPage() {
 
       <div className="max-w-[1800px] mx-auto px-3 sm:px-5 py-4 space-y-4">
 
-        {/* RECEIVED AT HUB */}
+        {/* RECEIVED AT KANPUR */}
         <div className={`rounded-xl border p-3 ${challan.is_received_at_hub ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-100 shadow-sm'}`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -925,7 +930,7 @@ export default function ChallanDetailPage() {
                 <ShieldCheck className={`h-4 w-4 ${challan.is_received_at_hub ? 'text-emerald-600' : 'text-indigo-600'}`}/>
               </div>
               <div>
-                <h3 className="text-xs font-bold text-gray-900">{challan.is_received_at_hub ? 'Received at Hub' : 'Hub Receiving'}</h3>
+                <h3 className="text-xs font-bold text-gray-900">{challan.is_received_at_hub ? 'Received at Kanpur' : 'Kanpur Receiving'}</h3>
                 {challan.is_received_at_hub
                   ? <p className="text-[10px] text-emerald-700">{challan.received_at_hub_timing ? format(new Date(challan.received_at_hub_timing), 'dd MMM yy, hh:mm a') : '-'}</p>
                   : <p className="text-[10px] text-gray-500">Not yet received</p>}
@@ -934,7 +939,7 @@ export default function ChallanDetailPage() {
             {!challan.is_received_at_hub && (
               <button onClick={handleReceivedAtHub} disabled={receivingAtHub}
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs font-semibold rounded-lg hover:from-emerald-600 hover:to-green-700 shadow-sm disabled:opacity-50">
-                {receivingAtHub ? <><Loader2 className="h-3 w-3 animate-spin"/>Marking...</> : <><ShieldCheck className="h-3 w-3"/>Received at Hub</>}
+                {receivingAtHub ? <><Loader2 className="h-3 w-3 animate-spin"/>Marking...</> : <><ShieldCheck className="h-3 w-3"/>Received at Kanpur</>}
               </button>
             )}
           </div>
@@ -1058,7 +1063,9 @@ export default function ChallanDetailPage() {
               <div className="flex items-center gap-2">
                 <CheckSquare className="h-4 w-4 text-indigo-600"/>
                 <span className="text-xs font-bold text-indigo-800">{selectedGrs.size} selected</span>
-                <button onClick={() => setSelectedGrs(new Set())} className="text-[10px] px-2 py-0.5 bg-white border border-gray-200 rounded hover:bg-gray-50">Clear</button>
+                {selectedGrs.size !== displayed.length && (
+                  <button onClick={() => setSelectedGrs(new Set())} className="text-[10px] px-2.5 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-semibold transition-colors">Clear</button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setShowBulkPohonch(true)} disabled={!!bulkLoading}

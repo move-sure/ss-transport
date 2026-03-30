@@ -130,8 +130,8 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
         )}
         {isKanpur && (
           <button onClick={onPod} title="Print POD"
-            className="mt-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-colors">
-            <FileText className="h-2.5 w-2.5"/>POD
+            className="mt-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-500 text-white hover:bg-blue-600 shadow-sm transition-colors">
+            <FileText className="h-3 w-3"/>POD
           </button>
         )}
       </td>

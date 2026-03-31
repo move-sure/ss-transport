@@ -24,6 +24,7 @@ import { kTotal, getHubRateForTransport } from '../../../components/hub-manageme
 import { generatePodPdf } from '../../../components/hub-management/PodPdfGenerator';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 import { generatePohonchPDF } from '../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
+import BulkCrossChallanModal from '../../../components/hub-management/BulkCrossChallanModal';
 
 export default function ChallanDetailPage() {
   const { challan_no } = useParams();
@@ -105,6 +106,7 @@ export default function ChallanDetailPage() {
   const [ccPdfBilties, setCcPdfBilties] = useState([]);
   const [ccSaving, setCcSaving] = useState(false);
   const [ccSavedPohonch, setCcSavedPohonch] = useState(null);
+  const [showBulkCrossModal, setShowBulkCrossModal] = useState(false);
 
   // Shared cross challan print hook (fetches fresh data, updates metadata)
   const crossChallanPrint = useCrossChallanPrint();
@@ -1309,11 +1311,11 @@ export default function ChallanDetailPage() {
               </div>
             </div>
             <button
-              onClick={() => router.push('/transit-finance/cross-challan')}
+              onClick={() => setShowBulkCrossModal(true)}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-[11px] font-bold rounded-lg hover:from-violet-600 hover:to-purple-700 shadow-sm transition-all"
-              title="Go to Cross Challan page"
+              title="Bulk create cross challans for all transports"
             >
-              <FileText className="h-3 w-3"/>Cross Challan
+              <Truck className="h-3 w-3"/>Bulk Cross Challan
             </button>
             <button
               onClick={() => router.push('/hub-management/gr-wise-management/bulk-update-pohonch')}
@@ -1815,6 +1817,20 @@ export default function ChallanDetailPage() {
           </div>
         </div>
       )}
+
+      {/* BULK CROSS CHALLAN MODAL */}
+      <BulkCrossChallanModal
+        isOpen={showBulkCrossModal}
+        onClose={() => setShowBulkCrossModal(false)}
+        enrichedBilties={enrichedBilties}
+        kaatData={kaatData}
+        transportsByCity={transportsByCity}
+        transports={transports}
+        challan={challan}
+        user={user}
+        buildCcPdfBilties={buildCcPdfBilties}
+        fetchCrossChallanData={fetchCrossChallanData}
+      />
 
       {showBulkPohonch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

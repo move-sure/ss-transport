@@ -38,9 +38,16 @@ export default function BulkUpdatePohonchPage() {
 
   // Cities lookup for resolving to_city_id for MNL bilties
   const [cities, setCities] = useState([]);
+  const [allTransports, setAllTransports] = useState([]);
 
   useEffect(() => {
-    supabase.from('cities').select('id, city_name, city_code').order('city_name').then(({ data }) => setCities(data || []));
+    Promise.all([
+      supabase.from('cities').select('id, city_name, city_code').order('city_name'),
+      supabase.from('transports').select('id, transport_name, gst_number').order('transport_name'),
+    ]).then(([citiesRes, transportsRes]) => {
+      setCities(citiesRes.data || []);
+      setAllTransports(transportsRes.data || []);
+    });
   }, []);
 
   // Click outside to close dropdown
@@ -161,9 +168,16 @@ export default function BulkUpdatePohonchPage() {
     // Fetch existing kaat record for this GR
     let existingKaat = null;
     try {
-      const { data } = await supabase.from('bilty_wise_kaat').select('pohonch_no, bilty_number').eq('gr_no', bilty.gr_no).maybeSingle();
+      const { data } = await supabase.from('bilty_wise_kaat').select('pohonch_no, bilty_number, transport_id').eq('gr_no', bilty.gr_no).maybeSingle();
       existingKaat = data;
     } catch {}
+
+    // Resolve transport name from transport_id
+    let transportName = '';
+    if (existingKaat?.transport_id) {
+      const t = allTransports.find(tr => String(tr.id) === String(existingKaat.transport_id));
+      transportName = t?.transport_name || '';
+    }
 
     setCollectedGrs(prev => [...prev, {
       gr_no: bilty.gr_no,
@@ -180,13 +194,14 @@ export default function BulkUpdatePohonchPage() {
       source_type: bilty.source_type,
       existing_pohonch: existingKaat?.pohonch_no || null,
       existing_bilty_number: existingKaat?.bilty_number || null,
+      transport_name: transportName,
     }]);
     setShowDropdown(false);
     setSearchTerm('');
     setSuggestions([]);
     setSelectedIndex(-1);
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [collectedGrs, cities]);
+  }, [collectedGrs, cities, allTransports]);
 
   const removeGrFromList = (grNo) => {
     setCollectedGrs(prev => prev.filter(g => g.gr_no !== grNo));
@@ -423,6 +438,7 @@ export default function BulkUpdatePohonchPage() {
                     <th className="px-3 py-2 text-right font-semibold text-gray-500">Amt</th>
                     <th className="px-3 py-2 text-center font-semibold text-gray-500">Payment</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-500">Challan</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-500">Transport</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-500">Existing Pohonch</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-500">Existing Bilty No</th>
                     <th className="px-3 py-2 text-center font-semibold text-gray-500 w-8"></th>
@@ -453,6 +469,11 @@ export default function BulkUpdatePohonchPage() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-gray-500 font-mono text-[10px]">{g.challan_no}</td>
+                      <td className="px-3 py-2">
+                        {g.transport_name ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 font-semibold border border-teal-200 truncate max-w-[140px] inline-block" title={g.transport_name}>{g.transport_name}</span>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-3 py-2">
                         {g.existing_pohonch ? (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200">{g.existing_pohonch}</span>

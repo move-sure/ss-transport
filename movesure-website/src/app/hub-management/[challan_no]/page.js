@@ -23,6 +23,7 @@ import AddHubRateModal from '../../../components/hub-management/AddHubRateModal'
 import { kTotal, getHubRateForTransport } from '../../../components/hub-management/HubHelpers';
 import { generatePodPdf } from '../../../components/hub-management/PodPdfGenerator';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
+import { generatePohonchPDF } from '../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
 
 export default function ChallanDetailPage() {
   const { challan_no } = useParams();
@@ -96,6 +97,14 @@ export default function ChallanDetailPage() {
 
   // Crossing challan (pohonch) mapping: gr_no -> pohonch_number
   const [crossChallanMap, setCrossChallanMap] = useState({});
+
+  // Cross challan print from hub
+  const [ccPdfUrl, setCcPdfUrl] = useState(null);
+  const [ccPdfTransport, setCcPdfTransport] = useState(null);
+  const [ccGenerating, setCcGenerating] = useState(false);
+  const [ccPdfBilties, setCcPdfBilties] = useState([]);
+  const [ccSaving, setCcSaving] = useState(false);
+  const [ccSavedPohonch, setCcSavedPohonch] = useState(null);
 
   // Shared cross challan print hook (fetches fresh data, updates metadata)
   const crossChallanPrint = useCrossChallanPrint();
@@ -526,6 +535,203 @@ export default function ChallanDetailPage() {
       setSavingBulkPohonch(false);
     }
   }, [selectedGrs, user?.id, bulkPohonchNo, enrichedBilties, kaatData, challan?.challan_no]);
+
+  /* ========== CROSS CHALLAN PRINT FROM HUB ========== */
+  const buildCcPdfBilties = useCallback((selectedBilties) => {
+    return selectedBilties.map(b => {
+      const kd = kaatData[b.gr_no] || {};
+      const payMode = (b.payment || '').toUpperCase();
+      const isPaid = payMode.includes('PAID') && !payMode.includes('TO');
+      const kaatAmt = parseFloat(kd.kaat) || 0;
+      const pfAmt = parseFloat(kd.pf) || 0;
+      const ddChrg = parseFloat(kd.dd_chrg) || 0;
+      const pohonchBilty = kd.pohonch_no && kd.bilty_number
+        ? `${kd.pohonch_no}/${kd.bilty_number}`
+        : kd.pohonch_no || kd.bilty_number || '-';
+      return {
+        gr_no: b.gr_no,
+        challan_no: b.challan_no || challan?.challan_no || '-',
+        pohonch_bilty: pohonchBilty,
+        pohonch_no: kd.pohonch_no || '',
+        bilty_number: kd.bilty_number || '',
+        consignor: b.consignor || '-',
+        consignee: b.consignee || '-',
+        destination: b.destination || '-',
+        destination_code: b.destination_code || b.destination || '-',
+        packages: parseFloat(b.packets) || 0,
+        weight: parseFloat(b.weight) || 0,
+        amount: isPaid ? 0 : (parseFloat(b.amount) || 0),
+        kaat: kaatAmt,
+        kaat_rate: parseFloat(kd.actual_kaat_rate) || 0,
+        dd: ddChrg,
+        pf: pfAmt,
+        payment_mode: b.payment || '-',
+        delivery_type: b.delivery_type || '',
+        is_paid: isPaid,
+        date: b.bilty_date || null,
+        e_way_bill: b.e_way_bill || '',
+      };
+    });
+  }, [kaatData, challan?.challan_no]);
+
+  const handlePrintCrossChallan = useCallback(async () => {
+    if (!selectedGrs.size) return;
+    setCcGenerating(true);
+    try {
+      const selectedBilties = enrichedBilties.filter(b => selectedGrs.has(b.id));
+      if (!selectedBilties.length) { alert('No bilties selected'); return; }
+
+      // Find transport for these bilties (use first assigned transport)
+      let transport = null;
+      for (const b of selectedBilties) {
+        const kd = kaatData[b.gr_no];
+        if (kd?.transport_id) {
+          const cityList = b.to_city_id ? (transportsByCity[b.to_city_id] || []) : [];
+          const match = cityList.find(tr => String(tr.id) === String(kd.transport_id));
+          if (match) { transport = match; break; }
+          const fromAll = transports.find(tr => String(tr.id) === String(kd.transport_id));
+          if (fromAll) { transport = fromAll; break; }
+        }
+      }
+
+      const pdfBilties = buildCcPdfBilties(selectedBilties);
+      const url = generatePohonchPDF(pdfBilties, transport, true);
+      if (url) {
+        setCcPdfUrl(url);
+        setCcPdfTransport(transport);
+        setCcPdfBilties(pdfBilties);
+        setCcSavedPohonch(null);
+      }
+    } catch (err) {
+      console.error('Cross challan print error:', err);
+      alert('Failed to generate cross challan: ' + (err?.message || err));
+    } finally {
+      setCcGenerating(false);
+    }
+  }, [selectedGrs, enrichedBilties, kaatData, transportsByCity, transports, buildCcPdfBilties]);
+
+  const handleSaveCrossChallan = useCallback(async () => {
+    if (!user?.id || !ccPdfTransport || !ccPdfBilties.length) return;
+    if (ccSavedPohonch) { alert(`Already saved as ${ccSavedPohonch}`); return; }
+    setCcSaving(true);
+    try {
+      // Check for duplicates — ensure no GR is already in another pohonch
+      const grNos = ccPdfBilties.map(b => b.gr_no).filter(Boolean);
+      const { data: existing } = await supabase.from('pohonch').select('pohonch_number, bilty_metadata').eq('is_active', true);
+      if (existing) {
+        const grToPohonch = {};
+        existing.forEach(p => {
+          (Array.isArray(p.bilty_metadata) ? p.bilty_metadata : []).forEach(b => {
+            if (b.gr_no) grToPohonch[b.gr_no] = p.pohonch_number;
+          });
+        });
+        const duplicates = grNos.filter(gr => grToPohonch[gr]);
+        if (duplicates.length > 0) {
+          alert(`Cannot save! These bilties already exist in another pohonch:\n${duplicates.slice(0, 5).map(gr => `${gr} (in ${grToPohonch[gr]})`).join(', ')}${
+            duplicates.length > 5 ? ` and ${duplicates.length - 5} more` : ''}`);
+          setCcSaving(false);
+          return;
+        }
+      }
+
+      // Generate pohonch number: transport initials + GST suffix + sequential number
+      const tName = ccPdfTransport.transport_name || 'TRANSPORT';
+      const gstNum = ccPdfTransport.gst_number || '';
+      const skipWords = ['AND', '&', 'THE', 'OF', 'PVT', 'LTD', 'PRIVATE', 'LIMITED', 'CO', 'COMPANY', 'TRANSPORT', 'TRANSPORTS', 'LOGISTICS'];
+      const words = tName.trim().split(/\s+/).filter(w => w.length > 0);
+      let initials = words.filter(w => !skipWords.includes(w.toUpperCase())).map(w => w[0].toUpperCase()).join('').substring(0, 3);
+      if (!initials) initials = tName.substring(0, 3).toUpperCase();
+      const gstSuffix = gstNum ? gstNum.slice(-4).toUpperCase() : '';
+      let prefix = initials + gstSuffix;
+      let nextNum = 1;
+
+      // Check if this transport had previous pohonch — auto-detect prefix
+      const gstQuery = gstNum
+        ? supabase.from('pohonch').select('pohonch_number').eq('transport_gstin', gstNum).eq('is_active', true).order('created_at', { ascending: false }).limit(5)
+        : supabase.from('pohonch').select('pohonch_number').eq('transport_name', tName).eq('is_active', true).order('created_at', { ascending: false }).limit(5);
+      const { data: prevPohonch } = await gstQuery;
+      if (prevPohonch?.length > 0) {
+        const match = prevPohonch[0].pohonch_number.match(/^([A-Za-z]+)(\d+)$/);
+        if (match) prefix = match[1];
+      }
+
+      // Get highest number for this prefix
+      const { data: lastData } = await supabase.from('pohonch').select('pohonch_number')
+        .ilike('pohonch_number', `${prefix}%`).order('pohonch_number', { ascending: false }).limit(1);
+      if (lastData?.length > 0) {
+        const m = lastData[0].pohonch_number.match(/^([A-Za-z]+)(\d+)$/);
+        if (m) nextNum = parseInt(m[2], 10) + 1;
+      }
+
+      const pohonchNumber = `${prefix}${String(nextNum).padStart(4, '0')}`;
+
+      // Race condition check
+      const { data: dupCheck } = await supabase.from('pohonch').select('id').eq('pohonch_number', pohonchNumber).eq('is_active', true).limit(1);
+      if (dupCheck?.length > 0) { alert(`Pohonch ${pohonchNumber} already exists! Try again.`); setCcSaving(false); return; }
+
+      // Build metadata
+      const challanNos = [...new Set(ccPdfBilties.map(b => b.challan_no).filter(Boolean))];
+      const biltyMeta = ccPdfBilties.map(b => ({
+        gr_no: b.gr_no, challan_no: b.challan_no, pohonch_bilty: b.pohonch_bilty || null,
+        consignor: b.consignor, consignee: b.consignee, destination: b.destination,
+        packages: b.packages, weight: b.weight, amount: b.amount,
+        kaat: b.kaat, kaat_rate: b.kaat_rate || 0, dd: b.dd, pf: b.pf,
+        payment_mode: b.payment_mode, is_paid: b.is_paid,
+        date: b.date || null, e_way_bill: b.e_way_bill || null,
+      }));
+
+      let tAmt = 0, tKaat = 0, tPF = 0, tDD = 0, tPkg = 0, tWt = 0;
+      ccPdfBilties.forEach(b => {
+        tAmt += b.amount || 0; tKaat += b.kaat || 0; tPF += b.pf || 0;
+        tDD += b.dd || 0; tPkg += b.packages || 0; tWt += b.weight || 0;
+      });
+
+      const { error } = await supabase.from('pohonch').insert({
+        pohonch_number: pohonchNumber,
+        transport_name: tName,
+        transport_gstin: gstNum || null,
+        admin_transport_id: ccPdfTransport.id || null,
+        challan_metadata: challanNos,
+        bilty_metadata: biltyMeta,
+        total_bilties: ccPdfBilties.length,
+        total_amount: tAmt, total_kaat: tKaat, total_pf: tPF, total_dd: tDD,
+        total_packages: tPkg, total_weight: tWt,
+        created_by: user.id,
+      });
+      if (error) throw error;
+
+      setCcSavedPohonch(pohonchNumber);
+
+      // Regenerate PDF with pohonch number shown
+      if (ccPdfUrl) URL.revokeObjectURL(ccPdfUrl);
+      const newUrl = generatePohonchPDF(ccPdfBilties, ccPdfTransport, true, pohonchNumber);
+      setCcPdfUrl(newUrl);
+
+      // Refresh crossing challan data
+      const allGrNos = enrichedBilties.map(b => b.gr_no).filter(Boolean);
+      if (allGrNos.length) fetchCrossChallanData(allGrNos);
+
+      alert(`Cross Challan saved as ${pohonchNumber}`);
+    } catch (err) {
+      console.error('Save cross challan error:', err);
+      alert('Failed to save: ' + (err?.message || err));
+    } finally {
+      setCcSaving(false);
+    }
+  }, [user?.id, ccPdfTransport, ccPdfBilties, ccSavedPohonch, ccPdfUrl, enrichedBilties, fetchCrossChallanData]);
+
+  const closeCcPreview = useCallback(() => {
+    if (ccPdfUrl) URL.revokeObjectURL(ccPdfUrl);
+    setCcPdfUrl(null);
+    setCcPdfTransport(null);
+    setCcPdfBilties([]);
+    setCcSavedPohonch(null);
+  }, [ccPdfUrl]);
+
+  const handleCcDownload = useCallback(() => {
+    if (!ccPdfTransport || !ccPdfBilties.length) return;
+    generatePohonchPDF(ccPdfBilties, ccPdfTransport, false, ccSavedPohonch || '');
+  }, [ccPdfTransport, ccPdfBilties, ccSavedPohonch]);
 
   /* ========== KAAT MANAGEMENT ========== */
   const openKaatModal = useCallback((grNo) => {
@@ -1260,6 +1466,11 @@ export default function ChallanDetailPage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 shadow-sm transition-all">
                   <FileText className="h-3 w-3"/>Assign Pohonch
                 </button>
+                <button onClick={handlePrintCrossChallan} disabled={ccGenerating || !!bulkLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-40 shadow-sm transition-all">
+                  {ccGenerating ? <Loader2 className="h-3 w-3 animate-spin"/> : <Printer className="h-3 w-3"/>}
+                  {ccGenerating ? 'Generating...' : 'Print Cross Challan'}
+                </button>
                 <button onClick={() => bulkAction('branch', displayed)} disabled={!!bulkLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-40 shadow-sm transition-all">
                   {bulkLoading === 'branch' ? <Loader2 className="h-3 w-3 animate-spin"/> : <span className="w-3 h-3 rounded-full bg-white/30 inline-block"/>}
@@ -1554,6 +1765,52 @@ export default function ChallanDetailPage() {
                   <iframe src={podPreviewUrl} className="w-full h-full border-0" title="POD Preview"/>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CROSS CHALLAN PDF PREVIEW FROM HUB */}
+      {ccPdfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-teal-50 to-emerald-50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-teal-100 rounded-xl"><Printer className="h-4 w-4 text-teal-600"/></div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Crossing Challan — {ccPdfTransport?.transport_name || 'Selected Bilties'}
+                    {ccSavedPohonch && <span className="ml-2 text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full text-[10px] font-bold border border-teal-200">{ccSavedPohonch}</span>}
+                  </h3>
+                  <p className="text-[10px] text-gray-500">
+                    {ccPdfBilties.length} bilties from Challan #{challan?.challan_no}
+                    {ccPdfTransport?.gst_number && <span className="ml-2 text-gray-400">GST: {ccPdfTransport.gst_number}</span>}
+                    {ccSaving && <span className="ml-2 text-amber-600"><Loader2 className="h-3 w-3 inline animate-spin mr-0.5"/>Saving...</span>}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={handleSaveCrossChallan} disabled={ccSaving || !!ccSavedPohonch}
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shadow-sm transition-all ${
+                    ccSavedPohonch
+                      ? 'bg-green-100 text-green-700 cursor-default border border-green-200'
+                      : ccSaving
+                        ? 'bg-amber-100 text-amber-700 cursor-wait'
+                        : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700'
+                  }`}>
+                  {ccSavedPohonch ? <><CheckCircle2 className="h-3 w-3"/>Saved ({ccSavedPohonch})</>
+                    : ccSaving ? <><Loader2 className="h-3 w-3 animate-spin"/>Saving...</>
+                    : <><FileText className="h-3 w-3"/>Save Cross Challan</>}
+                </button>
+                <button onClick={handleCcDownload}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-xs font-bold rounded-lg hover:from-teal-600 hover:to-emerald-700 shadow-sm transition-all">
+                  <Printer className="h-3 w-3"/>Download PDF
+                </button>
+                <button onClick={closeCcPreview} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500"/></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden p-4 bg-gray-100">
+              <iframe src={ccPdfUrl} className="w-full h-full rounded-lg border border-gray-200" title="Cross Challan PDF Preview"/>
             </div>
           </div>
         </div>

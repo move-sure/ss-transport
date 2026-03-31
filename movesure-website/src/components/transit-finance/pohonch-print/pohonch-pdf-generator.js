@@ -75,8 +75,9 @@ function buildChunks(bilties) {
  * @param {Array} bilties  – enriched bilty objects (with destination_code field)
  * @param {Object} transport – selected transport
  * @param {boolean} preview – true → blob URL, false → download
+ * @param {string} [pohonchNumber] – optional pohonch/cross challan number to display on PDF
  */
-export function generatePohonchPDF(bilties, transport, preview = true) {
+export function generatePohonchPDF(bilties, transport, preview = true, pohonchNumber = '') {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = 210;
   const mx = 5; // 5mm margin each side
@@ -209,6 +210,16 @@ export function generatePohonchPDF(bilties, transport, preview = true) {
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
     pdf.text('SS TRANSPORT COMPANY — CROSSING CHALLAN', pageW / 2, yStart + 4.5, { align: 'center' });
+
+    // Pohonch number (left of copy label, bold highlighted)
+    if (pohonchNumber) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8);
+      pdf.setTextColor(180, 0, 0);
+      const pnText = `CC No: ${pohonchNumber}`;
+      const pnWidth = pdf.getTextWidth(pnText);
+      pdf.text(pnText, pageW - mx - pnWidth - 30, yStart + 4.5);
+    }
 
     // Copy label (right side)
     pdf.setFont('helvetica', 'normal');

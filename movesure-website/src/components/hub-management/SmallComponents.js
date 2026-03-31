@@ -1,14 +1,14 @@
 import React from 'react';
 
-export const KF = React.memo(function KF({ label, value, onChange, type = 'number', big, disabled }) {
+export const KF = React.memo(function KF({ label, value, onChange, type = 'number', big, disabled, highlight }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-gray-600 mb-1">{label}</label>
+      <label className={`block text-[11px] font-semibold mb-1 ${highlight ? 'text-amber-700' : 'text-gray-600'}`}>{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className={`w-full border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black font-semibold ${big ? 'px-3 py-2.5 text-base' : 'px-2.5 py-2 text-sm'} ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
+        className={`w-full border rounded-lg outline-none text-black font-semibold ${big ? 'px-3 py-2.5 text-base' : 'px-2.5 py-2 text-sm'} ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''} ${highlight ? 'border-amber-300 bg-amber-50 focus:ring-2 focus:ring-amber-300 focus:border-amber-400' : 'border-gray-200 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400'}`}
         step={type === 'number' ? '0.01' : undefined}
         placeholder={type === 'text' ? `Enter ${label}...` : '0'}
         disabled={disabled}

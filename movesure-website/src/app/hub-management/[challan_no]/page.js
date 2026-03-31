@@ -633,45 +633,138 @@ export default function ChallanDetailPage() {
 
   const bulkApplyHubRates = useCallback(async () => {
     if (!user?.id || applyingHubRates) return;
-    const toApply = enrichedBilties.filter(b => {
-      const kd = kaatData[b.gr_no];
-      if (!kd?.transport_id || !b.to_city_id) return false;
-      return getHubRateForTransport(hubRatesByTransport, kd.transport_id, b.to_city_id) !== null;
-    });
-    if (toApply.length === 0) { alert('No bilties found with transport assigned and hub rates available.'); return; }
-    if (!confirm(`Apply hub rate charges to ${toApply.length} bilties?\n\nThis will update kaat, charges based on hub rates.`)) return;
+    if (enrichedBilties.length === 0) { alert('No bilties to apply kaat to!'); return; }
+    if (!confirm(`Auto apply kaat to ${enrichedBilties.length} bilties based on destination city?\n\nBilties with existing kaat will be updated.`)) return;
     setApplyingHubRates(true);
     try {
-      const now = new Date().toISOString();
-      const upsertPayloads = toApply.map(b => {
-        const kd = kaatData[b.gr_no];
-        const hr = getHubRateForTransport(hubRatesByTransport, kd.transport_id, b.to_city_id);
-        let computedKaat = 0;
-        if (hr.pricing_mode === 'per_kg') computedKaat = (parseFloat(hr.rate_per_kg) || 0) * (parseFloat(b.weight) || 0);
-        else if (hr.pricing_mode === 'per_pkg') computedKaat = (parseFloat(hr.rate_per_pkg) || 0) * (b.packets || 0);
-        if (hr.min_charge && computedKaat < parseFloat(hr.min_charge)) computedKaat = parseFloat(hr.min_charge);
-        return {
-          gr_no: b.gr_no, challan_no: challan.challan_no, destination_city_id: b.to_city_id,
-          transport_id: kd.transport_id, transport_hub_rate_id: hr.id,
-          rate_type: hr.pricing_mode, rate_per_kg: parseFloat(hr.rate_per_kg) || 0, rate_per_pkg: parseFloat(hr.rate_per_pkg) || 0,
-          kaat: parseFloat(computedKaat.toFixed(2)),
-          actual_kaat_rate: hr.pricing_mode === 'per_kg' ? (parseFloat(hr.rate_per_kg) || 0) : (parseFloat(hr.rate_per_pkg) || 0),
-          bilty_chrg: parseFloat(hr.bilty_chrg) || 0, ewb_chrg: parseFloat(hr.ewb_chrg) || 0,
-          labour_chrg: parseFloat(hr.labour_chrg) || 0, other_chrg: parseFloat(hr.other_chrg) || 0,
-          pohonch_no: kd.pohonch_no || null, bilty_number: kd.bilty_number || null,
-          pf: parseFloat(kd.pf) || 0, dd_chrg: parseFloat(kd.dd_chrg) || 0,
-          updated_by: user.id, updated_at: now,
-        };
+      // Collect all destination city IDs
+      const cityIdsSet = new Set();
+      enrichedBilties.forEach(b => {
+        if (b.to_city_id) cityIdsSet.add(b.to_city_id);
+        else if (b.destination_code) {
+          const c = cities.find(ci => ci.city_code === b.destination_code);
+          if (c?.id) cityIdsSet.add(c.id);
+        }
       });
-      const { data, error } = await supabase.from('bilty_wise_kaat').upsert(upsertPayloads, { onConflict: 'gr_no' }).select();
-      if (error) throw error;
+      const allCityIds = Array.from(cityIdsSet);
+      if (allCityIds.length === 0) { alert('No destination cities found in bilties.'); setApplyingHubRates(false); return; }
+
+      // Fetch all active kaat rates for these cities
+      const { data: allRates, error: ratesErr } = await supabase
+        .from('transport_hub_rates')
+        .select('id, transport_id, transport_name, destination_city_id, rate_per_kg, rate_per_pkg, min_charge, pricing_mode, is_active, bilty_chrg, ewb_chrg, labour_chrg, other_chrg')
+        .in('destination_city_id', allCityIds)
+        .eq('is_active', true);
+      if (ratesErr) throw ratesErr;
+      if (!allRates || allRates.length === 0) { alert('No kaat rates found for destination cities. Please add kaat rates first.'); setApplyingHubRates(false); return; }
+
+      // Group rates by destination city
+      const ratesByCity = {};
+      allRates.forEach(r => {
+        if (!ratesByCity[r.destination_city_id]) ratesByCity[r.destination_city_id] = [];
+        ratesByCity[r.destination_city_id].push(r);
+      });
+
+      // Fetch existing kaat records to preserve dd_chrg & other fields
+      const grNos = enrichedBilties.map(b => b.gr_no).filter(Boolean);
+      let existingKaatMap = {};
+      for (let i = 0; i < grNos.length; i += 100) {
+        const batch = grNos.slice(i, i + 100);
+        const { data: ek } = await supabase.from('bilty_wise_kaat').select('gr_no, dd_chrg, pohonch_no, bilty_number').in('gr_no', batch);
+        (ek || []).forEach(k => { existingKaatMap[k.gr_no] = k; });
+      }
+
+      const upsertData = [];
+      let skipped = 0;
+      const now = new Date().toISOString();
+
+      enrichedBilties.forEach(b => {
+        let destCityId = b.to_city_id;
+        if (!destCityId && b.destination_code) {
+          const c = cities.find(ci => ci.city_code === b.destination_code);
+          destCityId = c?.id;
+        }
+        if (!destCityId) { skipped++; return; }
+
+        const cityRates = ratesByCity[destCityId];
+        if (!cityRates || cityRates.length === 0) { skipped++; return; }
+
+        // Match by transport name if available, else first rate
+        let selectedRate = null;
+        const txnName = (b.transport_name || '').toLowerCase().trim();
+        if (txnName) {
+          selectedRate = cityRates.find(r => {
+            const rn = (r.transport_name || '').toLowerCase().trim();
+            return rn.includes(txnName) || txnName.includes(rn);
+          });
+        }
+        if (!selectedRate) selectedRate = cityRates[0];
+
+        // Calculate kaat with 50kg minimum weight rule
+        const weight = parseFloat(b.weight || 0);
+        const packages = parseInt(b.packets || 0);
+        const rateKg = parseFloat(selectedRate.rate_per_kg || 0);
+        const ratePkg = parseFloat(selectedRate.rate_per_pkg || 0);
+        const rateType = selectedRate.pricing_mode || 'per_kg';
+        const effectiveWeight = Math.max(weight, 50);
+
+        let kaatAmount = 0;
+        if (rateType === 'per_kg') kaatAmount = effectiveWeight * rateKg;
+        else if (rateType === 'per_pkg') kaatAmount = packages * ratePkg;
+        else if (rateType === 'hybrid') kaatAmount = (effectiveWeight * rateKg) + (packages * ratePkg);
+
+        // Add per-bilty extra charges
+        kaatAmount += parseFloat(selectedRate.bilty_chrg || 0) + parseFloat(selectedRate.ewb_chrg || 0) + parseFloat(selectedRate.labour_chrg || 0) + parseFloat(selectedRate.other_chrg || 0);
+
+        // Min charge check
+        if (selectedRate.min_charge && kaatAmount < parseFloat(selectedRate.min_charge)) kaatAmount = parseFloat(selectedRate.min_charge);
+
+        // Actual kaat rate (adjusted for 50kg rule)
+        let actualKaatRate = rateKg;
+        if (rateType === 'per_kg' && weight > 0 && weight < 50) actualKaatRate = (effectiveWeight * rateKg) / weight;
+
+        // PF calculation: for PAID/DD bilties, amount is 0
+        const payMode = (b.payment || '').toLowerCase();
+        const isPaidOrDD = payMode.includes('paid') || (b.delivery_type || '').toLowerCase().includes('door');
+        const biltyAmt = isPaidOrDD ? 0 : parseFloat(b.amount || 0);
+
+        // Preserve existing DD charge
+        const existingDdChrg = existingKaatMap[b.gr_no]?.dd_chrg ? parseFloat(existingKaatMap[b.gr_no].dd_chrg) : 0;
+        const kaatWithDD = parseFloat((kaatAmount + existingDdChrg).toFixed(4));
+        const pf = biltyAmt - kaatWithDD;
+
+        upsertData.push({
+          gr_no: b.gr_no, challan_no: challan.challan_no, destination_city_id: destCityId,
+          transport_hub_rate_id: selectedRate.id,
+          rate_type: rateType, rate_per_kg: selectedRate.rate_per_kg || 0, rate_per_pkg: selectedRate.rate_per_pkg || 0,
+          kaat: kaatWithDD, pf: parseFloat(pf.toFixed(4)), actual_kaat_rate: parseFloat(actualKaatRate.toFixed(4)),
+          dd_chrg: existingDdChrg,
+          bilty_chrg: parseFloat(selectedRate.bilty_chrg || 0), ewb_chrg: parseFloat(selectedRate.ewb_chrg || 0),
+          labour_chrg: parseFloat(selectedRate.labour_chrg || 0), other_chrg: parseFloat(selectedRate.other_chrg || 0),
+          pohonch_no: existingKaatMap[b.gr_no]?.pohonch_no || null,
+          bilty_number: existingKaatMap[b.gr_no]?.bilty_number || null,
+          created_by: user.id, updated_by: user.id, updated_at: now,
+        });
+      });
+
+      if (upsertData.length === 0) { alert(`No bilties could be matched with kaat rates. Skipped: ${skipped}`); setApplyingHubRates(false); return; }
+
+      // Bulk upsert in batches of 100
+      let allResults = [];
+      for (let i = 0; i < upsertData.length; i += 100) {
+        const batch = upsertData.slice(i, i + 100);
+        const { data, error } = await supabase.from('bilty_wise_kaat').upsert(batch, { onConflict: 'gr_no' }).select();
+        if (error) throw error;
+        allResults = [...allResults, ...(data || [])];
+      }
+
       const newKaat = { ...kaatData };
-      (data || []).forEach(k => { newKaat[k.gr_no] = k; });
+      allResults.forEach(k => { newKaat[k.gr_no] = k; });
       setKaatData(newKaat);
-      alert(`Successfully applied hub rates to ${toApply.length} bilties!`);
-    } catch (e) { console.error('Bulk hub rates error:', e); alert('Failed to apply bulk hub rates.'); }
+      alert(`Auto Kaat Applied!\n\nApplied: ${upsertData.length} bilties\nSkipped: ${skipped} bilties (no matching rate)`);
+    } catch (e) { console.error('Auto kaat error:', e); alert('Failed to auto-apply kaat: ' + e.message); }
     finally { setApplyingHubRates(false); }
-  }, [user?.id, applyingHubRates, enrichedBilties, kaatData, hubRatesByTransport, challan?.challan_no]);
+  }, [user?.id, applyingHubRates, enrichedBilties, kaatData, cities, challan?.challan_no]);
 
   /* ========== ADD TRANSPORT / HUB RATE ========== */
   const openAddTransportModal = useCallback((cityId) => {
@@ -1065,9 +1158,9 @@ export default function ChallanDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={bulkApplyHubRates} disabled={applyingHubRates || hubRateApplicable === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-semibold rounded-lg hover:from-sky-600 hover:to-blue-700 shadow-sm disabled:opacity-40 transition-all">
-              {applyingHubRates ? <><Loader2 className="h-3 w-3 animate-spin"/>Applying...</> : <><Building2 className="h-3 w-3"/>Apply Hub Rates ({hubRateApplicable})</>}
+            <button onClick={bulkApplyHubRates} disabled={applyingHubRates || enrichedBilties.length === 0}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-semibold rounded-lg hover:from-amber-600 hover:to-orange-700 shadow-sm disabled:opacity-40 transition-all">
+              {applyingHubRates ? <><Loader2 className="h-3 w-3 animate-spin"/>Applying...</> : <><Building2 className="h-3 w-3"/>Auto Kaat ({enrichedBilties.length})</>}
             </button>
             <button onClick={autoAssignSingleTransports} disabled={autoAssigning || autoCount === 0}
               className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-teal-600 hover:to-emerald-700 shadow-sm disabled:opacity-40 transition-all">
@@ -1088,7 +1181,7 @@ export default function ChallanDetailPage() {
               <div className="flex items-center gap-1.5 flex-wrap">
                 {(grSearch || citySearch || transportSearch || kanpurFilter) && (
                   <button onClick={() => { setGrSearch(''); setCitySearch(''); setTransportSearch(''); setKanpurFilter(false); }}
-                    className="text-[10px] px-2 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-0.5"><X className="h-2.5 w-2.5"/>Clear All</button>
+                    className="text-[10px] px-2 py-1 bg-red-100 text-red-700 font-semibold border border-red-200 rounded-lg hover:bg-red-200 flex items-center gap-0.5"><X className="h-2.5 w-2.5"/>Clear All</button>
                 )}
                 <button onClick={() => setKanpurFilter(!kanpurFilter)} disabled={loadingKanpur}
                   className={`text-[10px] font-semibold px-2 py-1 rounded-lg ${kanpurFilter ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-700 border border-orange-200'} disabled:opacity-50`}>

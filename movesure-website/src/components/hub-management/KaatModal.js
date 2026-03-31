@@ -17,8 +17,19 @@ const KaatModal = React.memo(function KaatModal({
   const selectedTrId = kaatForm.transport_id;
   const hubRate = selectedTrId && bi?.to_city_id ? getHubRateForTransport(hubRatesByTransport, selectedTrId, bi.to_city_id) : null;
 
+  const biltyWeight = parseFloat(bi?.weight || 0);
+  const biltyAmount = parseFloat(bi?.amount || 0);
+
   const formTotal = ['kaat', 'pf', 'dd_chrg', 'bilty_chrg', 'ewb_chrg', 'labour_chrg', 'other_chrg']
     .reduce((s, f) => s + (parseFloat(kaatForm[f]) || 0), 0);
+
+  // Auto-calculate kaat & pf when actual rate changes
+  const handleActualRateChange = (v) => {
+    const rate = parseFloat(v) || 0;
+    const kaat = parseFloat((rate * biltyWeight).toFixed(2));
+    const pf = parseFloat((biltyAmount - kaat).toFixed(2));
+    setKaatForm(p => ({ ...p, actual_kaat_rate: v, kaat, pf }));
+  };
 
   const handleTransportSelect = (tid) => {
     const hr = tid && bi?.to_city_id ? getHubRateForTransport(hubRatesByTransport, tid, bi.to_city_id) : null;
@@ -34,21 +45,25 @@ const KaatModal = React.memo(function KaatModal({
     }));
   };
 
-  const applyHubRateCharges = () => {
+  const applyKaatRateCharges = () => {
     if (!hubRate || !bi) return;
     let computedKaat = 0;
     if (hubRate.pricing_mode === 'per_kg') {
-      computedKaat = (parseFloat(hubRate.rate_per_kg) || 0) * (parseFloat(bi?.weight) || 0);
+      computedKaat = (parseFloat(hubRate.rate_per_kg) || 0) * biltyWeight;
     } else if (hubRate.pricing_mode === 'per_pkg') {
       computedKaat = (parseFloat(hubRate.rate_per_pkg) || 0) * (bi?.packets || 0);
     }
     if (hubRate.min_charge && computedKaat < parseFloat(hubRate.min_charge)) {
       computedKaat = parseFloat(hubRate.min_charge);
     }
+    const actualRate = hubRate.pricing_mode === 'per_kg' ? (parseFloat(hubRate.rate_per_kg) || 0) : (parseFloat(hubRate.rate_per_pkg) || 0);
+    const kaat = parseFloat(computedKaat.toFixed(2));
+    const pf = parseFloat((biltyAmount - kaat).toFixed(2));
     setKaatForm(p => ({
       ...p,
-      kaat: parseFloat(computedKaat.toFixed(2)),
-      actual_kaat_rate: hubRate.pricing_mode === 'per_kg' ? (parseFloat(hubRate.rate_per_kg) || 0) : (parseFloat(hubRate.rate_per_pkg) || 0),
+      kaat,
+      pf,
+      actual_kaat_rate: actualRate,
       bilty_chrg: parseFloat(hubRate.bilty_chrg) || 0,
       ewb_chrg: parseFloat(hubRate.ewb_chrg) || 0,
       labour_chrg: parseFloat(hubRate.labour_chrg) || 0,
@@ -72,7 +87,7 @@ const KaatModal = React.memo(function KaatModal({
                   {bi?.destination && (
                     <span className="text-[11px] text-gray-500 flex items-center gap-0.5"><ArrowRight className="h-3 w-3"/>{bi.destination}</span>
                   )}
-                  {bi && <span className="text-[10px] text-gray-400">{bi.packets} pkts · {parseFloat(bi.weight || 0).toFixed(1)} kg</span>}
+                  {bi && <span className="text-[10px] text-gray-400">{bi.packets} pkts · {biltyWeight.toFixed(1)} kg · ₹{biltyAmount.toFixed(0)} amt</span>}
                 </div>
               </div>
             </div>
@@ -118,33 +133,63 @@ const KaatModal = React.memo(function KaatModal({
             )}
           </div>
 
-          {/* Hub Rate Info Card */}
+          {/* Bilty Info Summary */}
+          <div className="border-t border-gray-100 pt-3">
+            <div className="flex items-center gap-3 flex-wrap text-[11px] bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+              <span className="text-gray-500">Wt: <span className="font-bold text-gray-800">{biltyWeight.toFixed(1)} kg</span></span>
+              <span className="text-gray-300">×</span>
+              <span className="text-gray-500">Rate: <span className="font-bold text-amber-700">{parseFloat(kaatForm.actual_kaat_rate || 0).toFixed(2)}</span></span>
+              <span className="text-gray-300">=</span>
+              <span className="text-gray-500">Kaat: <span className="font-bold text-red-600">₹{parseFloat(kaatForm.kaat || 0).toFixed(2)}</span></span>
+              <span className="text-gray-300">|</span>
+              <span className="text-gray-500">Amt: <span className="font-bold text-green-700">₹{biltyAmount.toFixed(0)}</span></span>
+              <span className="text-gray-300">−</span>
+              <span className="text-gray-500">PF: <span className={`font-bold ${parseFloat(kaatForm.pf || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>₹{parseFloat(kaatForm.pf || 0).toFixed(2)}</span></span>
+            </div>
+          </div>
+
+          {/* Charges & Kaat */}
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-xs font-bold text-gray-700 uppercase mb-2">Charges & Kaat</p>
+            <div className="grid grid-cols-3 gap-2">
+              <KF label="Actual Rate" value={kaatForm.actual_kaat_rate} onChange={handleActualRateChange} highlight/>
+              <KF label="Kaat (₹)" value={kaatForm.kaat} onChange={v => { const kaat = parseFloat(v) || 0; setKaatForm(p => ({...p, kaat: v, pf: parseFloat((biltyAmount - kaat).toFixed(2))})); }}/>
+              <KF label="PF (₹)" value={kaatForm.pf} onChange={v => setKaatForm(p => ({...p, pf: v}))}/>
+              <KF label="DD Chrg (₹)" value={kaatForm.dd_chrg} onChange={v => setKaatForm(p => ({...p, dd_chrg: v}))}/>
+              <KF label="Bilty Chrg (₹)" value={kaatForm.bilty_chrg} onChange={v => setKaatForm(p => ({...p, bilty_chrg: v}))}/>
+              <KF label="EWB Chrg (₹)" value={kaatForm.ewb_chrg} onChange={v => setKaatForm(p => ({...p, ewb_chrg: v}))}/>
+              <KF label="Labour (₹)" value={kaatForm.labour_chrg} onChange={v => setKaatForm(p => ({...p, labour_chrg: v}))}/>
+              <KF label="Other (₹)" value={kaatForm.other_chrg} onChange={v => setKaatForm(p => ({...p, other_chrg: v}))}/>
+            </div>
+          </div>
+
+          {/* Kaat Rate Info Card */}
           {hubRate && (
-            <div className="bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-lg p-3">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-bold text-sky-800 uppercase flex items-center gap-1">
-                  <Building2 className="h-3 w-3"/>Hub Rate
+                <p className="text-[11px] font-bold text-amber-800 uppercase flex items-center gap-1">
+                  <Building2 className="h-3 w-3"/>Kaat Rate
                 </p>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 border border-sky-200">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
                   {hubRate.pricing_mode === 'per_kg' ? 'Per KG' : hubRate.pricing_mode === 'per_pkg' ? 'Per PKG' : hubRate.pricing_mode}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
                 <div className="bg-white rounded p-1.5">
                   <p className="text-[9px] text-gray-400">Rate/KG</p>
-                  <p className="text-xs font-bold text-sky-700">₹{parseFloat(hubRate.rate_per_kg || 0).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-amber-700">₹{parseFloat(hubRate.rate_per_kg || 0).toFixed(2)}</p>
                 </div>
                 <div className="bg-white rounded p-1.5">
                   <p className="text-[9px] text-gray-400">Rate/PKG</p>
-                  <p className="text-xs font-bold text-sky-700">₹{parseFloat(hubRate.rate_per_pkg || 0).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-amber-700">₹{parseFloat(hubRate.rate_per_pkg || 0).toFixed(2)}</p>
                 </div>
                 <div className="bg-white rounded p-1.5">
                   <p className="text-[9px] text-gray-400">Min Chrg</p>
-                  <p className="text-xs font-bold text-sky-700">₹{parseFloat(hubRate.min_charge || 0).toFixed(0)}</p>
+                  <p className="text-xs font-bold text-amber-700">₹{parseFloat(hubRate.min_charge || 0).toFixed(0)}</p>
                 </div>
                 <div className="bg-white rounded p-1.5">
                   <p className="text-[9px] text-gray-400">Goods</p>
-                  <p className="text-xs font-bold text-sky-700 truncate">{hubRate.goods_type || 'All'}</p>
+                  <p className="text-xs font-bold text-amber-700 truncate">{hubRate.goods_type || 'All'}</p>
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 text-center mt-1.5">
@@ -167,22 +212,22 @@ const KaatModal = React.memo(function KaatModal({
               </div>
               <button
                 type="button"
-                onClick={applyHubRateCharges}
-                className="mt-2 w-full text-[10px] font-bold text-sky-700 bg-sky-100 hover:bg-sky-200 border border-sky-300 rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1"
+                onClick={applyKaatRateCharges}
+                className="mt-2 w-full text-[10px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1"
               >
-                <ArrowRight className="h-3 w-3"/>Apply Hub Rate Charges
+                <ArrowRight className="h-3 w-3"/>Apply Kaat Rate
               </button>
             </div>
           )}
 
-          {/* No Hub Rate Warning */}
+          {/* No Kaat Rate Warning */}
           {selectedTrId && !hubRate && bi?.to_city_id && (
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-amber-100 rounded-lg"><AlertCircle className="h-3.5 w-3.5 text-amber-600"/></div>
                   <div>
-                    <p className="text-[11px] font-bold text-amber-800">No Hub Rate Found</p>
+                    <p className="text-[11px] font-bold text-amber-800">No Kaat Rate Found</p>
                     <p className="text-[10px] text-amber-600">Add rate for this transport + destination</p>
                   </div>
                 </div>
@@ -191,26 +236,11 @@ const KaatModal = React.memo(function KaatModal({
                   onClick={() => onOpenAddHubRate(selectedTrId, bi.to_city_id)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-lg shadow-sm transition-all"
                 >
-                  <Plus className="h-3 w-3"/>Add Hub Rate
+                  <Plus className="h-3 w-3"/>Add Kaat Rate
                 </button>
               </div>
             </div>
           )}
-
-          {/* Charges */}
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-xs font-bold text-gray-700 uppercase mb-2">Charges & Kaat</p>
-            <div className="grid grid-cols-3 gap-2">
-              <KF label="Kaat (₹)" value={kaatForm.kaat} onChange={v => setKaatForm(p => ({...p, kaat: v}))}/>
-              <KF label="PF (₹)" value={kaatForm.pf} onChange={v => setKaatForm(p => ({...p, pf: v}))}/>
-              <KF label="Actual Rate" value={kaatForm.actual_kaat_rate} onChange={v => setKaatForm(p => ({...p, actual_kaat_rate: v}))}/>
-              <KF label="DD Chrg (₹)" value={kaatForm.dd_chrg} onChange={v => setKaatForm(p => ({...p, dd_chrg: v}))}/>
-              <KF label="Bilty Chrg (₹)" value={kaatForm.bilty_chrg} onChange={v => setKaatForm(p => ({...p, bilty_chrg: v}))}/>
-              <KF label="EWB Chrg (₹)" value={kaatForm.ewb_chrg} onChange={v => setKaatForm(p => ({...p, ewb_chrg: v}))}/>
-              <KF label="Labour (₹)" value={kaatForm.labour_chrg} onChange={v => setKaatForm(p => ({...p, labour_chrg: v}))}/>
-              <KF label="Other (₹)" value={kaatForm.other_chrg} onChange={v => setKaatForm(p => ({...p, other_chrg: v}))}/>
-            </div>
-          </div>
 
           {/* Total & Save */}
           <div className="border-t border-gray-100 pt-3 flex items-center justify-between">

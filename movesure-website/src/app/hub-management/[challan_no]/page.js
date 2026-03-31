@@ -1109,6 +1109,13 @@ export default function ChallanDetailPage() {
             >
               <FileText className="h-3 w-3"/>Cross Challan
             </button>
+            <button
+              onClick={() => router.push('/hub-management/gr-wise-management/bulk-update-pohonch')}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-blue-600 text-white text-[11px] font-bold rounded-lg hover:from-indigo-600 hover:to-blue-700 shadow-sm transition-all"
+              title="Bulk assign pohonch / bilty number"
+            >
+              <FileText className="h-3 w-3"/>Bulk Pohonch
+            </button>
             <button onClick={fetchChallanDetails} className="p-1.5 rounded-lg hover:bg-gray-100"><RefreshCw className="h-3.5 w-3.5 text-gray-500"/></button>
           </div>
         </div>

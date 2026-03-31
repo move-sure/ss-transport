@@ -564,6 +564,15 @@ export default function GRWiseManagementPage() {
               <h1 className="text-lg sm:text-xl font-bold text-gray-900">GR-wise Management</h1>
               <p className="text-xs text-gray-500">Search GR number to view bilty details, update transit & pohonch</p>
             </div>
+            <div className="ml-auto">
+              <button
+                onClick={() => router.push('/hub-management/gr-wise-management/bulk-update-pohonch')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 rounded-xl text-xs font-semibold text-purple-600 hover:bg-purple-100 transition-all"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Bulk Pohonch
+              </button>
+            </div>
           </div>
         </div>
       </div>

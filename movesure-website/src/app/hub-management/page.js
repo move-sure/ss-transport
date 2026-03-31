@@ -28,6 +28,7 @@ import {
   ChevronLeft,
   ArrowRight,
   PackageCheck,
+  FileText,
 } from 'lucide-react';
 
 export default function HubManagementPage() {
@@ -216,6 +217,13 @@ export default function HubManagementPage() {
               >
                 <Hash className="h-4 w-4" />
                 GR-wise Search
+              </button>
+              <button
+                onClick={() => router.push('/hub-management/gr-wise-management/bulk-update-pohonch')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl text-sm font-semibold text-purple-600 hover:bg-purple-100 transition-all"
+              >
+                <FileText className="h-4 w-4" />
+                Bulk Pohonch
               </button>
               <button
                 onClick={handleRefresh}

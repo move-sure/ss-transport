@@ -23,12 +23,26 @@ const KaatModal = React.memo(function KaatModal({
   const formTotal = ['kaat', 'pf', 'dd_chrg', 'bilty_chrg', 'ewb_chrg', 'labour_chrg', 'other_chrg']
     .reduce((s, f) => s + (parseFloat(kaatForm[f]) || 0), 0);
 
-  // Auto-calculate kaat & pf when actual rate changes
+  // Auto-calculate kaat & pf when actual rate changes (kaat = rate*weight + dd_chrg)
   const handleActualRateChange = (v) => {
     const rate = parseFloat(v) || 0;
-    const kaat = parseFloat((rate * biltyWeight).toFixed(2));
-    const pf = parseFloat((biltyAmount - kaat).toFixed(2));
-    setKaatForm(p => ({ ...p, actual_kaat_rate: v, kaat, pf }));
+    setKaatForm(p => {
+      const dd = parseFloat(p.dd_chrg) || 0;
+      const kaat = parseFloat(((rate * biltyWeight) + dd).toFixed(2));
+      const pf = parseFloat((biltyAmount - kaat).toFixed(2));
+      return { ...p, actual_kaat_rate: v, kaat, pf };
+    });
+  };
+
+  // When DD charge changes, add it to kaat and recalculate pf
+  const handleDdChrgChange = (v) => {
+    const dd = parseFloat(v) || 0;
+    setKaatForm(p => {
+      const rate = parseFloat(p.actual_kaat_rate) || 0;
+      const kaat = parseFloat(((rate * biltyWeight) + dd).toFixed(2));
+      const pf = parseFloat((biltyAmount - kaat).toFixed(2));
+      return { ...p, dd_chrg: v, kaat, pf };
+    });
   };
 
   const handleTransportSelect = (tid) => {
@@ -57,18 +71,21 @@ const KaatModal = React.memo(function KaatModal({
       computedKaat = parseFloat(hubRate.min_charge);
     }
     const actualRate = hubRate.pricing_mode === 'per_kg' ? (parseFloat(hubRate.rate_per_kg) || 0) : (parseFloat(hubRate.rate_per_pkg) || 0);
-    const kaat = parseFloat(computedKaat.toFixed(2));
-    const pf = parseFloat((biltyAmount - kaat).toFixed(2));
-    setKaatForm(p => ({
-      ...p,
-      kaat,
-      pf,
-      actual_kaat_rate: actualRate,
-      bilty_chrg: parseFloat(hubRate.bilty_chrg) || 0,
-      ewb_chrg: parseFloat(hubRate.ewb_chrg) || 0,
-      labour_chrg: parseFloat(hubRate.labour_chrg) || 0,
-      other_chrg: parseFloat(hubRate.other_chrg) || 0,
-    }));
+    setKaatForm(p => {
+      const dd = parseFloat(p.dd_chrg) || 0;
+      const kaat = parseFloat((computedKaat + dd).toFixed(2));
+      const pf = parseFloat((biltyAmount - kaat).toFixed(2));
+      return {
+        ...p,
+        kaat,
+        pf,
+        actual_kaat_rate: actualRate,
+        bilty_chrg: parseFloat(hubRate.bilty_chrg) || 0,
+        ewb_chrg: parseFloat(hubRate.ewb_chrg) || 0,
+        labour_chrg: parseFloat(hubRate.labour_chrg) || 0,
+        other_chrg: parseFloat(hubRate.other_chrg) || 0,
+      };
+    });
   };
 
   return (
@@ -155,7 +172,7 @@ const KaatModal = React.memo(function KaatModal({
               <KF label="Actual Rate" value={kaatForm.actual_kaat_rate} onChange={handleActualRateChange} highlight/>
               <KF label="Kaat (₹)" value={kaatForm.kaat} onChange={v => { const kaat = parseFloat(v) || 0; setKaatForm(p => ({...p, kaat: v, pf: parseFloat((biltyAmount - kaat).toFixed(2))})); }}/>
               <KF label="PF (₹)" value={kaatForm.pf} onChange={v => setKaatForm(p => ({...p, pf: v}))}/>
-              <KF label="DD Chrg (₹)" value={kaatForm.dd_chrg} onChange={v => setKaatForm(p => ({...p, dd_chrg: v}))}/>
+              <KF label="DD Chrg (₹)" value={kaatForm.dd_chrg} onChange={handleDdChrgChange}/>
               <KF label="Bilty Chrg (₹)" value={kaatForm.bilty_chrg} onChange={v => setKaatForm(p => ({...p, bilty_chrg: v}))}/>
               <KF label="EWB Chrg (₹)" value={kaatForm.ewb_chrg} onChange={v => setKaatForm(p => ({...p, ewb_chrg: v}))}/>
               <KF label="Labour (₹)" value={kaatForm.labour_chrg} onChange={v => setKaatForm(p => ({...p, labour_chrg: v}))}/>

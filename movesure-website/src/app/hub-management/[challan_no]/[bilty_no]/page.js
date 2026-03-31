@@ -26,7 +26,7 @@ export default function BiltyDetailPage() {
 
   // POD form modal
   const [podUrl, setPodUrl] = useState(null);
-  const [podForm, setPodForm] = useState({ delivered_at: '', payment_mode: '', mobile_number_1: '', mobile_number_2: '', total_amount: '', amount_given: '', reminder: '', consignor_name: '', consignor_gst: '' });
+  const [podForm, setPodForm] = useState({ delivered_at: '', payment_mode: '', mobile_number_1: '', mobile_number_2: '', total_amount: '', amount_given: '', reminder: '', consignor_name: '', consignor_gst: '', rs_chrg: 50, labour_chrg: 0 });
   const [podSaving, setPodSaving] = useState(false);
   const [podSaved, setPodSaved] = useState(false);
   const [podNo, setPodNo] = useState('');
@@ -171,6 +171,8 @@ export default function BiltyDetailPage() {
         reminder: data.reminder || '',
         consignor_name: data.consignor_name || '',
         consignor_gst: data.consignor_gst || '',
+        rs_chrg: data.rs_chrg ?? 50,
+        labour_chrg: data.labour_chrg ?? 0,
       });
       setPodNo(data.pod_no || '');
       setPodSaved(true);
@@ -199,6 +201,8 @@ export default function BiltyDetailPage() {
         reminder: '',
         consignor_name: bilty.consignor || '',
         consignor_gst: bilty.consignor_gst || '',
+        rs_chrg: 50,
+        labour_chrg: 0,
       });
     }
   }, [bilty]);
@@ -223,6 +227,8 @@ export default function BiltyDetailPage() {
         reminder: podForm.reminder || null,
         consignor_name: podForm.consignor_name || null,
         consignor_gst: podForm.consignor_gst || null,
+        rs_chrg: parseFloat(podForm.rs_chrg) || 0,
+        labour_chrg: parseFloat(podForm.labour_chrg) || 0,
       };
       const { data: existing } = await supabase.from('pod_details').select('id, pod_no').eq('gr_no', bilty.gr_no).maybeSingle();
       if (existing) {
@@ -237,7 +243,7 @@ export default function BiltyDetailPage() {
       setPodSaved(true);
       // Generate PDF preview
       if (podUrl) URL.revokeObjectURL(podUrl);
-      const url = await generatePodPdf(bilty, kaatData, challan, podNo);
+      const url = await generatePodPdf(bilty, kaatData, challan, podNo, { rs_chrg: parseFloat(podForm.rs_chrg) || 0, labour_chrg: parseFloat(podForm.labour_chrg) || 0 });
       setPodUrl(url);
     } catch (e) { console.error('POD save error:', e); alert('Failed to save POD: ' + (e?.message || e)); }
     finally { setPodSaving(false); }
@@ -247,7 +253,7 @@ export default function BiltyDetailPage() {
     if (podUrl) URL.revokeObjectURL(podUrl);
     setPodUrl(null);
     setPodOpen(false);
-    setPodForm({ delivered_at: '', payment_mode: '', mobile_number_1: '', mobile_number_2: '', total_amount: '', amount_given: '', reminder: '', consignor_name: '', consignor_gst: '' });
+    setPodForm({ delivered_at: '', payment_mode: '', mobile_number_1: '', mobile_number_2: '', total_amount: '', amount_given: '', reminder: '', consignor_name: '', consignor_gst: '', rs_chrg: 50, labour_chrg: 0 });
     setPodSaved(false);
     setPodNo('');
   }, [podUrl]);
@@ -555,6 +561,16 @@ export default function BiltyDetailPage() {
                       <div>
                         <label className="block text-[10px] font-semibold text-gray-500 mb-1">Consignor GST <span className="text-gray-300">(optional)</span></label>
                         <input type="text" value={podForm.consignor_gst} onChange={e => setPodForm(p => ({ ...p, consignor_gst: e.target.value }))} placeholder="GST Number"
+                          className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">RS Chrg (₹)</label>
+                        <input type="number" value={podForm.rs_chrg} onChange={e => setPodForm(p => ({ ...p, rs_chrg: e.target.value }))} placeholder="50"
+                          className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Labour Chrg (₹)</label>
+                        <input type="number" value={podForm.labour_chrg} onChange={e => setPodForm(p => ({ ...p, labour_chrg: e.target.value }))} placeholder="0"
                           className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
                       </div>
                     </div>

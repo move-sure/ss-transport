@@ -34,7 +34,7 @@ function loadLogo() {
  * Generate Proof of Delivery (POD) PDF — 2 copies on one A4 page
  * Clean white design with Times font, inspired by bilty PDF
  */
-export async function generatePodPdf(b, kd, challan, podNo) {
+export async function generatePodPdf(b, kd, challan, podNo, charges = {}) {
   const logoData = await loadLogo();
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -42,6 +42,8 @@ export async function generatePodPdf(b, kd, challan, podNo) {
   const halfHeight = pageHeight / 2;
   const margin = 10;
   const contentWidth = pageWidth - margin * 2;
+  const rsChrg = parseFloat(charges.rs_chrg) || 0;
+  const labourChrg = parseFloat(charges.labour_chrg) || 0;
 
   const fmtDate = (d) => {
     if (!d) return '-';
@@ -152,6 +154,52 @@ export async function generatePodPdf(b, kd, challan, podNo) {
     });
 
     y = doc.lastAutoTable.finalY + 3;
+
+    // ===== CHARGES & TOTAL PAY SECTION =====
+    const isPaid = (b.payment || '').toUpperCase().includes('PAID') && !(b.payment || '').toUpperCase().includes('TO');
+    const freight = isPaid ? 0 : (parseFloat(b.amount) || 0);
+    const totalPay = freight + rsChrg + labourChrg;
+
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, margin + contentWidth, y);
+    y += 4;
+
+    // Table-style charges breakdown
+    const chrgLabelX = margin;
+    const chrgValX = margin + 45;
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+
+    if (!isPaid) {
+      doc.setFont('times', 'normal');
+      doc.text('Freight:', chrgLabelX, y);
+      doc.text('Rs. ' + fmtNum(freight), chrgValX, y);
+      y += 4;
+    }
+
+    if (rsChrg > 0) {
+      doc.setFont('times', 'normal');
+      doc.text('RS Chrg:', chrgLabelX, y);
+      doc.text('Rs. ' + fmtNum(rsChrg), chrgValX, y);
+      y += 4;
+    }
+
+    if (labourChrg > 0) {
+      doc.setFont('times', 'normal');
+      doc.text('Labour Chrg:', chrgLabelX, y);
+      doc.text('Rs. ' + fmtNum(labourChrg), chrgValX, y);
+      y += 4;
+    }
+
+    // Total Pay line — bold with underline
+    doc.setLineWidth(0.3);
+    doc.line(chrgLabelX, y - 1, chrgValX + 30, y - 1);
+    y += 3;
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    doc.text('Total Pay:', chrgLabelX, y);
+    doc.text('Rs. ' + fmtNum(totalPay), chrgValX, y);
+    y += 5;
 
     // ===== REMARKS =====
     if (b.remark) {

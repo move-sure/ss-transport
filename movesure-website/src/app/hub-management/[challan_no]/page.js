@@ -14,7 +14,6 @@ import {
   Search, Square, CheckSquare, FileText, ChevronDown, Printer, ExternalLink,
 } from 'lucide-react';
 
-import { IC, DI, SC } from '../../../components/hub-management/SmallComponents';
 import BiltyTableRow from '../../../components/hub-management/BiltyTableRow';
 import BiltyMobileCard from '../../../components/hub-management/BiltyMobileCard';
 import ImagePreviewModal from '../../../components/hub-management/ImagePreviewModal';
@@ -86,9 +85,14 @@ export default function ChallanDetailPage() {
   const [addHubRateForm, setAddHubRateForm] = useState({ transport_id: '', transport_name: '', destination_city_id: '', destination_city_name: '', goods_type: '', pricing_mode: 'per_kg', rate_per_kg: 0, rate_per_pkg: 0, min_charge: 0, bilty_chrg: 0, ewb_chrg: 0, labour_chrg: 0, other_chrg: 0 });
   const [savingNewHubRate, setSavingNewHubRate] = useState(false);
 
-  // POD preview modal
+  // POD modal
   const [podPreviewUrl, setPodPreviewUrl] = useState(null);
   const [podPreviewBilty, setPodPreviewBilty] = useState(null);
+  const [podForm, setPodForm] = useState({ delivered_at: '', payment_mode: '', mobile_number_1: '', mobile_number_2: '', total_amount: '', amount_given: '', reminder: '', consignor_name: '', consignor_gst: '' });
+  const [podSaving, setPodSaving] = useState(false);
+  const [podSaved, setPodSaved] = useState(false);
+  const [podNo, setPodNo] = useState('');
+  const [podGrNos, setPodGrNos] = useState(new Set());
 
   // Crossing challan (pohonch) mapping: gr_no -> pohonch_number
   const [crossChallanMap, setCrossChallanMap] = useState({});
@@ -225,7 +229,7 @@ export default function ChallanDetailPage() {
         grNos.length ? supabase.from('bilty').select(`
           id, gr_no, bilty_date, consignor_name, consignee_name, payment_mode,
           no_of_pkg, total, to_city_id, wt, rate, freight_amount, contain,
-          e_way_bill, pvt_marks, consignor_number, consignee_number,
+          e_way_bill, pvt_marks, consignor_number, consignee_number, consignor_gst,
           transport_name, delivery_type, invoice_no, invoice_value,
           labour_charge, bill_charge, toll_charge, dd_charge, other_charge, remark, bilty_image
         `).in('gr_no', grNos).eq('is_active', true) : Promise.resolve({ data: [] }),
@@ -261,6 +265,7 @@ export default function ChallanDetailPage() {
             contain: r.contain || '-', e_way_bill: r.e_way_bill || '', pvt_marks: r.pvt_marks || '',
             bilty_date: r.bilty_date, consignor_number: r.consignor_number || '',
             consignee_number: r.consignee_number || '', transport_name: r.transport_name || '',
+            consignor_gst: r.consignor_gst || '',
             freight_amount: r.freight_amount || 0, labour_charge: r.labour_charge || 0,
             remark: r.remark || t.remarks || '', bilty_image: r.bilty_image || null };
         } else if (s) {
@@ -288,6 +293,10 @@ export default function ChallanDetailPage() {
         fetchKaatData(grNos);
         // Fetch crossing challan (pohonch) data for these GR numbers
         fetchCrossChallanData(grNos);
+        // Fetch which GRs already have PODs
+        supabase.from('pod_details').select('gr_no').in('gr_no', grNos).then(({ data }) => {
+          if (data) setPodGrNos(new Set(data.map(d => d.gr_no)));
+        });
       }
     } catch (err) {
       console.error('Error:', err);
@@ -743,17 +752,104 @@ export default function ChallanDetailPage() {
     finally { setSavingNewHubRate(false); }
   }, [user?.id, addHubRateForm]);
 
-  /* ========== POD PRINT ========== */
-  const handlePodPrint = useCallback((b) => {
-    const url = generatePodPdf(b, kaatData[b.gr_no], challan);
-    setPodPreviewUrl(url);
+  /* ========== POD ========== */
+  const handlePodPrint = useCallback(async (b) => {
     setPodPreviewBilty(b);
-  }, [kaatData, challan]);
+    setPodPreviewUrl(null);
+    setPodSaved(false);
+    setPodNo('');
+    // Load existing POD data if any
+    const { data } = await supabase.from('pod_details').select('*').eq('gr_no', b.gr_no).maybeSingle();
+    if (data) {
+      setPodForm({
+        delivered_at: data.delivered_at ? new Date(data.delivered_at).toISOString().slice(0, 16) : '',
+        payment_mode: data.payment_mode || '',
+        mobile_number_1: data.mobile_number_1 || '',
+        mobile_number_2: data.mobile_number_2 || '',
+        total_amount: data.total_amount ?? '',
+        amount_given: data.amount_given ?? '',
+        reminder: data.reminder || '',
+        consignor_name: data.consignor_name || '',
+        consignor_gst: data.consignor_gst || '',
+      });
+      setPodNo(data.pod_no || '');
+      setPodSaved(true);
+    } else {
+      // Fetch next pod_no
+      const { data: latestPod } = await supabase.from('pod_details').select('pod_no').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (latestPod?.pod_no) {
+        const num = parseInt(latestPod.pod_no.replace('KNP', ''), 10) || 0;
+        setPodNo('KNP' + String(num + 1).padStart(5, '0'));
+      } else {
+        setPodNo('KNP00001');
+      }
+      let pay = b.payment && b.payment !== '-' ? b.payment.toUpperCase() : '';
+      const isDD = b.delivery_type && (b.delivery_type.toLowerCase().includes('door') || b.delivery_type.toLowerCase() === 'dd');
+      if (isDD && pay === 'PAID') pay = 'PAID/DD';
+      if (isDD && pay === 'TO-PAY') pay = 'TO-PAY/DD';
+      const amt = parseFloat(b.amount) || 0;
+      const isPaid = pay === 'PAID' || pay === 'PAID/DD';
+      setPodForm({
+        delivered_at: new Date().toISOString().slice(0, 16),
+        payment_mode: pay,
+        mobile_number_1: b.consignor_number || '',
+        mobile_number_2: b.consignee_number || '',
+        total_amount: amt || '',
+        amount_given: isPaid ? 50 : (amt ? amt + 50 : ''),
+        reminder: '',
+        consignor_name: b.consignor && b.consignor !== '-' ? b.consignor : '',
+        consignor_gst: b.consignor_gst || '',
+      });
+    }
+  }, []);
+
+  const podBasicFilled = podForm.delivered_at && podForm.total_amount;
+
+  const savePodDetails = useCallback(async () => {
+    if (!podPreviewBilty || !user?.id) return;
+    setPodSaving(true);
+    try {
+      const validModes = ['PAID', 'TO-PAY', 'PAID/DD', 'TO-PAY/DD'];
+      const payMode = podForm.payment_mode && validModes.includes(podForm.payment_mode) ? podForm.payment_mode : null;
+      const payload = {
+        gr_no: podPreviewBilty.gr_no,
+        challan_no: challan?.challan_no || challan_no,
+        payment_mode: payMode,
+        delivered_at: podForm.delivered_at ? new Date(podForm.delivered_at).toISOString() : null,
+        mobile_number_1: podForm.mobile_number_1 || null,
+        mobile_number_2: podForm.mobile_number_2 || null,
+        total_amount: parseFloat(podForm.total_amount) || 0,
+        amount_given: parseFloat(podForm.amount_given) || 0,
+        reminder: podForm.reminder || null,
+        consignor_name: podForm.consignor_name || null,
+        consignor_gst: podForm.consignor_gst || null,
+      };
+      const { data: existing } = await supabase.from('pod_details').select('id, pod_no').eq('gr_no', podPreviewBilty.gr_no).maybeSingle();
+      if (existing) {
+        const { error: upErr } = await supabase.from('pod_details').update(payload).eq('id', existing.id);
+        if (upErr) throw upErr;
+        setPodNo(existing.pod_no || podNo);
+      } else {
+        const { data: inserted, error: insErr } = await supabase.from('pod_details').insert({ ...payload, pod_no: podNo }).select('pod_no').single();
+        if (insErr) throw insErr;
+        if (inserted) setPodNo(inserted.pod_no);
+      }
+      setPodSaved(true);
+      setPodGrNos(prev => new Set([...prev, podPreviewBilty.gr_no]));
+      // Generate PDF preview
+      const url = await generatePodPdf(podPreviewBilty, kaatData[podPreviewBilty.gr_no], challan, podNo);
+      setPodPreviewUrl(url);
+    } catch (e) { console.error('POD save error:', e); alert('Failed to save POD: ' + (e?.message || e)); }
+    finally { setPodSaving(false); }
+  }, [podPreviewBilty, podForm, user?.id, kaatData, challan, challan_no, podNo]);
 
   const closePodPreview = useCallback(() => {
     if (podPreviewUrl) URL.revokeObjectURL(podPreviewUrl);
     setPodPreviewUrl(null);
     setPodPreviewBilty(null);
+    setPodForm({ delivered_at: '', payment_mode: '', mobile_number_1: '', mobile_number_2: '', total_amount: '', amount_given: '', reminder: '', consignor_name: '', consignor_gst: '' });
+    setPodSaved(false);
+    setPodNo('');
   }, [podPreviewUrl]);
 
   /* ========== MEMOIZED COMPUTED VALUES ========== */
@@ -906,7 +1002,6 @@ export default function ChallanDetailPage() {
                 {!challan.is_dispatched && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200"><Clock className="h-2.5 w-2.5 inline mr-0.5"/>Pending</span>}
                 {challan.is_received_at_hub && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200"><ShieldCheck className="h-2.5 w-2.5 inline mr-0.5"/>Received</span>}
               </div>
-              <p className="text-[10px] text-gray-500">{challan.created_at ? format(new Date(challan.created_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
             </div>
             <button
               onClick={() => router.push('/transit-finance/cross-challan')}
@@ -922,53 +1017,40 @@ export default function ChallanDetailPage() {
 
       <div className="max-w-[1800px] mx-auto px-3 sm:px-5 py-4 space-y-4">
 
-        {/* RECEIVED AT KANPUR */}
-        <div className={`rounded-xl border p-3 ${challan.is_received_at_hub ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-100 shadow-sm'}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className={`p-2 rounded-lg ${challan.is_received_at_hub ? 'bg-emerald-100' : 'bg-indigo-50'}`}>
-                <ShieldCheck className={`h-4 w-4 ${challan.is_received_at_hub ? 'text-emerald-600' : 'text-indigo-600'}`}/>
-              </div>
-              <div>
-                <h3 className="text-xs font-bold text-gray-900">{challan.is_received_at_hub ? 'Received at Kanpur' : 'Kanpur Receiving'}</h3>
-                {challan.is_received_at_hub
-                  ? <p className="text-[10px] text-emerald-700">{challan.received_at_hub_timing ? format(new Date(challan.received_at_hub_timing), 'dd MMM yy, hh:mm a') : '-'}</p>
-                  : <p className="text-[10px] text-gray-500">Not yet received</p>}
-              </div>
-            </div>
-            {!challan.is_received_at_hub && (
-              <button onClick={handleReceivedAtHub} disabled={receivingAtHub}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs font-semibold rounded-lg hover:from-emerald-600 hover:to-green-700 shadow-sm disabled:opacity-50">
-                {receivingAtHub ? <><Loader2 className="h-3 w-3 animate-spin"/>Marking...</> : <><ShieldCheck className="h-3 w-3"/>Received at Kanpur</>}
-              </button>
-            )}
+        {/* COMPACT INFO BAR */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+          {/* Row 1: Key info + Kanpur action */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+            <span className="font-semibold text-gray-900"><MapPin className="h-3 w-3 inline text-blue-500 mr-0.5"/>{challan.branch_name}</span>
+            <span className="text-gray-700"><Truck className="h-3 w-3 inline text-indigo-500 mr-0.5"/>{challan.truck?.truck_number || '-'} <span className="text-[9px] text-gray-400">{challan.truck?.truck_type || ''}</span></span>
+            <span className="text-gray-700"><User className="h-3 w-3 inline text-purple-500 mr-0.5"/>{challan.driver?.name || '-'} <span className="text-[9px] text-gray-400">{challan.driver?.mobile_number || ''}</span></span>
+            <span className="text-gray-700"><User className="h-3 w-3 inline text-cyan-500 mr-0.5"/>{challan.owner?.name || '-'} <span className="text-[9px] text-gray-400">{challan.owner?.mobile_number || ''}</span></span>
+            <span className="text-gray-500">|</span>
+            <span className="text-gray-600">{challan.date ? format(new Date(challan.date), 'dd MMM yy') : '-'}</span>
+            <span className="text-gray-600">{challan.dispatch_date ? `Disp: ${format(new Date(challan.dispatch_date), 'dd MMM yy, hh:mm a')}` : ''}</span>
+            {challan.is_received_at_hub
+              ? <span className="text-emerald-700 font-semibold"><ShieldCheck className="h-3 w-3 inline mr-0.5"/>Kanpur {challan.received_at_hub_timing ? format(new Date(challan.received_at_hub_timing), 'dd MMM yy, hh:mm a') : '✓'}</span>
+              : <button onClick={handleReceivedAtHub} disabled={receivingAtHub}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500 text-white text-[10px] font-semibold rounded-md hover:bg-emerald-600 disabled:opacity-50">
+                  {receivingAtHub ? <><Loader2 className="h-2.5 w-2.5 animate-spin"/>Marking...</> : <><ShieldCheck className="h-2.5 w-2.5"/>Receive at Kanpur</>}
+                </button>
+            }
           </div>
-        </div>
-
-        {/* INFO CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <IC icon={<MapPin className="h-3.5 w-3.5 text-blue-600"/>} t="Branch" v={challan.branch_name} bg="bg-blue-50"/>
-          <IC icon={<Truck className="h-3.5 w-3.5 text-indigo-600"/>} t="Truck" v={challan.truck?.truck_number || '-'} s={challan.truck?.truck_type} bg="bg-indigo-50"/>
-          <IC icon={<User className="h-3.5 w-3.5 text-purple-600"/>} t="Driver" v={challan.driver?.name || '-'} s={challan.driver?.mobile_number} bg="bg-purple-50"/>
-          <IC icon={<User className="h-3.5 w-3.5 text-cyan-600"/>} t="Owner" v={challan.owner?.name || '-'} s={challan.owner?.mobile_number} bg="bg-cyan-50"/>
-        </div>
-
-        {/* SUMMARY */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-center">
-          <DI l="Date" v={challan.date ? format(new Date(challan.date), 'dd MMM yy') : '-'}/>
-          <DI l="GR" v={enrichedBilties.length}/>
-          <DI l="Pkts" v={totalPkts}/>
-          <DI l="Weight" v={`${totalWt.toFixed(1)}kg`}/>
-          <DI l="Amount" v={`₹${totalAmt.toLocaleString('en-IN')}`}/>
-          <DI l="Dispatch" v={challan.dispatch_date ? format(new Date(challan.dispatch_date), 'dd MMM yy') : 'Pending'}/>
-        </div>
-
-        {/* STATS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <SC icon={<CheckCircle className="h-4 w-4"/>} n={deliveredCount} l="Delivered" c="green"/>
-          <SC icon={<Navigation className="h-4 w-4"/>} n={inTransitCount} l="Transit" c="amber"/>
-          <SC icon={<Clock className="h-4 w-4"/>} n={pendingCount} l="Pending" c="gray"/>
-          <SC icon={<MapPin className="h-4 w-4"/>} n={kanpurCount} l="Kanpur" c="orange"/>
+          {/* Row 2: Stats counters inline */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-2 border-t border-gray-100 text-[11px]">
+            <span className="font-bold text-gray-800">{enrichedBilties.length} GR</span>
+            <span className="text-gray-500">·</span>
+            <span className="text-gray-600">{totalPkts} Pkts</span>
+            <span className="text-gray-500">·</span>
+            <span className="text-gray-600">{totalWt.toFixed(1)}kg</span>
+            <span className="text-gray-500">·</span>
+            <span className="font-semibold text-gray-800">₹{totalAmt.toLocaleString('en-IN')}</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
+            <span className="text-green-600 font-semibold"><CheckCircle className="h-3 w-3 inline mr-0.5"/>{deliveredCount}</span>
+            <span className="text-amber-600 font-semibold"><Navigation className="h-3 w-3 inline mr-0.5"/>{inTransitCount}</span>
+            <span className="text-gray-500 font-semibold"><Clock className="h-3 w-3 inline mr-0.5"/>{pendingCount}</span>
+            <span className="text-orange-600 font-semibold"><MapPin className="h-3 w-3 inline mr-0.5"/>{kanpurCount}</span>
+          </div>
         </div>
 
         {/* TRANSPORT ASSIGNMENT BAR */}
@@ -1128,10 +1210,11 @@ export default function ChallanDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {displayed.map(b => (
+                    {displayed.map((b, i) => (
                       <BiltyTableRow
                         key={b.id}
                         b={b}
+                        displayIdx={i + 1}
                         isSelected={selectedGrs.has(b.id)}
                         isKanpur={kanpurGrNos.has(b.gr_no)}
                         kanpurFilter={kanpurFilter}
@@ -1153,6 +1236,7 @@ export default function ChallanDetailPage() {
                         onPrintCrossChallan={crossChallanPrint.handlePrint}
                         printingCrossChallan={crossChallanPrint.printingPohonch}
                         onPod={() => handlePodPrint(b)}
+                        hasPod={podGrNos.has(b.gr_no)}
                         challanNo={challan?.challan_no}
                       />
                     ))}
@@ -1173,12 +1257,13 @@ export default function ChallanDetailPage() {
 
               {/* MOBILE CARDS */}
               <div className="lg:hidden divide-y divide-gray-100">
-                {displayed.map(b => {
+                {displayed.map((b, i) => {
                   const selectedTransportId = kaatData[b.gr_no]?.transport_id || '';
                   return (
                     <BiltyMobileCard
                       key={b.id}
                       b={b}
+                      displayIdx={i + 1}
                       isSelected={selectedGrs.has(b.id)}
                       isKanpur={kanpurGrNos.has(b.gr_no)}
                       kanpurFilter={kanpurFilter}
@@ -1201,6 +1286,7 @@ export default function ChallanDetailPage() {
                       onPrintCrossChallan={crossChallanPrint.handlePrint}
                       printingCrossChallan={crossChallanPrint.printingPohonch}
                       onPod={() => handlePodPrint(b)}
+                      hasPod={podGrNos.has(b.gr_no)}
                       challanNo={challan?.challan_no}
                     />
                   );
@@ -1253,37 +1339,105 @@ export default function ChallanDetailPage() {
         onClose={crossChallanPrint.handleClose}
       />
 
-      {/* POD PREVIEW MODAL */}
-      {podPreviewUrl && (
+      {/* POD MODAL */}
+      {podPreviewBilty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-blue-100 rounded-xl"><FileText className="h-4 w-4 text-blue-600"/></div>
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">Proof of Delivery (POD)</h3>
-                  <p className="text-[10px] text-gray-500">GR: {podPreviewBilty?.gr_no} | Dest: {podPreviewBilty?.destination}</p>
+                  <h3 className="text-sm font-bold text-gray-900">POD — {podPreviewBilty.gr_no} {podNo && <span className="text-indigo-600 text-xs font-mono ml-1">#{podNo}</span>}</h3>
+                  <p className="text-[10px] text-gray-500">
+                    Dest: {podPreviewBilty.destination} | {podPreviewBilty.consignee}
+                    {podPreviewBilty.payment && podPreviewBilty.payment !== '-' && <> | <span className={`font-bold ${podPreviewBilty.payment?.includes('PAID') && !podPreviewBilty.payment?.includes('TO') ? 'text-green-600' : 'text-amber-600'}`}>{podPreviewBilty.payment}</span></>}
+                    {podPreviewBilty.amount ? <> | ₹{parseFloat(podPreviewBilty.amount).toLocaleString('en-IN')}</> : ''}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <a href={podPreviewUrl} download={`POD_${podPreviewBilty?.gr_no}.pdf`}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                  <FileText className="h-3.5 w-3.5"/>Download
-                </a>
-                <button onClick={() => { const w = window.open(podPreviewUrl, '_blank'); if(!w) alert('Please allow popups'); }}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                  Open Tab
-                </button>
-                <Link href={`/hub-management/${encodeURIComponent(challan?.challan_no || challan_no)}/${encodeURIComponent(podPreviewBilty?.gr_no)}`}
-                  onClick={closePodPreview}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors">
-                  <ExternalLink className="h-3.5 w-3.5"/>Detail Page
-                </Link>
-                <button onClick={closePodPreview} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500"/></button>
-              </div>
+              <button onClick={closePodPreview} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="h-4 w-4 text-gray-500"/></button>
             </div>
-            <div className="flex-1 min-h-0">
-              <iframe src={podPreviewUrl} className="w-full h-full border-0" title="POD Preview"/>
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+              {/* FORM */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Payment Mode *</label>
+                  <select value={podForm.payment_mode} onChange={e => setPodForm(p => ({ ...p, payment_mode: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black">
+                    <option value="">Select</option>
+                    <option value="PAID">PAID</option>
+                    <option value="TO-PAY">TO-PAY</option>
+                    <option value="PAID/DD">PAID/DD</option>
+                    <option value="TO-PAY/DD">TO-PAY/DD</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Delivered At *</label>
+                  <input type="datetime-local" value={podForm.delivered_at} onChange={e => setPodForm(p => ({ ...p, delivered_at: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Mobile No. 1 *</label>
+                  <input type="tel" value={podForm.mobile_number_1} onChange={e => setPodForm(p => ({ ...p, mobile_number_1: e.target.value }))} placeholder="9876543210"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Mobile No. 2</label>
+                  <input type="tel" value={podForm.mobile_number_2} onChange={e => setPodForm(p => ({ ...p, mobile_number_2: e.target.value }))} placeholder="Optional"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Total Amount *</label>
+                  <input type="number" value={podForm.total_amount} onChange={e => setPodForm(p => ({ ...p, total_amount: e.target.value }))} placeholder="0"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Amount Given</label>
+                  <input type="number" value={podForm.amount_given} onChange={e => setPodForm(p => ({ ...p, amount_given: e.target.value }))} placeholder="0"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Reminder</label>
+                  <input type="text" value={podForm.reminder} onChange={e => setPodForm(p => ({ ...p, reminder: e.target.value }))} placeholder="Any note..."
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Consignor Name <span className="text-gray-300">(optional)</span></label>
+                  <input type="text" value={podForm.consignor_name} onChange={e => setPodForm(p => ({ ...p, consignor_name: e.target.value }))} placeholder="Consignor name"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Consignor GST <span className="text-gray-300">(optional)</span></label>
+                  <input type="text" value={podForm.consignor_gst} onChange={e => setPodForm(p => ({ ...p, consignor_gst: e.target.value }))} placeholder="GST Number"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none text-black"/>
+                </div>
+              </div>
+              {/* SAVE + PRINT */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={savePodDetails} disabled={!podBasicFilled || podSaving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-600 hover:to-purple-700 shadow-sm disabled:opacity-40 transition-all">
+                  {podSaving ? <><Loader2 className="h-3 w-3 animate-spin"/>Saving...</> : <><CheckCircle2 className="h-3 w-3"/>{podSaved ? 'Update & Print' : 'Save & Print'}</>}
+                </button>
+                {!podBasicFilled && <span className="text-[10px] text-amber-600">Fill delivered at & total amount to print</span>}
+                {podSaved && podPreviewUrl && (
+                  <>
+                    <a href={podPreviewUrl} download={`POD_${podPreviewBilty?.gr_no}.pdf`}
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                      <FileText className="h-3 w-3"/>Download
+                    </a>
+                    <button onClick={() => { const w = window.open(podPreviewUrl, '_blank'); if(!w) alert('Please allow popups'); }}
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
+                      Open Tab
+                    </button>
+                  </>
+                )}
+              </div>
+              {/* PDF PREVIEW */}
+              {podSaved && podPreviewUrl && (
+                <div className="border border-gray-200 rounded-xl overflow-hidden" style={{ height: '50vh' }}>
+                  <iframe src={podPreviewUrl} className="w-full h-full border-0" title="POD Preview"/>
+                </div>
+              )}
             </div>
           </div>
         </div>

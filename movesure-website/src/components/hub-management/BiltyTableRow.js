@@ -8,11 +8,11 @@ import TransitCircles from './TransitCircles';
 import { getStatus, stClr, payBadge, kTotal } from './HubHelpers';
 
 const BiltyTableRow = React.memo(function BiltyTableRow({
-  b, isSelected, isKanpur, kanpurFilter, kd, cityTransports,
+  b, displayIdx, isSelected, isKanpur, kanpurFilter, kd, cityTransports,
   selectedTransportId, isSavingTransport,
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
-  crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, challanNo,
+  crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, hasPod, challanNo,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -25,7 +25,7 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
           {isSelected ? <CheckSquare className="h-3.5 w-3.5"/> : <Square className="h-3.5 w-3.5 text-gray-300"/>}
         </button>
       </td>
-      <td className="px-1 py-1.5 text-gray-400 font-medium text-[10px]">{b.idx}</td>
+      <td className="px-1 py-1.5 text-gray-400 font-medium text-[10px]">{displayIdx}</td>
       <td className="px-1 py-1.5 text-center">
         <button
           onClick={() => b.bilty_image ? onPreviewImage({ url: b.bilty_image, gr: b.gr_no, type: isMNL ? 'MNL' : 'REG' }) : null}
@@ -37,14 +37,20 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
       </td>
       <td className="px-1.5 py-1.5">
         <div className="flex items-center gap-1">
-          <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
-            className="font-bold text-indigo-700 text-[11px] hover:underline hover:text-indigo-900" title="View bilty details">
-            {b.gr_no}
-          </Link>
-          <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
-            className="text-gray-300 hover:text-indigo-500" title="Open bilty page">
-            <ExternalLink className="h-2.5 w-2.5"/>
-          </Link>
+          {isKanpur ? (
+            <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
+              className="font-bold text-indigo-700 text-[11px] hover:underline hover:text-indigo-900" title="View bilty details">
+              {b.gr_no}
+            </Link>
+          ) : (
+            <span className="font-bold text-gray-800 text-[11px]">{b.gr_no}</span>
+          )}
+          {isKanpur && (
+            <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
+              className="text-gray-300 hover:text-indigo-500" title="Open bilty page">
+              <ExternalLink className="h-2.5 w-2.5"/>
+            </Link>
+          )}
         </div>
         <div className="text-[9px] text-gray-400">{isMNL ? 'MNL' : 'REG'}{isKanpur && <span className="ml-1 text-orange-600 font-bold">•KNP</span>}</div>
       </td>
@@ -67,6 +73,7 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
       <td className="px-1.5 py-1.5 text-right font-bold text-black text-[11px]">₹{parseFloat(b.amount || 0).toLocaleString('en-IN')}</td>
       <td className="px-1 py-1.5 text-center">
         <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${payBadge(b.payment)}`}>{b.payment}</span>
+        {b.delivery_type && b.delivery_type.toLowerCase().includes('door') && <span className="ml-0.5 px-1 py-0.5 rounded-full text-[8px] font-bold bg-orange-100 text-orange-700">DD</span>}
       </td>
       <td className="px-1.5 py-1.5">
         {cityTransports.length > 0 ? (
@@ -129,9 +136,9 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
           <span className="text-[9px] text-gray-300">-</span>
         )}
         {isKanpur && (
-          <button onClick={onPod} title="Print POD"
-            className="mt-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-500 text-white hover:bg-blue-600 shadow-sm transition-colors">
-            <FileText className="h-3 w-3"/>POD
+          <button onClick={onPod} title={hasPod ? 'POD Created - Click to edit' : 'Create POD'}
+            className={`mt-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-sm transition-colors ${hasPod ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>
+            <FileText className="h-3 w-3"/>POD{hasPod && ' ✓'}
           </button>
         )}
       </td>

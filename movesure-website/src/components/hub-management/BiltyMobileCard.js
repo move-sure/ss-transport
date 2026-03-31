@@ -8,11 +8,11 @@ import TransitCircles from './TransitCircles';
 import { getStatus, stClr, payBadge, kTotal } from './HubHelpers';
 
 const BiltyMobileCard = React.memo(function BiltyMobileCard({
-  b, isSelected, isKanpur, kanpurFilter, kd, cityTransports,
+  b, displayIdx, isSelected, isKanpur, kanpurFilter, kd, cityTransports,
   selectedTransportId, isSavingTransport, selectedTransport,
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
-  crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, challanNo,
+  crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, hasPod, challanNo,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -26,11 +26,15 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
           <button onClick={onToggleSelect} className="text-indigo-600">
             {isSelected ? <CheckSquare className="h-4 w-4"/> : <Square className="h-4 w-4 text-gray-300"/>}
           </button>
-          <span className="w-5 h-5 bg-indigo-100 rounded text-indigo-700 text-[10px] font-bold flex items-center justify-center">{b.idx}</span>
-          <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
-            className="font-bold text-indigo-700 text-sm hover:underline" title="View bilty details">
-            {b.gr_no}
-          </Link>
+          <span className="w-5 h-5 bg-indigo-100 rounded text-indigo-700 text-[10px] font-bold flex items-center justify-center">{displayIdx}</span>
+          {isKanpur ? (
+            <Link href={`/hub-management/${encodeURIComponent(challanNo || '')}/${encodeURIComponent(b.gr_no)}`}
+              className="font-bold text-indigo-700 text-sm hover:underline" title="View bilty details">
+              {b.gr_no}
+            </Link>
+          ) : (
+            <span className="font-bold text-gray-800 text-sm">{b.gr_no}</span>
+          )}
           <button
             onClick={() => b.bilty_image ? onPreviewImage({ url: b.bilty_image, gr: b.gr_no, type: isMNL ? 'MNL' : 'REG' }) : null}
             className={`w-5 h-5 rounded-full flex items-center justify-center ${b.bilty_image ? 'bg-green-100 text-green-600 ring-1 ring-green-300' : 'bg-red-100 text-red-400 ring-1 ring-red-200'}`}
@@ -45,7 +49,7 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-2">
         <div><span className="text-gray-400 text-[10px]">Dest:</span> <span className="font-bold text-black text-[11px]">{b.destination}</span></div>
-        <div><span className="text-gray-400 text-[10px]">Pay:</span> <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${payBadge(b.payment)}`}>{b.payment}</span></div>
+        <div><span className="text-gray-400 text-[10px]">Pay:</span> <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${payBadge(b.payment)}`}>{b.payment}</span>{b.delivery_type && b.delivery_type.toLowerCase().includes('door') && <span className="ml-0.5 px-1 py-0.5 rounded-full text-[8px] font-bold bg-orange-100 text-orange-700">DD</span>}</div>
         <div className="truncate"><span className="text-gray-400 text-[10px]">S:</span> <span className="text-[10px] text-gray-700">{b.consignor}</span></div>
         <div className="truncate"><span className="text-gray-400 text-[10px]">R:</span> <span className="text-[10px] text-gray-700">{b.consignee}</span></div>
         <div><span className="text-gray-400 text-[10px]">Pkts:</span> <b className="text-black text-[11px]">{b.packets}</b> <span className="text-gray-300">|</span> <span className="text-gray-400 text-[10px]">Wt:</span> <b className="text-black text-[11px]">{parseFloat(b.weight || 0).toFixed(1)}</b></div>
@@ -57,9 +61,9 @@ const BiltyMobileCard = React.memo(function BiltyMobileCard({
             {printingCrossChallan === crossChallanNo ? <Loader2 className="h-3 w-3 animate-spin"/> : <Printer className="h-3 w-3"/>}
           </button>
         </div>}
-        {isKanpur && <div><button onClick={onPod} title="Print POD"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500 text-white hover:bg-blue-600 shadow-sm transition-colors">
-          <Printer className="h-3.5 w-3.5"/>POD
+        {isKanpur && <div><button onClick={onPod} title={hasPod ? 'POD Created - Click to edit' : 'Create POD'}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors ${hasPod ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>
+          <Printer className="h-3.5 w-3.5"/>POD{hasPod && ' ✓'}
         </button></div>}
         {kt > 0 && <div><span className="text-gray-400 text-[10px]">Kaat:</span> <b className="text-emerald-700 text-[11px]">₹{kt.toFixed(0)}</b></div>}
       </div>

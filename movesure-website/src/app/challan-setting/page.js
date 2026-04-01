@@ -106,8 +106,12 @@ export default function ChallanManagementPage() {
           driver:staff!challan_details_driver_id_fkey(name, mobile_number, license_number),
           creator:users(username, name)
         `)
-        .eq('branch_id', user.branch_id)
         .eq('is_active', true);
+
+      // Only apply branch filter for branches other than the specified one
+      if (user.branch_id !== '0f128ce1-daab-4356-98b8-c58d62f825be') {
+        query = query.eq('branch_id', user.branch_id);
+      }
 
       // Apply filters
       if (filters.date) {

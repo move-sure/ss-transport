@@ -1055,7 +1055,7 @@ return (
                   <span className={`px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center ${
                     formData.delivery_type === 'door-delivery' ? 'bg-orange-600 text-white' : 'bg-emerald-600 text-white'
                   }`}>
-                    {formData.delivery_type === 'door-delivery' ? 'DD PRINT' : 'OTHER'}
+                    {formData.delivery_type === 'door-delivery' ? 'DD Chrg' : 'OTHER'}
                   </span>
                   <input
                     type="text"
@@ -1090,7 +1090,7 @@ return (
                 {formData.delivery_type === 'door-delivery' && (
                   <div className="flex items-center justify-between gap-2">
                     <span className="bg-red-600 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
-                      DD CHR
+                      DD Real
                     </span>
                     <input
                       type="text"
@@ -1159,7 +1159,7 @@ return (
               <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">DD Charge: ₹{formData._dd_charge_applied}</span>
             )}
             {formData._dd_print_applied > 0 && (
-              <span className="bg-blue-100 px-1.5 py-0.5 rounded">DD Print: ₹{formData._dd_print_applied}</span>
+              <span className="bg-blue-100 px-1.5 py-0.5 rounded">DD Chrg: ₹{formData._dd_print_applied}</span>
             )}
             {formData._rs_charge_applied > 0 && (
               <span className="bg-blue-100 px-1.5 py-0.5 rounded">RS: ₹{formData._rs_charge_applied}</span>

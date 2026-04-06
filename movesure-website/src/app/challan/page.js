@@ -591,6 +591,7 @@ export default function TransitManagement() {
           userBranch={userBranch}
           permanentDetails={permanentDetails}
           branches={branches}
+          cities={cities}
         />
       </div>
     </div>

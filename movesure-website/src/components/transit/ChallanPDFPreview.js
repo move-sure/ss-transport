@@ -16,12 +16,33 @@ const ChallanPDFPreview = ({
   selectedChallanBook = null,
   userBranch = null,
   permanentDetails = null,
-  branches = []
+  branches = [],
+  cities = []
 }) => {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const pdfViewerRef = useRef(null);
+
+  // Resolve city code for a bilty — handles both regular (to_city_id) and station (station/city_id) bilties
+  const getCityCode = (bilty) => {
+    // If to_city_code is already set, use it
+    if (bilty.to_city_code) return bilty.to_city_code;
+    // Station bilties: 'station' field IS the city code
+    if (bilty.station) return bilty.station;
+    // Regular bilties: resolve to_city_id via cities array
+    if (bilty.to_city_id && cities.length > 0) {
+      const city = cities.find(c => c.id === bilty.to_city_id);
+      if (city) return city.city_code || city.city_name || '';
+    }
+    // Station bilties fallback: resolve city_id via cities array
+    if (bilty.city_id && cities.length > 0) {
+      const city = cities.find(c => c.id === bilty.city_id);
+      if (city) return city.city_code || city.city_name || '';
+    }
+    // Last resort: use to_city_name
+    return bilty.to_city_name || '';
+  };
 
   // Generate PDF blob for preview
   const generatePDFBlob = useCallback(async () => {
@@ -50,7 +71,7 @@ const ChallanPDFPreview = ({
     } finally {
       setLoading(false);
     }
-  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches]);  // Generate Loading Challan PDF Blob with Split Layout
+  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, cities]);  // Generate Loading Challan PDF Blob with Split Layout
   const generateLoadingChallanPDFBlob = async (transitBiltiesData) => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = 210;
@@ -61,11 +82,11 @@ const ChallanPDFPreview = ({
     const itemsPerPage = itemsPerColumn * 2; // 2 columns per page
     const rowHeight = 10; // Increased row height for better readability
     
-    let currentPage = 1;    // Sort bilties alphabetically by city name first, then by GR number within each city
+    let currentPage = 1;    // Sort bilties alphabetically by city code first, then by GR number within each city
     const sortedBiltiesData = [...transitBiltiesData].sort((a, b) => {
-      // First sort by city name (to_city_name) alphabetically
-      const cityA = (a.to_city_name || '').toUpperCase();
-      const cityB = (b.to_city_name || '').toUpperCase();
+      // First sort by resolved city code alphabetically
+      const cityA = (getCityCode(a) || '').toUpperCase();
+      const cityB = (getCityCode(b) || '').toUpperCase();
       
       if (cityA !== cityB) {
         return cityA.localeCompare(cityB);
@@ -210,7 +231,7 @@ const ChallanPDFPreview = ({
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.text((bilty.no_of_pkg || 0).toString(), margin + 28, currentY);        // Dynamic font size for station code - prioritize readability 
-        const stationCode = bilty.to_city_code || '';
+        const stationCode = getCityCode(bilty);
         const stationFontSize = stationCode.length > 6 ? 8 : 10; // More generous threshold
         doc.setFontSize(stationFontSize);
         doc.setFont('helvetica', 'bold');
@@ -342,7 +363,7 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text((bilty.no_of_pkg || 0).toString(), rightColumnX + 28, currentY);
         // Dynamic font size for station code - prioritize readability
-        const stationCode = bilty.to_city_code || '';
+        const stationCode = getCityCode(bilty);
         const stationFontSize = stationCode.length > 6 ? 8 : 10; // More generous threshold
         doc.setFontSize(stationFontSize);
         doc.setFont('helvetica', 'bold');
@@ -473,9 +494,9 @@ const ChallanPDFPreview = ({
     
     // Sort bilties alphabetically by city code first, then by GR number within each city
     const sortedTransitBiltiesData = [...transitBiltiesData].sort((a, b) => {
-      // First sort by city code (to_city_code) alphabetically
-      const cityA = (a.to_city_code || '').toUpperCase();
-      const cityB = (b.to_city_code || '').toUpperCase();
+      // First sort by city code alphabetically
+      const cityA = (getCityCode(a) || '').toUpperCase();
+      const cityB = (getCityCode(b) || '').toUpperCase();
       
       if (cityA !== cityB) {
         return cityA.localeCompare(cityB);
@@ -596,7 +617,7 @@ const ChallanPDFPreview = ({
       Math.round(bilty.wt || 0).toString(),
       bilty.payment_mode === 'to-pay' ? `${(bilty.total || 0).toFixed(2)}` : '',
       bilty.payment_mode === 'paid' ? `${(bilty.total || 0).toFixed(2)}` : '',
-      (bilty.to_city_code || '').toUpperCase(),
+      (getCityCode(bilty) || '').toUpperCase(),
       bilty.pvt_marks ? `${(bilty.pvt_marks || '').toString().toUpperCase()}/${bilty.no_of_pkg || 0}` : `/${bilty.no_of_pkg || 0}`,
       (bilty.e_way_bill || '').toUpperCase()
     ]);

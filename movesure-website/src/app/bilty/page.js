@@ -16,11 +16,13 @@ import ConsignorConsigneeSection from '../../components/bilty/consignor-consigne
 import { addNewConsignor, addNewConsignee, checkDuplicateConsignor, checkDuplicateConsignee } from '../../components/bilty/consignor-consignee-helper';
 import InvoiceDetailsSection from '../../components/bilty/invoice';
 import PackageChargesSection from '../../components/bilty/charges';
-import PrintModal from '../../components/bilty/print-model';
-import PrintBilty from '../../components/bilty/print-bilty';
 import { useGRReservation } from '../../utils/grReservation';
 import GRLiveStatus from '../../components/bilty/gr-live-status';
-import { uploadBiltyPdf } from '../../utils/biltyPdfUpload';
+
+// ⭐ Lazy-load heavy components (jsPDF + QRCode = ~300KB) — not needed at page load
+import dynamic from 'next/dynamic';
+const PrintModal = dynamic(() => import('../../components/bilty/print-model'), { ssr: false });
+const PrintBilty = dynamic(() => import('../../components/bilty/print-bilty'), { ssr: false });
 
 // Backend API URL — all bilty save/load now goes through the backend
 const BILTY_API_URL = 'https://movesure-backend.onrender.com';
@@ -401,10 +403,16 @@ export default function BiltyForm() {
         staff_id: user.id
       }));
 
-      // Load reference data + default rates in parallel from backend
-      const [refRes, defRatesRes] = await Promise.all([
+      // Load ALL data in parallel — backend APIs + Supabase bilties list
+      const [refRes, defRatesRes, biltiesResult] = await Promise.all([
         fetch(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`),
-        fetch(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`)
+        fetch(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`),
+        supabase
+          .from('bilty')
+          .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
+          .eq('branch_id', user.branch_id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
       ]);
       const result = await refRes.json();
       const defRatesResult = await defRatesRes.json();
@@ -430,15 +438,7 @@ export default function BiltyForm() {
       setConsignors(data.consignors || []);
       setConsignees(data.consignees || []);
       setBillBooks(data.bill_books || []);
-
-      // Load existing bilties list (still via Supabase for now — lightweight query)
-      const { data: biltiesData } = await supabase
-        .from('bilty')
-        .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
-        .eq('branch_id', user.branch_id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      setExistingBilties(biltiesData || []);
+      setExistingBilties(biltiesResult.data || []);
       
       // Set from city
       if (data.branch) {
@@ -709,13 +709,15 @@ export default function BiltyForm() {
         .order('created_at', { ascending: false });
       setExistingBilties(updatedBilties || []);
 
-      // ⭐ BACKGROUND PDF UPLOAD — non-blocking
+      // ⭐ BACKGROUND PDF UPLOAD — lazy-load jsPDF only when needed
       if (savedData && savedData.id) {
-        uploadBiltyPdf(savedData, null)
-          .then((url) => {
-            if (url) console.log('📄 [Background] PDF uploaded:', url);
-          })
-          .catch((err) => console.error('📄 [Background] PDF upload error:', err));
+        import('../../utils/biltyPdfUpload').then(({ uploadBiltyPdf }) => {
+          uploadBiltyPdf(savedData, null)
+            .then((url) => {
+              if (url) console.log('📄 [Background] PDF uploaded:', url);
+            })
+            .catch((err) => console.error('📄 [Background] PDF upload error:', err));
+        });
       }
       
       // Show print modal if not draft — use backend data for correct city names

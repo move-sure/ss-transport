@@ -80,12 +80,12 @@ const ChallanPDFPreview = ({
     });// Calculate totals once
     const totalPackages = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.no_of_pkg || 0), 0);
     const totalWeight = sortedBiltiesData.reduce((sum, bilty) => sum + (bilty.wt || 0), 0);
-    const headerRegularCount = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').length;
-    const headerManualCount = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').length;
-    const regularWeight = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').reduce((sum, b) => sum + (b.wt || 0), 0);
-    const manualWeight = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').reduce((sum, b) => sum + (b.wt || 0), 0);
-    const regularPackages = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').reduce((sum, b) => sum + (b.no_of_pkg || 0), 0);
-    const manualPackages = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').reduce((sum, b) => sum + (b.no_of_pkg || 0), 0);
+    const headerRegularCount = sortedBiltiesData.filter(b => b.bilty_type === 'reg' || b.source === 'bilty').length;
+    const headerManualCount = sortedBiltiesData.filter(b => b.bilty_type === 'mnl' || b.source === 'station_bilty_summary').length;
+    const regularWeight = sortedBiltiesData.filter(b => b.bilty_type === 'reg' || b.source === 'bilty').reduce((sum, b) => sum + (b.wt || 0), 0);
+    const manualWeight = sortedBiltiesData.filter(b => b.bilty_type === 'mnl' || b.source === 'station_bilty_summary').reduce((sum, b) => sum + (b.wt || 0), 0);
+    const regularPackages = sortedBiltiesData.filter(b => b.bilty_type === 'reg' || b.source === 'bilty').reduce((sum, b) => sum + (b.no_of_pkg || 0), 0);
+    const manualPackages = sortedBiltiesData.filter(b => b.bilty_type === 'mnl' || b.source === 'station_bilty_summary').reduce((sum, b) => sum + (b.no_of_pkg || 0), 0);
     
     for (let pageStart = 0; pageStart < sortedBiltiesData.length; pageStart += itemsPerPage) {
       if (pageStart > 0) {
@@ -232,7 +232,7 @@ const ChallanPDFPreview = ({
         
         // Add E-way bill indicator or W (missing consignor/consignee) in remark column
         const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
-        const missingConsignorOrConsignee = bilty.bilty_type === 'station' && 
+        const missingConsignorOrConsignee = bilty.bilty_type === 'mnl' && 
           (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
            !bilty.consignee_name || bilty.consignee_name.trim() === '');
         
@@ -364,7 +364,7 @@ const ChallanPDFPreview = ({
         
         // Add E-way bill indicator or W (missing consignor/consignee) in remark column
         const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
-        const missingConsignorOrConsignee = bilty.bilty_type === 'station' && 
+        const missingConsignorOrConsignee = bilty.bilty_type === 'mnl' && 
           (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
            !bilty.consignee_name || bilty.consignee_name.trim() === '');
         
@@ -429,7 +429,7 @@ const ChallanPDFPreview = ({
     
     // Calculate total W (station bilties missing consignor or consignee)
     const totalWCount = sortedBiltiesData.reduce((total, bilty) => {
-      if (bilty.bilty_type === 'station' && 
+      if (bilty.bilty_type === 'mnl' && 
           (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
            !bilty.consignee_name || bilty.consignee_name.trim() === '')) {
         return total + 1;
@@ -438,8 +438,8 @@ const ChallanPDFPreview = ({
     }, 0);
     
     // Calculate regular and manual bilty counts
-    const regularBiltyCount = sortedBiltiesData.filter(b => b.bilty_type === 'regular' || b.source === 'bilty').length;
-    const manualBiltyCount = sortedBiltiesData.filter(b => b.bilty_type === 'station' || b.source === 'station_bilty_summary').length;
+    const regularBiltyCount = sortedBiltiesData.filter(b => b.bilty_type === 'reg' || b.source === 'bilty').length;
+    const manualBiltyCount = sortedBiltiesData.filter(b => b.bilty_type === 'mnl' || b.source === 'station_bilty_summary').length;
 
     // Add totals section
     doc.setFontSize(10);

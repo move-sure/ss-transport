@@ -137,7 +137,9 @@ export default function TransitManagement() {
     setUserBranch(initData.user_branch || null);
     setBranches(initData.branches || []);
     setCities(initData.cities || []);
-    setPermanentDetails(initData.permanent_details || null);
+    // permanent_details may come as array from RPC json_agg — unwrap to single object
+    const pd = initData.permanent_details;
+    setPermanentDetails(Array.isArray(pd) ? pd[0] || null : pd || null);
     setChallanBooks(initData.challan_books || []);
 
     // ALL challans — already sorted non-dispatched first by RPC

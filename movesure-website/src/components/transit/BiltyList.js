@@ -66,7 +66,7 @@ const BiltyList = ({
     }
 
     // For station bilties, try to map using city_code
-    if (bilty.bilty_type === 'station' || bilty.source === 'station_bilty_summary') {
+    if (bilty.bilty_type === 'mnl' || bilty.source === 'station_bilty_summary') {
       const cityFromCode = getCityName(bilty.station || bilty.to_city_code);
       if (cityFromCode) return cityFromCode;
     }
@@ -463,7 +463,7 @@ const BiltyList = ({
       'Type', 'GR No', 'Date', 'Consignor', 'Consignee', 'Content', 'Destination', 'PVT Marks', 'Payment', 'Pkgs', 'Weight', 'Amount'
     ];
     const rows = sortedTransitBilties.map(bilty => [
-      bilty.bilty_type === 'station' || bilty.source === 'station_bilty_summary' ? 'MNL' : 'REG',
+      bilty.bilty_type === 'mnl' || bilty.source === 'station_bilty_summary' ? 'MNL' : 'REG',
       bilty.gr_no || '',
       bilty.bilty_date || bilty.created_at || '',
       bilty.consignor_name || bilty.consignor || '',
@@ -710,9 +710,9 @@ const BiltyList = ({
                         <td className="px-2.5 py-2.5 text-slate-700">{index + 1}</td>
                         <td className="px-2.5 py-2.5">
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            bilty.bilty_type === 'station' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
+                            bilty.bilty_type === 'mnl' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
                           }`}>
-                            {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
+                            {bilty.bilty_type === 'mnl' ? 'MNL' : 'REG'}
                           </span>
                         </td>
                         <td className="px-2.5 py-2.5">
@@ -993,9 +993,9 @@ const BiltyList = ({
                       <td className="px-2.5 py-2.5 text-slate-700">{index + 1}</td>
                       <td className="px-2.5 py-2.5">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          bilty.bilty_type === 'station' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
+                          bilty.bilty_type === 'mnl' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
                         }`}>
-                          {bilty.bilty_type === 'station' ? 'MNL' : 'REG'}
+                          {bilty.bilty_type === 'mnl' ? 'MNL' : 'REG'}
                         </span>
                       </td>
                       <td className="px-2.5 py-2.5">

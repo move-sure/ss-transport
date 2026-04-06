@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../utils/auth';
 import { useRouter } from 'next/navigation';
 import supabase from '../utils/supabase';
@@ -45,6 +45,9 @@ export default function BiltyForm() {
   
   // Add reset key to force component re-renders
   const [resetKey, setResetKey] = useState(0);
+  
+  // ⭐ Server-provided next GR number (from /save response) — used for fast bilty creation
+  const serverNextGrNoRef = useRef(null);
   
   // GR Sequence validation - check if bill book current_number matches last bilty gr_no
   const [grSequenceError, setGrSequenceError] = useState(null);
@@ -680,6 +683,13 @@ export default function BiltyForm() {
         console.log('📘 Bill book current_number synced from server:', serverCurrentNumber);
       }
 
+      // ⭐ Store server-provided next GR for instant use in resetForm (fast bilty creation)
+      const nextGrNo = result.data.next_gr_no;
+      if (nextGrNo && !isEditMode) {
+        serverNextGrNoRef.current = nextGrNo;
+        console.log('📋 Next GR from server save response:', nextGrNo);
+      }
+
       // ⭐ GR reservation completion (for new bilties only)
       if (!isEditMode && savedData?.id) {
         if (grReservation.hasReservation) {
@@ -730,10 +740,14 @@ export default function BiltyForm() {
   };
 
   const resetForm = async () => {
-    // If user has a reservation, keep it. Otherwise show first from next-available list.
+    // Priority: server save response > reservation > next-available list > local generation
+    const serverNextGr = serverNextGrNoRef.current;
     const currentReservedGR = grReservation.reservedGRNo;
     const nextFromBackend = grReservation.nextAvailable?.[0]?.gr_no;
-    const newGrNo = currentReservedGR || nextFromBackend || (selectedBillBook ? generateGRNumber(selectedBillBook) : '');
+    const newGrNo = serverNextGr || currentReservedGR || nextFromBackend || (selectedBillBook ? generateGRNumber(selectedBillBook) : '');
+    
+    // Clear the server next GR after using it (one-time use)
+    serverNextGrNoRef.current = null;
     
     setFormData({
       gr_no: newGrNo,

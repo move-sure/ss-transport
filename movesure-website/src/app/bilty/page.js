@@ -598,16 +598,8 @@ export default function BiltyForm() {
       // Refresh consignor/consignee lists after saving new entries
       refreshConsignorConsigneeData();
 
-      // Calculate next bill book number for the backend to update
-      let billBookNextNumber = null;
-      if (selectedBillBook && !isEditMode) {
-        billBookNextNumber = selectedBillBook.current_number + 1;
-        if (billBookNextNumber > selectedBillBook.to_number) {
-          billBookNextNumber = selectedBillBook.auto_continue ? selectedBillBook.from_number : null;
-        }
-      }
-
       // ⭐ SAVE VIA BACKEND API — single call handles insert/update, rate saving, bill book update
+      // Backend is the sole authority on current_number — we do NOT calculate it locally
       const savePayload = {
         branch_id: user.branch_id,
         staff_id: user.id,
@@ -648,9 +640,8 @@ export default function BiltyForm() {
         total: parseFloat(formData.total) || 0,
         remark: formData.remark?.toString().trim() || null,
         saving_option: isDraft ? 'DRAFT' : 'SAVE',
-        // Bill book management
+        // Bill book — backend auto-advances current_number safely
         bill_book_id: selectedBillBook?.id || null,
-        bill_book_next_number: billBookNextNumber,
         // Edit mode
         ...(isEditMode && currentBiltyId ? { bilty_id: currentBiltyId } : {})
       };
@@ -682,15 +673,18 @@ export default function BiltyForm() {
       if (fromCityData?.city_name) setFromCityName(fromCityData.city_name);
       if (toCityData?.city_name) setToCityName(toCityData.city_name);
 
+      // ⭐ Sync local bill book state from server response (NEVER calculate locally)
+      const serverCurrentNumber = result.data.new_current_number;
+      if (serverCurrentNumber != null && selectedBillBook) {
+        setSelectedBillBook(prev => ({ ...prev, current_number: serverCurrentNumber }));
+        console.log('📘 Bill book current_number synced from server:', serverCurrentNumber);
+      }
+
       // ⭐ GR reservation completion (for new bilties only)
       if (!isEditMode && savedData?.id) {
         if (grReservation.hasReservation) {
           console.log('🎫 Completing GR reservation:', grReservation.reservedGRNo);
           await grReservation.completeAndReserveNext();
-        }
-        // Update local bill book state
-        if (selectedBillBook && billBookNextNumber) {
-          setSelectedBillBook(prev => ({ ...prev, current_number: billBookNextNumber }));
         }
         // Refresh next-available list from backend
         grReservation.refreshNextAvailable();

@@ -332,13 +332,15 @@ const res = await fetch(
   `${API}/api/challan/transit/bilties/${challanNo}`
 );
 const { data } = await res.json();
-// data.rows = [{ id, challan_no, gr_no, consignor_name, consignee_name, source_table, ... }]
+// data.rows = [{ id, challan_no, gr_no, consignor_name, consignee_name, contain, source_table, ... }]
 // data.total = 86  ← total bilties in this challan
 ```
 
 Each transit row includes `bilty_type`: `"reg"` for bilty-table rows, `"mnl"` for station_bilty_summary rows.
 
-Each transit row is enriched with bilty details (consignor, consignee, transport, weight, packages, etc.) from the appropriate source table.
+Each transit row is enriched with bilty details (consignor, consignee, transport, weight, packages, **contain** (goods description), etc.) from the appropriate source table.
+
+**`contain` field:** For regular bilties (`bilty_type: "reg"`), mapped from `bilty.contain`. For station bilties (`bilty_type: "mnl"`), mapped from `station_bilty_summary.contents`. Both are returned as `contain` in the response for consistent frontend usage.
 
 ---
 

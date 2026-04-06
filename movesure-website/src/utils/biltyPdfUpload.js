@@ -224,13 +224,13 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
   const y = yStart;
 
   // HEADER
-  addStyledText(pdf, `GST No: ${permDetails?.gst || '09COVPS5556J1ZT'}`, COORDINATES.HEADER.GST_NO.x, y + COORDINATES.HEADER.GST_NO.y, STYLES.FONTS.NOTICE);
+  addStyledText(pdf, `GST No: ${permDetails?.gst || ''}`, COORDINATES.HEADER.GST_NO.x, y + COORDINATES.HEADER.GST_NO.y, STYLES.FONTS.NOTICE);
   addHeaderText(pdf, 'S. S. TRANSPORT CORPORATION', COORDINATES.HEADER.COMPANY_NAME.x, y + COORDINATES.HEADER.COMPANY_NAME.y, 20, { align: 'center' });
 
-  addStyledText(pdf, `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || '0010002100076368'} IFSC CODE ${permDetails?.ifsc_code_1 || '0001000'}`, COORDINATES.HEADER.BANK_DETAIL_1.x, y + COORDINATES.HEADER.BANK_DETAIL_1.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || '923010361683636'} IFSC CODE ${permDetails?.ifsc_code_2 || '0001837'}`, COORDINATES.HEADER.BANK_DETAIL_2.x, y + COORDINATES.HEADER.BANK_DETAIL_2.y, STYLES.FONTS.LABELS);
+  addStyledText(pdf, `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || ''} IFSC CODE ${permDetails?.ifsc_code_1 || ''}`, COORDINATES.HEADER.BANK_DETAIL_1.x, y + COORDINATES.HEADER.BANK_DETAIL_1.y, STYLES.FONTS.LABELS);
+  addStyledText(pdf, `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || ''} IFSC CODE ${permDetails?.ifsc_code_2 || ''}`, COORDINATES.HEADER.BANK_DETAIL_2.x, y + COORDINATES.HEADER.BANK_DETAIL_2.y, STYLES.FONTS.LABELS);
 
-  const address = permDetails?.transport_address || 'GANDHI MARKET, G T ROAD, ALIGARH-202001\nSHIVA PETROL PUMP, G T ROAD, ALIGARH-202001';
+  const address = permDetails?.transport_address || '';
   const addressLines = address.split('\n');
   addStyledText(pdf, addressLines[0], COORDINATES.HEADER.BRANCH_ADDRESS_1.x, y + COORDINATES.HEADER.BRANCH_ADDRESS_1.y, STYLES.FONTS.ENHANCED_VALUES);
   if (addressLines[1]) addStyledText(pdf, addressLines[1], COORDINATES.HEADER.BRANCH_ADDRESS_2.x, y + COORDINATES.HEADER.BRANCH_ADDRESS_2.y, STYLES.FONTS.ENHANCED_VALUES);
@@ -242,21 +242,21 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
 
   // DATE & ROUTE
   addStyledText(pdf, `Date: ${formatDate(biltyData.bilty_date)}`, COORDINATES.COPY_SECTION.DATE.x, y + COORDINATES.COPY_SECTION.DATE.y, STYLES.FONTS.LABELS);
-  const fromCityName = fromCity?.city_name || 'ALIGARH';
-  const toCityName = toCity?.city_name || 'DEORIA';
-  const toCityCode = toCity?.city_code || 'DRO';
+  const fromCityName = fromCity?.city_name || '';
+  const toCityName = toCity?.city_name || '';
+  const toCityCode = toCity?.city_code || '';
   addStyledText(pdf, `${fromCityName} TO ${toCityName} (${toCityCode})`, COORDINATES.COPY_SECTION.ROUTE.x, y + COORDINATES.COPY_SECTION.ROUTE.y, STYLES.FONTS.NOTICE);
 
   // DELIVERY
-  const deliveryText = transport?.transport_name || biltyData.transport_name || 'SWASTIK TRANSPORT';
+  const deliveryText = transport?.transport_name || biltyData.transport_name || '';
   addStyledText(pdf, `DELIVERY AT: ${deliveryText}`, COORDINATES.DELIVERY_SECTION.DELIVERY_AT.x, y + COORDINATES.DELIVERY_SECTION.DELIVERY_AT.y, STYLES.FONTS.ENHANCED_LABELS);
-  addStyledText(pdf, `GSTIN: ${transport?.gst_number || '24503825250'}`, COORDINATES.DELIVERY_SECTION.GSTIN.x, y + COORDINATES.DELIVERY_SECTION.GSTIN.y, STYLES.FONTS.ENHANCED_LABELS);
-  const mobileNumber = transport?.mob_number || permDetails?.mobile_number || '7668291228';
+  addStyledText(pdf, `GSTIN: ${transport?.gst_number || ''}`, COORDINATES.DELIVERY_SECTION.GSTIN.x, y + COORDINATES.DELIVERY_SECTION.GSTIN.y, STYLES.FONTS.ENHANCED_LABELS);
+  const mobileNumber = transport?.mob_number || permDetails?.mobile_number || '';
   addStyledText(pdf, `MOB: ${mobileNumber}`, COORDINATES.DELIVERY_SECTION.MOBILE.x, y + COORDINATES.DELIVERY_SECTION.MOBILE.y, STYLES.FONTS.ENHANCED_LABELS);
 
   // CONSIGNOR
   addStyledText(pdf, `CONSIGNOR: ${(biltyData.consignor_name || '').toUpperCase()}`, COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.y, STYLES.FONTS.ENHANCED_LABELS);
-  addStyledText(pdf, `GSTIN: ${biltyData.consignor_gst || 'N/A'}`, COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.y, STYLES.FONTS.ENHANCED_VALUES);
+  addStyledText(pdf, `GSTIN: ${biltyData.consignor_gst || ''}`, COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.y, STYLES.FONTS.ENHANCED_VALUES);
   if (biltyData.consignor_number) addStyledText(pdf, `MOB: ${biltyData.consignor_number}`, COORDINATES.PEOPLE_SECTION.CONSIGNOR_MOBILE.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_MOBILE.y, STYLES.FONTS.ENHANCED_VALUES);
 
   // CONSIGNEE
@@ -267,13 +267,13 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
   } else if (gstText.toLowerCase().startsWith('pan')) {
     addStyledText(pdf, `PAN NO: ${gstText.substring(3)}`, COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y, STYLES.FONTS.ENHANCED_VALUES);
   } else {
-    addStyledText(pdf, `GSTIN: ${gstText || 'N/A'}`, COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y, STYLES.FONTS.ENHANCED_VALUES);
+    addStyledText(pdf, `GSTIN: ${gstText || ''}`, COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y, STYLES.FONTS.ENHANCED_VALUES);
   }
   if (biltyData.consignee_number) addStyledText(pdf, `MOB: ${biltyData.consignee_number}`, COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.x, y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.y, STYLES.FONTS.ENHANCED_VALUES);
 
   // E-WAY BILL
   addStyledText(pdf, 'E-WAY BILL: ', COORDINATES.PEOPLE_SECTION.EWAY_BILL.x, y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `${biltyData.e_way_bill || 'N/A'}`, COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 25, y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y, STYLES.FONTS.ENHANCED_VALUES);
+  addStyledText(pdf, `${biltyData.e_way_bill || ''}`, COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 25, y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y, STYLES.FONTS.ENHANCED_VALUES);
 
   // TABLE TOP LINE
   pdf.setLineWidth(STYLES.LINES.THICK);
@@ -281,13 +281,13 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
 
   // INVOICE
   addStyledText(pdf, 'INVOICE DATE:', COORDINATES.TABLE_SECTION.INVOICE_DATE.x, y + COORDINATES.TABLE_SECTION.INVOICE_DATE.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `${biltyData.invoice_date ? formatDate(biltyData.invoice_date) : 'N/A'}`, COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.y, STYLES.FONTS.VALUES);
+  addStyledText(pdf, `${biltyData.invoice_date ? formatDate(biltyData.invoice_date) : ''}`, COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.y, STYLES.FONTS.VALUES);
   addStyledText(pdf, 'INVOICE NO:', COORDINATES.TABLE_SECTION.INVOICE_NO.x, y + COORDINATES.TABLE_SECTION.INVOICE_NO.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `${biltyData.invoice_no || 'N/A'}`, COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.y, STYLES.FONTS.VALUES);
+  addStyledText(pdf, `${biltyData.invoice_no || ''}`, COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.y, STYLES.FONTS.VALUES);
   addStyledText(pdf, 'INVOICE VALUE:', COORDINATES.TABLE_SECTION.INVOICE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_VALUE.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `${biltyData.invoice_value || '0'}`, COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.y, STYLES.FONTS.VALUES);
+  addStyledText(pdf, `${biltyData.invoice_value || ''}`, COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.y, STYLES.FONTS.VALUES);
   addStyledText(pdf, 'CONTENT:', COORDINATES.TABLE_SECTION.CONTENT.x, y + COORDINATES.TABLE_SECTION.CONTENT.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `${biltyData.contain || 'HARDWARE'}`, COORDINATES.TABLE_SECTION.CONTENT_VALUE.x, y + COORDINATES.TABLE_SECTION.CONTENT_VALUE.y, STYLES.FONTS.VALUES);
+  addStyledText(pdf, `${biltyData.contain || ''}`, COORDINATES.TABLE_SECTION.CONTENT_VALUE.x, y + COORDINATES.TABLE_SECTION.CONTENT_VALUE.y, STYLES.FONTS.VALUES);
 
   // PVT MARKS BOX
   pdf.setLineWidth(STYLES.LINES.THICK);
@@ -295,7 +295,7 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
   pdf.setLineWidth(STYLES.LINES.NORMAL);
   pdf.line(COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.x, y + COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.y1, COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.x, y + COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.y2);
   addStyledText(pdf, 'PVT MARKS:', COORDINATES.TABLE_SECTION.PVT_LABEL.x, y + COORDINATES.TABLE_SECTION.PVT_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
-  addStyledText(pdf, `${biltyData.pvt_marks || 'SS'} / ${biltyData.no_of_pkg}`, COORDINATES.TABLE_SECTION.PVT_VALUE.x, y + COORDINATES.TABLE_SECTION.PVT_VALUE.y, STYLES.FONTS.LARGE_STATUS, { align: 'center' });
+  addStyledText(pdf, `${biltyData.pvt_marks || ''} / ${biltyData.no_of_pkg}`, COORDINATES.TABLE_SECTION.PVT_VALUE.x, y + COORDINATES.TABLE_SECTION.PVT_VALUE.y, STYLES.FONTS.LARGE_STATUS, { align: 'center' });
   addStyledText(pdf, 'CITY CODE:', COORDINATES.TABLE_SECTION.CITY_LABEL.x, y + COORDINATES.TABLE_SECTION.CITY_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
   addStyledText(pdf, `${toCityCode}`, COORDINATES.TABLE_SECTION.CITY_VALUE.x, y + COORDINATES.TABLE_SECTION.CITY_VALUE.y, STYLES.FONTS.LARGE_STATUS, { align: 'center' });
 
@@ -347,9 +347,9 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
   // FOOTER
   pdf.setLineWidth(STYLES.LINES.NORMAL);
   pdf.line(COORDINATES.FOOTER_SECTION.FOOTER_LINE.x1, y + COORDINATES.FOOTER_SECTION.FOOTER_LINE.y, COORDINATES.FOOTER_SECTION.FOOTER_LINE.x2, y + COORDINATES.FOOTER_SECTION.FOOTER_LINE.y);
-  addStyledText(pdf, `OUR WEBSITE: ${permDetails?.website || 'SSTRANSPORTCO.COM'}`, COORDINATES.FOOTER_SECTION.WEBSITE.x, y + COORDINATES.FOOTER_SECTION.WEBSITE.y, STYLES.FONTS.LABELS);
+  addStyledText(pdf, `OUR WEBSITE: ${permDetails?.website || ''}`, COORDINATES.FOOTER_SECTION.WEBSITE.x, y + COORDINATES.FOOTER_SECTION.WEBSITE.y, STYLES.FONTS.LABELS);
   addStyledText(pdf, "BOOKED AT OWNER'S RISK", COORDINATES.FOOTER_SECTION.BOOKED_RISK.x, y + COORDINATES.FOOTER_SECTION.BOOKED_RISK.y, STYLES.FONTS.LABELS);
-  addStyledText(pdf, `CUSTOMER CARE: ${permDetails?.mobile_number || '9690836940'}`, COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.x, y + COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.y, STYLES.FONTS.LABELS);
+  addStyledText(pdf, `CUSTOMER CARE: ${permDetails?.mobile_number || ''}`, COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.x, y + COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.y, STYLES.FONTS.LABELS);
   addStyledText(pdf, 'SIGNATURE OF BOOKING CLERK', COORDINATES.FOOTER_SECTION.SIGNATURE.x, y + COORDINATES.FOOTER_SECTION.SIGNATURE.y, STYLES.FONTS.LABELS);
 };
 
@@ -358,7 +358,7 @@ const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, to
 // ==========================================
 const getCityNameByCode = (cityCode) => {
   const map = { ALG: 'ALIGARH', KP: 'KANPUR' };
-  return map[cityCode?.toUpperCase()] || cityCode || 'ALIGARH';
+  return map[cityCode?.toUpperCase()] || cityCode || '';
 };
 
 // ==========================================

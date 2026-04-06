@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
 import { X, Save, FileText } from 'lucide-react';
+
+const API_URL = 'https://movesure-backend.onrender.com';
 
 const ChallanBookForm = ({ 
   isOpen, 
@@ -106,31 +107,42 @@ const ChallanBookForm = ({
 
       // Prepare data
       const saveData = {
-        ...formData,
-        created_by: user.id,
+        prefix: formData.prefix,
+        from_number: formData.from_number,
+        to_number: formData.to_number,
+        digits: formData.digits,
+        postfix: formData.postfix,
+        from_branch_id: formData.from_branch_id,
+        to_branch_id: formData.to_branch_id,
+        branch_1: formData.branch_1,
         branch_2: formData.branch_2 || null,
-        branch_3: formData.branch_3 || null
+        branch_3: formData.branch_3 || null,
+        current_number: formData.current_number,
+        is_fixed: formData.is_fixed,
+        auto_continue: formData.auto_continue,
+        is_active: formData.is_active,
+        created_by: user.id,
       };
 
-      let result;
       if (editingBook) {
-        // Update existing
-        result = await supabase
-          .from('challan_books')
-          .update(saveData)
-          .eq('id', editingBook.id)
-          .select()
-          .single();
+        // Update existing book via API
+        const res = await fetch(`${API_URL}/api/challan/books/${editingBook.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(saveData),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message || 'Failed to update challan book');
       } else {
-        // Create new
-        result = await supabase
-          .from('challan_books')
-          .insert([saveData])
-          .select()
-          .single();
+        // Create new book via API
+        const res = await fetch(`${API_URL}/api/challan/books`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(saveData),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message || 'Failed to create challan book');
       }
-
-      if (result.error) throw result.error;
 
       alert(editingBook ? 'Challan book updated successfully!' : 'Challan book created successfully!');
       onSuccess();

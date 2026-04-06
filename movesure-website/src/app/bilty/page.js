@@ -22,6 +22,9 @@ import { useGRReservation } from '../../utils/grReservation';
 import GRLiveStatus from '../../components/bilty/gr-live-status';
 import { uploadBiltyPdf } from '../../utils/biltyPdfUpload';
 
+// Backend API URL — all bilty save/load now goes through the backend
+const BILTY_API_URL = 'https://movesure-backend.onrender.com';
+
 export default function BiltyForm() {
   const { user } = useAuth();
   const router = useRouter();
@@ -50,12 +53,18 @@ export default function BiltyForm() {
   const [billBooks, setBillBooks] = useState([]);
   const [cities, setCities] = useState([]);
   const [transports, setTransports] = useState([]);
+  const [transportByCityId, setTransportByCityId] = useState({});
   const [rates, setRates] = useState([]);
   const [consignors, setConsignors] = useState([]);
   const [consignees, setConsignees] = useState([]);
   const [branchData, setBranchData] = useState(null);
   const [fromCityName, setFromCityName] = useState('');
   const [toCityName, setToCityName] = useState('');
+  
+  // ⭐ Backend rate caches — populated from /api/bilty/rates/all and /api/bilty/rates/default
+  const [consignorRatesByCity, setConsignorRatesByCity] = useState({});
+  const [defaultRateByCityId, setDefaultRateByCityId] = useState({});
+  const [selectedConsignorId, setSelectedConsignorId] = useState(null);
   
   // Selected bill book
   const [selectedBillBook, setSelectedBillBook] = useState(null);
@@ -129,37 +138,20 @@ export default function BiltyForm() {
     }
   }, [loading, cities]);
 
-  // ⭐ GR SEQUENCE VALIDATION - Check if bill book current_number is ahead of last bilty gr_no
+  // ⭐ GR SEQUENCE VALIDATION — handled by backend /validate endpoint now
+  // The grReservation hook calls validateBillBook on load and auto-fixes current_number.
+  // We use billBookValidation from the hook to detect issues.
   useEffect(() => {
     if (!selectedBillBook || isEditMode || loading) {
       setGrSequenceError(null);
       return;
     }
-
-    const currentGR = generateGRNumber(selectedBillBook);
-    if (!currentGR) {
-      setGrSequenceError(null);
-      return;
-    }
-
-    // Check if any existing bilty already has this GR number (for this branch)
-    const duplicateGR = existingBilties.find(b => 
-      b.gr_no && b.gr_no.trim().toLowerCase() === currentGR.trim().toLowerCase()
-    );
-
-    if (duplicateGR) {
-      const errorMsg = `⚠️ GR SEQUENCE ERROR: Bill book current number generates "${currentGR}" which already exists as a saved bilty (${duplicateGR.consignor_name || 'N/A'} → ${duplicateGR.consignee_name || 'N/A'}, ${duplicateGR.saving_option}). Bill book current_number (${selectedBillBook.current_number}) must be incremented to avoid duplicate. Please fix the bill book sequence.`;
-      console.error('🚨 ' + errorMsg);
-      setGrSequenceError({
-        message: errorMsg,
-        currentGR,
-        existingBilty: duplicateGR,
-        currentNumber: selectedBillBook.current_number
-      });
-    } else {
+    // If backend validation detected and fixed an issue, show info briefly
+    if (grReservation.billBookValidation?.fixed) {
+      console.log('🔧 Backend auto-fixed current_number:', grReservation.billBookValidation.old_current_number, '→', grReservation.billBookValidation.new_current_number);
       setGrSequenceError(null);
     }
-  }, [selectedBillBook, existingBilties, isEditMode, loading]);
+  }, [selectedBillBook, isEditMode, loading, grReservation.billBookValidation]);
 
   // ⭐ SYNC RESERVED GR NUMBER into form data
   // When reservation system provides a GR number, use it instead of the local generateGRNumber
@@ -170,61 +162,46 @@ export default function BiltyForm() {
         ...prev,
         gr_no: grReservation.reservedGRNo
       }));
-      // Clear any sequence error since reservation system handles conflicts
       setGrSequenceError(null);
     }
   }, [grReservation.reservedGRNo, isEditMode, loading]);
 
-  // ⭐ RECALCULATE SUGGESTED GR when branch reservations change (via Realtime)
-  // Only when user has NO active reservation and is in NEW mode
-  // This ensures that if another user reserves A08044, this user sees A08048 instead
+  // ⭐ SHOW FIRST AVAILABLE GR when user has NO reservation
+  // Uses the backend /next-available list instead of local calculation
   useEffect(() => {
-    if (isEditMode || loading || grReservation.hasReservation || !selectedBillBook) return;
-
-    const smartGR = getNextAvailableGR(selectedBillBook);
-    if (smartGR) {
+    if (isEditMode || loading || grReservation.hasReservation) return;
+    const available = grReservation.nextAvailable;
+    if (available && available.length > 0) {
+      const firstGR = available[0].gr_no;
       setFormData(prev => {
-        if (prev.gr_no !== smartGR) {
-          console.log('📊 Smart GR recalculated:', smartGR, '(was:', prev.gr_no, ')');
-          return { ...prev, gr_no: smartGR };
+        if (prev.gr_no !== firstGR) {
+          console.log('📋 Setting suggested GR from backend:', firstGR);
+          return { ...prev, gr_no: firstGR };
         }
         return prev;
       });
     }
-  }, [grReservation.branchReservations, selectedBillBook, isEditMode, loading, grReservation.hasReservation, existingBilties]);
+  }, [grReservation.nextAvailable, isEditMode, loading, grReservation.hasReservation]);
 
-  // ⭐ Fix GR sequence - update bill book current_number in DB
+  // ⭐ Fix GR sequence via backend API
   const fixGRSequence = async (newCurrentNumber) => {
     if (!selectedBillBook) return;
-    
-    const num = parseInt(newCurrentNumber);
-    if (isNaN(num) || num < selectedBillBook.from_number || num > selectedBillBook.to_number) {
-      alert(`❌ Invalid number! Must be between ${selectedBillBook.from_number} and ${selectedBillBook.to_number}`);
-      return;
-    }
 
     try {
-      const { error } = await supabase
-        .from('bill_books')
-        .update({ current_number: num })
-        .eq('id', selectedBillBook.id);
-
-      if (error) {
-        console.error('❌ Error fixing GR sequence:', error);
-        alert('❌ Failed to update bill book: ' + error.message);
-        return;
+      const result = await grReservation.fixSequence(
+        newCurrentNumber ? parseInt(newCurrentNumber) : null
+      );
+      if (result?.fixed) {
+        const updatedBook = { ...selectedBillBook, current_number: result.new_current_number };
+        setSelectedBillBook(updatedBook);
+        setGrSequenceError(null);
+        // Refresh next available GRs
+        grReservation.refreshNextAvailable();
+        console.log(`✅ GR sequence fixed via backend: ${result.old_current_number} → ${result.new_current_number}`);
       }
-
-      // Update local state
-      const updatedBook = { ...selectedBillBook, current_number: num };
-      setSelectedBillBook(updatedBook);
-      const newGR = getNextAvailableGR(updatedBook);
-      setFormData(prev => ({ ...prev, gr_no: newGR }));
-      setGrSequenceError(null);
-      console.log(`✅ Bill book current_number fixed to ${num}, new GR: ${newGR}`);
     } catch (err) {
       console.error('❌ Error fixing GR sequence:', err);
-      alert('❌ Failed to update: ' + err.message);
+      alert('❌ Failed to fix: ' + err.message);
     }
   };
 
@@ -262,40 +239,54 @@ export default function BiltyForm() {
       if (e.key === 'Alt') setShowShortcuts(false);
     };
     
-    // Handle consignor selection for rate updates
-    const handleConsignorSelection = (event) => {
+    // Handle consignor selection — fetch ALL rates for this consignor from backend
+    const handleConsignorSelection = async (event) => {
       const { consignor, cityId } = event.detail;
-      console.log('🎯 Handling consignor selection event:', consignor.company_name, 'for city:', cityId);
+      console.log('🎯 Consignor selected:', consignor.company_name, 'ID:', consignor.id);
       
-      // Find consignor-specific rate for this consignor and city combination
-      const consignorSpecificRate = rates.find(r => 
-        r.city_id === cityId && 
-        r.consignor_id === consignor.id && 
-        !r.is_default
-      );
+      setSelectedConsignorId(consignor.id || null);
       
-      if (consignorSpecificRate) {
-        console.log('✅ Found consignor-specific rate:', consignorSpecificRate.rate);
-        setFormData(prev => ({
-          ...prev,
-          rate: consignorSpecificRate.rate
-        }));
-      } else {
-        console.log('⚠️ No consignor-specific rate found, keeping current rate');
-        
-        // Optionally, fall back to default rate for this city
-        const defaultRate = rates.find(r => 
-          r.city_id === cityId && 
-          r.is_default
+      if (!consignor.id) {
+        // New consignor typed (no ID yet) — clear consignor rates, keep defaults
+        setConsignorRatesByCity({});
+        return;
+      }
+      
+      try {
+        // Fetch BOTH consignor-specific and default rates in one call
+        const res = await fetch(
+          `${BILTY_API_URL}/api/bilty/rates/all?consignor_id=${consignor.id}&branch_id=${user.branch_id}`
         );
+        const result = await res.json();
         
-        if (defaultRate) {
-          console.log('📋 Using default rate:', defaultRate.rate);
-          setFormData(prev => ({
-            ...prev,
-            rate: defaultRate.rate
-          }));
+        if (result.status === 'success') {
+          const data = result.data;
+          setConsignorRatesByCity(data.consignor_rates_by_city || {});
+          setDefaultRateByCityId(data.default_rate_by_city_id || {});
+          console.log('✅ Cached consignor rates for', Object.keys(data.consignor_rates_by_city || {}).length, 'cities');
+          
+          // If city is already selected, apply rate immediately
+          if (cityId) {
+            const cityRates = (data.consignor_rates_by_city || {})[cityId];
+            if (cityRates && cityRates.length > 0) {
+              const r = cityRates[0];
+              console.log('💰 Applying consignor profile rate:', r.rate, r.rate_unit);
+              setFormData(prev => ({
+                ...prev,
+                rate: parseFloat(r.rate) || prev.rate
+              }));
+            } else {
+              // Fallback to default rate
+              const defRate = (data.default_rate_by_city_id || {})[cityId];
+              if (defRate) {
+                console.log('📋 Using default rate:', defRate);
+                setFormData(prev => ({ ...prev, rate: parseFloat(defRate) }));
+              }
+            }
+          }
         }
+      } catch (err) {
+        console.error('Error fetching consignor rates:', err);
       }
     };    window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -333,29 +324,32 @@ export default function BiltyForm() {
         const { biltyId, grNo, editMode } = JSON.parse(editData);
         
         if (editMode && biltyId) {
-          console.log('Loading bilty for edit:', { biltyId, grNo });
+          console.log('Loading bilty for edit via backend:', { biltyId, grNo });
           
-          // Load the full bilty data
-          const { data: fullBilty, error } = await supabase
-            .from('bilty')
-            .select('*')
-            .eq('id', biltyId)
-            .single();
+          // Load the full bilty data from backend (includes city names)
+          const res = await fetch(`${BILTY_API_URL}/api/bilty/${biltyId}`);
+          const result = await res.json();
           
-          if (error) {          console.error('Error loading bilty for edit:', error);
-          alert('Error loading bilty data for editing');
-          localStorage.removeItem('editBiltyData');
+          if (result.status !== 'success' || !result.data?.bilty) {
+            console.error('Error loading bilty for edit:', result.message);
+            alert('Error loading bilty data for editing');
+            localStorage.removeItem('editBiltyData');
             return;
           }
-            console.log('Loaded bilty data:', fullBilty);
-            // Set form data with the existing bilty
+
+          const fullBilty = result.data.bilty;
+          const fromCityData = result.data.from_city;
+          const toCityData = result.data.to_city;
+          
+          console.log('Loaded bilty data from backend:', fullBilty);
+          
+          // Set form data with the existing bilty
           setFormData({
             ...fullBilty,
             bilty_date: format(new Date(fullBilty.bilty_date), 'yyyy-MM-dd'),
             invoice_date: fullBilty.invoice_date ? format(new Date(fullBilty.invoice_date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
             pf_charge: fullBilty.pf_charge || 0,
             labour_rate: fullBilty.labour_rate !== undefined && fullBilty.labour_rate !== null ? fullBilty.labour_rate : 20,
-            // Ensure all string fields are not null to prevent React errors
             consignor_name: fullBilty.consignor_name || '',
             consignor_gst: fullBilty.consignor_gst || '',
             consignor_number: fullBilty.consignor_number || '',
@@ -378,13 +372,9 @@ export default function BiltyForm() {
           setIsEditMode(true);
           setCurrentBiltyId(biltyId);
           
-          // Set to city name for display
-          if (fullBilty.to_city_id) {
-            const city = cities.find(c => c.id === fullBilty.to_city_id);
-            if (city) {
-              setToCityName(city.city_name);
-            }
-          }
+          // Set city names from backend response
+          if (fromCityData?.city_name) setFromCityName(fromCityData.city_name);
+          if (toCityData?.city_name) setToCityName(toCityData.city_name);
           
           // Clear the localStorage data
           localStorage.removeItem('editBiltyData');
@@ -407,30 +397,49 @@ export default function BiltyForm() {
         branch_id: user.branch_id,
         staff_id: user.id
       }));
-        // Load all data in parallel
-      const [branchRes, citiesRes, transportsRes, ratesRes, consignorsRes, consigneesRes, booksRes, biltiesRes] = await Promise.all([
-        supabase.from('branches').select('*').eq('id', user.branch_id).single(),
-        supabase.from('cities').select('*').order('city_name'),
-        supabase.from('transports').select('*'),
-        supabase.from('rates').select('*').eq('branch_id', user.branch_id),
-        supabase.from('consignors').select('*').order('company_name'),
-        supabase.from('consignees').select('*').order('company_name'),
-        supabase.from('bill_books').select('*').eq('branch_id', user.branch_id).eq('is_active', true).eq('is_completed', false).order('created_at', { ascending: false }),
-        supabase.from('bilty').select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option').eq('branch_id', user.branch_id).eq('is_active', true).order('created_at', { ascending: false })
+
+      // Load reference data + default rates in parallel from backend
+      const [refRes, defRatesRes] = await Promise.all([
+        fetch(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`),
+        fetch(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`)
       ]);
+      const result = await refRes.json();
+      const defRatesResult = await defRatesRes.json();
+
+      if (result.status !== 'success') {
+        console.error('Backend reference-data error:', result.message);
+        throw new Error(result.message || 'Failed to load reference data');
+      }
+
+      const data = result.data;
       
-      setBranchData(branchRes.data);
-      setCities(citiesRes.data || []);
-      setTransports(transportsRes.data || []);
-      setRates(ratesRes.data || []);
-      setConsignors(consignorsRes.data || []);
-      setConsignees(consigneesRes.data || []);
-      setBillBooks(booksRes.data || []);
-      setExistingBilties(biltiesRes.data || []);
+      // Store default rates lookup
+      if (defRatesResult.status === 'success') {
+        setDefaultRateByCityId(defRatesResult.data?.rate_by_city_id || {});
+        console.log('✅ Loaded default rates for', Object.keys(defRatesResult.data?.rate_by_city_id || {}).length, 'cities');
+      }
+      
+      setBranchData(data.branch);
+      setCities(data.cities || []);
+      setTransports(data.transports || []);
+      setTransportByCityId(data.transport_by_city_id || {});
+      setRates(data.rates || []);
+      setConsignors(data.consignors || []);
+      setConsignees(data.consignees || []);
+      setBillBooks(data.bill_books || []);
+
+      // Load existing bilties list (still via Supabase for now — lightweight query)
+      const { data: biltiesData } = await supabase
+        .from('bilty')
+        .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
+        .eq('branch_id', user.branch_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      setExistingBilties(biltiesData || []);
       
       // Set from city
-      if (branchRes.data) {
-        const fromCity = citiesRes.data?.find(c => c.city_code === branchRes.data.city_code);
+      if (data.branch) {
+        const fromCity = data.cities?.find(c => c.city_code === data.branch.city_code);
         if (fromCity) {
           setFromCityName(fromCity.city_name);
           setFormData(prev => ({ ...prev, from_city_id: fromCity.id }));
@@ -438,25 +447,21 @@ export default function BiltyForm() {
       }
       
       // Set default bill book and GR - Only if not editing
-      if (booksRes.data?.length > 0 && !localStorage.getItem('editBiltyData')) {
-        const defaultBook = branchRes.data?.default_bill_book_id 
-          ? booksRes.data.find(b => b.id === branchRes.data.default_bill_book_id) || booksRes.data[0]
-          : booksRes.data[0];
+      if (data.bill_books?.length > 0 && !localStorage.getItem('editBiltyData')) {
+        const defaultBook = data.branch?.default_bill_book_id 
+          ? data.bill_books.find(b => b.id === data.branch.default_bill_book_id) || data.bill_books[0]
+          : data.bill_books[0];
         
         setSelectedBillBook(defaultBook);
-        // Use smart GR that skips reserved/used numbers (branchReservations may be empty at this point,
-        // the recalculate useEffect will update once data arrives)
         const grNo = getNextAvailableGR(defaultBook);
         setFormData(prev => ({ ...prev, gr_no: grNo }));
         
-        // Ensure we're in new mode
         setIsEditMode(false);
         setCurrentBiltyId(null);
-      } else if (booksRes.data?.length > 0) {
-        // Still set the selected bill book even in edit mode for bill book dropdown
-        const defaultBook = branchRes.data?.default_bill_book_id 
-          ? booksRes.data.find(b => b.id === branchRes.data.default_bill_book_id) || booksRes.data[0]
-          : booksRes.data[0];
+      } else if (data.bill_books?.length > 0) {
+        const defaultBook = data.branch?.default_bill_book_id 
+          ? data.bill_books.find(b => b.id === data.branch.default_bill_book_id) || data.bill_books[0]
+          : data.bill_books[0];
         setSelectedBillBook(defaultBook);
       }
       
@@ -474,41 +479,14 @@ export default function BiltyForm() {
     return `${prefix || ''}${paddedNumber}${postfix || ''}`;
   };
 
-  // Format a GR string from a bill book and a specific number
-  const formatGRFromNumber = (billBook, num) => {
-    if (!billBook) return '';
-    const paddedNumber = String(num).padStart(billBook.digits, '0');
-    return `${billBook.prefix || ''}${paddedNumber}${billBook.postfix || ''}`;
-  };
-
-  // ⭐ SMART GR: Get next available GR number, skipping reserved and used numbers
-  // This shows the user the NEXT number they can reserve, not one that's already taken
+  // ⭐ getNextAvailableGR now uses backend /next-available data
+  // Kept as a fallback for immediate display before backend responds
   const getNextAvailableGR = (billBook) => {
-    if (!billBook) return '';
-    let num = billBook.current_number;
-
-    // Collect all reserved GR numbers for this bill book (by ANYONE)
-    const reservedNumbers = new Set(
-      (grReservation.branchReservations || [])
-        .filter(r => r.bill_book_id === billBook.id)
-        .map(r => r.gr_number)
-    );
-
-    // Collect all used GR strings from existing bilties
-    const usedGRs = new Set(
-      (existingBilties || []).map(b => b.gr_no?.trim().toLowerCase())
-    );
-
-    const maxNum = billBook.to_number;
-    while (num <= maxNum) {
-      const grStr = formatGRFromNumber(billBook, num);
-      if (!reservedNumbers.has(num) && !usedGRs.has(grStr.trim().toLowerCase())) {
-        return grStr;
-      }
-      num++;
+    // Use backend next-available list if present
+    if (grReservation.nextAvailable?.length > 0) {
+      return grReservation.nextAvailable[0].gr_no;
     }
-
-    // All numbers exhausted - return formatted current_number as fallback
+    // Fallback to local generation
     return generateGRNumber(billBook);
   };
 
@@ -575,21 +553,12 @@ export default function BiltyForm() {
 
     try {
       setSaving(true);
-        console.log('Starting save process...');
+      console.log('Starting save process via backend API...');
       console.log('Is Draft:', isDraft);
       console.log('Is Edit Mode:', isEditMode);
-      console.log('Current Bilty ID:', currentBiltyId);      // Debug: Log current form data to see what we have
-      console.log('🔍 Current Form Data:', {
-        gr_no: formData.gr_no,
-        consignor_name: formData.consignor_name,
-        consignee_name: formData.consignee_name,
-        to_city_id: formData.to_city_id
-      });
-      
-      // No validation - allow direct save
-      
+      console.log('Current Bilty ID:', currentBiltyId);
+
       // 🆕 Save new consignor/consignee to DB if they were typed (not selected from dropdown)
-      // This ensures new entries are only created when the bilty is actually saved
       if (formData.consignor_name && formData.consignor_name.trim()) {
         const consignorName = formData.consignor_name.trim().toUpperCase();
         const consignorExists = consignors.some(c => 
@@ -599,14 +568,11 @@ export default function BiltyForm() {
           const isDup = await checkDuplicateConsignor(consignorName);
           if (!isDup) {
             console.log('🆕 Saving new consignor with bilty:', consignorName);
-            const result = await addNewConsignor({
+            await addNewConsignor({
               company_name: consignorName,
               gst_num: formData.consignor_gst?.trim() || null,
               number: formData.consignor_number?.trim() || null
             });
-            if (result.success) {
-              console.log('✅ New consignor saved:', consignorName);
-            }
           }
         }
       }
@@ -620,29 +586,35 @@ export default function BiltyForm() {
           const isDup = await checkDuplicateConsignee(consigneeName);
           if (!isDup) {
             console.log('🆕 Saving new consignee with bilty:', consigneeName);
-            const result = await addNewConsignee({
+            await addNewConsignee({
               company_name: consigneeName,
               gst_num: formData.consignee_gst?.trim() || null,
               number: formData.consignee_number?.trim() || null
             });
-            if (result.success) {
-              console.log('✅ New consignee saved:', consigneeName);
-            }
           }
         }
       }
 
       // Refresh consignor/consignee lists after saving new entries
-      await refreshConsignorConsigneeData();
+      refreshConsignorConsigneeData();
 
-// Prepare save data with explicit type conversion and null handling
-      const saveData = {
-        gr_no: formData.gr_no?.toString().trim(),
+      // Calculate next bill book number for the backend to update
+      let billBookNextNumber = null;
+      if (selectedBillBook && !isEditMode) {
+        billBookNextNumber = selectedBillBook.current_number + 1;
+        if (billBookNextNumber > selectedBillBook.to_number) {
+          billBookNextNumber = selectedBillBook.auto_continue ? selectedBillBook.from_number : null;
+        }
+      }
+
+      // ⭐ SAVE VIA BACKEND API — single call handles insert/update, rate saving, bill book update
+      const savePayload = {
         branch_id: user.branch_id,
         staff_id: user.id,
+        gr_no: formData.gr_no?.toString().trim(),
+        bilty_date: formData.bilty_date,
         from_city_id: formData.from_city_id || null,
         to_city_id: formData.to_city_id || null,
-        bilty_date: formData.bilty_date,
         delivery_type: formData.delivery_type || 'godown-delivery',
         consignor_name: formData.consignor_name?.toString().trim() || null,
         consignor_gst: formData.consignor_gst?.toString().trim() || null,
@@ -676,480 +648,98 @@ export default function BiltyForm() {
         total: parseFloat(formData.total) || 0,
         remark: formData.remark?.toString().trim() || null,
         saving_option: isDraft ? 'DRAFT' : 'SAVE',
-        is_active: true
+        // Bill book management
+        bill_book_id: selectedBillBook?.id || null,
+        bill_book_next_number: billBookNextNumber,
+        // Edit mode
+        ...(isEditMode && currentBiltyId ? { bilty_id: currentBiltyId } : {})
       };
-        console.log('Prepared save data:', saveData);
-      
-      let savedData;
-      let isActuallyNewBilty = false; // Track if this is genuinely a new bilty creation
-      let oldPdfBucketUrl = null; // Track old PDF URL for deletion on update
-      
-      if (isEditMode && currentBiltyId) {
-        console.log('Updating existing bilty:', currentBiltyId);
-        
-        // ⭐ Fetch old pdf_bucket URL before update (for deletion during re-upload)
-        {
-          const { data: oldBilty } = await supabase
-            .from('bilty')
-            .select('pdf_bucket')
-            .eq('id', currentBiltyId)
-            .single();
-          oldPdfBucketUrl = oldBilty?.pdf_bucket || null;
-        }
 
-        // For updates, check if GR number conflicts with other bilties (not the current one)
-        const { data: conflictingBilty, error: conflictError } = await supabase
-          .from('bilty')
-          .select('id')
-          .eq('gr_no', saveData.gr_no)
-          .eq('branch_id', user.branch_id)
-          .eq('is_active', true)
-          .neq('id', currentBiltyId)
-          .single();
-        
-        if (conflictError && conflictError.code !== 'PGRST116') {
-          console.error('Error checking GR number conflict during update:', conflictError);
-          throw new Error('Error checking for GR number conflicts');
-        }
-          if (conflictingBilty) {
-          console.log('GR Number already exists in another bilty, but proceeding with save');
-        }
-        
-        // Remove created_at for updates
-        delete saveData.created_at;
-        
-        const { data, error } = await supabase
-          .from('bilty')
-          .update(saveData)
-          .eq('id', currentBiltyId)
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Update error:', error);
-          throw error;
-        }
-        
-        savedData = data;
-        console.log('Bilty updated successfully:', savedData);      } else {        console.log('Creating new bilty...');
-          // ⭐ CRITICAL FIX: Check for existing GR number BEFORE attempting save
-        // This prevents bill book number increment on duplicate attempts
-        const { data: existingBilty, error: duplicateCheckError } = await supabase
-          .from('bilty')
-          .select('id, gr_no')
-          .eq('gr_no', saveData.gr_no)
-          .eq('branch_id', user.branch_id)
-          .eq('is_active', true)
-          .single();
-        
-        if (existingBilty && !duplicateCheckError) {
-          console.log('🚫 GR Number already exists in database:', existingBilty.gr_no);
-          console.log('⚠️ This is a duplicate attempt - will NOT update bill book current number');
-          isActuallyNewBilty = false;
-          
-          // Set savedData to the existing bilty data for PDF generation
-          savedData = saveData; // Use the prepared save data for PDF
-          console.log('Using prepared saveData for PDF generation (duplicate GR):', savedData);
-        } else {
-          console.log('✅ GR Number is unique, proceeding with new bilty creation...');
-          
-          const { data, error } = await supabase
-            .from('bilty')
-            .insert([saveData])
-            .select()
-            .single();if (error) {
-            console.error('Insert error details:', {
-              error,
-              code: error.code,
-              message: error.message,
-              details: error.details,
-              hint: error.hint
-            });
-              // Handle specific database constraint errors
-            if (error.code === '23505' && error.message?.includes('gr_no')) {
-              console.log('🚫 GR Number constraint violation - duplicate detected at DB level');
-              isActuallyNewBilty = false; // Mark as not new to prevent bill book update
-            }
-            
-            // Don't throw error, let it continue - try to save anyway
-            console.warn('Insert had an issue but continuing:', error);
-            
-            // CRITICAL FIX: Set savedData to formData even if database fails
-            // This ensures PDF generator always has valid data
-            savedData = saveData; // Use the prepared save data
-            console.log('Setting savedData from formData due to DB error:', savedData);
-          } else {
-            savedData = data;
-            console.log('✅ New bilty created successfully:', savedData);
-            isActuallyNewBilty = true; // Confirm this is genuinely new
-          }
-        }// ⭐ AUTOMATIC RATE SAVING FUNCTIONALITY ⭐
-        // Only save rates for non-draft bilties and when rate is provided
-        if (!isDraft && formData.rate && parseFloat(formData.rate) > 0 && formData.consignor_name && formData.to_city_id) {
-          console.log('🔍 Starting automatic rate saving process...');
-          console.log('📊 Rate saving criteria check:', {
-            isDraft,
-            hasRate: !!formData.rate,
-            rateValue: formData.rate,
-            hasConsignor: !!formData.consignor_name,
-            consignorName: formData.consignor_name,
-            hasCityId: !!formData.to_city_id,
-            cityId: formData.to_city_id,
-            branchId: user.branch_id
-          });
-          
-          try {
-            // Enhanced consignor lookup with multiple search strategies
-            let consignorId = null;
-            let consignorData = null;
-            
-            // Strategy 1: Exact match (case-insensitive)
-            const { data: exactMatch, error: exactError } = await supabase
-              .from('consignors')
-              .select('id, company_name')
-              .ilike('company_name', formData.consignor_name.trim())
-              .single();
-            
-            if (exactMatch && !exactError) {
-              consignorData = exactMatch;
-              consignorId = exactMatch.id;
-              console.log('✅ Found consignor by exact match:', consignorData);
-            } else if (exactError && exactError.code !== 'PGRST116') {
-              console.warn('Error in exact consignor search:', exactError);
-            }
-            
-            // Strategy 2: If exact match failed, try partial match
-            if (!consignorId) {
-              const { data: partialMatches, error: partialError } = await supabase
-                .from('consignors')
-                .select('id, company_name')
-                .ilike('company_name', `%${formData.consignor_name.trim()}%`)
-                .limit(5);
-              
-              if (partialMatches && partialMatches.length > 0 && !partialError) {
-                // Look for closest match
-                const cleanConsignorName = formData.consignor_name.trim().toLowerCase();
-                const bestMatch = partialMatches.find(c => 
-                  c.company_name.toLowerCase() === cleanConsignorName
-                ) || partialMatches[0]; // Fall back to first match
-                
-                consignorData = bestMatch;
-                consignorId = bestMatch.id;
-                console.log('✅ Found consignor by partial match:', consignorData);
-              } else if (partialError) {
-                console.warn('Error in partial consignor search:', partialError);
-              }            }
-            
-            // Log the final consignor decision
-            if (consignorId) {
-              console.log(`📋 Using CONSIGNOR-SPECIFIC rate for: ${consignorData.company_name} (ID: ${consignorId})`);
-            } else {
-              console.log('📋 No matching consignor found, will create DEFAULT rate');
-              // Ensure consignorId is explicitly null for default rates
-              consignorId = null;
-            }
-            
-            // Check if rate already exists for this exact combination
-            let existingRateQuery = supabase
-              .from('rates')
-              .select('id, rate, is_default, consignor_id')
-              .eq('branch_id', user.branch_id)
-              .eq('city_id', formData.to_city_id);
-            
-            if (consignorId) {
-              // Check for consignor-specific rate
-              existingRateQuery = existingRateQuery.eq('consignor_id', consignorId);
-            } else {
-              // Check for default rate (no consignor)
-              existingRateQuery = existingRateQuery.is('consignor_id', null);
-            }
-            
-            const { data: existingRate, error: rateCheckError } = await existingRateQuery.single();
-            
-            if (rateCheckError && rateCheckError.code !== 'PGRST116') {
-              console.warn('Error checking existing rate:', rateCheckError);
-            }
-            
-            const newRate = parseFloat(formData.rate);
-            
-            if (existingRate) {
-              // Update existing rate if different
-              if (Math.abs(existingRate.rate - newRate) > 0.01) { // Use small tolerance for floating point comparison
-                console.log(`🔄 Updating existing ${consignorId ? 'consignor-specific' : 'default'} rate from ₹${existingRate.rate} to ₹${newRate}`);
-                  const { error: updateError } = await supabase
-                  .from('rates')
-                  .update({ 
-                    rate: newRate
-                  })
-                  .eq('id', existingRate.id);
-                
-                if (updateError) {
-                  console.error('❌ Error updating rate:', updateError);
-                } else {
-                  console.log('✅ Rate updated successfully');
-                }
-              } else {
-                console.log(`✅ Rate already exists with same value (₹${existingRate.rate}), no update needed`);
-              }
-            } else {              // Create new rate entry
-              console.log(`➕ Creating new ${consignorId ? 'consignor-specific' : 'default'} rate entry...`);
-                const rateData = {
-                branch_id: user.branch_id,
-                city_id: formData.to_city_id,                consignor_id: consignorId,
-                rate: newRate,
-                is_default: !consignorId // true if no consignor (default rate)
-              };
-              
-              console.log('Rate data to insert:', rateData);
-              
-              // Validate data types and format
-              if (typeof rateData.branch_id !== 'string' && typeof rateData.branch_id !== 'number') {
-                console.error('❌ Invalid branch_id type:', typeof rateData.branch_id, rateData.branch_id);
-                throw new Error('Invalid branch_id type');
-              }
-              
-              if (typeof rateData.city_id !== 'string' && typeof rateData.city_id !== 'number') {
-                console.error('❌ Invalid city_id type:', typeof rateData.city_id, rateData.city_id);
-                throw new Error('Invalid city_id type');
-              }
-              
-              if (typeof rateData.rate !== 'number' || isNaN(rateData.rate) || rateData.rate <= 0) {
-                console.error('❌ Invalid rate value:', typeof rateData.rate, rateData.rate);
-                throw new Error('Invalid rate value');
-              }
-              
-              if (rateData.consignor_id !== null && (typeof rateData.consignor_id !== 'string' && typeof rateData.consignor_id !== 'number')) {
-                console.error('❌ Invalid consignor_id type:', typeof rateData.consignor_id, rateData.consignor_id);
-                throw new Error('Invalid consignor_id type');
-              }
-              
-              console.log('✅ Rate data validation passed');
-                // Validate required fields before insertion
-              if (!rateData.branch_id || !rateData.city_id || !rateData.rate) {
-                console.error('❌ Missing required fields for rate insertion:', {
-                  branch_id: rateData.branch_id,
-                  city_id: rateData.city_id,
-                  rate: rateData.rate
-                });
-                throw new Error('Missing required fields for rate insertion');
-              }
-              
-              // Validate that branch and city exist
-              const [branchCheck, cityCheck] = await Promise.all([
-                supabase.from('branches').select('id').eq('id', rateData.branch_id).single(),
-                supabase.from('cities').select('id').eq('id', rateData.city_id).single()
-              ]);
-              
-              if (branchCheck.error) {
-                console.error('❌ Invalid branch_id:', rateData.branch_id, branchCheck.error);
-                throw new Error(`Invalid branch_id: ${rateData.branch_id}`);
-              }
-              
-              if (cityCheck.error) {
-                console.error('❌ Invalid city_id:', rateData.city_id, cityCheck.error);
-                throw new Error(`Invalid city_id: ${rateData.city_id}`);
-              }
-              
-              // If consignor_id is provided, validate it exists
-              if (rateData.consignor_id) {
-                const { error: consignorCheckError } = await supabase
-                  .from('consignors')
-                  .select('id')
-                  .eq('id', rateData.consignor_id)
-                  .single();
-                
-                if (consignorCheckError) {
-                  console.error('❌ Invalid consignor_id:', rateData.consignor_id, consignorCheckError);
-                  throw new Error(`Invalid consignor_id: ${rateData.consignor_id}`);
-                }
-              }
-              
-              console.log('✅ All foreign key references validated');
-              
-              // Check for duplicate rate entry to prevent constraint violations
-              const duplicateCheckQuery = supabase
-                .from('rates')
-                .select('id')
-                .eq('branch_id', rateData.branch_id)
-                .eq('city_id', rateData.city_id);
-              
-              if (rateData.consignor_id) {
-                duplicateCheckQuery.eq('consignor_id', rateData.consignor_id);
-              } else {
-                duplicateCheckQuery.is('consignor_id', null);
-              }
-              
-              const { data: duplicateRate, error: duplicateCheckError } = await duplicateCheckQuery.single();
-              
-              if (duplicateCheckError && duplicateCheckError.code !== 'PGRST116') {
-                console.warn('⚠️ Error checking for duplicate rate:', duplicateCheckError);
-              }
-              
-              if (duplicateRate) {
-                console.log('🔄 Rate entry already exists, skipping insertion to avoid duplicate');
-                return;
-              }
-              
-              const { error: insertRateError } = await supabase
-                .from('rates')
-                .insert([rateData]);
-                if (insertRateError) {
-                console.error('❌ Error saving new rate:', {
-                  error: insertRateError,
-                  code: insertRateError.code,
-                  message: insertRateError.message,
-                  details: insertRateError.details,
-                  hint: insertRateError.hint,
-                  // Stringify the full error for debugging
-                  fullError: JSON.stringify(insertRateError, null, 2)
-                });
-                // Also log the rate data that failed to insert
-                console.error('Failed rate data:', rateData);
-              } else {
-                console.log('✅ New rate saved successfully:', rateData);
-              }
-            }
-            
-            // Optional: Refresh rates in memory for immediate use
-            if (window.location.pathname === '/bilty') {
-              console.log('🔄 Refreshing rates data...');
-              const { data: updatedRates } = await supabase
-                .from('rates')
-                .select('*')
-                .eq('branch_id', user.branch_id);
-              
-              if (updatedRates) {
-                setRates(updatedRates);
-                console.log('✅ Rates data refreshed');
-              }
-            }
-              } catch (rateError) {
-            console.error('❌ Error in automatic rate saving:', {
-              error: rateError,
-              message: rateError.message,
-              code: rateError.code,
-              details: rateError.details,
-              stack: rateError.stack
-            });
-            
-            // Handle specific error types
-            if (rateError.code === '23505') {
-              console.log('🔄 Rate already exists (unique constraint violation) - this is expected behavior');
-            } else if (rateError.code === '23503') {
-              console.error('🔗 Foreign key constraint violation - invalid reference to branch, city, or consignor');
-            } else if (rateError.code === '23502') {
-              console.error('📝 Not null constraint violation - missing required field');
-            } else if (rateError.message?.includes('Invalid')) {
-              console.error('🔍 Validation error during rate saving');
-            } else {
-              console.error('🔧 Unexpected error during rate saving');
-            }
-            
-            // Don't fail the bilty save if rate saving fails
-          }
-        }          // ⭐ CRITICAL FIX: Update bill book current number ONLY for GENUINELY NEW bilties
-        // This prevents bill book increment on duplicate GR number attempts
-        if (selectedBillBook && !isEditMode && isActuallyNewBilty) {
-          // ⭐ If reservation system is active, complete the reservation and check pending
-          if (grReservation.hasReservation) {
-            console.log('🎫 Completing GR reservation:', grReservation.reservedGRNo);
-            const nextRes = await grReservation.completeAndReserveNext();
-            if (!nextRes) {
-              // No pending reservations — show local GR (user must click Reserve to lock it)
-              console.log('ℹ️ No pending. User will click Reserve for next GR.');
-            }
-          } else {
-            // Fallback: legacy bill book increment for cases without reservation
-            console.log('📈 Updating bill book current number for GENUINELY NEW bilty (no reservation)...');
-            let newCurrentNumber = selectedBillBook.current_number + 1;
-            
-            if (newCurrentNumber > selectedBillBook.to_number) {
-              if (selectedBillBook.auto_continue) {
-                newCurrentNumber = selectedBillBook.from_number;
-              } else {
-                await supabase
-                  .from('bill_books')
-                  .update({ is_completed: true, current_number: selectedBillBook.to_number })
-                  .eq('id', selectedBillBook.id);
-                
-                console.log('Bill book completed, loading initial data...');
-                loadInitialData();
-                return;
-              }
-            }
-            
-            const { error: billBookError } = await supabase
-              .from('bill_books')
-              .update({ current_number: newCurrentNumber })
-              .eq('id', selectedBillBook.id);
-            
-            if (billBookError) {
-              console.error('Bill book update error:', billBookError);
-            }
-            
-            setSelectedBillBook(prev => ({ ...prev, current_number: newCurrentNumber }));
-          }
-        } else if (isEditMode) {
-          console.log('✅ Skipping bill book update - this is an EDIT, not a new bilty');
-        } else if (!isActuallyNewBilty) {
-          console.log('🚫 Skipping bill book update - this is a DUPLICATE GR number attempt');
-        }
+      console.log('📤 Sending save request to backend:', savePayload.gr_no);
+
+      const res = await fetch(`${BILTY_API_URL}/api/bilty/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(savePayload)
+      });
+
+      const result = await res.json();
+
+      if (result.status !== 'success') {
+        console.error('❌ Backend save error:', result.message);
+        alert(`❌ Save failed: ${result.message}`);
+        return;
       }
-      
-      // Get to city name
-      const toCity = cities.find(c => c.id === savedData.to_city_id);
-      setToCityName(toCity?.city_name || '');
-        // Refresh existing bilties list
-      console.log('Refreshing bilties list...');
+
+      console.log('✅ Backend save successful:', result.data?.bilty?.id);
+
+      // ✅ USE SERVER RESPONSE — guaranteed correct data from DB
+      const savedData = result.data.bilty;
+      const fromCityData = result.data.from_city;
+      const toCityData = result.data.to_city;
+
+      // Update city names from backend response
+      if (fromCityData?.city_name) setFromCityName(fromCityData.city_name);
+      if (toCityData?.city_name) setToCityName(toCityData.city_name);
+
+      // ⭐ GR reservation completion (for new bilties only)
+      if (!isEditMode && savedData?.id) {
+        if (grReservation.hasReservation) {
+          console.log('🎫 Completing GR reservation:', grReservation.reservedGRNo);
+          await grReservation.completeAndReserveNext();
+        }
+        // Update local bill book state
+        if (selectedBillBook && billBookNextNumber) {
+          setSelectedBillBook(prev => ({ ...prev, current_number: billBookNextNumber }));
+        }
+        // Refresh next-available list from backend
+        grReservation.refreshNextAvailable();
+      }
+
+      // Refresh existing bilties list
       const { data: updatedBilties } = await supabase
         .from('bilty')
         .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
         .eq('branch_id', user.branch_id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
-        setExistingBilties(updatedBilties || []);
+      setExistingBilties(updatedBilties || []);
 
-      // ⭐ BACKGROUND PDF UPLOAD – generate PDF and save to Supabase bucket
-      // Runs async in background so it doesn't block the UI
+      // ⭐ BACKGROUND PDF UPLOAD — non-blocking
       if (savedData && savedData.id) {
-        uploadBiltyPdf(savedData, oldPdfBucketUrl)
+        uploadBiltyPdf(savedData, null)
           .then((url) => {
             if (url) console.log('📄 [Background] PDF uploaded:', url);
-            else console.warn('📄 [Background] PDF upload returned null');
           })
           .catch((err) => console.error('📄 [Background] PDF upload error:', err));
       }
       
-      // Show print modal if not draft
+      // Show print modal if not draft — use backend data for correct city names
       if (!isDraft) {
         setSavedBiltyData(savedData);
+        // Set city names from backend response for print
+        if (toCityData?.city_name) setToCityName(toCityData.city_name);
+        if (fromCityData?.city_name) setFromCityName(fromCityData.city_name);
         setShowPrintModal(true);
       } else {
         resetForm();
       }
       
-      console.log('Save process completed successfully');
-        } catch (error) {
-      console.error('Error saving bilty:', {
-        error,
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-        stack: error?.stack
-      });
-      
-      // Log errors but don't show alerts - allow save to proceed
-      console.log('Save encountered an error but continuing...');
+      console.log('Save process completed successfully via backend');
+
+    } catch (error) {
+      console.error('Error saving bilty:', error);
+      alert('❌ Save failed: ' + (error?.message || 'Network error. Please try again.'));
     } finally {
       setSaving(false);
     }
   };
 
   const resetForm = async () => {
-    // If user has a reservation, keep it. Otherwise show next AVAILABLE GR (skips reserved/used).
+    // If user has a reservation, keep it. Otherwise show first from next-available list.
     const currentReservedGR = grReservation.reservedGRNo;
-    const newGrNo = currentReservedGR || (selectedBillBook ? getNextAvailableGR(selectedBillBook) : '');
+    const nextFromBackend = grReservation.nextAvailable?.[0]?.gr_no;
+    const newGrNo = currentReservedGR || nextFromBackend || (selectedBillBook ? generateGRNumber(selectedBillBook) : '');
     
     setFormData({
       gr_no: newGrNo,
@@ -1236,8 +826,10 @@ export default function BiltyForm() {
 
   const handleBillBookSelect = (book) => {
     setSelectedBillBook(book);
+    // The hook will auto-fetch next-available for the new bill book via useEffect
+    // For immediate display, use local generation as fallback
     if (!isEditMode) {
-      const grNo = getNextAvailableGR(book);
+      const grNo = generateGRNumber(book);
       setFormData(prev => ({ ...prev, gr_no: grNo }));
     }
     setShowBillBookDropdown(false);
@@ -1384,6 +976,8 @@ export default function BiltyForm() {
             grSequenceError={grSequenceError}
             onFixGRSequence={fixGRSequence}
             grReservation={grReservation}
+            nextAvailable={grReservation.nextAvailable}
+            billBookValidation={grReservation.billBookValidation}
           />
 
           {/* ⭐ Live GR Reservation Status - Multi-user */}
@@ -1396,8 +990,9 @@ export default function BiltyForm() {
             onRefresh={grReservation.refreshStatus}
             onReleaseById={grReservation.releaseById}
             onSwitchToReservation={grReservation.switchToReservation}
-            onReserveRange={grReservation.reserveRange}
             myPendingReservations={grReservation.myPendingReservations}
+            nextAvailable={grReservation.nextAvailable}
+            grReservation={grReservation}
             enabled={!isEditMode}
           />
 
@@ -1408,6 +1003,9 @@ export default function BiltyForm() {
             setFormData={setFormData}
             cities={cities}
             transports={transports}
+            transportByCityId={transportByCityId}
+            consignorRatesByCity={consignorRatesByCity}
+            defaultRateByCityId={defaultRateByCityId}
             rates={rates}
             fromCityName={fromCityName}
             resetKey={resetKey}
@@ -1436,6 +1034,8 @@ export default function BiltyForm() {
             setFormData={setFormData}
             rates={rates}
             cities={cities}
+            consignorRatesByCity={consignorRatesByCity}
+            defaultRateByCityId={defaultRateByCityId}
             onSave={handleSave}
             onSaveDraft={() => handleSave(true)}
             onReset={resetForm}

@@ -5,8 +5,8 @@
  * Compact inline panel for GR reservations. Collapsed by default.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Users, Radio, RefreshCw, ChevronDown, ChevronUp, XCircle, ArrowRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Users, Radio, RefreshCw, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
 
 const GRLiveStatus = ({ 
   branchReservations = [],
@@ -17,15 +17,12 @@ const GRLiveStatus = ({
   onRefresh,
   onReleaseById,
   onSwitchToReservation,
-  onReserveRange,
   myPendingReservations = [],
+  nextAvailable = [],
+  grReservation = null,
   enabled = true
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [rangeFrom, setRangeFrom] = useState('');
-  const [rangeTo, setRangeTo] = useState('');
-  const [rangeLoading, setRangeLoading] = useState(false);
-  const [rangeResult, setRangeResult] = useState(null);
 
   const otherReservations = useMemo(() => 
     branchReservations.filter(r => r.user_id !== currentUserId),
@@ -36,23 +33,6 @@ const GRLiveStatus = ({
     branchReservations.filter(r => r.user_id === currentUserId).sort((a, b) => a.gr_number - b.gr_number),
     [branchReservations, currentUserId]
   );
-
-  const handleReserveRange = async () => {
-    if (!rangeFrom || !rangeTo || !onReserveRange) return;
-    const from = parseInt(rangeFrom), to = parseInt(rangeTo);
-    if (isNaN(from) || isNaN(to) || from > to) {
-      setRangeResult({ success: false, error: 'From must be ≤ To' });
-      return;
-    }
-    setRangeLoading(true);
-    setRangeResult(null);
-    try {
-      const result = await onReserveRange(from, to);
-      setRangeResult(result);
-      if (result?.success) { setRangeFrom(''); setRangeTo(''); setTimeout(() => setRangeResult(null), 3000); }
-    } catch (err) { setRangeResult({ success: false, error: err.message }); }
-    finally { setRangeLoading(false); }
-  };
 
   if (!enabled) return null;
 
@@ -135,22 +115,30 @@ const GRLiveStatus = ({
             </div>
           )}
 
-          {/* Reserve Range - inline compact */}
-          <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-blue-600 whitespace-nowrap">Range:</span>
-            <input type="number" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)}
-              placeholder="From" className="w-16 px-1 py-0.5 text-[10px] font-bold border border-blue-200 rounded bg-white focus:border-blue-400 focus:ring-0 focus:outline-none" />
-            <ArrowRight className="w-3 h-3 text-blue-300 flex-shrink-0" />
-            <input type="number" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)}
-              placeholder="To" className="w-16 px-1 py-0.5 text-[10px] font-bold border border-blue-200 rounded bg-white focus:border-blue-400 focus:ring-0 focus:outline-none" />
-            <button onClick={handleReserveRange} disabled={rangeLoading || !rangeFrom || !rangeTo}
-              className="px-2 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-40 whitespace-nowrap">
-              {rangeLoading ? '...' : 'GO'}
-            </button>
-          </div>
-          {rangeResult && (
-            <div className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${rangeResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {rangeResult.success ? `✅ ${rangeResult.reserved_count} reserved${rangeResult.skipped?.length ? `, ${rangeResult.skipped.length} skipped` : ''}` : `❌ ${rangeResult.error}`}
+          {/* 🎫 NEXT 5 AVAILABLE GR — pick & reserve */}
+          {nextAvailable?.length > 0 && !grReservation?.hasReservation && (
+            <div className="pt-1.5 border-t border-slate-100">
+              <span className="text-[10px] font-bold text-blue-600 uppercase">Next {nextAvailable.length} Available GR Numbers</span>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {nextAvailable.map((item, idx) => (
+                  <button
+                    key={item.number}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      grReservation?.reserveSpecific?.(item.number);
+                    }}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors shadow-sm ${
+                      idx === 0
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-300'
+                        : 'bg-white text-blue-700 border border-blue-300 hover:bg-blue-100'
+                    }`}
+                    title={`Reserve GR ${item.gr_no}`}
+                  >
+                    {idx === 0 && '⭐ '}{item.gr_no}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

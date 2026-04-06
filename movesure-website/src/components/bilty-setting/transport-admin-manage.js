@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
 
+const API_URL = 'https://movesure-backend.onrender.com';
+
 const TransportAdminComponent = () => {
   const { user } = useAuth();
   const [admins, setAdmins] = useState([]);
@@ -56,30 +58,27 @@ const TransportAdminComponent = () => {
   const fetchAdmins = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('transport_admin')
-        .select('*')
-        .order('transport_name');
+      const [adminsRes, transportsRes] = await Promise.all([
+        fetch(`${API_URL}/api/bilty/master/transport_admin?page=1&page_size=5000`),
+        fetch(`${API_URL}/api/bilty/master/transports?page=1&page_size=5000`),
+      ]);
+      const adminsResult = await adminsRes.json();
+      const transportsResult = await transportsRes.json();
 
-      if (error) throw error;
-      setAdmins(data || []);
+      if (adminsResult.status !== 'success') throw new Error(adminsResult.message);
+      const adminRows = adminsResult.data.rows || [];
+      setAdmins(adminRows);
 
-      // Fetch linked transport counts
-      if (data && data.length > 0) {
-        const adminIds = data.map(a => a.transport_id);
-        const { data: transports, error: tErr } = await supabase
-          .from('transports')
-          .select('transport_admin_id, id, transport_name, city_name')
-          .in('transport_admin_id', adminIds);
-
-        if (!tErr && transports) {
-          const map = {};
-          transports.forEach(t => {
+      // Build linked transports map
+      if (transportsResult.status === 'success' && transportsResult.data.rows) {
+        const map = {};
+        transportsResult.data.rows.forEach(t => {
+          if (t.transport_admin_id) {
             if (!map[t.transport_admin_id]) map[t.transport_admin_id] = [];
             map[t.transport_admin_id].push(t);
-          });
-          setLinkedTransports(map);
-        }
+          }
+        });
+        setLinkedTransports(map);
       }
     } catch (error) {
       console.error('Error fetching transport admins:', error);
@@ -144,23 +143,26 @@ const TransportAdminComponent = () => {
         address: formData.address.trim() || null,
         sample_ref_image: formData.sample_ref_image || null,
         sample_challan_image: formData.sample_challan_image || null,
-        updated_by: user?.id || null,
-        updated_at: new Date().toISOString()
+        user_id: user?.id || null,
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('transport_admin')
-          .update(saveData)
-          .eq('transport_id', editingId);
-        if (error) throw error;
+        const res = await fetch(`${API_URL}/api/bilty/master/transport_admin/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(saveData),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('Transport Admin updated successfully!');
       } else {
-        saveData.created_by = user?.id || null;
-        const { error } = await supabase
-          .from('transport_admin')
-          .insert([saveData]);
-        if (error) throw error;
+        const res = await fetch(`${API_URL}/api/bilty/master/transport_admin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(saveData),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('Transport Admin added successfully!');
       }
 
@@ -200,11 +202,9 @@ const TransportAdminComponent = () => {
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('transport_admin')
-        .delete()
-        .eq('transport_id', id);
-      if (error) throw error;
+      const res = await fetch(`${API_URL}/api/bilty/master/transport_admin/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
       alert('Transport Admin deleted successfully!');
       fetchAdmins();
     } catch (error) {
@@ -446,6 +446,8 @@ const TransportAdminComponent = () => {
                   <th className="border-r border-purple-200 px-3 py-2 text-left font-semibold text-purple-900">Owner</th>
                   <th className="border-r border-purple-200 px-3 py-2 text-left font-semibold text-purple-900">Website</th>
                   <th className="border-r border-purple-200 px-3 py-2 text-left font-semibold text-purple-900">Linked Branches</th>
+                  <th className="border-r border-purple-200 px-3 py-2 text-left font-semibold text-purple-900">Created By</th>
+                  <th className="border-r border-purple-200 px-3 py-2 text-left font-semibold text-purple-900">Updated By</th>
                   <th className="px-3 py-2 text-left font-semibold text-purple-900">Actions</th>
                 </tr>
               </thead>
@@ -496,6 +498,24 @@ const TransportAdminComponent = () => {
                               <span className="text-gray-500 text-xs italic">No branches linked</span>
                             )}
                           </td>
+                          <td className="border-r border-gray-200 px-3 py-2 text-black">
+                            {admin.created_by ? (
+                              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded text-xs font-medium">
+                                👤 {admin.created_by}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="border-r border-gray-200 px-3 py-2 text-black">
+                            {admin.updated_by ? (
+                              <span className="inline-flex items-center gap-1 bg-green-50 text-green-800 px-1.5 py-0.5 rounded text-xs font-medium">
+                                ✏️ {admin.updated_by}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                             <div className="flex gap-1">
                               <button
@@ -519,7 +539,7 @@ const TransportAdminComponent = () => {
                         {/* Expanded Details Row */}
                         {isExpanded && (
                           <tr className="bg-purple-50 border-b-2 border-purple-200">
-                            <td colSpan="8" className="px-4 py-3">
+                            <td colSpan="10" className="px-4 py-3">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Left: Details */}
                                 <div className="space-y-2">
@@ -534,6 +554,14 @@ const TransportAdminComponent = () => {
                                     <span className="text-gray-600 font-medium">Created:</span>{' '}
                                     <span className="text-gray-900">
                                       {admin.created_at ? new Date(admin.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                      {admin.created_by && <span className="ml-1 text-blue-700 font-medium">by {admin.created_by}</span>}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs">
+                                    <span className="text-gray-600 font-medium">Updated:</span>{' '}
+                                    <span className="text-gray-900">
+                                      {admin.updated_at ? new Date(admin.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                      {admin.updated_by && <span className="ml-1 text-green-700 font-medium">by {admin.updated_by}</span>}
                                     </span>
                                   </div>
 
@@ -588,7 +616,7 @@ const TransportAdminComponent = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="8" className="px-6 py-16 text-center">
+                    <td colSpan="10" className="px-6 py-16 text-center">
                       {loading ? (
                         <div className="flex flex-col items-center justify-center space-y-4">
                           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600"></div>

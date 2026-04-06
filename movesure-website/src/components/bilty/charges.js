@@ -5,7 +5,6 @@ import { useInputNavigation } from './input-navigation';
 import { Save, FileText, RotateCcw } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 import { 
-  useConsignorBiltyProfileByName, 
   calculateFreightWithMinimum,
   calculateLabourCharge,
   calculateDDCharge,
@@ -25,7 +24,9 @@ const PackageChargesSection = ({
   saving = false, 
   isEditMode = false, 
   showShortcuts = false,
-  cities = [] // Add cities prop for city name lookup
+  cities = [],
+  consignorRatesByCity = {},
+  defaultRateByCityId = {}
 }) => {  const { register, unregister, handleEnter } = useInputNavigation();
   const inputRefs = useRef({});
   const labourChargeTimeoutRef = useRef(null);
@@ -40,11 +41,9 @@ const PackageChargesSection = ({
   const cityName = currentCity?.city_name || '';
   const cityCode = currentCity?.city_code || '';
   
-  // Fetch consignor bilty profile from new table
-  const { profile: consignorProfile, loading: loadingProfile } = useConsignorBiltyProfileByName(
-    formData.consignor_name, 
-    formData.to_city_id
-  );
+  // Get consignor profile from backend-cached rates (replaces Supabase hook)
+  const consignorProfile = consignorRatesByCity[formData.to_city_id]?.[0] || null;
+  const loadingProfile = false;
 
   // Track if profile was already applied to prevent re-applying
   const [profileApplied, setProfileApplied] = useState(false);
@@ -354,12 +353,13 @@ const PackageChargesSection = ({
                   parseValue(formData.labour_charge) + 
                   parseValue(formData.bill_charge) + 
                   parseValue(formData.toll_charge) + 
+                  parseValue(formData.dd_charge) + 
                   parseValue(formData.other_charge) + 
                   parseValue(formData.pf_charge);
     
     setFormData(prev => ({ ...prev, total }));
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
-      formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
+      formData.toll_charge, formData.dd_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
   useEffect(() => {
     // REMOVED - Now only using historical rate from rate-helper.js
     // No need to check rates table separately
@@ -569,46 +569,59 @@ const PackageChargesSection = ({
       formData.delivery_type, cityName, cityCode, isEditMode, rates]);
 
   // ====== DD CHARGE CALCULATION (Door Delivery) ======
-  // Apply DD charge + Receiving Slip charge when delivery type is door-delivery
-  // DD Print Charge: per_nag or per_kg based on profile
-  // Receiving Slip Charge: one time per bilty (not per nag)
+  // dd_charge field = dd_charge_per_kg * weight OR dd_charge_per_nag * packages
+  // other_charge field = dd_print_charge_per_kg * weight OR dd_print_charge_per_nag * packages + receiving_slip_charge
   useEffect(() => {
     if (isEditMode || loadingProfile) return;
     
     const isDoorDelivery = formData.delivery_type === 'door-delivery';
     
     if (isDoorDelivery && consignorProfile) {
-      // Calculate DD print charge (per nag or per kg)
-      const ddPrintCharge = calculateDDCharge(
+      // Respect is_no_charge — skip DD charges entirely
+      if (consignorProfile.is_no_charge) {
+        console.log('🆓 No charge profile — skipping DD charges');
+        return;
+      }
+      
+      // ddCharge → dd_charge field, ddPrintCharge → part of other_charge
+      const { ddCharge, ddPrintCharge } = calculateDDCharge(
         formData.no_of_pkg,
         formData.wt,
         consignorProfile
       );
       
-      // Add receiving slip charge (one time per bilty, not per nag)
+      // Receiving slip charge (one time per bilty) → added to other_charge
       const receivingSlipCharge = parseFloat(consignorProfile.receiving_slip_charge) || 0;
       
-      // Total other charge = DD print charge + RS charge (one time)
+      // other_charge = ddPrintCharge + receivingSlipCharge
       const totalOtherCharge = ddPrintCharge + receivingSlipCharge;
       
-      console.log('🚚 DD Charges breakdown:');
-      console.log('   DD Print Charge:', ddPrintCharge);
-      console.log('   Receiving Slip Charge (per bilty):', receivingSlipCharge);
-      console.log('   Total Other Charge:', totalOtherCharge);
+      console.log('🚚 DD Charges breakdown:', {
+        ddCharge, ddPrintCharge, receivingSlipCharge, totalOtherCharge,
+        dd_per_nag: consignorProfile.dd_charge_per_nag,
+        dd_per_kg: consignorProfile.dd_charge_per_kg,
+        dd_print_per_nag: consignorProfile.dd_print_charge_per_nag,
+        dd_print_per_kg: consignorProfile.dd_print_charge_per_kg,
+        packages: formData.no_of_pkg, weight: formData.wt
+      });
       
       setFormData(prev => ({ 
         ...prev, 
+        dd_charge: ddCharge,
         other_charge: totalOtherCharge,
-        _dd_charge_applied: ddPrintCharge,
+        _dd_charge_applied: ddCharge,
+        _dd_print_applied: ddPrintCharge,
         _rs_charge_applied: receivingSlipCharge
       }));
     } else if (!isDoorDelivery && (formData._dd_charge_applied || formData._rs_charge_applied)) {
       // Remove DD and RS charges if switching away from door delivery
-      console.log('🚚 Removing DD and RS charges from other_charge');
+      console.log('🚚 Removing DD and RS charges');
       setFormData(prev => ({ 
         ...prev, 
+        dd_charge: 0,
         other_charge: 0,
         _dd_charge_applied: 0,
+        _dd_print_applied: 0,
         _rs_charge_applied: 0
       }));
     }
@@ -1037,10 +1050,12 @@ return (
                   />
                 </div>
 
-                {/* Other Charge */}
+                {/* Other Charge / DD Print Charge */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="bg-emerald-600 text-white px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
-                    OTHER
+                  <span className={`px-2 py-1 text-xs font-semibold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center ${
+                    formData.delivery_type === 'door-delivery' ? 'bg-orange-600 text-white' : 'bg-emerald-600 text-white'
+                  }`}>
+                    {formData.delivery_type === 'door-delivery' ? 'DD PRINT' : 'OTHER'}
                   </span>
                   <input
                     type="text"
@@ -1048,9 +1063,7 @@ return (
                     value={formData.other_charge !== undefined && formData.other_charge !== null ? formData.other_charge : ''}
                     onChange={(e) => {
                       let value = e.target.value;
-                      // Allow only numbers and one decimal point
                       value = value.replace(/[^0-9.]/g, '');
-                      // Prevent multiple decimal points
                       const parts = value.split('.');
                       if (parts.length > 2) {
                         value = parts[0] + '.' + parts.slice(1).join('');
@@ -1058,18 +1071,36 @@ return (
                       setFormData(prev => ({ ...prev, other_charge: value }));
                     }}
                     onBlur={(e) => {
-                      // Convert to number on blur
                       const value = e.target.value;
                       const numericValue = value ? parseFloat(value) : 0;
                       setFormData(prev => ({ ...prev, other_charge: numericValue }));
                     }}
                     onFocus={(e) => e.target.select()}
                     ref={(el) => setInputRef(28, el)}
-                    className="w-20 px-2 py-1 text-black font-bold border border-slate-300 rounded text-center bg-white hover:border-emerald-300 focus:border-emerald-400 focus:ring-0 number-input-focus transition-all duration-200"
+                    className={`w-20 px-2 py-1 text-black font-bold border rounded text-center hover:border-emerald-300 focus:border-emerald-400 focus:ring-0 number-input-focus transition-all duration-200 ${
+                      formData.delivery_type === 'door-delivery' && formData.other_charge > 0 ? 'border-orange-300 bg-orange-50' : 'border-slate-300 bg-white'
+                    }`}
                     placeholder="0"
                     tabIndex={28}
+                    readOnly={formData.delivery_type === 'door-delivery' && formData._dd_print_applied > 0}
                   />
                 </div>
+
+                {/* DD Charge - Read-only, shown only for door delivery */}
+                {formData.delivery_type === 'door-delivery' && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="bg-red-600 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
+                      DD CHR
+                    </span>
+                    <input
+                      type="text"
+                      value={formData.dd_charge || 0}
+                      readOnly
+                      className="w-20 px-2 py-1 text-red-700 font-bold border border-red-300 rounded text-center bg-red-50 cursor-not-allowed"
+                      title="Auto-calculated: DD charge from consignor profile"
+                    />
+                  </div>
+                )}
 
                 {/* Total Amount */}
                 <div className="border-t-2 border-slate-300 pt-2 mt-2">
@@ -1117,20 +1148,25 @@ return (
         </div>
 
         {/* DD Charge + RS Charge Applied Indicator - Below grid, above buttons */}
-        {formData.delivery_type === 'door-delivery' && (formData._dd_charge_applied > 0 || formData._rs_charge_applied > 0) && (
+        {formData.delivery_type === 'door-delivery' && (formData._dd_charge_applied > 0 || formData._dd_print_applied > 0 || formData._rs_charge_applied > 0) && (
           <div className="mt-2 mb-10 mx-1 flex items-center gap-2 px-2 py-1.5 bg-blue-50 text-blue-700 rounded border border-blue-200 text-[10px] font-semibold">
             <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
               <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7h4a1 1 0 011 1v6h-2.05a2.5 2.5 0 00-4.9 0H12V8a1 1 0 00-1-1h-1v5h4V7z" />
             </svg>
-            <span>🚚 Door Delivery Charges (in Other):</span>
+            <span>🚚 Door Delivery:</span>
             {formData._dd_charge_applied > 0 && (
-              <span className="bg-blue-100 px-1.5 py-0.5 rounded">DD: ₹{formData._dd_charge_applied}</span>
+              <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">DD Charge: ₹{formData._dd_charge_applied}</span>
+            )}
+            {formData._dd_print_applied > 0 && (
+              <span className="bg-blue-100 px-1.5 py-0.5 rounded">DD Print: ₹{formData._dd_print_applied}</span>
             )}
             {formData._rs_charge_applied > 0 && (
               <span className="bg-blue-100 px-1.5 py-0.5 rounded">RS: ₹{formData._rs_charge_applied}</span>
             )}
-            <span className="bg-blue-200 px-1.5 py-0.5 rounded font-bold">Total: ₹{(formData._dd_charge_applied || 0) + (formData._rs_charge_applied || 0)}</span>
+            {(formData._dd_print_applied > 0 || formData._rs_charge_applied > 0) && (
+              <span className="bg-blue-200 px-1.5 py-0.5 rounded font-bold">Other: ₹{(formData._dd_print_applied || 0) + (formData._rs_charge_applied || 0)}</span>
+            )}
           </div>
         )}
 

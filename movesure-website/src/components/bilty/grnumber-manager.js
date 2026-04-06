@@ -21,7 +21,9 @@ const GRNumberSection = ({
   cities = [],
   grSequenceError = null,
   onFixGRSequence = null,
-  grReservation = null
+  grReservation = null,
+  nextAvailable = [],
+  billBookValidation = null
 }) => {
   const [showGRDropdown, setShowGRDropdown] = useState(false);
   const [grSearch, setGrSearch] = useState('');
@@ -299,46 +301,6 @@ const GRNumberSection = ({
                     +1 Quick Fix
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ⚠️ UNUSED GR NUMBERS WARNING - Gaps in sequence */}
-      {!isEditMode && grReservation?.unusedGRNumbers?.length > 0 && !grReservation?.hasReservation && (
-        <div className="mb-3 p-2.5 bg-amber-50 border-2 border-amber-300 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <div className="text-amber-800 font-bold text-xs mb-1">
-                ⚠️ {grReservation.unusedGRNumbers.length} UNUSED GR{grReservation.unusedGRNumbers.length > 1 ? 's' : ''} FOUND — Sequence gaps detected!
-              </div>
-              <div className="text-amber-700 text-[11px] mb-1.5">
-                These GR numbers were skipped/released and never saved. Use them to avoid gaps in your sequence:
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {grReservation.unusedGRNumbers.slice(0, 5).map((unused) => (
-                  <button
-                    key={unused.gr_number}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (grReservation.reserveSpecific) {
-                        grReservation.reserveSpecific(unused.gr_number);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors shadow-sm"
-                    title={`Reserve and use GR ${unused.gr_no}`}
-                  >
-                    🎫 USE {unused.gr_no}
-                  </button>
-                ))}
-                {grReservation.unusedGRNumbers.length > 5 && (
-                  <span className="text-[10px] font-semibold text-amber-600 px-2 py-1 bg-amber-100 rounded-md border border-amber-200">
-                    +{grReservation.unusedGRNumbers.length - 5} more
-                  </span>
-                )}
               </div>
             </div>
           </div>

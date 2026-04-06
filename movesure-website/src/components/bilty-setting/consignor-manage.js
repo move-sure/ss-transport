@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
+
+const API_URL = 'https://movesure-backend.onrender.com';
 
 const ConsignorComponent = () => {
   const { user } = useAuth();
@@ -37,32 +38,6 @@ const ConsignorComponent = () => {
     fetchConsignors(true);
   }, [searchTerm, filterType]);
 
-  const buildQuery = () => {
-    let query = supabase.from('consignors').select('*', { count: 'exact' });
-
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      query = query.or(
-        `company_name.ilike.%${searchLower}%,` +
-        `company_add.ilike.%${searchLower}%,` +
-        `number.ilike.%${searchLower}%,` +
-        `gst_num.ilike.%${searchLower}%,` +
-        `adhar.ilike.%${searchLower}%,` +
-        `pan.ilike.%${searchLower}%`
-      );
-    }
-
-    // Apply type filter
-    if (filterType === 'with_gst') {
-      query = query.not('gst_num', 'is', null).neq('gst_num', '');
-    } else if (filterType === 'without_gst') {
-      query = query.or('gst_num.is.null,gst_num.eq.');
-    }
-
-    return query.order('company_name');
-  };
-
   const fetchConsignors = async (reset = false) => {
     try {
       if (reset) {
@@ -72,24 +47,25 @@ const ConsignorComponent = () => {
         setLoadingMore(true);
       }
 
-      const page = reset ? 0 : currentPage;
-      const query = buildQuery()
-        .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
+      const page = reset ? 1 : currentPage + 1;
+      const params = new URLSearchParams({ page, page_size: ITEMS_PER_PAGE });
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
 
-      const { data, error, count } = await query;
+      const res = await fetch(`${API_URL}/api/bilty/master/consignors?${params}`);
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
 
-      if (error) throw error;
+      const rows = result.data.rows || [];
 
       if (reset) {
-        setConsignors(data || []);
-        setTotalCount(count || 0);
+        setConsignors(rows);
+        setTotalCount(result.data.total || 0);
       } else {
-        setConsignors(prev => [...prev, ...(data || [])]);
+        setConsignors(prev => [...prev, ...rows]);
       }
 
-      // Check if there are more items to load
-      setHasMore((data || []).length === ITEMS_PER_PAGE);
-      setCurrentPage(page + 1);
+      setHasMore(result.data.has_more);
+      setCurrentPage(page);
 
     } catch (error) {
       console.error('Error fetching consignors:', error);
@@ -127,19 +103,22 @@ const ConsignorComponent = () => {
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('consignors')
-          .update(consignorData)
-          .eq('id', editingId);
-
-        if (error) throw error;
+        const res = await fetch(`${API_URL}/api/bilty/master/consignors/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...consignorData, user_id: user?.id }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('Consignor updated successfully!');
       } else {
-        const { error } = await supabase
-          .from('consignors')
-          .insert([consignorData]);
-
-        if (error) throw error;
+        const res = await fetch(`${API_URL}/api/bilty/master/consignors`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...consignorData, user_id: user?.id }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('Consignor added successfully!');
       }
 
@@ -177,11 +156,9 @@ const ConsignorComponent = () => {
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('consignors')
-        .delete()
-        .eq('id', id);      if (error) throw error;
-      alert('Consignor deleted successfully!');
+      const res = await fetch(`${API_URL}/api/bilty/master/consignors/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);      alert('Consignor deleted successfully!');
       fetchConsignors(true); // Reset and reload from beginning
     } catch (error) {
       console.error('Error deleting consignor:', error);
@@ -206,13 +183,16 @@ const ConsignorComponent = () => {
     try {
       setLoading(true);
       
-      // Get all data for export (not just loaded data)
-      const query = buildQuery();
-      const { data, error } = await query;
+      // Get all data for export
+      const params = new URLSearchParams({ page: 1, page_size: 10000 });
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      const res = await fetch(`${API_URL}/api/bilty/master/consignors?${params}`);
+      const result = await res.json();
       
-      if (error) throw error;
+      if (result.status !== 'success') throw new Error(result.message);
+      const data = result.data.rows || [];
       
-      if (!data || data.length === 0) {
+      if (data.length === 0) {
         alert('No data to export');
         return;
       }

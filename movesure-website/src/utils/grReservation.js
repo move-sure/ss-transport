@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * GR RESERVATION SYSTEM - Frontend Hook (v2)
+ * GR RESERVATION SYSTEM - Frontend Hook (v3 — Backend API)
  * 
- * Manages GR number reservations with:
- * - Atomic reservation via Supabase RPC (DB functions)
- * - Real-time updates via Supabase Realtime channels
- * - Heartbeat to keep reservations alive
- * - Auto-release on unmount / page close
- * - Live status of all branch reservations
- * - Range reservation (batch reserve multiple GRs)
- * - Pending reservations management (switch, release individual)
- * - completeAndReserveNext for seamless save flow
+ * All reservation logic now goes through the backend API:
+ *   /api/bilty/gr/reserve, /complete, /release, /extend, /status, /validate, /next-available
+ * 
+ * Features:
+ * - Upcoming 5 GR numbers shown via /next-available
+ * - Auto-validate & fix current_number on page load via /validate
+ * - Heartbeat via /extend
+ * - Realtime via Supabase channel (for live panel updates)
+ * - Release on cancel, complete on save
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -20,222 +20,27 @@ import supabase from '../app/utils/supabase';
 // ============================================================================
 // CONSTANTS
 // ============================================================================
+const BILTY_API_URL = 'https://movesure-backend.onrender.com';
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000;  // 5 minutes
 const REALTIME_CHANNEL_PREFIX = 'gr-reservations-';
 
 // ============================================================================
-// CORE API FUNCTIONS (call Supabase RPC)
+// BACKEND API HELPERS
 // ============================================================================
 
-/**
- * Reserve the next available GR number from a bill book.
- */
-export const reserveNextGR = async (billBookId, userId, branchId) => {
-  try {
-    const { data, error } = await supabase.rpc('reserve_next_gr', {
-      p_bill_book_id: billBookId,
-      p_user_id: userId,
-      p_branch_id: branchId
-    });
-
-    if (error) {
-      console.error('❌ Error reserving GR:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('🎫 Reserve GR result:', data);
-    return data;
-  } catch (err) {
-    console.error('❌ Exception reserving GR:', err);
-    return { success: false, error: err.message };
-  }
+const apiGet = async (path) => {
+  const res = await fetch(`${BILTY_API_URL}${path}`);
+  return res.json();
 };
 
-/**
- * Reserve a specific GR number (manual pick).
- */
-export const reserveSpecificGR = async (billBookId, userId, branchId, grNumber) => {
-  try {
-    const { data, error } = await supabase.rpc('reserve_specific_gr', {
-      p_bill_book_id: billBookId,
-      p_user_id: userId,
-      p_branch_id: branchId,
-      p_gr_number: grNumber
-    });
-
-    if (error) {
-      console.error('❌ Error reserving specific GR:', error);
-      return { success: false, error: error.message };
-    }
-
-    return data;
-  } catch (err) {
-    console.error('❌ Exception reserving specific GR:', err);
-    return { success: false, error: err.message };
-  }
+const apiPost = async (path, body = {}) => {
+  const res = await fetch(`${BILTY_API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
 };
-
-/**
- * Reserve a range of GR numbers (batch).
- */
-export const reserveGRRange = async (billBookId, userId, branchId, fromNumber, toNumber) => {
-  try {
-    const { data, error } = await supabase.rpc('reserve_gr_range', {
-      p_bill_book_id: billBookId,
-      p_user_id: userId,
-      p_branch_id: branchId,
-      p_from_number: fromNumber,
-      p_to_number: toNumber
-    });
-
-    if (error) {
-      console.error('❌ Error reserving GR range:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('🎫 Reserve range result:', data);
-    return data;
-  } catch (err) {
-    console.error('❌ Exception reserving GR range:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Release a reservation (user cancels / resets form).
- */
-export const releaseReservation = async (reservationId, userId) => {
-  try {
-    const { data, error } = await supabase.rpc('release_gr_reservation', {
-      p_reservation_id: reservationId,
-      p_user_id: userId
-    });
-
-    if (error) {
-      console.error('❌ Error releasing reservation:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('🔓 Reservation released:', data);
-    return data;
-  } catch (err) {
-    console.error('❌ Exception releasing reservation:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Complete a reservation when bilty is saved.
- */
-export const completeReservation = async (reservationId, userId) => {
-  try {
-    const { data, error } = await supabase.rpc('complete_gr_reservation', {
-      p_reservation_id: reservationId,
-      p_user_id: userId
-    });
-
-    if (error) {
-      console.error('❌ Error completing reservation:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('✅ Reservation completed:', data);
-    return data;
-  } catch (err) {
-    console.error('❌ Exception completing reservation:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Extend reservation expiry (heartbeat).
- */
-export const extendReservation = async (reservationId, userId) => {
-  try {
-    const { data, error } = await supabase.rpc('extend_gr_reservation', {
-      p_reservation_id: reservationId,
-      p_user_id: userId
-    });
-
-    if (error) {
-      console.error('❌ Heartbeat error:', error);
-      return { success: false, error: error.message };
-    }
-
-    return data;
-  } catch (err) {
-    console.error('❌ Heartbeat exception:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Get live branch GR status (reservations + recent bilties).
- */
-export const getBranchGRStatus = async (branchId, billBookId = null) => {
-  try {
-    const params = { p_branch_id: branchId };
-    if (billBookId) params.p_bill_book_id = billBookId;
-
-    const { data, error } = await supabase.rpc('get_branch_gr_status', params);
-
-    if (error) {
-      console.error('❌ Error getting branch status:', error);
-      return { reservations: [], recent_bilties: [] };
-    }
-
-    return data;
-  } catch (err) {
-    console.error('❌ Exception getting branch status:', err);
-    return { reservations: [], recent_bilties: [] };
-  }
-};
-
-/**
- * Release ALL reservations for a user (on logout / cleanup).
- */
-export const releaseAllUserReservations = async (userId) => {
-  try {
-    const { data, error } = await supabase.rpc('release_all_user_reservations', {
-      p_user_id: userId
-    });
-
-    if (error) {
-      console.error('❌ Error releasing all reservations:', error);
-      return { success: false, error: error.message };
-    }
-
-    return data;
-  } catch (err) {
-    console.error('❌ Exception releasing all:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Find unused GR numbers (gaps) between from_number and current_number.
- * These are numbers that were skipped/released and never saved as a bilty.
- */
-export const findUnusedGRNumbers = async (billBookId, branchId, limit = 10) => {
-  try {
-    const { data, error } = await supabase.rpc('find_unused_gr_numbers', {
-      p_bill_book_id: billBookId,
-      p_branch_id: branchId,
-      p_limit: limit
-    });
-
-    if (error) {
-      console.error('❌ Error finding unused GR numbers:', error);
-      return { success: false, unused: [], unused_count: 0 };
-    }
-
-    return data;
-  } catch (err) {
-    console.error('❌ Exception finding unused GR numbers:', err);
-    return { success: false, unused: [], unused_count: 0 };
-  }
-};
-
 
 // ============================================================================
 // MAIN HOOK: useGRReservation
@@ -249,28 +54,31 @@ export const useGRReservation = ({
   isEditMode = false,
   enabled = true
 }) => {
-  // Current active reservation (the GR in the form right now)
+  // Current active reservation
   const [reservation, setReservation] = useState(null);
   const [reserving, setReserving] = useState(false);
   const [reservationError, setReservationError] = useState(null);
-  
+
+  // Upcoming 5 available GR numbers (from /next-available)
+  const [nextAvailable, setNextAvailable] = useState([]);
+
   // Branch-wide live status
   const [branchReservations, setBranchReservations] = useState([]);
   const [recentBilties, setRecentBilties] = useState([]);
-  const [unusedGRNumbers, setUnusedGRNumbers] = useState([]);
 
-  // Refs for cleanup
+  // Bill book validation state
+  const [billBookValidation, setBillBookValidation] = useState(null);
+
+  // Refs
   const heartbeatRef = useRef(null);
   const channelRef = useRef(null);
   const reservationRef = useRef(null);
+  const releasingRef = useRef(false);
 
-  // Keep ref in sync
-  useEffect(() => {
-    reservationRef.current = reservation;
-  }, [reservation]);
+  useEffect(() => { reservationRef.current = reservation; }, [reservation]);
 
   // ========================================================================
-  // DERIVED: My pending reservations (all my reservations EXCEPT active one)
+  // DERIVED
   // ========================================================================
   const myPendingReservations = useMemo(() =>
     branchReservations
@@ -279,7 +87,6 @@ export const useGRReservation = ({
     [branchReservations, userId, reservation?.id]
   );
 
-  // All my reservations (including active)
   const myAllReservations = useMemo(() =>
     branchReservations
       .filter(r => r.user_id === userId)
@@ -288,65 +95,100 @@ export const useGRReservation = ({
   );
 
   // ========================================================================
-  // REFRESH BRANCH STATUS (moved up so other functions can call it)
+  // FETCH NEXT 5 AVAILABLE GR NUMBERS
+  // ========================================================================
+  const refreshNextAvailable = useCallback(async () => {
+    if (!branchId || !selectedBillBook?.id) { setNextAvailable([]); return; }
+    try {
+      const result = await apiGet(
+        `/api/bilty/gr/next-available?bill_book_id=${selectedBillBook.id}&branch_id=${branchId}&count=5`
+      );
+      if (result.status === 'success') {
+        setNextAvailable(result.data?.available || []);
+        console.log('📋 Next 5 available GRs:', (result.data?.available || []).map(a => a.gr_no).join(', '));
+      }
+    } catch (err) {
+      console.error('❌ Error fetching next available:', err);
+    }
+  }, [branchId, selectedBillBook?.id]);
+
+  // ========================================================================
+  // VALIDATE & AUTO-FIX BILL BOOK
+  // ========================================================================
+  const validateBillBook = useCallback(async () => {
+    if (!selectedBillBook?.id) return null;
+    try {
+      const result = await apiGet(`/api/bilty/gr/validate/${selectedBillBook.id}`);
+      if (result.status === 'success') {
+        setBillBookValidation(result.data);
+        if (result.data?.fixed) {
+          console.log('🔧 Bill book auto-fixed: current_number', result.data.old_current_number, '→', result.data.new_current_number);
+        }
+        // Update next available from validation response
+        if (result.data?.next_available) {
+          setNextAvailable(result.data.next_available);
+        }
+        return result.data;
+      }
+    } catch (err) {
+      console.error('❌ Error validating bill book:', err);
+    }
+    return null;
+  }, [selectedBillBook?.id]);
+
+  // ========================================================================
+  // REFRESH BRANCH STATUS
   // ========================================================================
   const refreshStatus = useCallback(async () => {
     if (!branchId) return;
-
-    const status = await getBranchGRStatus(branchId, selectedBillBook?.id);
-    setBranchReservations(status.reservations || []);
-    setRecentBilties(status.recent_bilties || []);
-  }, [branchId, selectedBillBook?.id]);
-
-  // ========================================================================
-  // FETCH UNUSED GR NUMBERS - gaps in sequence (moved up so other functions can call it)
-  // ========================================================================
-  const refreshUnusedGRs = useCallback(async () => {
-    if (!branchId || !selectedBillBook?.id) {
-      setUnusedGRNumbers([]);
-      return;
-    }
-
-    const result = await findUnusedGRNumbers(selectedBillBook.id, branchId, 10);
-    if (result.success) {
-      setUnusedGRNumbers(result.unused || []);
-      if (result.unused_count > 0) {
-        console.log(`⚠️ Found ${result.unused_count} unused GR numbers:`, result.unused.map(u => u.gr_no).join(', '));
+    try {
+      const url = selectedBillBook?.id
+        ? `/api/bilty/gr/status/${branchId}?bill_book_id=${selectedBillBook.id}`
+        : `/api/bilty/gr/status/${branchId}`;
+      const result = await apiGet(url);
+      if (result.status === 'success') {
+        setBranchReservations(result.data?.reservations || []);
+        setRecentBilties(result.data?.recent_bilties || []);
       }
-    } else {
-      setUnusedGRNumbers([]);
+    } catch (err) {
+      console.error('❌ Error getting branch status:', err);
     }
   }, [branchId, selectedBillBook?.id]);
 
   // ========================================================================
-  // RESERVE NEXT GR NUMBER
+  // RESERVE NEXT AVAILABLE GR
   // ========================================================================
   const reserveNext = useCallback(async () => {
-    if (!userId || !branchId || !selectedBillBook?.id || isEditMode || !enabled) {
-      return null;
-    }
+    if (!userId || !branchId || !selectedBillBook?.id || isEditMode || !enabled) return null;
 
     setReserving(true);
     setReservationError(null);
 
     try {
-      const result = await reserveNextGR(selectedBillBook.id, userId, branchId);
-      
-      if (result.success) {
+      const result = await apiPost('/api/bilty/gr/reserve', {
+        bill_book_id: selectedBillBook.id,
+        branch_id: branchId,
+        user_id: userId,
+        user_name: userName || 'Unknown'
+      });
+
+      if (result.status === 'success') {
+        const res = result.data?.reservation || result.data;
         const newReservation = {
-          id: result.reservation_id,
-          gr_no: result.gr_no,
-          gr_number: result.gr_number,
-          already_reserved: result.already_reserved,
-          expires_at: result.expires_at
+          id: res.id || res.reservation_id,
+          gr_no: result.data?.gr_no || res.gr_no,
+          gr_number: result.data?.gr_number || res.gr_number,
+          expires_at: result.data?.expires_at || res.expires_at
         };
-        
         setReservation(newReservation);
-        console.log('🎫 GR Reserved:', newReservation.gr_no, result.already_reserved ? '(existing)' : '(new)');
+        console.log('🎫 GR Reserved:', newReservation.gr_no);
+        // Refresh available list since one is now reserved
+        refreshNextAvailable();
+        refreshStatus();
         return newReservation;
       } else {
-        setReservationError(result.error);
-        console.error('❌ Failed to reserve GR:', result.error);
+        setReservationError(result.message || 'Reserve failed');
+        console.error('❌ Failed to reserve GR:', result.message);
         return null;
       }
     } catch (err) {
@@ -355,10 +197,10 @@ export const useGRReservation = ({
     } finally {
       setReserving(false);
     }
-  }, [userId, branchId, selectedBillBook?.id, isEditMode, enabled]);
+  }, [userId, userName, branchId, selectedBillBook?.id, isEditMode, enabled, refreshNextAvailable, refreshStatus]);
 
   // ========================================================================
-  // RESERVE SPECIFIC GR NUMBER
+  // RESERVE SPECIFIC GR NUMBER (user clicks one of the 5)
   // ========================================================================
   const reserveSpecific = useCallback(async (grNumber) => {
     if (!userId || !branchId || !selectedBillBook?.id) return null;
@@ -369,24 +211,32 @@ export const useGRReservation = ({
     try {
       // Release current reservation first
       if (reservationRef.current?.id) {
-        await releaseReservation(reservationRef.current.id, userId);
+        await apiPost(`/api/bilty/gr/release/${reservationRef.current.id}`, { user_id: userId });
       }
 
-      const result = await reserveSpecificGR(selectedBillBook.id, userId, branchId, grNumber);
-      
-      if (result.success) {
+      const result = await apiPost('/api/bilty/gr/reserve', {
+        bill_book_id: selectedBillBook.id,
+        branch_id: branchId,
+        user_id: userId,
+        user_name: userName || 'Unknown',
+        gr_number: grNumber
+      });
+
+      if (result.status === 'success') {
+        const res = result.data?.reservation || result.data;
         const newReservation = {
-          id: result.reservation_id,
-          gr_no: result.gr_no,
-          gr_number: result.gr_number,
-          expires_at: result.expires_at
+          id: res.id || res.reservation_id,
+          gr_no: result.data?.gr_no || res.gr_no,
+          gr_number: result.data?.gr_number || res.gr_number,
+          expires_at: result.data?.expires_at || res.expires_at
         };
         setReservation(newReservation);
-        // Refresh unused list since this number is now reserved
-        refreshUnusedGRs();
+        console.log('🎫 Specific GR Reserved:', newReservation.gr_no);
+        refreshNextAvailable();
+        refreshStatus();
         return newReservation;
       } else {
-        setReservationError(result.error);
+        setReservationError(result.message || 'Reserve failed');
         return null;
       }
     } catch (err) {
@@ -395,43 +245,7 @@ export const useGRReservation = ({
     } finally {
       setReserving(false);
     }
-  }, [userId, branchId, selectedBillBook?.id]);
-
-  // ========================================================================
-  // RESERVE RANGE (batch)
-  // ========================================================================
-  const reserveRange = useCallback(async (fromNum, toNum) => {
-    if (!userId || !branchId || !selectedBillBook?.id) return null;
-
-    setReserving(true);
-    setReservationError(null);
-
-    try {
-      const result = await reserveGRRange(selectedBillBook.id, userId, branchId, fromNum, toNum);
-
-      if (result.success && result.reserved?.length > 0) {
-        // Set the first reserved number as active if no current reservation
-        if (!reservationRef.current) {
-          const first = result.reserved[0];
-          setReservation({
-            id: first.reservation_id,
-            gr_no: first.gr_no,
-            gr_number: first.gr_number,
-            expires_at: null
-          });
-        }
-        // Refresh status to show all new reservations in live panel
-        refreshStatus();
-      }
-
-      return result;
-    } catch (err) {
-      setReservationError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setReserving(false);
-    }
-  }, [userId, branchId, selectedBillBook?.id]);
+  }, [userId, userName, branchId, selectedBillBook?.id, refreshNextAvailable, refreshStatus]);
 
   // ========================================================================
   // RELEASE CURRENT RESERVATION
@@ -440,39 +254,43 @@ export const useGRReservation = ({
     const currentRes = reservationRef.current;
     if (!currentRes?.id || !userId) return;
 
+    releasingRef.current = true;
     try {
-      await releaseReservation(currentRes.id, userId);
+      await apiPost(`/api/bilty/gr/release/${currentRes.id}`, { user_id: userId });
       setReservation(null);
       console.log('🔓 Released GR:', currentRes.gr_no);
-      refreshStatus();
+      await refreshStatus();
+      refreshNextAvailable();
     } catch (err) {
       console.error('Error releasing:', err);
+    } finally {
+      releasingRef.current = false;
     }
-  }, [userId]);
+  }, [userId, refreshNextAvailable, refreshStatus]);
 
   // ========================================================================
   // RELEASE A SPECIFIC RESERVATION BY ID
   // ========================================================================
   const releaseById = useCallback(async (reservationId) => {
     if (!userId) return;
-
+    releasingRef.current = true;
     try {
-      await releaseReservation(reservationId, userId);
-      
-      // If releasing the active reservation, clear it
+      await apiPost(`/api/bilty/gr/release/${reservationId}`, { user_id: userId });
       if (reservationRef.current?.id === reservationId) {
         setReservation(null);
       }
-
       console.log('🔓 Released reservation:', reservationId);
-      refreshStatus();
+      await refreshStatus();
+      refreshNextAvailable();
     } catch (err) {
       console.error('Error releasing by ID:', err);
+    } finally {
+      releasingRef.current = false;
     }
-  }, [userId]);
+  }, [userId, refreshNextAvailable, refreshStatus]);
 
   // ========================================================================
-  // SWITCH ACTIVE RESERVATION (use a different pending GR)
+  // SWITCH ACTIVE RESERVATION
   // ========================================================================
   const switchToReservation = useCallback((resData) => {
     setReservation({
@@ -492,44 +310,46 @@ export const useGRReservation = ({
     if (!currentRes?.id || !userId) return;
 
     try {
-      await completeReservation(currentRes.id, userId);
+      const result = await apiPost(`/api/bilty/gr/complete/${currentRes.id}`, { user_id: userId });
       setReservation(null);
-      console.log('✅ Completed GR:', currentRes.gr_no);
+      console.log('✅ Completed GR:', currentRes.gr_no, result.data?.current_number_advanced_to);
+      refreshNextAvailable();
+      refreshStatus();
     } catch (err) {
       console.error('Error completing:', err);
     }
-  }, [userId]);
+  }, [userId, refreshNextAvailable, refreshStatus]);
 
   // ========================================================================
   // COMPLETE + USE NEXT PENDING
-  // After saving a bilty, complete the reservation and switch to next
-  // pending reservation if any. Does NOT auto-reserve new numbers.
   // ========================================================================
   const completeAndReserveNext = useCallback(async () => {
     const currentRes = reservationRef.current;
     if (!currentRes?.id || !userId) return null;
 
     try {
-      // 1. Complete current reservation
-      await completeReservation(currentRes.id, userId);
+      // 1. Complete current reservation via backend
+      await apiPost(`/api/bilty/gr/complete/${currentRes.id}`, { user_id: userId });
       setReservation(null);
       console.log('✅ Completed GR:', currentRes.gr_no);
 
-      // 2. Fetch FRESH status to find user's remaining pending reservations
-      const status = await getBranchGRStatus(branchId, selectedBillBook?.id);
-      const freshReservations = status.reservations || [];
-      const freshRecent = status.recent_bilties || [];
-      
+      // 2. Refresh status to find remaining pending reservations
+      const statusUrl = selectedBillBook?.id
+        ? `/api/bilty/gr/status/${branchId}?bill_book_id=${selectedBillBook.id}`
+        : `/api/bilty/gr/status/${branchId}`;
+      const statusResult = await apiGet(statusUrl);
+      const freshReservations = statusResult.data?.reservations || [];
+      const freshRecent = statusResult.data?.recent_bilties || [];
+
       setBranchReservations(freshReservations);
       setRecentBilties(freshRecent);
 
-      // 3. Check if user has other pending reservations
+      // 3. Switch to next pending reservation if any
       const myPending = freshReservations
         .filter(r => r.user_id === userId)
         .sort((a, b) => a.gr_number - b.gr_number);
 
       if (myPending.length > 0) {
-        // Switch to next pending reservation (lowest number)
         const next = myPending[0];
         const newRes = {
           id: next.id,
@@ -539,45 +359,79 @@ export const useGRReservation = ({
         };
         setReservation(newRes);
         console.log('🔄 Switched to next pending GR:', next.gr_no);
+        refreshNextAvailable();
         return newRes;
       }
 
-      // 4. No pending reservations — user must click Reserve for next one
-      // Refresh unused GRs since current_number may have advanced
-      refreshUnusedGRs();
-      console.log('ℹ️ No pending reservations. User can click Reserve for next GR.');
+      // 4. No pending — refresh available GRs
+      refreshNextAvailable();
+      console.log('ℹ️ No pending reservations. User can pick from next 5 or click Reserve.');
       return null;
     } catch (err) {
       console.error('Error in completeAndReserveNext:', err);
       return null;
     }
-  }, [userId, branchId, selectedBillBook?.id]);
+  }, [userId, branchId, selectedBillBook?.id, refreshNextAvailable]);
 
   // ========================================================================
-  // NO AUTO-RESERVE: Users must click "Reserve" button manually.
-  // This prevents accidental reservations when users just browse the page.
-  // On page load, we only fetch branch status for the live panel.
+  // RELEASE ALL USER RESERVATIONS
+  // ========================================================================
+  const releaseAll = useCallback(async () => {
+    if (!userId || !branchId) return;
+    releasingRef.current = true;
+    try {
+      await apiPost('/api/bilty/gr/release-all', { user_id: userId, branch_id: branchId });
+      setReservation(null);
+      await refreshStatus();
+      refreshNextAvailable();
+    } catch (err) {
+      console.error('Error releasing all:', err);
+    } finally {
+      releasingRef.current = false;
+    }
+  }, [userId, branchId, refreshStatus, refreshNextAvailable]);
+
+  // ========================================================================
+  // FIX GR SEQUENCE via backend
+  // ========================================================================
+  const fixSequence = useCallback(async (correctNumber = null) => {
+    if (!selectedBillBook?.id) return null;
+    try {
+      const body = { bill_book_id: selectedBillBook.id };
+      if (correctNumber != null) body.correct_number = correctNumber;
+      const result = await apiPost('/api/bilty/gr/fix-sequence', body);
+      if (result.status === 'success') {
+        console.log('🔧 Sequence fixed:', result.data);
+        refreshNextAvailable();
+        return result.data;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error fixing sequence:', err);
+      return null;
+    }
+  }, [selectedBillBook?.id, refreshNextAvailable]);
+
+  // ========================================================================
+  // ON LOAD: Validate bill book + fetch status + fetch next available
   // ========================================================================
   useEffect(() => {
-    if (!enabled || !branchId) return;
+    if (!enabled || !branchId || !selectedBillBook?.id) return;
+    validateBillBook();
     refreshStatus();
-    refreshUnusedGRs();
+    refreshNextAvailable();
   }, [selectedBillBook?.id, enabled, branchId]);
 
   // ========================================================================
-  // AUTO-RESTORE: If user has existing reservations (from before page refresh
-  // or range reserve), automatically set the first one as the active reservation.
-  // This ensures the user sees their already-reserved GR, not a calculated one.
+  // AUTO-RESTORE existing reservation on page load/refresh
   // ========================================================================
   useEffect(() => {
-    // Only auto-restore if we have NO active reservation yet
-    if (reservation?.id || !userId || isEditMode || !enabled) return;
-    
-    // Find user's existing reservations in branchReservations
+    if (reservation?.id || !userId || isEditMode || !enabled || releasingRef.current) return;
+
     const myExisting = branchReservations
       .filter(r => r.user_id === userId)
       .sort((a, b) => a.gr_number - b.gr_number);
-    
+
     if (myExisting.length > 0) {
       const first = myExisting[0];
       console.log('🔄 Auto-restoring existing reservation:', first.gr_no, `(+${myExisting.length - 1} pending)`);
@@ -591,62 +445,53 @@ export const useGRReservation = ({
   }, [branchReservations, userId, reservation?.id, isEditMode, enabled]);
 
   // ========================================================================
-  // HEARTBEAT - Keep ALL user's reservations alive
+  // HEARTBEAT — extend all user's reservations via backend
   // ========================================================================
   useEffect(() => {
     if (!reservation?.id || !userId) {
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
+      if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
       return;
     }
 
     heartbeatRef.current = setInterval(async () => {
-      // Extend active reservation
-      const result = await extendReservation(reservation.id, userId);
-      if (!result.success) {
-        console.warn('⚠️ Heartbeat failed - reservation may have expired');
-        setReservation(null);
-      } else {
-        console.log('💓 Heartbeat OK, new expiry:', result.new_expires_at);
-      }
-
-      // Also extend any pending reservations
-      for (const pending of myPendingReservations) {
-        await extendReservation(pending.id, userId).catch(() => {});
+      try {
+        const result = await apiPost(`/api/bilty/gr/extend/${reservation.id}`, { user_id: userId });
+        if (result.status === 'success') {
+          console.log('💓 Heartbeat OK, new expiry:', result.data?.expires_at);
+        } else {
+          console.warn('⚠️ Heartbeat failed — reservation may have expired');
+          setReservation(null);
+        }
+        // Extend pending reservations too
+        for (const pending of myPendingReservations) {
+          await apiPost(`/api/bilty/gr/extend/${pending.id}`, { user_id: userId }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('⚠️ Heartbeat error:', err);
       }
     }, HEARTBEAT_INTERVAL);
 
     return () => {
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-        heartbeatRef.current = null;
-      }
+      if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
     };
   }, [reservation?.id, userId, myPendingReservations]);
 
   // ========================================================================
-  // REALTIME SUBSCRIPTION
+  // REALTIME SUBSCRIPTION (for live panel updates)
   // ========================================================================
   useEffect(() => {
     if (!branchId || !enabled) return;
 
     const channelName = `${REALTIME_CHANNEL_PREFIX}${branchId}`;
-
     const channel = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'gr_reservations',
-          filter: `branch_id=eq.${branchId}`
-        },
+        { event: '*', schema: 'public', table: 'gr_reservations', filter: `branch_id=eq.${branchId}` },
         (payload) => {
           console.log('📡 Realtime GR change:', payload.eventType, payload.new?.gr_no || payload.old?.gr_no);
           refreshStatus();
+          refreshNextAvailable();
         }
       )
       .subscribe((status) => {
@@ -654,64 +499,46 @@ export const useGRReservation = ({
       });
 
     channelRef.current = channel;
-    refreshStatus();
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
     };
   }, [branchId, enabled, selectedBillBook?.id]);
-
-  // ========================================================================
-  // NOTE: We intentionally do NOT release reservations on page refresh/close.
-  // ========================================================================
-  // Reservations have a 30-minute TTL and are extended by heartbeat while
-  // the user is active on the bilty page. This design prevents the critical
-  // bug where refreshing the page would release all reservations, allowing
-  // other users to grab them instantly.
-  //
-  // On page refresh:
-  //   1. Reservations persist in DB (status='reserved', expires_at is still valid)
-  //   2. Auto-reserve useEffect fires → calls reserve_next_gr()
-  //   3. SQL function finds existing reservation → returns it (already_reserved=true)
-  //   4. User gets their same GR number back — no duplication, no loss
-  //
-  // On actual tab close:
-  //   - Reservations expire naturally after 30 minutes
-  //   - cleanup_expired_reservations() marks them expired on next call
-  // ========================================================================
 
   return {
     // Current active reservation
     reservation,
     reserving,
     reservationError,
-    
+
+    // Next 5 available GR numbers
+    nextAvailable,
+    refreshNextAvailable,
+
+    // Bill book validation
+    billBookValidation,
+    validateBillBook,
+
     // Actions
     reserveNext,
     reserveSpecific,
-    reserveRange,
     release,
     releaseById,
+    releaseAll,
     complete,
     completeAndReserveNext,
     switchToReservation,
+    fixSequence,
     refreshStatus,
-    refreshUnusedGRs,
-    
+
     // Branch-wide status (live)
     branchReservations,
     recentBilties,
-    
-    // Unused GR numbers (gaps in sequence)
-    unusedGRNumbers,
-    
+
     // User's reservations
     myPendingReservations,
     myAllReservations,
-    
+
     // Derived
     hasReservation: !!reservation?.id,
     reservedGRNo: reservation?.gr_no || null,

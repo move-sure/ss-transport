@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Search, Package, Trash2, CheckSquare, Square, Truck, Plus, X, RefreshCw, Download, Lock } from 'lucide-react';
-import supabase from '../../app/utils/supabase';
 
 const BiltyList = ({ 
   bilties, 
@@ -301,7 +300,15 @@ const BiltyList = ({
           (bilty.created_at && bilty.created_at.split('T')[0] === date);
         
         const matchesCity = city === 'all' || (biltyDisplayCity || '').toLowerCase().includes(city.toLowerCase());
-        const matchesBiltyType = biltyType === 'all' || bilty.bilty_type === biltyType;
+
+        // biltyType filter — includes 'missing' option for missing consignor/consignee
+        let matchesBiltyType;
+        if (biltyType === 'all') matchesBiltyType = true;
+        else if (biltyType === 'missing') {
+          const consignor = (bilty.consignor_name || bilty.consignor || '').trim();
+          const consignee = (bilty.consignee_name || bilty.consignee || '').trim();
+          matchesBiltyType = !consignor || !consignee;
+        } else matchesBiltyType = bilty.bilty_type === biltyType;
         
         return matchesSearch && matchesPayment && matchesDate && matchesCity && matchesBiltyType;
       });
@@ -316,56 +323,24 @@ const BiltyList = ({
     setFilteredTransitBilties(applyFilters(transitBilties || [], transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType, true));
   }, [bilties, stationBilties, transitBilties, searchTerm, filterPaymentMode, filterDate, filterCity, filterBiltyType, transitSearchTerm, transitFilterPaymentMode, transitFilterDate, transitFilterCity, transitFilterBiltyType]);
 
-  // Effect to filter out bilties whose gr_no exists in transit_details
+  // Filter out bilties that are already in transit (using transitBilties prop instead of DB query)
   useEffect(() => {
-    async function filterBiltiesByTransit() {
-      if (!filteredBilties || filteredBilties.length === 0) {
-        setFullyFilteredBilties([]);
-        // Notify parent of the filtered count
-        if (onFilteredCountChange) {
-          onFilteredCountChange(0);
-        }
-        return;
-      }
-      // Get all gr_no from filteredBilties
-      const grNos = filteredBilties.map(b => b.gr_no).filter(Boolean);
-      if (grNos.length === 0) {
-        setFullyFilteredBilties(filteredBilties);
-        // Notify parent of the filtered count
-        if (onFilteredCountChange) {
-          onFilteredCountChange(filteredBilties.length);
-        }
-        return;
-      }
-      // Query transit_details for these gr_no
-      const { data: transitRecords, error } = await supabase
-        .from('transit_details')
-        .select('gr_no')
-        .in('gr_no', grNos);
-      if (error) {
-        // On error, fallback to showing all
-        setFullyFilteredBilties(filteredBilties);
-        // Notify parent of the filtered count
-        if (onFilteredCountChange) {
-          onFilteredCountChange(filteredBilties.length);
-        }
-        return;
-      }
-      const transitGRSet = new Set((transitRecords || []).map(t => t.gr_no));
-      // Remove bilties whose gr_no is in transit_details
-      const filtered = filteredBilties.filter(b => !transitGRSet.has(b.gr_no));
-      
-      // Apply sorting
-      const sorted = applySorting(filtered, availableSortConfig);
-      setFullyFilteredBilties(sorted);
-      
-      // Notify parent of the filtered count
-      if (onFilteredCountChange) {
-        onFilteredCountChange(sorted.length);
-      }
+    if (!filteredBilties || filteredBilties.length === 0) {
+      setFullyFilteredBilties([]);
+      if (onFilteredCountChange) onFilteredCountChange(0);
+      return;
     }
-    filterBiltiesByTransit();
-  }, [filteredBilties, availableSortConfig, onFilteredCountChange]);
+    
+    // Use transitBilties from props to exclude already-in-transit bilties
+    const transitGRSet = new Set((transitBilties || []).map(t => t.gr_no).filter(Boolean));
+    const filtered = transitGRSet.size > 0
+      ? filteredBilties.filter(b => !transitGRSet.has(b.gr_no))
+      : filteredBilties;
+    
+    const sorted = applySorting(filtered, availableSortConfig);
+    setFullyFilteredBilties(sorted);
+    if (onFilteredCountChange) onFilteredCountChange(sorted.length);
+  }, [filteredBilties, transitBilties, availableSortConfig, onFilteredCountChange]);
 
   const handleBiltySelect = (bilty) => {
     // Only allow selection of regular bilties, not transit bilties, and not for dispatched challans
@@ -634,8 +609,9 @@ const BiltyList = ({
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               >
                 <option value="all">All Types</option>
-                <option value="regular">Regular</option>
-                <option value="station">Manual</option>
+                <option value="reg">Regular</option>
+                <option value="mnl">Manual</option>
+                <option value="missing">Missing Info</option>
               </select>
               <input
                 type="date"
@@ -922,8 +898,9 @@ const BiltyList = ({
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             >
               <option value="all">All Types</option>
-              <option value="regular">Regular</option>
-              <option value="station">Manual</option>
+              <option value="reg">Regular</option>
+              <option value="mnl">Manual</option>
+              <option value="missing">Missing Info</option>
             </select>
             <input
               type="date"

@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
 
+const API_URL = 'https://movesure-backend.onrender.com';
+
 // Inline Editable Rate Cell Component
 const InlineRateCell = memo(({ city, rate, branchId, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -135,24 +137,26 @@ const RatesComponent = () => {
       
       const [branchesRes, citiesRes, ratesRes] = await Promise.all([
         supabase.from('branches').select('*').eq('is_active', true).order('branch_name'),
-        supabase.from('cities').select('*').order('city_name'),
-        supabase.from('rates')
-          .select('*')
-          .is('consignor_id', null)
-          .eq('is_default', true)
+        fetch(`${API_URL}/api/bilty/master/cities?page=1&page_size=1000`).then(r => r.json()),
+        fetch(`${API_URL}/api/bilty/master/rates?page=1&page_size=10000`).then(r => r.json())
       ]);
 
       setBranches(branchesRes.data || []);
       
+      const ratesRows = ratesRes.status === 'success' ? (ratesRes.data.rows || []) : [];
+      // Filter only default rates (consignor_id null, is_default true)
+      const defaultRates = ratesRows.filter(r => !r.consignor_id && r.is_default);
+      
       // Create a map of rates by city_id and branch_id
       const ratesMap = {};
-      (ratesRes.data || []).forEach(rate => {
+      defaultRates.forEach(rate => {
         const key = `${rate.city_id}-${rate.branch_id}`;
         ratesMap[key] = rate;
       });
 
+      const citiesRows = citiesRes.status === 'success' ? (citiesRes.data.rows || []) : [];
       // Merge cities with their rates
-      const citiesData = (citiesRes.data || []).map(city => ({
+      const citiesData = citiesRows.map(city => ({
         ...city,
         ratesMap // Store the entire rates map for this city
       }));
@@ -185,24 +189,15 @@ const RatesComponent = () => {
 
   // Handle rate update (optimistic update)
   const handleRateUpdate = useCallback(async (cityId, newRate, existingRateId) => {
-    const rateData = {
-      branch_id: selectedBranch,
-      city_id: cityId,
-      consignor_id: null,
-      rate: newRate,
-      is_default: true
-    };
-
     if (existingRateId) {
       // Update existing rate
-      const { data, error } = await supabase
-        .from('rates')
-        .update({ rate: newRate })
-        .eq('id', existingRateId)
-        .select()
-        .single();
-      
-      if (error) throw error;
+      const res = await fetch(`${API_URL}/api/bilty/master/rates/${existingRateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rate: newRate, user_id: user?.id }),
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
 
       // Optimistic update
       setCitiesWithRates(prev => prev.map(city => {
@@ -212,7 +207,7 @@ const RatesComponent = () => {
             ...city,
             ratesMap: {
               ...city.ratesMap,
-              [key]: data
+              [key]: { ...city.ratesMap?.[key], rate: newRate, id: existingRateId }
             }
           };
         }
@@ -220,13 +215,21 @@ const RatesComponent = () => {
       }));
     } else {
       // Insert new rate
-      const { data, error } = await supabase
-        .from('rates')
-        .insert([rateData])
-        .select()
-        .single();
-      
-      if (error) throw error;
+      const rateData = {
+        branch_id: selectedBranch,
+        city_id: cityId,
+        consignor_id: null,
+        rate: newRate,
+        is_default: true,
+        user_id: user?.id
+      };
+      const res = await fetch(`${API_URL}/api/bilty/master/rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rateData),
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
 
       // Optimistic update
       setCitiesWithRates(prev => prev.map(city => {
@@ -236,14 +239,14 @@ const RatesComponent = () => {
             ...city,
             ratesMap: {
               ...city.ratesMap,
-              [key]: data
+              [key]: result.data
             }
           };
         }
         return city;
       }));
     }
-  }, [selectedBranch]);
+  }, [selectedBranch, user?.id]);
 
   // Sorting function
   const handleSort = (key) => {

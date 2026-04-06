@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
+
+const API_URL = 'https://movesure-backend.onrender.com';
 import { 
   searchCities, 
   findDuplicateCityNames, 
@@ -59,13 +60,10 @@ const CitiesComponent = () => {
   const fetchCities = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('cities')
-        .select('*')
-        .order('city_name');
-
-      if (error) throw error;
-      setCities(data || []);
+      const res = await fetch(`${API_URL}/api/bilty/master/cities?page=1&page_size=1000`);
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
+      setCities(result.data.rows || []);
     } catch (error) {
       console.error('Error fetching cities:', error);
       alert('Error fetching cities: ' + error.message);
@@ -89,25 +87,30 @@ const CitiesComponent = () => {
       setLoading(true);
 
       if (editingId) {
-        const { error } = await supabase
-          .from('cities')
-          .update({
+        const res = await fetch(`${API_URL}/api/bilty/master/cities/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user?.id,
             city_code: formData.city_code.trim().toUpperCase(),
             city_name: formData.city_name.trim()
-          })
-          .eq('id', editingId);
-
-        if (error) throw error;
+          }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('City updated successfully!');
       } else {
-        const { error } = await supabase
-          .from('cities')
-          .insert([{
+        const res = await fetch(`${API_URL}/api/bilty/master/cities`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user?.id,
             city_code: formData.city_code.trim().toUpperCase(),
             city_name: formData.city_name.trim()
-          }]);
-
-        if (error) throw error;
+          }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('City added successfully!');
       }
 
@@ -143,12 +146,9 @@ const CitiesComponent = () => {
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('cities')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const res = await fetch(`${API_URL}/api/bilty/master/cities/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
       alert('City deleted successfully!');
       fetchCities();
     } catch (error) {

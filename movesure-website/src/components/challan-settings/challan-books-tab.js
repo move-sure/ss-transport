@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import supabase from '../../app/utils/supabase';
 import { format } from 'date-fns';
 import { FileText, Edit2 } from 'lucide-react';
 

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
+
+const API_URL = 'https://movesure-backend.onrender.com';
 import { 
   searchTransporters, 
   filterByCity,
@@ -103,13 +104,10 @@ const TransportersComponent = () => {
 
   const fetchCities = async () => {
     try {
-      const { data, error } = await supabase
-        .from('cities')
-        .select('*')
-        .order('city_name');
-
-      if (error) throw error;
-      setCities(data || []);
+      const res = await fetch(`${API_URL}/api/bilty/master/cities?page=1&page_size=1000`);
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
+      setCities(result.data.rows || []);
     } catch (error) {
       console.error('Error fetching cities:', error);
     }
@@ -118,19 +116,10 @@ const TransportersComponent = () => {
   const fetchTransporters = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('transports')
-        .select(`
-          *,
-          cities (
-            city_name,
-            city_code
-          )
-        `)
-        .order('transport_name');
-
-      if (error) throw error;
-      setTransporters(data || []);
+      const res = await fetch(`${API_URL}/api/bilty/master/transports?page=1&page_size=5000`);
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
+      setTransporters(result.data.rows || []);
     } catch (error) {
       console.error('Error fetching transporters:', error);
       alert('Error fetching transporters: ' + error.message);
@@ -141,13 +130,10 @@ const TransportersComponent = () => {
 
   const fetchTransportAdmins = async () => {
     try {
-      const { data, error } = await supabase
-        .from('transport_admin')
-        .select('transport_id, transport_name, gstin, owner_name')
-        .order('transport_name');
-
-      if (error) throw error;
-      setTransportAdmins(data || []);
+      const res = await fetch(`${API_URL}/api/bilty/master/transport_admin?page=1&page_size=5000`);
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
+      setTransportAdmins(result.data.rows || []);
     } catch (error) {
       console.error('Error fetching transport admins:', error);
     }
@@ -200,19 +186,22 @@ const TransportersComponent = () => {
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('transports')
-          .update({ ...transportData, updated_by: currentUser })
-          .eq('id', editingId);
-
-        if (error) throw error;
+        const res = await fetch(`${API_URL}/api/bilty/master/transports/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...transportData, user_id: user?.id }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('Transporter updated successfully!');
       } else {
-        const { error } = await supabase
-          .from('transports')
-          .insert([{ ...transportData, created_by: currentUser, updated_by: null }]);
-
-        if (error) throw error;
+        const res = await fetch(`${API_URL}/api/bilty/master/transports`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...transportData, user_id: user?.id }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message);
         alert('Transporter added successfully!');
       }
 
@@ -282,17 +271,60 @@ const TransportersComponent = () => {
 
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('transports')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const res = await fetch(`${API_URL}/api/bilty/master/transports/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
       alert('Transporter deleted successfully!');
       fetchTransporters();
     } catch (error) {
       console.error('Error deleting transporter:', error);
       alert('Error deleting transporter: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTogglePriority = async (transporter) => {
+    try {
+      setLoading(true);
+
+      // Find existing prior transport for the same city
+      const currentPrior = transporters.find(
+        t => t.city_id === transporter.city_id && t.is_prior && t.id !== transporter.id
+      );
+
+      const willBePrior = !transporter.is_prior;
+
+      // If making this one prior and another already is, remove prior from the other first
+      if (willBePrior && currentPrior) {
+        const removeRes = await fetch(`${API_URL}/api/bilty/master/transports/${currentPrior.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user?.id, is_prior: false }),
+        });
+        const removeResult = await removeRes.json();
+        if (removeResult.status !== 'success') throw new Error(removeResult.message);
+      }
+
+      // Toggle priority on the target transport
+      const res = await fetch(`${API_URL}/api/bilty/master/transports/${transporter.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user?.id, is_prior: willBePrior }),
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message);
+
+      // Optimistic local update
+      setTransporters(prev => prev.map(t => {
+        if (t.id === transporter.id) return { ...t, is_prior: willBePrior };
+        if (willBePrior && t.city_id === transporter.city_id && t.id !== transporter.id) return { ...t, is_prior: false };
+        return t;
+      }));
+    } catch (error) {
+      console.error('Error toggling priority:', error);
+      alert('Error updating priority: ' + error.message);
+      fetchTransporters();
     } finally {
       setLoading(false);
     }
@@ -801,6 +833,15 @@ const TransportersComponent = () => {
                                   {group.cityCode}
                                 </span>
                               )}
+                              {groupBy === 'city' && (() => {
+                                const prior = group.transporters.find(t => t.is_prior);
+                                return prior ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                    Priority: {prior.transport_name}
+                                  </span>
+                                ) : null;
+                              })()}
                             </div>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded shadow-sm ${
                               group.isDuplicate 
@@ -820,7 +861,18 @@ const TransportersComponent = () => {
                             group.isDuplicate ? 'bg-red-50' : (index % 2 === 0 ? 'bg-white' : 'bg-gray-50')
                           }`}>
                             <td className="border-r border-gray-200 px-2 py-2 text-black">
-                              <span className="font-medium">{transporter.transport_name}</span>
+                              <div className="flex items-center gap-1.5">
+                                {transporter.is_prior && (
+                                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0" title="Priority transport for this city">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                                  </span>
+                                )}
+                                <span className="font-medium">{transporter.transport_name}</span>
+                                {transporter.is_prior && (
+                                  <span className="text-[9px] font-bold text-green-700 bg-green-100 px-1 py-0.5 rounded leading-none">PRIORITY</span>
+                                )}
+                              </div>
                             </td>
                             <td className="border-r border-gray-200 px-2 py-2 text-black">
                               <div>
@@ -883,6 +935,18 @@ const TransportersComponent = () => {
                             </td>
                             <td className="px-2 py-2">
                               <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleTogglePriority(transporter)}
+                                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                    transporter.is_prior
+                                      ? 'bg-green-100 text-green-700 hover:bg-green-200 ring-1 ring-green-300'
+                                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                  }`}
+                                  disabled={loading}
+                                  title={transporter.is_prior ? 'Remove priority' : 'Set as priority for this city'}
+                                >
+                                  {transporter.is_prior ? '⭐' : '☆'}
+                                </button>
                                 <button
                                   onClick={() => handleEdit(transporter)}
                                   className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-2 py-1 rounded text-xs font-medium"

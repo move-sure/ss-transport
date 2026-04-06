@@ -4,6 +4,28 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import { Truck, Settings, List, Plus, Search, Filter, Calendar, Eye, RefreshCw } from 'lucide-react';
+
+const API_URL = 'https://movesure-backend.onrender.com';
+
+// Transform flat API challan row to nested objects for component compatibility
+const transformChallanRow = (row) => ({
+  ...row,
+  truck: row.truck_id ? { id: row.truck_id, truck_number: row.truck_number, truck_type: row.truck_type } : null,
+  driver: row.driver_id ? { id: row.driver_id, name: row.driver_name, mobile_number: row.driver_mobile_number, license_number: row.driver_license_number } : null,
+  owner: row.owner_id ? { id: row.owner_id, name: row.owner_name, mobile_number: row.owner_mobile_number } : null,
+  creator: row.created_by_name ? { name: row.created_by_name, username: row.created_by_name } : null,
+});
+
+// Transform flat API book row to nested objects using branches array
+const transformBookRow = (row, branchesArr) => ({
+  ...row,
+  from_branch: branchesArr.find(b => b.id === row.from_branch_id) || null,
+  to_branch: branchesArr.find(b => b.id === row.to_branch_id) || null,
+  branch1: branchesArr.find(b => b.id === row.branch_1) || null,
+  branch2: row.branch_2 ? branchesArr.find(b => b.id === row.branch_2) || null : null,
+  branch3: row.branch_3 ? branchesArr.find(b => b.id === row.branch_3) || null : null,
+  creator: row.created_by_name ? { name: row.created_by_name, username: row.created_by_name } : null,
+});
 import ChallanForm from '../../components/challan-settings/challanform';
 import ChallanBookForm from '../../components/challan-settings/challan-book';
 import ChallanDetailsTab from '../../components/challan-settings/challan-details-tab';
@@ -54,14 +76,13 @@ export default function ChallanManagementPage() {
       if (staffRes.error) throw staffRes.error;
 
       setBranchData(branchRes.data);
-      setBranches(branchesRes.data || []);
+      const loadedBranches = branchesRes.data || [];
+      setBranches(loadedBranches);
       setTrucks(trucksRes.data || []);
       setStaff(staffRes.data || []);
 
-      // Load challan books first
-      await loadChallanBooks();
-      
-      // Always load challans on initial load to show full list
+      // Load challan books and challans from API
+      await loadChallanBooks(loadedBranches);
       await loadChallans();
     } catch (error) {
       console.error('Error loading initial data:', error);
@@ -71,24 +92,16 @@ export default function ChallanManagementPage() {
     }
   };
 
-  const loadChallanBooks = async () => {
+  const loadChallanBooks = async (branchesData) => {
     try {
-      const { data, error } = await supabase
-        .from('challan_books')
-        .select(`
-          *,
-          from_branch:branches!challan_books_from_branch_id_fkey(branch_name, branch_code),
-          to_branch:branches!challan_books_to_branch_id_fkey(branch_name, branch_code),
-          branch1:branches!challan_books_branch_1_fkey(branch_name, branch_code),
-          branch2:branches!challan_books_branch_2_fkey(branch_name, branch_code),
-          branch3:branches!challan_books_branch_3_fkey(branch_name, branch_code),
-          creator:users!challan_books_created_by_fkey(username, name)
-        `)
-        .or(`branch_1.eq.${user.branch_id},branch_2.eq.${user.branch_id},branch_3.eq.${user.branch_id}`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setChallanBooks(data || []);
+      const branchesArr = branchesData || branches;
+      const res = await fetch(`${API_URL}/api/challan/books?branch_id=${user.branch_id}`);
+      const result = await res.json();
+      
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to load challan books');
+      
+      const books = (result.data?.rows || []).map(row => transformBookRow(row, branchesArr));
+      setChallanBooks(books);
     } catch (error) {
       console.error('Error loading challan books:', error);
     }
@@ -96,42 +109,35 @@ export default function ChallanManagementPage() {
 
   const loadChallans = async (filters = {}) => {
     try {
-      let query = supabase
-        .from('challan_details')
-        .select(`
-          *,
-          branch:branches(branch_name, branch_code),
-          truck:trucks(truck_number, truck_type),
-          owner:staff!challan_details_owner_id_fkey(name, mobile_number),
-          driver:staff!challan_details_driver_id_fkey(name, mobile_number, license_number),
-          creator:users(username, name)
-        `)
-        .eq('is_active', true);
-
-      // Only apply branch filter for branches other than the specified one
+      // Build API URL with supported filters
+      let url = `${API_URL}/api/challan/list`;
+      const params = new URLSearchParams();
+      
+      // Only apply branch filter for branches other than the admin one
       if (user.branch_id !== '0f128ce1-daab-4356-98b8-c58d62f825be') {
-        query = query.eq('branch_id', user.branch_id);
+        params.set('branch_id', user.branch_id);
       }
-
-      // Apply filters
-      if (filters.date) {
-        query = query.eq('date', filters.date);
-      }
-
+      
+      // Apply dispatch status filter via API
       if (filters.status && filters.status !== 'all') {
-        if (filters.status === 'dispatched') {
-          query = query.eq('is_dispatched', true);
-        } else if (filters.status === 'pending') {
-          query = query.eq('is_dispatched', false);
-        }
+        params.set('is_dispatched', filters.status === 'dispatched' ? 'true' : 'false');
       }
-
-      query = query.order('created_at', { ascending: false });
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      setChallans(data || []);
+      
+      if (params.toString()) url += `?${params.toString()}`;
+      
+      const res = await fetch(url);
+      const result = await res.json();
+      
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to load challans');
+      
+      let challansData = (result.data?.rows || []).map(transformChallanRow);
+      
+      // Apply client-side filters that API doesn't support
+      if (filters.date) {
+        challansData = challansData.filter(c => c.date === filters.date);
+      }
+      
+      setChallans(challansData);
     } catch (error) {
       console.error('Error loading challans:', error);
       setChallans([]);

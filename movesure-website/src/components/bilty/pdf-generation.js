@@ -107,7 +107,7 @@ const PDFGenerator = ({
       'KP': 'KANPUR',
       // Add more city codes as needed
     };
-    return cityCodeMap[cityCode?.toUpperCase()] || cityCode || 'ALIGARH';
+    return cityCodeMap[cityCode?.toUpperCase()] || cityCode || '';
   };
 
   // ==========================================
@@ -494,7 +494,7 @@ const PDFGenerator = ({
     // GST Number (top left) - Bold label
     addStyledText(
       pdf, 
-      `GST No: ${permDetails?.gst || '09COVPS5556J1ZT'}`, 
+      `GST No: ${permDetails?.gst || ''}`, 
       COORDINATES.HEADER.GST_NO.x, 
       y + COORDINATES.HEADER.GST_NO.y,
       STYLES.FONTS.NOTICE
@@ -512,20 +512,20 @@ const PDFGenerator = ({
     // Bank Details (left side) - Enhanced styling
     addStyledText(
       pdf, 
-      `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || '0010002100076368'} IFSC CODE ${permDetails?.ifsc_code_1 || '0001000'}`, 
+      `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || ''} IFSC CODE ${permDetails?.ifsc_code_1 || ''}`, 
       COORDINATES.HEADER.BANK_DETAIL_1.x, 
       y + COORDINATES.HEADER.BANK_DETAIL_1.y,
       STYLES.FONTS.LABELS
     );
     addStyledText(
       pdf, 
-      `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || '923010361683636'} IFSC CODE ${permDetails?.ifsc_code_2 || '0001837'}`, 
+      `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || ''} IFSC CODE ${permDetails?.ifsc_code_2 || ''}`, 
       COORDINATES.HEADER.BANK_DETAIL_2.x, 
       y + COORDINATES.HEADER.BANK_DETAIL_2.y,
       STYLES.FONTS.LABELS
     );
       // Branch Address (right side) - ENHANCED DARK & BOLD
-    const address = permDetails?.transport_address || 'GANDHI MARKET, G T ROAD, ALIGARH-202001\nSHIVA PETROL PUMP, G T ROAD, ALIGARH-202001';
+    const address = permDetails?.transport_address || '';
     const addressLines = address.split('\n');
     addStyledText(
       pdf, 
@@ -574,9 +574,9 @@ const PDFGenerator = ({
     );
     
     // Route with city names - Bold
-    const fromCityName = fromCity?.city_name || 'ALIGARH';
-    const toCityName = toCity?.city_name || 'DEORIA';
-    const toCityCode = toCity?.city_code || 'DRO';
+    const fromCityName = fromCity?.city_name || '';
+    const toCityName = toCity?.city_name || '';
+    const toCityCode = toCity?.city_code || '';
     addStyledText(
       pdf, 
       `${fromCityName} TO ${toCityName} (${toCityCode})`, 
@@ -624,7 +624,7 @@ const PDFGenerator = ({
     );
     addStyledText(
       pdf, 
-      `GSTIN: ${biltyData.consignor_gst || 'N/A'}`, 
+      `GSTIN: ${biltyData.consignor_gst || ''}`, 
       COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.x, 
       y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.y,
       STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
@@ -667,7 +667,7 @@ const PDFGenerator = ({
     } else {
         addStyledText(
           pdf, 
-          `GSTIN: ${gstText || 'N/A'}`, 
+          `GSTIN: ${gstText || ''}`, 
           COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
           y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
           STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
@@ -692,7 +692,7 @@ const PDFGenerator = ({
     );
     addStyledText(
       pdf, 
-      `${biltyData.e_way_bill || 'N/A'}`, 
+      `${biltyData.e_way_bill || ''}`, 
       COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 25, // Offset for the value
       y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
       STYLES.FONTS.ENHANCED_VALUES // Using enhanced bold style for the eway bill value
@@ -709,7 +709,7 @@ const PDFGenerator = ({
     addStyledText(pdf, `INVOICE DATE:`, COORDINATES.TABLE_SECTION.INVOICE_DATE.x, y + COORDINATES.TABLE_SECTION.INVOICE_DATE.y, STYLES.FONTS.LABELS);
     addStyledText(
       pdf, 
-      `${biltyData.invoice_date ? formatDate(biltyData.invoice_date) : 'N/A'}`, 
+      `${biltyData.invoice_date ? formatDate(biltyData.invoice_date) : ''}`, 
       COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.x, 
       y + COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.y,
       STYLES.FONTS.VALUES
@@ -718,7 +718,7 @@ const PDFGenerator = ({
     addStyledText(pdf, `INVOICE NO:`, COORDINATES.TABLE_SECTION.INVOICE_NO.x, y + COORDINATES.TABLE_SECTION.INVOICE_NO.y, STYLES.FONTS.LABELS);
     addStyledText(
       pdf, 
-      `${biltyData.invoice_no || 'N/A'}`, 
+      `${biltyData.invoice_no || ''}`, 
       COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.x, 
       y + COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.y,
       STYLES.FONTS.VALUES
@@ -727,7 +727,7 @@ const PDFGenerator = ({
     addStyledText(pdf, `INVOICE VALUE:`, COORDINATES.TABLE_SECTION.INVOICE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_VALUE.y, STYLES.FONTS.LABELS);
     addStyledText(
       pdf, 
-      `${biltyData.invoice_value || '0'}`, 
+      `${biltyData.invoice_value || ''}`, 
       COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.x, 
       y + COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.y,
       STYLES.FONTS.VALUES
@@ -736,7 +736,7 @@ const PDFGenerator = ({
     addStyledText(pdf, `CONTENT:`, COORDINATES.TABLE_SECTION.CONTENT.x, y + COORDINATES.TABLE_SECTION.CONTENT.y, STYLES.FONTS.LABELS);
     addStyledText(
       pdf, 
-      `${biltyData.contain || 'HARDWARE'}`, 
+      `${biltyData.contain || ''}`, 
       COORDINATES.TABLE_SECTION.CONTENT_VALUE.x, 
       y + COORDINATES.TABLE_SECTION.CONTENT_VALUE.y,
       STYLES.FONTS.VALUES
@@ -763,7 +763,7 @@ const PDFGenerator = ({
     addStyledText(pdf, 'PVT MARKS:', COORDINATES.TABLE_SECTION.PVT_LABEL.x, y + COORDINATES.TABLE_SECTION.PVT_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
     addStyledText(
       pdf, 
-      `${biltyData.pvt_marks || 'SS'} / ${biltyData.no_of_pkg}`, 
+      `${biltyData.pvt_marks || ''} / ${biltyData.no_of_pkg}`, 
       COORDINATES.TABLE_SECTION.PVT_VALUE.x, 
       y + COORDINATES.TABLE_SECTION.PVT_VALUE.y,
       STYLES.FONTS.LARGE_STATUS,
@@ -934,7 +934,7 @@ const PDFGenerator = ({
     // Footer text with enhanced styling
     addStyledText(
       pdf, 
-      `OUR WEBSITE: ${permDetails?.website || 'SSTRANSPORTCO.COM'}`, 
+      `OUR WEBSITE: ${permDetails?.website || ''}`, 
       COORDINATES.FOOTER_SECTION.WEBSITE.x, 
       y + COORDINATES.FOOTER_SECTION.WEBSITE.y,
       STYLES.FONTS.LABELS
@@ -948,7 +948,7 @@ const PDFGenerator = ({
     );
     addStyledText(
       pdf, 
-      `CUSTOMER CARE: ${permDetails?.mobile_number || '9690836940'}`, 
+      `CUSTOMER CARE: ${permDetails?.mobile_number || ''}`, 
       COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.x, 
       y + COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.y,
       STYLES.FONTS.LABELS

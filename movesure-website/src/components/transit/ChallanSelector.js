@@ -81,15 +81,15 @@ const ChallanSelector = ({
     return challanNumber.toLowerCase().includes(query) || destinationBranch.toLowerCase().includes(query);
   });
 
-  // Calculate bilty counts from transit data
+  // Calculate bilty counts from transit data — API returns bilty_type: "reg" or "mnl"
   const getTransitBiltyCounts = () => {
-    if (!selectedChallan || !transitBilties) {
+    if (!selectedChallan || !transitBilties || transitBilties.length === 0) {
       return { regCount: 0, stnCount: 0, totalCount: 0 };
     }
 
-    const regCount = transitBilties.filter(bilty => bilty.bilty_type === 'regular').length;
-    const stnCount = transitBilties.filter(bilty => bilty.bilty_type === 'station').length;
-    const totalCount = regCount + stnCount;
+    const regCount = transitBilties.filter(b => b.bilty_type === 'reg' || (!b.bilty_type && b.source_table === 'bilty')).length;
+    const stnCount = transitBilties.filter(b => b.bilty_type === 'mnl' || (!b.bilty_type && b.source_table === 'station_bilty_summary')).length;
+    const totalCount = transitBilties.length;
 
     return { regCount, stnCount, totalCount };
   };
@@ -155,9 +155,12 @@ const ChallanSelector = ({
                   <>
                     <p className="truncate text-base font-semibold text-slate-900">{selectedChallan.challan_no || 'Challan'}</p>
                     <p className="truncate text-xs text-slate-500">
-                      {formatDate(selectedChallan.date)} • {totalCount} bilties
+                      {formatDate(selectedChallan.date)} • {totalCount} bilties ({regCount} reg + {stnCount} mnl)
                       {selectedChallan.is_dispatched ? ' • Dispatched' : ''}
                     </p>
+                    {selectedChallan.truck?.truck_number && (
+                      <p className="truncate text-xs text-indigo-500 font-medium">{selectedChallan.truck.truck_number}</p>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm font-medium text-slate-400">Choose a challan…</p>
@@ -217,10 +220,10 @@ const ChallanSelector = ({
                               >
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-sm font-semibold text-slate-900">{challan.challan_no}</p>
-                                  <p className="text-xs text-slate-500">{formatDate(challan.date)}</p>
+                                  <p className="text-xs text-slate-500">{formatDate(challan.date)}{challan.truck?.truck_number ? ` • ${challan.truck.truck_number}` : ''}</p>
                                   <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-indigo-500">
                                     <Package className="h-3 w-3" />
-                                    {isCurrent ? totalCount : challan.total_bilty_count || 0} bilties
+                                    {isCurrent ? `${totalCount} bilties (${regCount} reg + ${stnCount} mnl)` : `${challan.total_bilty_count || 0} bilties`}
                                   </p>
                                 </div>
                                 <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-600">
@@ -252,12 +255,12 @@ const ChallanSelector = ({
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-sm font-semibold text-slate-700">{challan.challan_no}</p>
                                   <p className="text-xs text-slate-500">
-                                    {formatDate(challan.date)}
-                                    {challan.dispatch_date && ` • Dispatched ${formatDate(challan.dispatch_date)}`}
+                                    {formatDate(challan.date)}{challan.truck?.truck_number ? ` • ${challan.truck.truck_number}` : ''}
+                                    {challan.dispatch_date && ` • Disp ${formatDate(challan.dispatch_date)}`}
                                   </p>
                                   <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
                                     <Package className="h-3 w-3" />
-                                    {challan.total_bilty_count || 0} bilties • read-only
+                                    {isCurrent ? `${totalCount} bilties (${regCount} reg + ${stnCount} mnl)` : `${challan.total_bilty_count || 0} bilties`} • read-only
                                   </p>
                                 </div>
                                 <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-600">

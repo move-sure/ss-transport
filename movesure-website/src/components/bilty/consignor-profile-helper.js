@@ -287,31 +287,40 @@ export const calculateLabourCharge = (packages, weight, labourRate, labourUnit =
 
 /**
  * Calculate DD (Door Delivery) charge
- * DD Print Charge: per_nag (package) or per_kg based on profile
- * NOTE: Receiving Slip charge is handled separately (one time per bilty, not per package)
+ * dd_charge = dd_charge_per_kg * weight OR dd_charge_per_nag * packages (whichever is filled)
+ * dd_print (→ other_charge) = dd_print_charge_per_kg * weight OR dd_print_charge_per_nag * packages (whichever is filled)
+ * NOTE: Receiving Slip charge is added to other_charge separately
  * @param {number} packages - Number of packages
  * @param {number} weight - Weight in kg
  * @param {Object} profile - Consignor bilty profile
- * @returns {number} - DD print charge amount (excluding RS charge)
+ * @returns {{ ddCharge: number, ddPrintCharge: number }}
  */
 export const calculateDDCharge = (packages, weight, profile) => {
-  if (!profile) return 0;
+  if (!profile) return { ddCharge: 0, ddPrintCharge: 0 };
   
-  let ddCharge = 0;
+  const pkg = parseInt(packages) || 0;
+  const wt = parseFloat(weight) || 0;
   
-  // DD Print Charge: Priority is per_nag (package) first, then per_kg
-  if (profile.dd_print_charge_per_nag && profile.dd_print_charge_per_nag > 0) {
-    ddCharge = (packages || 0) * parseFloat(profile.dd_print_charge_per_nag);
-    console.log('📦 DD Print Charge (per nag):', packages, '×', profile.dd_print_charge_per_nag, '=', ddCharge);
-  } else if (profile.dd_print_charge_per_kg && profile.dd_print_charge_per_kg > 0) {
-    ddCharge = (weight || 0) * parseFloat(profile.dd_print_charge_per_kg);
-    console.log('⚖️ DD Print Charge (per kg):', weight, '×', profile.dd_print_charge_per_kg, '=', ddCharge);
-  }
+  // DD charge (goes to dd_charge field): use per_kg if filled, else per_nag
+  const ddPerKg = parseFloat(profile.dd_charge_per_kg) || 0;
+  const ddPerNag = parseFloat(profile.dd_charge_per_nag) || 0;
+  const ddCharge = ddPerKg > 0 ? (ddPerKg * wt) : (ddPerNag * pkg);
   
-  // Note: receiving_slip_charge is NOT added here - it's added separately as a one-time charge
-  // in the charges.js component when delivery_type is 'door-delivery'
+  // DD print charge (goes to other_charge field): use per_kg if filled, else per_nag
+  const ddPrintPerKg = parseFloat(profile.dd_print_charge_per_kg) || 0;
+  const ddPrintPerNag = parseFloat(profile.dd_print_charge_per_nag) || 0;
+  const ddPrintCharge = ddPrintPerKg > 0 ? (ddPrintPerKg * wt) : (ddPrintPerNag * pkg);
   
-  return Math.round(ddCharge * 100) / 100;
+  console.log('🚚 DD calculation:', {
+    dd_charge_per_nag: profile.dd_charge_per_nag, dd_charge_per_kg: profile.dd_charge_per_kg,
+    dd_print_per_nag: profile.dd_print_charge_per_nag, dd_print_per_kg: profile.dd_print_charge_per_kg,
+    packages: pkg, weight: wt, ddCharge, ddPrintCharge
+  });
+  
+  return {
+    ddCharge: Math.round(ddCharge * 100) / 100,
+    ddPrintCharge: Math.round(ddPrintCharge * 100) / 100
+  };
 };
 
 /**
@@ -385,18 +394,27 @@ export const applyConsignorProfile = (profile, formData, cityInfo, isDoorDeliver
       updates.transport_gst = profile.transport_gst;
     }
     
-    // DD Charge (goes to other_charge) - only if door delivery
+    // DD Charge (dd_charge field) + DD Print (other_charge field) - only if door delivery
     if (isDoorDelivery) {
-      const ddCharge = calculateDDCharge(
+      const { ddCharge, ddPrintCharge } = calculateDDCharge(
         formData.no_of_pkg || 0,
         formData.wt || 0,
         profile
       );
+      const receivingSlipCharge = parseFloat(profile.receiving_slip_charge) || 0;
+      // ddCharge → dd_charge field
       if (ddCharge > 0) {
-        updates.other_charge = (parseFloat(formData.other_charge) || 0) + ddCharge;
+        updates.dd_charge = ddCharge;
         updates._dd_charge_applied = ddCharge;
-        console.log('🚚 DD Charge applied:', ddCharge);
       }
+      // ddPrintCharge + receivingSlipCharge → other_charge field
+      const totalOtherCharge = ddPrintCharge + receivingSlipCharge;
+      if (totalOtherCharge > 0) {
+        updates.other_charge = totalOtherCharge;
+        updates._dd_print_applied = ddPrintCharge;
+        updates._rs_charge_applied = receivingSlipCharge;
+      }
+      console.log('🚚 DD Charge applied:', { ddCharge, ddPrintCharge, receivingSlipCharge });
     }
     
     // Check is_no_charge flag

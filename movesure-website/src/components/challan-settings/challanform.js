@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
 import { X, Save, Truck, User, Calendar, FileText } from 'lucide-react';
 import { format } from 'date-fns';
+
+const API_URL = 'https://movesure-backend.onrender.com';
 
 const ChallanForm = ({ 
   isOpen, 
@@ -119,87 +120,48 @@ const ChallanForm = ({
 
     try {
       // Validation
-      if (!formData.challan_no) {
-        alert('Challan number is required');
-        return;
-      }
-
       if (!selectedChallanBook && !editingChallan) {
         alert('Please select a challan book');
         return;
       }
 
-      // Check for duplicate challan number (only for new challans)
-      if (!editingChallan) {
-        const { data: existingChallan } = await supabase
-          .from('challan_details')
-          .select('id')
-          .eq('challan_no', formData.challan_no)
-          .eq('is_active', true)
-          .single();
-
-        if (existingChallan) {
-          alert('Challan number already exists! Please refresh and try again.');
-          return;
-        }
-      }
-
-      // Prepare data
-      const saveData = {
-        ...formData,
-        created_by: user.id,
-        truck_id: formData.truck_id || null,
-        owner_id: formData.owner_id || null,
-        driver_id: formData.driver_id || null,
-        total_bilty_count: parseInt(formData.total_bilty_count) || 0
-      };
-
-      let result;
       if (editingChallan) {
-        // Update existing challan
-        result = await supabase
-          .from('challan_details')
-          .update(saveData)
-          .eq('id', editingChallan.id)
-          .select()
-          .single();
+        // Update existing challan via API
+        const res = await fetch(`${API_URL}/api/challan/${editingChallan.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            truck_id: formData.truck_id || null,
+            owner_id: formData.owner_id || null,
+            driver_id: formData.driver_id || null,
+            date: formData.date,
+            remarks: formData.remarks || '',
+          }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message || 'Failed to update challan');
+        alert('Challan updated successfully!');
       } else {
-        // Create new challan
-        result = await supabase
-          .from('challan_details')
-          .insert([saveData])
-          .select()
-          .single();
-
-        // Update challan book current number
-        if (selectedChallanBook) {
-          let newCurrentNumber = selectedChallanBook.current_number + 1;
-          
-          if (newCurrentNumber > selectedChallanBook.to_number) {
-            if (selectedChallanBook.auto_continue) {
-              newCurrentNumber = selectedChallanBook.from_number;
-            } else {
-              await supabase
-                .from('challan_books')
-                .update({ is_completed: true, current_number: selectedChallanBook.to_number })
-                .eq('id', selectedChallanBook.id);
-              
-              alert('Challan book completed. Please select a new challan book.');
-              onSuccess();
-              return;
-            }
-          }
-          
-          await supabase
-            .from('challan_books')
-            .update({ current_number: newCurrentNumber })
-            .eq('id', selectedChallanBook.id);
-        }
+        // Create new challan via API (auto-generates number, auto-increments book)
+        const res = await fetch(`${API_URL}/api/challan/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challan_book_id: selectedChallanBook.id,
+            branch_id: formData.branch_id || user.branch_id,
+            truck_id: formData.truck_id || null,
+            driver_id: formData.driver_id || null,
+            owner_id: formData.owner_id || null,
+            date: formData.date,
+            remarks: formData.remarks || '',
+            created_by: user.id,
+          }),
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message || 'Failed to create challan');
+        alert(`Challan ${result.data?.challan_no || ''} created successfully!`);
       }
 
-      if (result.error) throw result.error;
-
-      alert(editingChallan ? 'Challan updated successfully!' : 'Challan created successfully!');
       onSuccess();
     } catch (error) {
       console.error('Error saving challan:', error);

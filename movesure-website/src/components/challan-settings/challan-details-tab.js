@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
-import supabase from '../../app/utils/supabase';
 import { format } from 'date-fns';
 import { FileText, Edit2, Truck, Calendar, User, TruckIcon, PackageCheck, Package } from 'lucide-react';
+
+const API_URL = 'https://movesure-backend.onrender.com';
 
 const ChallanDetailsTab = ({ 
   challans, 
@@ -33,15 +34,21 @@ const ChallanDetailsTab = ({
 
   const handleDispatch = async (challanId, isCurrentlyDispatched) => {
     try {
-      const { error } = await supabase
-        .from('challan_details')
-        .update({ 
-          is_dispatched: !isCurrentlyDispatched,
-          dispatch_date: !isCurrentlyDispatched ? new Date().toISOString() : null
-        })
-        .eq('id', challanId);
-
-      if (error) throw error;
+      const endpoint = isCurrentlyDispatched
+        ? `${API_URL}/api/challan/${challanId}/undispatch`
+        : `${API_URL}/api/challan/${challanId}/dispatch`;
+      
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+      const result = await res.json();
+      
+      if (result.status !== 'success') {
+        alert(result.message || 'Error updating dispatch status');
+        return;
+      }
 
       alert(isCurrentlyDispatched ? 'Challan marked as pending' : 'Challan dispatched successfully');
       onLoadChallans(filters);

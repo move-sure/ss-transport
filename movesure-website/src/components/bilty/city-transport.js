@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Phone } from 'lucide-react';
 import { useInputNavigation } from './input-navigation';
-import supabase from '../../app/utils/supabase';
 
 const CityTransportSection = ({ 
   formData, 
   setFormData, 
   cities, 
   transports, 
+  transportByCityId = {},
+  consignorRatesByCity = {},
+  defaultRateByCityId = {},
   rates, 
   fromCityName,
   resetKey // Add resetKey prop to handle focus on reset
@@ -93,87 +95,60 @@ const CityTransportSection = ({
       unregister(4);
     };
   }, [register, unregister]);
-  // Shared rate fetching logic
+  // Shared rate fetching logic — uses backend-cached data (no Supabase calls)
   const fetchRateForCity = async (city, transport) => {
     let selectedRate = null;
+    let profileTransport = null;
 
-    // PRIORITY 1: Check historical bilty data if consignor is selected
-    if (formData.consignor_name && formData.branch_id) {
-      try {
-        console.log('🔍 Checking historical rates for:', formData.consignor_name, 'to city:', city.city_name);
-
-        const { data: historicalBilties, error } = await supabase
-          .from('bilty')
-          .select('rate')
-          .eq('consignor_name', formData.consignor_name)
-          .eq('to_city_id', city.id)
-          .eq('branch_id', formData.branch_id)
-          .eq('is_active', true)
-          .not('rate', 'is', null)
-          .gt('rate', 0)
-          .order('bilty_date', { ascending: false })
-          .limit(20);
-
-        if (!error && historicalBilties && historicalBilties.length > 0) {
-          const rateCounts = {};
-          historicalBilties.forEach(bilty => {
-            const rate = parseFloat(bilty.rate);
-            rateCounts[rate] = (rateCounts[rate] || 0) + 1;
-          });
-
-          let mostCommonRate = null;
-          let maxCount = 0;
-          Object.entries(rateCounts).forEach(([rate, count]) => {
-            if (count > maxCount) {
-              maxCount = count;
-              mostCommonRate = parseFloat(rate);
-            }
-          });
-
-          if (mostCommonRate) {
-            selectedRate = mostCommonRate;
-            console.log('✅ Using historical rate from bilty table:', selectedRate, `(used ${maxCount}/${historicalBilties.length} times)`);
-          }
-        }
-      } catch (error) {
-        console.warn('Error fetching historical rate:', error);
+    // PRIORITY 1: Consignor bilty profile rate from backend cache
+    const consignorCityRates = consignorRatesByCity[city.id];
+    if (consignorCityRates && consignorCityRates.length > 0) {
+      const profile = consignorCityRates[0];
+      selectedRate = parseFloat(profile.rate) || null;
+      console.log('✅ Using consignor profile rate from backend:', selectedRate, profile.rate_unit);
+      
+      // Profile may also specify transport for this city
+      if (profile.transport_name) {
+        profileTransport = {
+          transport_name: profile.transport_name,
+          gst_number: profile.transport_gst || '',
+          mob_number: '',
+          id: null
+        };
+        console.log('🚛 Using transport from consignor profile:', profile.transport_name);
       }
     }
 
-    // PRIORITY 2: If no historical rate, check rates table for consignor-specific rate
-    if (!selectedRate && formData.consignor_name) {
-      console.log('🔍 Looking for consignor-specific rate in rates table');
-      const cityRates = rates.filter(r => r.city_id === city.id);
-      const consignorSpecificRates = cityRates.filter(r => !r.is_default && r.consignor_id);
-
-      if (consignorSpecificRates.length > 0) {
-        selectedRate = consignorSpecificRates[0].rate;
-        console.log('✅ Using consignor-specific rate from rates table:', selectedRate);
-      }
-    }
-
-    // PRIORITY 3: Fall back to default rate from rates table
+    // PRIORITY 2: Default rate from backend cache
     if (!selectedRate) {
-      console.log('🔍 Looking for default rate in rates table');
+      const defRate = defaultRateByCityId[city.id];
+      if (defRate) {
+        selectedRate = parseFloat(defRate);
+        console.log('✅ Using default rate from backend:', selectedRate);
+      }
+    }
+
+    // PRIORITY 3: Fallback to rates array (legacy)
+    if (!selectedRate) {
       const cityRates = rates.filter(r => r.city_id === city.id);
       const defaultRate = cityRates.find(r => r.is_default) || cityRates[0];
-
       if (defaultRate) {
         selectedRate = defaultRate.rate;
-        console.log('✅ Using default rate from rates table:', selectedRate);
-      } else {
-        console.log('⚠️ No rate found for this city');
+        console.log('✅ Using fallback rate from rates array:', selectedRate);
       }
     }
+
+    // Use profile transport if available, otherwise use city-matched transport
+    const effectiveTransport = profileTransport || transport;
 
     // Update form data
     setFormData(prev => ({
       ...prev,
       to_city_id: city.id,
-      transport_name: transport?.transport_name || '',
-      transport_gst: transport?.gst_number || '',
-      transport_number: transport?.mob_number || '',
-      transport_id: transport?.id || null,
+      transport_name: effectiveTransport?.transport_name || '',
+      transport_gst: effectiveTransport?.gst_number || '',
+      transport_number: effectiveTransport?.mob_number || '',
+      transport_id: effectiveTransport?.id || null,
       rate: selectedRate || prev.rate || 0
     }));
   };
@@ -205,23 +180,23 @@ const CityTransportSection = ({
     setShowCityDropdown(false);
     setSelectedIndex(-1);
     
-    // Find transports for this city
-    const cityTransports = transports.filter(t => t.city_id === city.id);
+    // Find transports for this city — prefer pre-mapped lookup from backend, fallback to filter
+    const cityTransports = transportByCityId[city.id] || transports.filter(t => t.city_id === city.id);
     
-    if (cityTransports.length > 1) {
-      // Multiple transports — auto-select the first one, but keep list available for manual change
-      console.log(`🚛 ${cityTransports.length} transports found for ${city.city_name}, auto-selecting first`);
-      setAvailableTransports(cityTransports);
+    // Sort: priority transport (is_prior=true) first
+    const sortedTransports = [...cityTransports].sort((a, b) => (b.is_prior ? 1 : 0) - (a.is_prior ? 1 : 0));
+    const priorityTransport = sortedTransports.find(t => t.is_prior) || sortedTransports[0] || null;
+
+    if (sortedTransports.length > 1) {
+      console.log(`🚛 ${sortedTransports.length} transports for ${city.city_name}, auto-selecting priority:`, priorityTransport?.transport_name);
+      setAvailableTransports(sortedTransports);
       setShowTransportDropdown(false);
       setTransportSelectedIndex(-1);
-      // Auto-select the top transport
-      fetchRateForCity(city, cityTransports[0]);
+      fetchRateForCity(city, priorityTransport);
     } else {
-      // 0 or 1 transport — auto-select as before
-      const transport = cityTransports[0] || null;
-      setAvailableTransports([]);
+      setAvailableTransports(sortedTransports.length === 1 ? sortedTransports : []);
       setShowTransportDropdown(false);
-      fetchRateForCity(city, transport);
+      fetchRateForCity(city, priorityTransport);
     }
   };  const handleKeyDown = (e) => {
     // Handle dropdown navigation
@@ -386,9 +361,12 @@ const CityTransportSection = ({
         {/* Transport Name with Multi-Transport Dropdown */}
         <div className="col-span-4">
           <div className="flex items-center gap-1">
-            <span className={`px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[40px] text-center shadow-sm ${
+            <span className={`px-2 py-1.5 text-xs font-semibold rounded-lg min-w-[40px] text-center shadow-sm flex items-center gap-1 ${
               availableTransports.length > 1 ? 'bg-amber-500 text-white animate-pulse' : 'bg-teal-600 text-white'
             }`}>
+              {availableTransports.find(t => t.transport_name === formData.transport_name)?.is_prior && (
+                <span className="w-2 h-2 bg-green-400 rounded-full inline-block animate-pulse" title="Priority Transport"></span>
+              )}
               TRP{availableTransports.length > 1 ? ` (${availableTransports.length})` : ''}
             </span>
             <div className="relative flex-1" ref={transportDropdownRef}>
@@ -471,7 +449,15 @@ const CityTransportSection = ({
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-bold text-sm text-slate-900">{t.transport_name}</div>
+                          <div className="flex items-center gap-2">
+                            {t.is_prior && (
+                              <span className="w-2.5 h-2.5 bg-green-500 rounded-full inline-block flex-shrink-0" title="Priority Transport"></span>
+                            )}
+                            <span className="font-bold text-sm text-slate-900">{t.transport_name}</span>
+                            {t.is_prior && (
+                              <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">PRIORITY</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             {t.gst_number && (
                               <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1 rounded">GST: {t.gst_number}</span>

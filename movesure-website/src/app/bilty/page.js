@@ -51,6 +51,9 @@ export default function BiltyForm() {
   // ⭐ Server-provided next GR number (from /save response) — used for fast bilty creation
   const serverNextGrNoRef = useRef(null);
   
+  // ⭐ Synchronous save guard — prevents duplicate saves (React state is async & unreliable for this)
+  const savingRef = useRef(false);
+  
   // GR Sequence validation - check if bill book current_number matches last bilty gr_no
   const [grSequenceError, setGrSequenceError] = useState(null);
   
@@ -215,11 +218,11 @@ export default function BiltyForm() {
     const handleKeyDown = (e) => {
       if (e.key === 'Alt') setShowShortcuts(true);      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleSave(false);
+        if (!e.repeat) handleSave(false);
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        handleSave(true);
+        if (!e.repeat) handleSave(true);
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
@@ -541,11 +544,12 @@ export default function BiltyForm() {
       alert('Error loading bilty data');
     }
   };  const handleSave = async (isDraft = false) => {
-    // Prevent multiple simultaneous saves
-    if (saving) {
+    // Prevent multiple simultaneous saves — useRef is synchronous (React state is async & can race)
+    if (savingRef.current || saving) {
       console.log('⚠️ Save already in progress, ignoring duplicate request');
       return;
     }
+    savingRef.current = true;
 
     // ⭐ BLOCK SAVE if GR sequence error detected (only for new bilties)
     if (grSequenceError && !isEditMode) {
@@ -737,6 +741,7 @@ export default function BiltyForm() {
       console.error('Error saving bilty:', error);
       alert('❌ Save failed: ' + (error?.message || 'Network error. Please try again.'));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

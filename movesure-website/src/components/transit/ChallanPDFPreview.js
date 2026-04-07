@@ -16,6 +16,7 @@ const ChallanPDFPreview = ({
   selectedChallanBook = null,
   userBranch = null,
   permanentDetails = null,
+  permanentDetailsByBranchId = {},
   branches = [],
   cities = []
 }) => {
@@ -71,7 +72,20 @@ const ChallanPDFPreview = ({
     } finally {
       setLoading(false);
     }
-  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, branches, cities]);  // Generate Loading Challan PDF Blob with Split Layout
+  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, permanentDetailsByBranchId, branches, cities]);
+
+  // Resolve permanent details for the current challan's branch
+  // Uses challan's branch_id to pick the correct company name/address
+  const getActivePermanentDetails = () => {
+    const challanBranchId = selectedChallan?.branch_id;
+    if (challanBranchId && permanentDetailsByBranchId[challanBranchId]) {
+      return permanentDetailsByBranchId[challanBranchId];
+    }
+    // Fallback to user's branch permanent details
+    return permanentDetails;
+  };
+
+  // Generate Loading Challan PDF Blob with Split Layout
   const generateLoadingChallanPDFBlob = async (transitBiltiesData) => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
     const pageWidth = 210;
@@ -123,16 +137,17 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text('LOADING CHALLAN', pageWidth / 2, 10, { align: 'center' });
         
-        // Company Details - Made smaller
-        if (permanentDetails) {
+        // Company Details - Made smaller (use branch-specific details)
+        const loadingPd = getActivePermanentDetails();
+        if (loadingPd) {
           doc.setFontSize(8);
           doc.setFont('helvetica', 'bold');
-          doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 15, { align: 'center' });
+          doc.text(loadingPd.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 15, { align: 'center' });
           
           doc.setFontSize(7);
           doc.setFont('helvetica', 'normal');
-          if (permanentDetails.transport_address) {
-            doc.text(permanentDetails.transport_address, pageWidth / 2, 19, { align: 'center' });
+          if (loadingPd.transport_address) {
+            doc.text(loadingPd.transport_address, pageWidth / 2, 19, { align: 'center' });
           }
         }
         
@@ -522,16 +537,17 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text('CHALLAN', pageWidth / 2, 15, { align: 'center' });
         
-        // Company Details - Center
-        if (permanentDetails) {
+        // Company Details - Center (use branch-specific details)
+        const challanPd = getActivePermanentDetails();
+        if (challanPd) {
           doc.setFontSize(16);
           doc.setFont('helvetica', 'bold');
-          doc.text(permanentDetails.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 25, { align: 'center' });
+          doc.text(challanPd.transport_name || 'S. S. TRANSPORT CORPORATION', pageWidth / 2, 25, { align: 'center' });
           
           doc.setFontSize(10);
           doc.setFont('helvetica', 'normal');
-          if (permanentDetails.transport_address) {
-            doc.text(permanentDetails.transport_address, pageWidth / 2, 31, { align: 'center' });
+          if (challanPd.transport_address) {
+            doc.text(challanPd.transport_address, pageWidth / 2, 31, { align: 'center' });
           }
         }
         

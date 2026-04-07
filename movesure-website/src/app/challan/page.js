@@ -37,6 +37,7 @@ export default function TransitManagement() {
   const [userBranch, setUserBranch] = useState(null);
   const [branches, setBranches] = useState([]);
   const [permanentDetails, setPermanentDetails] = useState(null);
+  const [permanentDetailsByBranchId, setPermanentDetailsByBranchId] = useState({});
   const [totalAvailableCount, setTotalAvailableCount] = useState(0);
   const [filteredAvailableCount, setFilteredAvailableCount] = useState(0);
     // Selection states
@@ -137,9 +138,30 @@ export default function TransitManagement() {
     setUserBranch(initData.user_branch || null);
     setBranches(initData.branches || []);
     setCities(initData.cities || []);
-    // permanent_details may come as array from RPC json_agg — unwrap to single object
-    const pd = initData.permanent_details;
-    setPermanentDetails(Array.isArray(pd) ? pd[0] || null : pd || null);
+    // permanent_details — use branch-specific lookup for correct PDF headers
+    // Backend returns permanent_details_by_branch_id map and user_permanent_details
+    const pdByBranch = initData.permanent_details_by_branch_id || {};
+    
+    // If backend provides the lookup map, use it directly
+    if (Object.keys(pdByBranch).length > 0) {
+      setPermanentDetailsByBranchId(pdByBranch);
+    } else {
+      // Fallback: build lookup from permanent_details array
+      const pd = initData.permanent_details;
+      const pdArr = Array.isArray(pd) ? pd : (pd ? [pd] : []);
+      const lookup = {};
+      pdArr.forEach(entry => {
+        if (entry.branch_id) lookup[entry.branch_id] = entry;
+      });
+      setPermanentDetailsByBranchId(lookup);
+    }
+    
+    // User's own branch details (for TransitHeader and default fallback)
+    const userPd = initData.user_permanent_details 
+      || pdByBranch[initData.user_branch?.id] 
+      || (Array.isArray(initData.permanent_details) ? initData.permanent_details[0] : initData.permanent_details) 
+      || null;
+    setPermanentDetails(userPd);
     setChallanBooks(initData.challan_books || []);
 
     // ALL challans — already sorted non-dispatched first by RPC
@@ -590,6 +612,7 @@ export default function TransitManagement() {
           selectedChallanBook={selectedChallanBook}
           userBranch={userBranch}
           permanentDetails={permanentDetails}
+          permanentDetailsByBranchId={permanentDetailsByBranchId}
           branches={branches}
           cities={cities}
         />

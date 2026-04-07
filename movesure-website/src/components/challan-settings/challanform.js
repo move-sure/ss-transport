@@ -284,21 +284,21 @@ const ChallanForm = ({
             </div>
           </div>
 
-          {/* Vehicle and Personnel */}
+          {/* Vehicle and Personnel (Optional) */}
           <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-yellow-800 mb-4">Vehicle & Personnel Details</h3>
+            <h3 className="text-lg font-semibold text-yellow-800 mb-4">Vehicle & Personnel Details <span className="text-sm font-normal text-yellow-600">(Optional - can be added later)</span></h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
                   <Truck className="w-4 h-4 inline mr-1" />
-                  Truck
+                  Truck <span className="text-gray-400 text-xs">(Optional)</span>
                 </label>
                 <select
                   value={formData.truck_id}
                   onChange={(e) => handleTruckChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                 >
-                  <option value="">Select truck</option>
+                  <option value="">No truck selected</option>
                   {trucks.map(truck => (
                     <option key={truck.id} value={truck.id}>
                       {truck.truck_number} - {truck.truck_type}
@@ -310,14 +310,14 @@ const ChallanForm = ({
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
                   <User className="w-4 h-4 inline mr-1" />
-                  Driver
+                  Driver <span className="text-gray-400 text-xs">(Optional)</span>
                 </label>
                 <select
                   value={formData.driver_id}
                   onChange={(e) => setFormData(prev => ({ ...prev, driver_id: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                 >
-                  <option value="">Select driver</option>
+                  <option value="">No driver selected</option>
                   {drivers.map(driver => (
                     <option key={driver.id} value={driver.id}>
                       {driver.name} {driver.license_number ? `(${driver.license_number})` : ''}

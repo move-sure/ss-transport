@@ -626,7 +626,7 @@ export default function BiltyForm() {
         invoice_no: formData.invoice_no?.toString().trim() || null,
         invoice_value: parseFloat(formData.invoice_value) || 0,
         invoice_date: formData.invoice_date || null,
-        e_way_bill: formData.e_way_bill?.toString().trim() || null,
+        e_way_bill: formData.e_way_bill ? formData.e_way_bill.toString().trim() : '',
         document_number: formData.document_number?.toString().trim() || null,
         no_of_pkg: parseInt(formData.no_of_pkg) || 0,
         wt: parseFloat(formData.wt) || 0,

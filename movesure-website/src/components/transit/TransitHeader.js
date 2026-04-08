@@ -265,9 +265,9 @@ const TransitHeader = ({
         <div className="flex w-full flex-col gap-2 sm:flex-row">
           <button
             onClick={onPreviewLoadingChallan}
-            disabled={bilties.length === 0}
+            disabled={!selectedChallan}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
-            title="Preview or download all available bilties as PDF"
+            title={selectedChallan?.challan_no ? `Preview loading challan for ${selectedChallan.challan_no}` : 'Select a challan first'}
           >
             <Eye className="h-4 w-4" />
             Loading Challan

@@ -473,8 +473,8 @@ export default function TransitManagement() {
 
   // PDF Preview Handlers
   const handlePreviewLoadingChallan = () => {
-    if (bilties.length === 0) {
-      alert('No available bilties to preview');
+    if (!selectedChallan) {
+      alert('Please select a challan first');
       return;
     }
     setPdfPreviewType('loading');

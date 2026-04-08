@@ -28,6 +28,9 @@ const PackageChargesSection = ({
   consignorRatesByCity = {},
   defaultRateByCityId = {}
 }) => {  const { register, unregister, handleEnter } = useInputNavigation();
+  
+  // Track if user manually edited DD charge — prevents useEffect auto-overwrite
+  const ddManuallyEditedRef = useRef(false);
   const inputRefs = useRef({});
   const labourChargeTimeoutRef = useRef(null);
   const [rateInfo, setRateInfo] = useState(null);
@@ -563,6 +566,8 @@ const PackageChargesSection = ({
       console.log('📝 Applying profile updates:', updates);
       setFormData(prev => ({ ...prev, ...updates }));
       lastAppliedProfileRef.current = profileKey;
+      // Reset manual DD edit flag when consignor profile changes — allow new profile's rates to apply
+      ddManuallyEditedRef.current = false;
     }
     
   }, [consignorProfile, loadingProfile, formData.consignor_name, formData.to_city_id, 
@@ -573,6 +578,8 @@ const PackageChargesSection = ({
   // other_charge field = dd_print_charge_per_kg * weight OR dd_print_charge_per_nag * packages + receiving_slip_charge
   useEffect(() => {
     if (isEditMode || loadingProfile) return;
+    // Skip auto-calculation if user manually edited DD charge
+    if (ddManuallyEditedRef.current) return;
     
     const isDoorDelivery = formData.delivery_type === 'door-delivery';
     
@@ -616,6 +623,7 @@ const PackageChargesSection = ({
     } else if (!isDoorDelivery && (formData._dd_charge_applied || formData._rs_charge_applied)) {
       // Remove DD and RS charges if switching away from door delivery
       console.log('🚚 Removing DD and RS charges');
+      ddManuallyEditedRef.current = false;
       setFormData(prev => ({ 
         ...prev, 
         dd_charge: 0,
@@ -1086,7 +1094,7 @@ return (
                   />
                 </div>
 
-                {/* DD Charge - Read-only, shown only for door delivery */}
+                {/* DD Charge - Editable, shown only for door delivery */}
                 {formData.delivery_type === 'door-delivery' && (
                   <div className="flex items-center justify-between gap-2">
                     <span className="bg-red-600 text-white px-2 py-1 text-xs font-bold rounded shadow-lg whitespace-nowrap min-w-[70px] text-center">
@@ -1094,10 +1102,16 @@ return (
                     </span>
                     <input
                       type="text"
-                      value={formData.dd_charge || 0}
-                      readOnly
-                      className="w-20 px-2 py-1 text-red-700 font-bold border border-red-300 rounded text-center bg-red-50 cursor-not-allowed"
-                      title="Auto-calculated: DD charge from consignor profile"
+                      inputMode="decimal"
+                      value={formData.dd_charge !== undefined && formData.dd_charge !== null ? formData.dd_charge : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        ddManuallyEditedRef.current = true;
+                        setFormData(prev => ({ ...prev, dd_charge: value ? parseFloat(value) : 0 }));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      className="w-20 px-2 py-1 text-red-700 font-bold border border-red-300 rounded text-center bg-red-50 hover:border-red-400 focus:border-red-500 focus:ring-0 transition-all duration-200"
+                      title="DD charge (auto-calculated from profile, editable)"
                     />
                   </div>
                 )}

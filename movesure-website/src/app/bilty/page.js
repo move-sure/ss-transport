@@ -248,6 +248,8 @@ export default function BiltyForm() {
     };
     
     // Handle consignor selection — fetch ALL rates for this consignor from backend
+    // AbortController prevents stale responses if user switches consignor quickly
+    let consignorAbortController = null;
     const handleConsignorSelection = async (event) => {
       const { consignor, cityId } = event.detail;
       console.log('🎯 Consignor selected:', consignor.company_name, 'ID:', consignor.id);
@@ -260,10 +262,15 @@ export default function BiltyForm() {
         return;
       }
       
+      // Cancel any in-flight consignor rate fetch
+      if (consignorAbortController) consignorAbortController.abort();
+      consignorAbortController = new AbortController();
+      
       try {
         // Fetch BOTH consignor-specific and default rates in one call
         const res = await fetch(
-          `${BILTY_API_URL}/api/bilty/rates/all?consignor_id=${consignor.id}&branch_id=${user.branch_id}`
+          `${BILTY_API_URL}/api/bilty/rates/all?consignor_id=${consignor.id}&branch_id=${user.branch_id}`,
+          { signal: consignorAbortController.signal }
         );
         const result = await res.json();
         
@@ -294,6 +301,7 @@ export default function BiltyForm() {
           }
         }
       } catch (err) {
+        if (err.name === 'AbortError') return; // Cancelled — newer request in-flight
         console.error('Error fetching consignor rates:', err);
       }
     };    window.addEventListener('keydown', handleKeyDown);
@@ -301,6 +309,7 @@ export default function BiltyForm() {
     window.addEventListener('consignorSelected', handleConsignorSelection);
     
     return () => {
+      if (consignorAbortController) consignorAbortController.abort();
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('consignorSelected', handleConsignorSelection);    };
@@ -407,9 +416,13 @@ export default function BiltyForm() {
       }));
 
       // Load ALL data in parallel — backend APIs + Supabase bilties list
+      // ⭐ Timeout on backend fetches prevents page hanging if server is down
+      const loadController = new AbortController();
+      const loadTimeout = setTimeout(() => loadController.abort(), 20000); // 20s timeout
+      
       const [refRes, defRatesRes, biltiesResult] = await Promise.all([
-        fetch(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`),
-        fetch(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`),
+        fetch(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`, { signal: loadController.signal }),
+        fetch(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`, { signal: loadController.signal }),
         supabase
           .from('bilty')
           .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
@@ -417,6 +430,7 @@ export default function BiltyForm() {
           .eq('is_active', true)
           .order('created_at', { ascending: false })
       ]);
+      clearTimeout(loadTimeout);
       const result = await refRes.json();
       const defRatesResult = await defRatesRes.json();
 
@@ -472,7 +486,12 @@ export default function BiltyForm() {
       }
       
     } catch (error) {
-      console.error('Error loading data:', error);
+      if (error.name === 'AbortError') {
+        console.error('⏱️ Page load timed out — server may be down');
+        alert('Server is taking too long to respond. Please refresh the page.');
+      } else {
+        console.error('Error loading data:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -555,6 +574,7 @@ export default function BiltyForm() {
     if (grSequenceError && !isEditMode) {
       console.error('🚨 SAVE BLOCKED: GR sequence error -', grSequenceError.message);
       alert(`❌ SAVE BLOCKED!\n\nGR Number "${grSequenceError.currentGR}" already exists as a saved bilty.\n\nBill book current_number (${grSequenceError.currentNumber}) is NOT ahead of the last bilty.\n\nPlease fix the bill book sequence before creating new bilties.`);
+      savingRef.current = false; // ⚠️ Reset guard on early return — was missing, caused save lock-up
       return;
     }
 
@@ -655,17 +675,40 @@ export default function BiltyForm() {
 
       console.log('📤 Sending save request to backend:', savePayload.gr_no);
 
-      const res = await fetch(`${BILTY_API_URL}/api/bilty/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(savePayload)
-      });
+      // ⭐ Save with timeout — prevents UI hang if backend is down
+      const saveController = new AbortController();
+      const saveTimeout = setTimeout(() => saveController.abort(), 20000); // 20s timeout
 
+      let res;
+      try {
+        res = await fetch(`${BILTY_API_URL}/api/bilty/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savePayload),
+          signal: saveController.signal
+        });
+      } catch (fetchErr) {
+        clearTimeout(saveTimeout);
+        if (fetchErr.name === 'AbortError') {
+          alert('❌ Save timed out. Please check your internet connection and try again.');
+        } else {
+          alert('❌ Network error. Please check your connection and try again.');
+        }
+        return;
+      }
+      clearTimeout(saveTimeout);
+
+      const resStatus = res.status; // Capture before .json() consumes response
       const result = await res.json();
 
       if (result.status !== 'success') {
         console.error('❌ Backend save error:', result.message);
-        alert(`❌ Save failed: ${result.message}`);
+        // ⭐ Handle 409 duplicate — same consignor + invoice already exists on another GR
+        if (resStatus === 409) {
+          alert(`⚠️ DUPLICATE DETECTED!\n\n${result.message}\n\nSame consignor + invoice number is already saved on another bilty.\nPlease check the details and try again.`);
+        } else {
+          alert(`❌ Save failed: ${result.message}`);
+        }
         return;
       }
 

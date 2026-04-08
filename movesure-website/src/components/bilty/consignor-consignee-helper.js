@@ -1,23 +1,21 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import supabase from '../../app/utils/supabase';
 
-// Debounce hook for search optimization
+// Debounce hook for search optimization — uses ref instead of state to avoid re-render loops
 const useDebounce = (callback, delay) => {
-  const [debounceTimer, setDebounceTimer] = useState(null);
+  const timerRef = useRef(null);
 
   const debouncedCallback = useCallback((...args) => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
     }
     
-    const newTimer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       callback(...args);
     }, delay);
-    
-    setDebounceTimer(newTimer);
-  }, [callback, delay, debounceTimer]);
+  }, [callback, delay]);
 
   return debouncedCallback;
 };

@@ -470,26 +470,8 @@ export async function uploadBiltyPdf(biltyData, oldPdfBucketUrl = null) {
     // 2) Build the storage path: branch_id/gr_no.pdf
     const filePath = `${biltyData.branch_id}/${biltyData.gr_no.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
-    // 3) If there's an old PDF, delete it from the bucket
-    if (oldPdfBucketUrl) {
-      try {
-        // Extract file path from the public URL
-        // URL format: https://<project>.supabase.co/storage/v1/object/public/pdf_bilty/<path>
-        const bucketPrefix = '/storage/v1/object/public/pdf_bilty/';
-        const idx = oldPdfBucketUrl.indexOf(bucketPrefix);
-        if (idx !== -1) {
-          const oldPath = decodeURIComponent(oldPdfBucketUrl.substring(idx + bucketPrefix.length));
-          console.log('🗑️ [PDF Upload] Deleting old PDF:', oldPath);
-          const { error: delError } = await supabase.storage.from('pdf_bilty').remove([oldPath]);
-          if (delError) console.warn('⚠️ [PDF Upload] Failed to delete old PDF:', delError.message);
-          else console.log('✅ [PDF Upload] Old PDF deleted');
-        }
-      } catch (delErr) {
-        console.warn('⚠️ [PDF Upload] Error parsing old PDF URL for deletion:', delErr.message);
-      }
-    }
-
-    // 4) Upload new PDF (upsert so re-saves overwrite)
+    // 3) Upload new PDF FIRST (upsert so re-saves overwrite)
+    //    ⚠️ Upload before deleting old — if upload fails, user still has the old PDF
     const { error: uploadError } = await supabase.storage
       .from('pdf_bilty')
       .upload(filePath, pdfBuffer, {
@@ -502,7 +484,7 @@ export async function uploadBiltyPdf(biltyData, oldPdfBucketUrl = null) {
       return null;
     }
 
-    // 5) Get public URL
+    // 4) Get public URL
     const { data: urlData } = supabase.storage.from('pdf_bilty').getPublicUrl(filePath);
     const publicUrl = urlData?.publicUrl;
 
@@ -512,6 +494,26 @@ export async function uploadBiltyPdf(biltyData, oldPdfBucketUrl = null) {
     }
 
     console.log('✅ [PDF Upload] Uploaded successfully:', publicUrl);
+
+    // 5) NOW delete old PDF (only after new one confirmed uploaded)
+    if (oldPdfBucketUrl) {
+      try {
+        const bucketPrefix = '/storage/v1/object/public/pdf_bilty/';
+        const idx = oldPdfBucketUrl.indexOf(bucketPrefix);
+        if (idx !== -1) {
+          const oldPath = decodeURIComponent(oldPdfBucketUrl.substring(idx + bucketPrefix.length));
+          // Only delete if old path is different from new path (otherwise upsert already replaced it)
+          if (oldPath !== filePath) {
+            console.log('🗑️ [PDF Upload] Deleting old PDF:', oldPath);
+            const { error: delError } = await supabase.storage.from('pdf_bilty').remove([oldPath]);
+            if (delError) console.warn('⚠️ [PDF Upload] Failed to delete old PDF:', delError.message);
+            else console.log('✅ [PDF Upload] Old PDF deleted');
+          }
+        }
+      } catch (delErr) {
+        console.warn('⚠️ [PDF Upload] Error parsing old PDF URL for deletion:', delErr.message);
+      }
+    }
 
     // 6) Update bilty record with the URL
     if (biltyData.id) {

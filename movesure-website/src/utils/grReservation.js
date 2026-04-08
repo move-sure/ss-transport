@@ -28,18 +28,45 @@ const REALTIME_CHANNEL_PREFIX = 'gr-reservations-';
 // BACKEND API HELPERS
 // ============================================================================
 
+const FETCH_TIMEOUT = 15000; // 15s timeout for all API calls
+
+const fetchWithTimeout = (url, options = {}) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
+};
+
 const apiGet = async (path) => {
-  const res = await fetch(`${BILTY_API_URL}${path}`);
-  return res.json();
+  try {
+    const res = await fetchWithTimeout(`${BILTY_API_URL}${path}`);
+    return res.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.error('⏱️ API timeout:', path);
+      return { status: 'error', message: 'Request timed out. Please check your connection.' };
+    }
+    console.error('🌐 Network error:', path, err.message);
+    return { status: 'error', message: 'Network error: ' + err.message };
+  }
 };
 
 const apiPost = async (path, body = {}) => {
-  const res = await fetch(`${BILTY_API_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return res.json();
+  try {
+    const res = await fetchWithTimeout(`${BILTY_API_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.error('⏱️ API timeout:', path);
+      return { status: 'error', message: 'Request timed out. Please check your connection.' };
+    }
+    console.error('🌐 Network error:', path, err.message);
+    return { status: 'error', message: 'Network error: ' + err.message };
+  }
 };
 
 // ============================================================================
@@ -158,8 +185,12 @@ export const useGRReservation = ({
   // ========================================================================
   // RESERVE NEXT AVAILABLE GR
   // ========================================================================
+  const reservingRef = useRef(false); // Prevent double-reserve race condition
+
   const reserveNext = useCallback(async () => {
     if (!userId || !branchId || !selectedBillBook?.id || isEditMode || !enabled) return null;
+    if (reservingRef.current) { console.log('⚠️ Reserve already in-flight, skipping'); return null; }
+    reservingRef.current = true;
 
     setReserving(true);
     setReservationError(null);
@@ -196,6 +227,7 @@ export const useGRReservation = ({
       return null;
     } finally {
       setReserving(false);
+      reservingRef.current = false;
     }
   }, [userId, userName, branchId, selectedBillBook?.id, isEditMode, enabled, refreshNextAvailable, refreshStatus]);
 

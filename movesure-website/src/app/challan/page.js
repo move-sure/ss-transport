@@ -176,7 +176,7 @@ export default function TransitManagement() {
       .sort(sortByGRNumber);
     const stnBilties = allAvailable
       .filter(b => b.bilty_type === 'mnl')
-      .map(b => ({ ...b, contain: b.contain || b.contents, source: 'station_bilty_summary', source_table: 'station_bilty_summary' }))
+      .map(b => ({ ...b, bilty_date: b.bilty_date || b.created_at, contain: b.contain || b.contents, source: 'station_bilty_summary', source_table: 'station_bilty_summary' }))
       .sort(sortByGRNumber);
 
     setBilties(regBilties);

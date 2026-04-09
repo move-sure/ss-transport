@@ -27,6 +27,7 @@ Manages the **full challan lifecycle**: challan book number series → challan c
 | Only 50 transit bilties returned | Transit bilties endpoint now defaults to `page_size=10000` — returns ALL bilties in a challan |
 | Available bilties filtered by branch | Init RPC now returns available bilties from ALL branches (no `branch_id` filter) |
 | `contain` field missing from available bilties | RPC now includes `b.contain` (goods description) for regular bilties |
+| `bilty_date` missing from transit/available bilties | Transit bilties enrichment now includes `bilty_date` (`bilty.bilty_date` for reg, `station_bilty_summary.created_at` for mnl) |
 
 ---
 
@@ -108,7 +109,7 @@ const { data } = await res.json();
 **Key points:**
 - **Challans** — ALL active challans (no limit), lightweight fields only (challan_no, dispatch details, bilty count, truck/driver/owner names). Sorted: non-dispatched first, then dispatched, both by `created_at DESC`.
 - **Challan books** — filtered to `branch_1 = branch_id`. User only sees books where their branch is the sender (first branch).
-- **Available bilties** — bilties not in any challan, from **ALL branches** (no branch filter). Each row has `bilty_type` (`"reg"` or `"mnl"`), `source_table`, and `contain` (goods description, regular bilties only).
+- **Available bilties** — bilties not in any challan, from **ALL branches** (no branch filter). Each row has `bilty_type` (`"reg"` or `"mnl"`), `source_table`, `contain` (goods description, regular bilties only), and `bilty_date` (bilty creation date — `bilty.bilty_date` for reg, `station_bilty_summary.created_at` for mnl).
 - **Names resolved via SQL JOINs** — `truck_number`, `driver_name`, `owner_name`, `created_by` (user name) — no extra API calls.
 
 #### Frontend Transform
@@ -348,15 +349,17 @@ const res = await fetch(
   `${API}/api/challan/transit/bilties/${challanNo}`
 );
 const { data } = await res.json();
-// data.rows = [{ id, challan_no, gr_no, consignor_name, consignee_name, contain, source_table, ... }]
+// data.rows = [{ id, challan_no, gr_no, consignor_name, consignee_name, contain, bilty_date, source_table, ... }]
 // data.total = 86  ← total bilties in this challan
 ```
 
 Each transit row includes `bilty_type`: `"reg"` for bilty-table rows, `"mnl"` for station_bilty_summary rows.
 
-Each transit row is enriched with bilty details (consignor, consignee, transport, weight, packages, **contain** (goods description), etc.) from the appropriate source table.
+Each transit row is enriched with bilty details (consignor, consignee, transport, weight, packages, **contain** (goods description), **bilty_date**, etc.) from the appropriate source table.
 
 **`contain` field:** For regular bilties (`bilty_type: "reg"`), mapped from `bilty.contain`. For station bilties (`bilty_type: "mnl"`), mapped from `station_bilty_summary.contents`. Both are returned as `contain` in the response for consistent frontend usage.
+
+**`bilty_date` field:** For regular bilties (`bilty_type: "reg"`), mapped from `bilty.bilty_date`. For station bilties (`bilty_type: "mnl"`), mapped from `station_bilty_summary.created_at`. Both are returned as `bilty_date` in the response for consistent frontend usage.
 
 ---
 
@@ -727,3 +730,5 @@ $$;
 | `branches` | all | none |
 | `cities` | all | none |
 | `permanent_details` | all | none |
+| `permanent_details_by_branch_id` | all (keyed by branch_id) | server-side lookup map |
+| `user_permanent_details` | single entry for `branch_id` | convenience field for PDF header |

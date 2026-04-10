@@ -29,6 +29,18 @@ const REALTIME_CHANNEL_PREFIX = 'gr-reservations-';
 // ============================================================================
 
 const FETCH_TIMEOUT = 15000; // 15s timeout for all API calls
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 4000]; // exponential backoff: 1s, 2s, 4s
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const isRetryableError = (err, res) => {
+  // Retry on network errors, timeouts, 502/503/504, and "resource temporarily unavailable"
+  if (err?.name === 'AbortError') return true;
+  if (err && !res) return true; // network failure
+  if (res && [502, 503, 504, 429].includes(res.status)) return true;
+  return false;
+};
 
 const fetchWithTimeout = (url, options = {}) => {
   const controller = new AbortController();
@@ -37,23 +49,46 @@ const fetchWithTimeout = (url, options = {}) => {
     .finally(() => clearTimeout(timeout));
 };
 
+const fetchWithRetry = async (url, options = {}) => {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, options);
+      // Retry on server errors (502/503/504)
+      if (isRetryableError(null, res) && attempt < MAX_RETRIES) {
+        console.warn(`⚠️ Retry ${attempt + 1}/${MAX_RETRIES} (HTTP ${res.status}):`, url);
+        await delay(RETRY_DELAYS[attempt] || 4000);
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        console.warn(`⚠️ Retry ${attempt + 1}/${MAX_RETRIES} (${err.name}):`, url);
+        await delay(RETRY_DELAYS[attempt] || 4000);
+      }
+    }
+  }
+  throw lastErr;
+};
+
 const apiGet = async (path) => {
   try {
-    const res = await fetchWithTimeout(`${BILTY_API_URL}${path}`);
+    const res = await fetchWithRetry(`${BILTY_API_URL}${path}`);
     return res.json();
   } catch (err) {
     if (err.name === 'AbortError') {
-      console.error('⏱️ API timeout:', path);
-      return { status: 'error', message: 'Request timed out. Please check your connection.' };
+      console.error('⏱️ API timeout after retries:', path);
+      return { status: 'error', message: 'Request timed out after retries. Please check your connection.' };
     }
-    console.error('🌐 Network error:', path, err.message);
+    console.error('🌐 Network error after retries:', path, err.message);
     return { status: 'error', message: 'Network error: ' + err.message };
   }
 };
 
 const apiPost = async (path, body = {}) => {
   try {
-    const res = await fetchWithTimeout(`${BILTY_API_URL}${path}`, {
+    const res = await fetchWithRetry(`${BILTY_API_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -61,10 +96,10 @@ const apiPost = async (path, body = {}) => {
     return res.json();
   } catch (err) {
     if (err.name === 'AbortError') {
-      console.error('⏱️ API timeout:', path);
-      return { status: 'error', message: 'Request timed out. Please check your connection.' };
+      console.error('⏱️ API timeout after retries:', path);
+      return { status: 'error', message: 'Request timed out after retries. Please check your connection.' };
     }
-    console.error('🌐 Network error:', path, err.message);
+    console.error('🌐 Network error after retries:', path, err.message);
     return { status: 'error', message: 'Network error: ' + err.message };
   }
 };
@@ -395,15 +430,43 @@ export const useGRReservation = ({
         return newRes;
       }
 
-      // 4. No pending — refresh available GRs
-      refreshNextAvailable();
+      // 4. No pending — auto-reserve next available GR for seamless flow
+      await refreshNextAvailable();
+      
+      // Try to reserve the next GR automatically
+      if (!reservingRef.current && userId && branchId && selectedBillBook?.id && !isEditMode && enabled) {
+        try {
+          const reserveResult = await apiPost('/api/bilty/gr/reserve', {
+            bill_book_id: selectedBillBook.id,
+            branch_id: branchId,
+            user_id: userId,
+            user_name: userName || 'Unknown'
+          });
+          if (reserveResult.status === 'success') {
+            const res = reserveResult.data?.reservation || reserveResult.data;
+            const autoReserved = {
+              id: res.id || res.reservation_id,
+              gr_no: reserveResult.data?.gr_no || res.gr_no,
+              gr_number: reserveResult.data?.gr_number || res.gr_number,
+              expires_at: reserveResult.data?.expires_at || res.expires_at
+            };
+            setReservation(autoReserved);
+            console.log('🎫 Auto-reserved next GR after complete:', autoReserved.gr_no);
+            refreshNextAvailable();
+            return autoReserved;
+          }
+        } catch (autoErr) {
+          console.warn('⚠️ Auto-reserve after complete failed:', autoErr);
+        }
+      }
+      
       console.log('ℹ️ No pending reservations. User can pick from next 5 or click Reserve.');
       return null;
     } catch (err) {
       console.error('Error in completeAndReserveNext:', err);
       return null;
     }
-  }, [userId, branchId, selectedBillBook?.id, refreshNextAvailable]);
+  }, [userId, userName, branchId, selectedBillBook?.id, isEditMode, enabled, refreshNextAvailable]);
 
   // ========================================================================
   // RELEASE ALL USER RESERVATIONS

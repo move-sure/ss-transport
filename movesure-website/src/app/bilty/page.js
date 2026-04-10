@@ -247,9 +247,20 @@ export default function BiltyForm() {
       if (e.key === 'Alt') setShowShortcuts(false);
     };
     
-    // Handle consignor selection — fetch ALL rates for this consignor from backend
-    // AbortController prevents stale responses if user switches consignor quickly
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [formData, selectedBillBook, isEditMode, currentBiltyId]);
+
+  // ⭐ CONSIGNOR RATE FETCH — separate effect to avoid abort on formData change
+  // AbortController only cancels if a NEW consignor is selected (not on formData change)
+  useEffect(() => {
     let consignorAbortController = null;
+    
     const handleConsignorSelection = async (event) => {
       const { consignor, cityId } = event.detail;
       console.log('🎯 Consignor selected:', consignor.company_name, 'ID:', consignor.id);
@@ -262,7 +273,7 @@ export default function BiltyForm() {
         return;
       }
       
-      // Cancel any in-flight consignor rate fetch
+      // Cancel any in-flight consignor rate fetch (only if switching consignor)
       if (consignorAbortController) consignorAbortController.abort();
       consignorAbortController = new AbortController();
       
@@ -301,19 +312,18 @@ export default function BiltyForm() {
           }
         }
       } catch (err) {
-        if (err.name === 'AbortError') return; // Cancelled — newer request in-flight
+        if (err.name === 'AbortError') return; // Cancelled — newer consignor selected
         console.error('Error fetching consignor rates:', err);
       }
-    };    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    };
+
     window.addEventListener('consignorSelected', handleConsignorSelection);
     
     return () => {
       if (consignorAbortController) consignorAbortController.abort();
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('consignorSelected', handleConsignorSelection);    };
-  }, [formData, selectedBillBook, isEditMode, currentBiltyId]);
+      window.removeEventListener('consignorSelected', handleConsignorSelection);
+    };
+  }, [user?.branch_id]);
 
   // Navigation manager lifecycle management
   useEffect(() => {
@@ -416,13 +426,38 @@ export default function BiltyForm() {
       }));
 
       // Load ALL data in parallel — backend APIs + Supabase bilties list
-      // ⭐ Timeout on backend fetches prevents page hanging if server is down
-      const loadController = new AbortController();
-      const loadTimeout = setTimeout(() => loadController.abort(), 20000); // 20s timeout
+      // ⭐ Auto-retry on "resource temporarily unavailable" / server errors
+      const MAX_LOAD_RETRIES = 3;
+      const LOAD_RETRY_DELAYS = [1500, 3000, 5000];
+
+      const fetchWithRetry = async (url) => {
+        for (let attempt = 0; attempt <= MAX_LOAD_RETRIES; attempt++) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 20000);
+          try {
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+            if ([502, 503, 504].includes(res.status) && attempt < MAX_LOAD_RETRIES) {
+              console.warn(`⚠️ Load retry ${attempt + 1}/${MAX_LOAD_RETRIES} (HTTP ${res.status}):`, url);
+              await new Promise(r => setTimeout(r, LOAD_RETRY_DELAYS[attempt] || 5000));
+              continue;
+            }
+            return res;
+          } catch (err) {
+            clearTimeout(timeout);
+            if (attempt < MAX_LOAD_RETRIES) {
+              console.warn(`⚠️ Load retry ${attempt + 1}/${MAX_LOAD_RETRIES} (${err.name}):`, url);
+              await new Promise(r => setTimeout(r, LOAD_RETRY_DELAYS[attempt] || 5000));
+              continue;
+            }
+            throw err;
+          }
+        }
+      };
       
       const [refRes, defRatesRes, biltiesResult] = await Promise.all([
-        fetch(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`, { signal: loadController.signal }),
-        fetch(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`, { signal: loadController.signal }),
+        fetchWithRetry(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`),
+        fetchWithRetry(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`),
         supabase
           .from('bilty')
           .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
@@ -430,7 +465,6 @@ export default function BiltyForm() {
           .eq('is_active', true)
           .order('created_at', { ascending: false })
       ]);
-      clearTimeout(loadTimeout);
       const result = await refRes.json();
       const defRatesResult = await defRatesRes.json();
 
@@ -487,10 +521,11 @@ export default function BiltyForm() {
       
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error('⏱️ Page load timed out — server may be down');
-        alert('Server is taking too long to respond. Please refresh the page.');
+        console.error('⏱️ Page load timed out after retries — server may be down');
+        alert('Server is not responding after multiple attempts. Please refresh the page.');
       } else {
         console.error('Error loading data:', error);
+        alert('Failed to load data. Please refresh the page.');
       }
     } finally {
       setLoading(false);
@@ -675,28 +710,47 @@ export default function BiltyForm() {
 
       console.log('📤 Sending save request to backend:', savePayload.gr_no);
 
-      // ⭐ Save with timeout — prevents UI hang if backend is down
-      const saveController = new AbortController();
-      const saveTimeout = setTimeout(() => saveController.abort(), 20000); // 20s timeout
-
+      // ⭐ Save with retry — auto-retries on "resource temporarily unavailable" / 502/503/504
+      const MAX_SAVE_RETRIES = 3;
+      const SAVE_RETRY_DELAYS = [1500, 3000, 5000]; // 1.5s, 3s, 5s
       let res;
-      try {
-        res = await fetch(`${BILTY_API_URL}/api/bilty/save`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(savePayload),
-          signal: saveController.signal
-        });
-      } catch (fetchErr) {
-        clearTimeout(saveTimeout);
-        if (fetchErr.name === 'AbortError') {
-          alert('❌ Save timed out. Please check your internet connection and try again.');
-        } else {
-          alert('❌ Network error. Please check your connection and try again.');
+      let lastSaveErr = null;
+
+      for (let attempt = 0; attempt <= MAX_SAVE_RETRIES; attempt++) {
+        const saveController = new AbortController();
+        const saveTimeout = setTimeout(() => saveController.abort(), 20000);
+        try {
+          res = await fetch(`${BILTY_API_URL}/api/bilty/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(savePayload),
+            signal: saveController.signal
+          });
+          clearTimeout(saveTimeout);
+          // Retry on server errors (502/503/504)
+          if ([502, 503, 504].includes(res.status) && attempt < MAX_SAVE_RETRIES) {
+            console.warn(`⚠️ Save retry ${attempt + 1}/${MAX_SAVE_RETRIES} (HTTP ${res.status})`);
+            await new Promise(r => setTimeout(r, SAVE_RETRY_DELAYS[attempt] || 5000));
+            continue;
+          }
+          break; // Success or non-retryable error
+        } catch (fetchErr) {
+          clearTimeout(saveTimeout);
+          lastSaveErr = fetchErr;
+          if (attempt < MAX_SAVE_RETRIES) {
+            console.warn(`⚠️ Save retry ${attempt + 1}/${MAX_SAVE_RETRIES} (${fetchErr.name || 'network error'})`);
+            await new Promise(r => setTimeout(r, SAVE_RETRY_DELAYS[attempt] || 5000));
+            continue;
+          }
+          // All retries exhausted
+          if (fetchErr.name === 'AbortError') {
+            alert('❌ Save timed out after multiple attempts. Please check your internet connection and try again.');
+          } else {
+            alert('❌ Network error after multiple attempts. Please check your connection and try again.');
+          }
+          return;
         }
-        return;
       }
-      clearTimeout(saveTimeout);
 
       const resStatus = res.status; // Capture before .json() consumes response
       const result = await res.json();
@@ -737,14 +791,35 @@ export default function BiltyForm() {
         console.log('📋 Next GR from server save response:', nextGrNo);
       }
 
-      // ⭐ GR reservation completion (for new bilties only)
+      // ⭐ GR reservation completion + auto-advance to next GR (for new bilties only)
       if (!isEditMode && savedData?.id) {
+        let nextReservedGR = null;
+
         if (grReservation.hasReservation) {
           console.log('🎫 Completing GR reservation:', grReservation.reservedGRNo);
-          await grReservation.completeAndReserveNext();
+          const nextRes = await grReservation.completeAndReserveNext();
+          if (nextRes?.gr_no) {
+            nextReservedGR = nextRes.gr_no;
+          }
         }
-        // Refresh next-available list from backend
-        grReservation.refreshNextAvailable();
+
+        // If no next GR from server save response OR pending reservation, auto-reserve next
+        if (!serverNextGrNoRef.current && !nextReservedGR) {
+          console.log('🔄 No next GR available, auto-reserving next...');
+          const newRes = await grReservation.reserveNext();
+          if (newRes?.gr_no) {
+            nextReservedGR = newRes.gr_no;
+          }
+        }
+
+        // Store auto-reserved GR in ref for instant use in resetForm
+        if (nextReservedGR && !serverNextGrNoRef.current) {
+          serverNextGrNoRef.current = nextReservedGR;
+          console.log('📋 Next GR from auto-reserve:', nextReservedGR);
+        }
+
+        // Refresh next-available list (awaited so data is fresh for resetForm)
+        await grReservation.refreshNextAvailable();
       }
 
       // Refresh existing bilties list

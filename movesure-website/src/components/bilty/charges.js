@@ -356,13 +356,12 @@ const PackageChargesSection = ({
                   parseValue(formData.labour_charge) + 
                   parseValue(formData.bill_charge) + 
                   parseValue(formData.toll_charge) + 
-                  parseValue(formData.dd_charge) + 
                   parseValue(formData.other_charge) + 
                   parseValue(formData.pf_charge);
     
     setFormData(prev => ({ ...prev, total }));
   }, [formData.freight_amount, formData.labour_charge, formData.bill_charge, 
-      formData.toll_charge, formData.dd_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
+      formData.toll_charge, formData.other_charge, formData.pf_charge, setFormData]);  // Check and display rate info when rate, consignor, or city changes
   useEffect(() => {
     // REMOVED - Now only using historical rate from rate-helper.js
     // No need to check rates table separately

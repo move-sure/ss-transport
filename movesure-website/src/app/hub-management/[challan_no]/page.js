@@ -186,7 +186,7 @@ export default function ChallanDetailPage() {
           owner:staff!challan_details_owner_id_fkey(id, name, mobile_number),
           driver:staff!challan_details_driver_id_fkey(id, name, mobile_number)
         `).eq('challan_no', dc).single(),
-        supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number, gst_number').order('transport_name'),
+        supabase.from('transports').select('id, transport_name, city_id, city_name, mob_number, gst_number, is_prior').order('is_prior', { ascending: false, nullsFirst: false }).order('transport_name'),
         supabase.from('transport_hub_rates').select('*').eq('is_active', true),
       ]);
 
@@ -386,15 +386,19 @@ export default function ChallanDetailPage() {
         }
       }
 
-      // Auto-assign transport (single-option cities) + apply hub rates
+      // Auto-assign transport (prior transport or single-option cities) + apply hub rates
       let latestKaat = { ...kaatData };
       const toAssign = enrichedBilties.filter(b => {
         if (!b.to_city_id || latestKaat[b.gr_no]?.transport_id) return false;
-        return (transportsByCity[b.to_city_id] || []).length === 1;
+        const cityTransports = transportsByCity[b.to_city_id] || [];
+        if (cityTransports.length === 0) return false;
+        // Allow if there's a prior transport OR exactly 1 option
+        return cityTransports.some(t => t.is_prior) || cityTransports.length === 1;
       });
       if (toAssign.length > 0) {
         const assignPayloads = toAssign.map(b => {
-          const transport = transportsByCity[b.to_city_id][0];
+          const cityTransports = transportsByCity[b.to_city_id] || [];
+          const transport = cityTransports.find(t => t.is_prior) || cityTransports[0];
           const hubRate = getHubRateForTransport(hubRatesByTransport, transport.id, b.to_city_id);
           return {
             gr_no: b.gr_no, challan_no: challan.challan_no, destination_city_id: b.to_city_id,
@@ -810,15 +814,19 @@ export default function ChallanDetailPage() {
     if (!user?.id || autoAssigning) return;
     const toAssign = enrichedBilties.filter(b => {
       if (!b.to_city_id || kaatData[b.gr_no]?.transport_id) return false;
-      return (transportsByCity[b.to_city_id] || []).length === 1;
+      const cityTransports = transportsByCity[b.to_city_id] || [];
+      if (cityTransports.length === 0) return false;
+      // Allow if there's a prior transport OR exactly 1 option
+      return cityTransports.some(t => t.is_prior) || cityTransports.length === 1;
     });
-    if (toAssign.length === 0) { alert('No bilties found with exactly one transport option that are unassigned.'); return; }
-    if (!confirm(`Auto-assign transport to ${toAssign.length} bilties that have only 1 transport option?`)) return;
+    if (toAssign.length === 0) { alert('No bilties found with a prior transport or single transport option that are unassigned.'); return; }
+    if (!confirm(`Auto-assign transport to ${toAssign.length} bilties (prior transport preferred)?`)) return;
     setAutoAssigning(true);
     try {
       const now = new Date().toISOString();
       const upsertPayloads = toAssign.map(b => {
-        const transport = transportsByCity[b.to_city_id][0];
+        const cityTransports = transportsByCity[b.to_city_id] || [];
+        const transport = cityTransports.find(t => t.is_prior) || cityTransports[0];
         const hubRate = getHubRateForTransport(hubRatesByTransport, transport.id, b.to_city_id);
         return {
           gr_no: b.gr_no, challan_no: challan.challan_no, destination_city_id: b.to_city_id,
@@ -1226,7 +1234,9 @@ export default function ChallanDetailPage() {
   const { autoCount, assignedCount, hubRateApplicable } = useMemo(() => ({
     autoCount: enrichedBilties.filter(b => {
       if (!b.to_city_id || kaatData[b.gr_no]?.transport_id) return false;
-      return (transportsByCity[b.to_city_id] || []).length === 1;
+      const cityTransports = transportsByCity[b.to_city_id] || [];
+      if (cityTransports.length === 0) return false;
+      return cityTransports.some(t => t.is_prior) || cityTransports.length === 1;
     }).length,
     assignedCount: enrichedBilties.filter(b => kaatData[b.gr_no]?.transport_id).length,
     hubRateApplicable: enrichedBilties.filter(b => {

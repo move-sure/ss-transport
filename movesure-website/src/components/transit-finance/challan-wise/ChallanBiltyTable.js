@@ -390,7 +390,7 @@ export default function ChallanBiltyTable({
       const batchSize = 50;
       for (let i = 0; i < allDestCityIds.length; i += batchSize) {
         const batch = allDestCityIds.slice(i, i + batchSize);
-        const { data, error } = await supabase.from('transports').select('id, transport_name, gst_number, city_id, transport_admin_id').in('city_id', batch);
+        const { data, error } = await supabase.from('transports').select('id, transport_name, gst_number, city_id, transport_admin_id, is_prior').in('city_id', batch);
         if (!error && data) allTransports = [...allTransports, ...data];
       }
       const transportMap = {};
@@ -643,8 +643,10 @@ export default function ChallanBiltyTable({
 
         const cityTransports = transportsByCity[destCityId] || [];
         if (cityTransports.length >= 1) {
-          // Auto-assign the first transport (works for single & multi-transport cities)
-          await handleTransportChanged(transit.gr_no, cityTransports[0].id);
+          // Prefer prior transport, fallback to first
+          const priorTransport = cityTransports.find(t => t.is_prior);
+          const transport = priorTransport || cityTransports[0];
+          await handleTransportChanged(transit.gr_no, transport.id);
           assigned++;
         } else {
           noTransport++;

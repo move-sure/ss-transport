@@ -58,6 +58,10 @@ export default function TransitBillPage() {
   
   // Cities data (needed for PDF generation)
   const [cities, setCities] = useState([]);
+  
+  // Destination filter states
+  const [allDestinations, setAllDestinations] = useState([]); // [{city_id, city_name}]
+  const [loadingDestinations, setLoadingDestinations] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -224,8 +228,39 @@ export default function TransitBillPage() {
     } catch (err) { return {}; }
   };
 
-  const handleOpenSettings = () => {
+  const handleOpenSettings = async () => {
     if (selectedBills.length === 0) { alert('Please select at least one kaat bill'); return; }
+    
+    // Pre-fetch destinations from selected bills' GR numbers
+    setLoadingDestinations(true);
+    try {
+      const allGrNos = selectedBills.flatMap(b => b.gr_numbers || []);
+      if (allGrNos.length > 0) {
+        // Fetch destination_city_id from bilty_wise_kaat
+        const batchSize = 200;
+        let allKaatRows = [];
+        for (let i = 0; i < allGrNos.length; i += batchSize) {
+          const batch = allGrNos.slice(i, i + batchSize);
+          const { data } = await supabase.from('bilty_wise_kaat').select('destination_city_id').in('gr_no', batch);
+          if (data) allKaatRows = [...allKaatRows, ...data];
+        }
+        const uniqueCityIds = [...new Set(allKaatRows.map(k => k.destination_city_id).filter(Boolean))];
+        const cityMap = {};
+        cities.forEach(c => { cityMap[c.id] = c.city_name; });
+        const destinations = uniqueCityIds
+          .map(id => ({ city_id: id, city_name: cityMap[id] || id }))
+          .sort((a, b) => (a.city_name || '').localeCompare(b.city_name || ''));
+        setAllDestinations(destinations);
+      } else {
+        setAllDestinations([]);
+      }
+    } catch (err) {
+      console.error('Error fetching destinations:', err);
+      setAllDestinations([]);
+    } finally {
+      setLoadingDestinations(false);
+    }
+    
     setShowSettings(true);
   };
 
@@ -465,6 +500,8 @@ export default function TransitBillPage() {
           firstBill={selectedBills[0]}
           selectedBills={selectedBills}
           selectedBillsCount={selectedBills.length}
+          allDestinations={allDestinations}
+          loadingDestinations={loadingDestinations}
         />
 
         {/* PDF Preview Modal */}

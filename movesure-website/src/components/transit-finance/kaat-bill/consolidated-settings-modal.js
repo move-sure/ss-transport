@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Settings, FileText, Building2, Calendar, Truck, ArrowDownAZ, Maximize2 } from 'lucide-react';
+import { X, Settings, FileText, Building2, Calendar, Truck, ArrowDownAZ, Maximize2, MapPin, CheckSquare, Square, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ConsolidatedSettingsModal({ 
@@ -10,7 +10,9 @@ export default function ConsolidatedSettingsModal({
   onProceed, 
   firstBill,
   selectedBills = [],
-  selectedBillsCount 
+  selectedBillsCount,
+  allDestinations = [],
+  loadingDestinations = false
 }) {
   const [subtitle, setSubtitle] = useState('');
   const [useDefault, setUseDefault] = useState(true);
@@ -20,6 +22,16 @@ export default function ConsolidatedSettingsModal({
   const [sortOrder, setSortOrder] = useState('challan'); // 'challan' or 'city'
   const [showRemarkColumn, setShowRemarkColumn] = useState(false);
   const [orientation, setOrientation] = useState('portrait');
+  const [selectedDestinations, setSelectedDestinations] = useState(new Set());
+  const [destSearchQuery, setDestSearchQuery] = useState('');
+
+  // Initialize selectedDestinations when destinations load
+  useEffect(() => {
+    if (isOpen && allDestinations.length > 0) {
+      setSelectedDestinations(new Set(allDestinations.map(d => d.city_id)));
+      setDestSearchQuery('');
+    }
+  }, [isOpen, allDestinations]);
 
   useEffect(() => {
     if (isOpen && firstBill) {
@@ -35,6 +47,11 @@ export default function ConsolidatedSettingsModal({
   const hasMultipleTransports = uniqueTransports.length > 1;
 
   const handleProceed = () => {
+    // Compute excluded destination city IDs
+    const excludedDestinations = allDestinations
+      .filter(d => !selectedDestinations.has(d.city_id))
+      .map(d => d.city_id);
+    
     onProceed({
       subtitle: showPerBillTransport 
         ? null 
@@ -47,7 +64,8 @@ export default function ConsolidatedSettingsModal({
       showPerBillTransport,
       sortOrder,
       showRemarkColumn,
-      orientation
+      orientation,
+      excludedDestinations
     });
   };
 
@@ -300,6 +318,112 @@ export default function ConsolidatedSettingsModal({
             <p className="text-xs text-gray-500 mt-1">
               {orientation === 'landscape' ? 'Wider layout — more room for columns' : 'Standard vertical A4 layout'}
             </p>
+          </div>
+
+          {/* ══════ Destination Filter ══════ */}
+          <div>
+            <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-indigo-600" />
+              Destinations
+              {allDestinations.length > 0 && (
+                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {selectedDestinations.size}/{allDestinations.length} selected
+                </span>
+              )}
+            </label>
+            
+            {loadingDestinations ? (
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                <span className="text-sm text-gray-600">Loading destinations...</span>
+              </div>
+            ) : allDestinations.length === 0 ? (
+              <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-500">
+                No destinations found in selected bills
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                {/* Select All / Deselect All + Search */}
+                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedDestinations.size === allDestinations.length) {
+                          setSelectedDestinations(new Set());
+                        } else {
+                          setSelectedDestinations(new Set(allDestinations.map(d => d.city_id)));
+                        }
+                      }}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                    >
+                      {selectedDestinations.size === allDestinations.length ? (
+                        <><Square className="w-3.5 h-3.5" /> Deselect All</>
+                      ) : (
+                        <><CheckSquare className="w-3.5 h-3.5" /> Select All</>
+                      )}
+                    </button>
+                    {selectedDestinations.size < allDestinations.length && (
+                      <span className="text-xs text-amber-600 font-medium">
+                        {allDestinations.length - selectedDestinations.size} excluded
+                      </span>
+                    )}
+                  </div>
+                  {allDestinations.length > 6 && (
+                    <input
+                      type="text"
+                      value={destSearchQuery}
+                      onChange={(e) => setDestSearchQuery(e.target.value)}
+                      placeholder="Search destinations..."
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  )}
+                </div>
+                {/* Destination checkboxes */}
+                <div className="max-h-48 overflow-y-auto p-2 space-y-0.5">
+                  {allDestinations
+                    .filter(d => !destSearchQuery || d.city_name.toLowerCase().includes(destSearchQuery.toLowerCase()))
+                    .map(dest => {
+                      const isSelected = selectedDestinations.has(dest.city_id);
+                      return (
+                        <label
+                          key={dest.city_id}
+                          className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors text-sm ${
+                            isSelected ? 'bg-indigo-50 hover:bg-indigo-100' : 'bg-red-50/50 hover:bg-red-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedDestinations(prev => {
+                                const next = new Set(prev);
+                                if (next.has(dest.city_id)) next.delete(dest.city_id);
+                                else next.add(dest.city_id);
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5 text-indigo-600 rounded border-gray-300"
+                          />
+                          <span className={`font-medium ${isSelected ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                            {dest.city_name}
+                          </span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+            {selectedDestinations.size < allDestinations.length && selectedDestinations.size > 0 && (
+              <p className="text-xs text-amber-600 mt-1.5 font-medium">
+                ⚠ GR entries for excluded destinations will not appear in the PDF
+              </p>
+            )}
+            {selectedDestinations.size === 0 && allDestinations.length > 0 && (
+              <p className="text-xs text-red-600 mt-1.5 font-medium">
+                ⚠ No destinations selected — PDF will be empty
+              </p>
+            )}
           </div>
 
           {/* Info Box */}

@@ -190,6 +190,10 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
     const citiesMap = {};
     (citiesData || []).forEach(c => { citiesMap[c.id] = c.city_name; });
 
+    // Build excluded destination set for filtering
+    const excludedDestinations = new Set(settings.excludedDestinations || []);
+    const hasDestinationFilter = excludedDestinations.size > 0;
+
     const orientation = settings.orientation || 'portrait';
     const isLandscape = orientation === 'landscape';
     const doc = new jsPDF(orientation, 'mm', 'a4');
@@ -268,8 +272,25 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       let billTotalKaat = 0;
       let billTotalDD = 0;
       
+      // Filter out excluded destinations
+      const filteredDetails = hasDestinationFilter
+        ? details.filter(item => {
+            const kaat = item.kaat;
+            const bilty = item.bilty;
+            const station = item.station;
+            let destCityId = kaat?.destination_city_id || bilty?.to_city_id || null;
+            if (!destCityId && station?.station) {
+              const matchedCity = (citiesData || []).find(c => c.city_code === station.station);
+              if (matchedCity) destCityId = matchedCity.id;
+            }
+            return !destCityId || !excludedDestinations.has(destCityId);
+          })
+        : details;
+      
+      if (filteredDetails.length === 0) return; // Skip this bill entirely if all GRs excluded
+      
       // Build table data for this bill
-      const tableData = details.map((item, index) => {
+      const tableData = filteredDetails.map((item, index) => {
         const bilty = item.bilty;
         const station = item.station;
         const kaat = item.kaat;
@@ -344,7 +365,7 @@ export const generateConsolidatedKaatPDF = (selectedBills, enrichedBillsData, se
       });
       
       // Accumulate grand totals
-      grandTotalBilties += details.length;
+      grandTotalBilties += filteredDetails.length;
       grandTotalPackages += billTotalPackages;
       grandTotalWeight += billTotalWeight;
       grandTotalAmount += billTotalAmount;

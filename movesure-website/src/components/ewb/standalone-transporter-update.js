@@ -603,12 +603,13 @@ export default function StandaloneTransporterUpdate() {
           return;
         }
 
-        // Fetch ALL transporters for the city
+        // Fetch ALL transporters for the city (prior transports first)
         const { data: transportRows, error: transportError } = await supabase
           .from('transports')
-          .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name')
+          .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name, is_prior')
           .eq('city_id', targetCityId)
           .not('transport_name', 'is', null)
+          .order('is_prior', { ascending: false, nullsFirst: false })
           .order('transport_name', { ascending: true });
 
         if (transportError) throw transportError;
@@ -621,7 +622,8 @@ export default function StandaloneTransporterUpdate() {
           city: t.city_name || cityName || '',
           phone: t.mob_number || '',
           address: t.address || '',
-          branchOwner: t.branch_owner_name || ''
+          branchOwner: t.branch_owner_name || '',
+          isPrior: t.is_prior || false
         }));
 
         setTransporterSuggestions(allTransporters);
@@ -635,8 +637,8 @@ export default function StandaloneTransporterUpdate() {
           return;
         }
 
-        // Auto-select the first transporter with GST
-        const firstWithGst = allTransporters.find(t => t.gst) || allTransporters[0];
+        // Auto-select the prior transporter with GST, fallback to first with GST
+        const firstWithGst = allTransporters.find(t => t.gst && t.isPrior) || allTransporters.find(t => t.gst) || allTransporters[0];
 
         setFormData(prev => ({
           ...prev,

@@ -196,12 +196,13 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
 
         console.log('🔍 Querying transports for city_id:', targetCityId, 'City:', resolvedCity);
         
-        // Step 2: Fetch ALL transporters for the matched city
+        // Step 2: Fetch ALL transporters for the matched city (prior transports first)
         let { data: transportRows, error: transportError } = await supabase
           .from('transports')
-          .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name')
+          .select('id, transport_name, gst_number, city_id, city_name, mob_number, address, branch_owner_name, is_prior')
           .eq('city_id', targetCityId)
           .not('transport_name', 'is', null)
+          .order('is_prior', { ascending: false, nullsFirst: false })
           .order('transport_name', { ascending: true });
 
         if (transportError) throw transportError;
@@ -218,7 +219,8 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
           city: t.city_name || resolvedCity?.city_name || '',
           phone: t.mob_number || '',
           address: t.address || '',
-          branchOwner: t.branch_owner_name || ''
+          branchOwner: t.branch_owner_name || '',
+          isPrior: t.is_prior || false
         }));
         
         setTransporterSuggestions(allTransporters);
@@ -233,8 +235,8 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
           return;
         }
 
-        // Auto-select the first transporter with a GST number
-        const firstWithGst = allTransporters.find(t => t.gst) || allTransporters[0];
+        // Auto-select the prior transporter with a GST number, fallback to first with GST
+        const firstWithGst = allTransporters.find(t => t.gst && t.isPrior) || allTransporters.find(t => t.gst) || allTransporters[0];
         
         console.log('✅ Found transporters:', allTransporters.length, 'Auto-selecting:', firstWithGst.name);
         

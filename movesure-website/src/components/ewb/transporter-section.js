@@ -82,15 +82,27 @@ async function resolveTransporterForTransit(transit) {
     return { error: `City not found for ${cityName || 'unknown destination'}` };
   }
 
-  // Fetch first transporter with a valid GSTIN for this city
-  const { data: transportRows, error: transportError } = await supabase
+  // Fetch prior transporter first, fallback to any transporter with GSTIN for this city
+  let { data: transportRows, error: transportError } = await supabase
     .from('transports')
-    .select('id, transport_name, gst_number, city_name, mob_number')
+    .select('id, transport_name, gst_number, city_name, mob_number, is_prior')
     .eq('city_id', targetCityId)
+    .eq('is_prior', true)
     .not('transport_name', 'is', null)
     .not('gst_number', 'is', null)
-    .order('transport_name', { ascending: true })
     .limit(1);
+
+  // Fallback: if no prior transporter, pick first alphabetical with GSTIN
+  if (!transportError && (!transportRows || transportRows.length === 0)) {
+    ({ data: transportRows, error: transportError } = await supabase
+      .from('transports')
+      .select('id, transport_name, gst_number, city_name, mob_number, is_prior')
+      .eq('city_id', targetCityId)
+      .not('transport_name', 'is', null)
+      .not('gst_number', 'is', null)
+      .order('transport_name', { ascending: true })
+      .limit(1));
+  }
 
   if (transportError) return { error: transportError.message };
   const t = transportRows?.[0];

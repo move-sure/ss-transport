@@ -447,6 +447,50 @@ export default function ChallanDetailPage() {
       }
 
       setKaatData(latestKaat);
+
+      // Send WhatsApp "at hub" notification to consignor & consignee of regular bilties
+      try {
+        const allGrNos = enrichedBilties.map(b => b.gr_no).filter(Boolean);
+        if (allGrNos.length > 0) {
+          // Fetch fresh bilty data directly from DB to get accurate phone numbers
+          const { data: biltyData } = await supabase
+            .from('bilty')
+            .select('gr_no, consignor_number, consignee_number')
+            .in('gr_no', allGrNos)
+            .eq('is_active', true);
+
+          const numbers = [];
+          (biltyData || []).forEach(b => {
+            const grNo = b.gr_no || '';
+            if (b.consignor_number && b.consignor_number.trim()) {
+              const num = b.consignor_number.trim().replace(/\D/g, '').slice(-10);
+              if (num.length === 10) {
+                numbers.push({ receiver: `91${num}`, values: { "1": grNo, "2": grNo } });
+              }
+            }
+            if (b.consignee_number && b.consignee_number.trim()) {
+              const num = b.consignee_number.trim().replace(/\D/g, '').slice(-10);
+              if (num.length === 10) {
+                numbers.push({ receiver: `91${num}`, values: { "1": grNo, "2": grNo } });
+              }
+            }
+          });
+
+          if (numbers.length > 0) {
+            const resp = await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/lh2850bwmv/process', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'multiple', numbers }),
+            });
+            const result = await resp.json().catch(() => null);
+            console.log('WhatsApp hub notification sent:', { status: resp.status, count: numbers.length, result });
+          } else {
+            console.log('WhatsApp hub: No valid phone numbers found for bilties');
+          }
+        }
+      } catch (msgErr) {
+        console.error('WhatsApp hub notification error:', msgErr);
+      }
     } catch (e) { console.error(e); alert('Failed.'); }
     finally { setReceivingAtHub(false); }
   }, [user?.id, challan?.id, challan?.is_received_at_hub, challan?.challan_no, enrichedBilties, kaatData, transportsByCity, hubRatesByTransport]);

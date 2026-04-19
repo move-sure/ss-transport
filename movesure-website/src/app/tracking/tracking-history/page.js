@@ -5,7 +5,7 @@ import supabase from '../../utils/supabase';
 import { useAuth } from '../../utils/auth';
 import Navbar from '@/components/dashboard/navbar';
 import Link from 'next/link';
-import { Search, History, Clock, AlertTriangle, CheckCircle2, Shield, ChevronLeft, ChevronRight, Filter, ArrowLeft, Eye, User, Calendar, Hash, Package } from 'lucide-react';
+import { Search, History, Clock, AlertTriangle, CheckCircle2, Shield, ChevronLeft, ChevronRight, Filter, ArrowLeft, Eye, User, Calendar, Hash, Package, Loader2, MessageCircle } from 'lucide-react';
 
 export default function TrackingHistoryPage() {
   const { user } = useAuth();
@@ -18,6 +18,8 @@ export default function TrackingHistoryPage() {
   const [expandedRow, setExpandedRow] = useState(null);
   const [expandedLogs, setExpandedLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [sendingMsg, setSendingMsg] = useState({});
+  const [msgSent, setMsgSent] = useState({});
   const PAGE_SIZE = 20;
 
   const fetchRecords = useCallback(async () => {
@@ -114,6 +116,44 @@ export default function TrackingHistoryPage() {
       console.error('Error fetching logs:', err);
     } finally {
       setLogsLoading(false);
+    }
+  };
+
+  const sendComplaintWhatsApp = async (grNo) => {
+    if (!grNo) return;
+    setSendingMsg(p => ({ ...p, [grNo]: true }));
+    try {
+      const { data: biltyData } = await supabase
+        .from('bilty')
+        .select('consignor_number, consignee_number')
+        .eq('gr_no', grNo)
+        .eq('is_active', true)
+        .single();
+
+      if (!biltyData) { alert('No bilty found for this GR'); return; }
+
+      const sendToNumber = async (phone) => {
+        if (!phone || !phone.trim()) return;
+        const num = phone.trim().replace(/\D/g, '').slice(-10);
+        if (num.length !== 10) return;
+        await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/rcvts470k5/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiver: `91${num}`, values: { "1": grNo, "2": grNo } }),
+        });
+      };
+
+      await Promise.all([
+        sendToNumber(biltyData.consignor_number),
+        sendToNumber(biltyData.consignee_number),
+      ]);
+      setMsgSent(p => ({ ...p, [grNo]: true }));
+      setTimeout(() => setMsgSent(p => ({ ...p, [grNo]: false })), 5000);
+    } catch (err) {
+      console.error('WhatsApp complaint msg error:', err);
+      alert('Failed to send WhatsApp message');
+    } finally {
+      setSendingMsg(p => ({ ...p, [grNo]: false }));
     }
   };
 
@@ -229,6 +269,7 @@ export default function TrackingHistoryPage() {
                       <th className="px-3 py-2.5 text-left font-bold">Last Searched</th>
                       <th className="px-3 py-2.5 text-left font-bold">Last By</th>
                       <th className="px-3 py-2.5 text-center font-bold">Status</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Actions</th>
                       <th className="px-3 py-2.5 text-center font-bold">Logs</th>
                     </tr>
                   </thead>
@@ -267,6 +308,27 @@ export default function TrackingHistoryPage() {
                           </td>
                           <td className="px-3 py-2.5 text-center">{getStatusBadge(rec)}</td>
                           <td className="px-3 py-2.5 text-center">
+                            {rec.is_complaint && rec.source_type !== 'MNL' && (
+                              <button
+                                onClick={() => sendComplaintWhatsApp(rec.gr_no)}
+                                disabled={sendingMsg[rec.gr_no]}
+                                className={`px-2 py-1 text-[10px] font-bold rounded transition inline-flex items-center gap-1 ${
+                                  msgSent[rec.gr_no]
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-50'
+                                }`}
+                              >
+                                {sendingMsg[rec.gr_no] ? (
+                                  <><Loader2 className="w-3 h-3 animate-spin" /> Sending</>
+                                ) : msgSent[rec.gr_no] ? (
+                                  <><CheckCircle2 className="w-3 h-3" /> Sent</>
+                                ) : (
+                                  <><MessageCircle className="w-3 h-3" /> WhatsApp</>
+                                )}
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
                             <button
                               onClick={() => handleExpandRow(rec.gr_no)}
                               className={`px-2 py-1 text-[10px] font-bold rounded transition ${
@@ -282,7 +344,7 @@ export default function TrackingHistoryPage() {
                         {/* Expanded Logs Row */}
                         {expandedRow === rec.gr_no && (
                           <tr>
-                            <td colSpan={8} className="px-4 py-3 bg-slate-50 border-b-2 border-indigo-200">
+                            <td colSpan={9} className="px-4 py-3 bg-slate-50 border-b-2 border-indigo-200">
                               {logsLoading ? (
                                 <div className="text-center py-3 text-gray-400 text-xs">Loading logs...</div>
                               ) : expandedLogs.length === 0 ? (
@@ -352,12 +414,27 @@ export default function TrackingHistoryPage() {
                       <div className="text-[10px] text-gray-400">
                         By: <span className="font-semibold text-gray-600">{rec.last_user?.name || '-'}</span>
                       </div>
-                      <button
-                        onClick={() => handleExpandRow(rec.gr_no)}
-                        className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 font-bold rounded hover:bg-slate-200 transition"
-                      >
-                        {expandedRow === rec.gr_no ? 'Hide Logs' : 'View Logs'}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {rec.is_complaint && rec.source_type !== 'MNL' && (
+                          <button
+                            onClick={() => sendComplaintWhatsApp(rec.gr_no)}
+                            disabled={sendingMsg[rec.gr_no]}
+                            className={`text-[10px] px-2 py-1 font-bold rounded transition inline-flex items-center gap-1 ${
+                              msgSent[rec.gr_no]
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-50'
+                            }`}
+                          >
+                            {sendingMsg[rec.gr_no] ? 'Sending...' : msgSent[rec.gr_no] ? '✅ Sent' : '📲 WhatsApp'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleExpandRow(rec.gr_no)}
+                          className="text-[10px] px-2 py-1 bg-slate-100 text-slate-600 font-bold rounded hover:bg-slate-200 transition"
+                        >
+                          {expandedRow === rec.gr_no ? 'Hide Logs' : 'View Logs'}
+                        </button>
+                      </div>
                     </div>
                     {expandedRow === rec.gr_no && (
                       <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">

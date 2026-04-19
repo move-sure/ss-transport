@@ -38,6 +38,8 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
   const [complaintRemark, setComplaintRemark] = useState('');
   const [resolutionRemark, setResolutionRemark] = useState('');
   const [showResolveForm, setShowResolveForm] = useState(false);
+  const [sendingComplaintMsg, setSendingComplaintMsg] = useState(false);
+  const [complaintMsgSent, setComplaintMsgSent] = useState(false);
   const [editingTransportNum, setEditingTransportNum] = useState(false);
   const [tempTransportNum, setTempTransportNum] = useState('');
   const [savingTransportNum, setSavingTransportNum] = useState(false);
@@ -132,6 +134,48 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
     }
   };
 
+  // Send complaint WhatsApp message to consignor & consignee
+  const sendComplaintWhatsApp = async (grNo) => {
+    if (!grNo) return;
+    setSendingComplaintMsg(true);
+    try {
+      // Fetch fresh phone numbers from bilty table
+      const { data: biltyData } = await supabase
+        .from('bilty')
+        .select('consignor_number, consignee_number')
+        .eq('gr_no', grNo)
+        .eq('is_active', true)
+        .single();
+
+      if (!biltyData) { console.log('No bilty found for WhatsApp complaint msg'); return; }
+
+      const sendToNumber = async (phone) => {
+        if (!phone || !phone.trim()) return;
+        const num = phone.trim().replace(/\D/g, '').slice(-10);
+        if (num.length !== 10) return;
+        const resp = await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/rcvts470k5/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiver: `91${num}`, values: { "1": grNo, "2": grNo } }),
+        });
+        const result = await resp.json().catch(() => null);
+        console.log(`Complaint WhatsApp sent to 91${num}:`, { status: resp.status, result });
+      };
+
+      await Promise.all([
+        sendToNumber(biltyData.consignor_number),
+        sendToNumber(biltyData.consignee_number),
+      ]);
+      setComplaintMsgSent(true);
+      setTimeout(() => setComplaintMsgSent(false), 5000);
+    } catch (err) {
+      console.error('WhatsApp complaint notification error:', err);
+      alert('Failed to send WhatsApp message');
+    } finally {
+      setSendingComplaintMsg(false);
+    }
+  };
+
   const handleRegisterComplaint = async () => {
     if (!bilty?.gr_no || !user) return;
     setComplaintLoading(true);
@@ -159,6 +203,11 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
         onSearchRecordUpdate(data);
       }
       setComplaintRemark('');
+
+      // Auto-send WhatsApp complaint message for regular bilties
+      if (bilty.source_type !== 'MNL') {
+        sendComplaintWhatsApp(bilty.gr_no);
+      }
     } catch (err) {
       console.error('Error registering complaint:', err);
       alert('Failed to register complaint');
@@ -750,6 +799,30 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
                         <Pill label="By" value={searchRecord.resolved_user?.name || searchRecord.resolved_user?.username || '-'} bold />
                       </div>
                       {searchRecord.resolution_remark && <div className="mt-1 text-xs text-slate-700 bg-white p-1.5 rounded">💬 {searchRecord.resolution_remark}</div>}
+                    </div>
+                  )}
+
+                  {/* Send Complaint WhatsApp Button - only for regular bilties with phone numbers */}
+                  {bilty?.source_type !== 'MNL' && (bilty?.consignor_number || bilty?.consignee_number) && (
+                    <div className="p-2 bg-green-50 rounded border border-green-200 flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => sendComplaintWhatsApp(bilty.gr_no)}
+                        disabled={sendingComplaintMsg}
+                        className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 transition inline-flex items-center gap-1.5"
+                      >
+                        {sendingComplaintMsg ? (
+                          <><Loader2 className="w-3 h-3 animate-spin" /> Sending...</>
+                        ) : complaintMsgSent ? (
+                          <><CheckCircle2 className="w-3 h-3" /> Sent ✅</>
+                        ) : (
+                          <>📲 Send Complaint WhatsApp</>
+                        )}
+                      </button>
+                      <span className="text-[10px] text-green-700">
+                        {bilty.consignor_number && <span>Consignor: {bilty.consignor_number}</span>}
+                        {bilty.consignor_number && bilty.consignee_number && <span> • </span>}
+                        {bilty.consignee_number && <span>Consignee: {bilty.consignee_number}</span>}
+                      </span>
                     </div>
                   )}
 

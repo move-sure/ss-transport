@@ -243,6 +243,42 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
         data.last_user = searchRecord?.last_user || null;
         onSearchRecordUpdate(data);
       }
+
+      // Send WhatsApp "complaint resolved" template message
+      try {
+        const { data: biltyPhones } = await supabase
+          .from('bilty')
+          .select('consignor_number, consignee_number')
+          .eq('gr_no', bilty.gr_no)
+          .eq('is_active', true)
+          .single();
+
+        if (biltyPhones) {
+          const remarkText = resolutionRemark || 'Resolved';
+          const sendResolved = async (phone) => {
+            if (!phone || !phone.trim()) return;
+            const num = phone.trim().replace(/\D/g, '').slice(-10);
+            if (num.length !== 10) return;
+            const resp = await fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/l9xti74rh2/process', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                receiver: `91${num}`,
+                values: { "1": bilty.gr_no, "2": remarkText, "3": remarkText, "4": bilty.gr_no }
+              }),
+            });
+            const result = await resp.json().catch(() => null);
+            console.log(`Resolved WhatsApp sent to 91${num}:`, { status: resp.status, result });
+          };
+          await Promise.all([
+            sendResolved(biltyPhones.consignor_number),
+            sendResolved(biltyPhones.consignee_number),
+          ]);
+        }
+      } catch (whatsappErr) {
+        console.error('Error sending resolved WhatsApp:', whatsappErr);
+      }
+
       setResolutionRemark('');
       setShowResolveForm(false);
     } catch (err) {

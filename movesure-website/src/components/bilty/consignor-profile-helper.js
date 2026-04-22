@@ -301,12 +301,13 @@ export const calculateDDCharge = (packages, weight, profile) => {
   const pkg = parseInt(packages) || 0;
   const wt = parseFloat(weight) || 0;
   
-  // DD charge (goes to dd_charge field): use per_kg if filled, else per_nag
+  // DD charge (goes to dd_charge field): use per_kg if filled, else per_nag — NO minimum
   const ddPerKg = parseFloat(profile.dd_charge_per_kg) || 0;
   const ddPerNag = parseFloat(profile.dd_charge_per_nag) || 0;
   const ddCharge = ddPerKg > 0 ? (ddPerKg * wt) : (ddPerNag * pkg);
   
-  // DD print charge (goes to other_charge field): use per_kg if filled, else per_nag
+  // DD print charge (goes to other_charge field): use per_kg if filled, else per_nag — no minimum here
+  // Minimum ₹150 is enforced on the combined (ddPrint + RS) total in charges.js
   const ddPrintPerKg = parseFloat(profile.dd_print_charge_per_kg) || 0;
   const ddPrintPerNag = parseFloat(profile.dd_print_charge_per_nag) || 0;
   const ddPrintCharge = ddPrintPerKg > 0 ? (ddPrintPerKg * wt) : (ddPrintPerNag * pkg);

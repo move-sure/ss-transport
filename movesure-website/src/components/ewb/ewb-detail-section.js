@@ -5,7 +5,7 @@ import { Search, FileText, Package, Truck, MapPin, Calendar, IndianRupee, User, 
 import { formatEwbNumber } from '../../utils/ewbValidation';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
-const API_BASE = 'https://movesure-backend.onrender.com';
+const API_BASE = 'http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io';
 
 export default function EwbDetailSection({ transitDetails = [], challanDetails = null }) {
   const [mode, setMode] = useState('challan'); // 'challan' | 'manual'

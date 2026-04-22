@@ -599,11 +599,14 @@ const PackageChargesSection = ({
       // Receiving slip charge (one time per bilty) → added to other_charge
       const receivingSlipCharge = parseFloat(consignorProfile.receiving_slip_charge) || 0;
       
-      // other_charge = ddPrintCharge + receivingSlipCharge
-      const totalOtherCharge = ddPrintCharge + receivingSlipCharge;
+      // other_charge = ddPrintCharge + receivingSlipCharge, minimum ₹150 combined
+      const DD_CHRG_RS_MINIMUM = 150;
+      const rawOtherCharge = ddPrintCharge + receivingSlipCharge;
+      const totalOtherCharge = Math.max(DD_CHRG_RS_MINIMUM, rawOtherCharge);
       
       console.log('🚚 DD Charges breakdown:', {
-        ddCharge, ddPrintCharge, receivingSlipCharge, totalOtherCharge,
+        ddCharge, ddPrintCharge, receivingSlipCharge, rawOtherCharge, totalOtherCharge,
+        minimumApplied: rawOtherCharge < DD_CHRG_RS_MINIMUM,
         dd_per_nag: consignorProfile.dd_charge_per_nag,
         dd_per_kg: consignorProfile.dd_charge_per_kg,
         dd_print_per_nag: consignorProfile.dd_print_charge_per_nag,
@@ -1110,7 +1113,7 @@ return (
                       }}
                       onFocus={(e) => e.target.select()}
                       className="w-20 px-2 py-1 text-red-700 font-bold border border-red-300 rounded text-center bg-red-50 hover:border-red-400 focus:border-red-500 focus:ring-0 transition-all duration-200"
-                      title="DD charge (auto-calculated from profile, editable)"
+                      title="DD Real charge (auto-calculated from profile, freely editable)"
                     />
                   </div>
                 )}

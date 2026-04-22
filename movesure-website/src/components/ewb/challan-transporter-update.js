@@ -264,7 +264,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
       };
 
       // First API call — update
-      const res1 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+      const res1 = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/transporter-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -283,7 +283,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
       // Second API call — get PDF
       let data2 = null;
       try {
-        const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+        const res2 = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/transporter-update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -394,7 +394,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
           transporter_name: 'SS TRANSPORT CORPORATION'
         };
 
-        const res1 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+        const res1 = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/transporter-update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -412,7 +412,7 @@ export default function ChallanTransporterUpdate({ transitDetails, challanDetail
         // Second call for PDF
         let data2Bulk = null;
         try {
-          const res2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+          const res2 = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/transporter-update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

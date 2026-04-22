@@ -1,26 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../utils/auth';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 import Navbar from '../../components/dashboard/navbar';
 import ReportsHeader from '../../components/reports/reports-header';
 import ReportCard from '../../components/reports/report-card';
 import ReportFilters from '../../components/reports/report-filters';
-import { FileText, MapPin, Truck, Calendar, Download } from 'lucide-react';
+import RGTBiltyForm from '../../components/reports/rgt-bilty-form';
+import RGTPdfGenerator from '../../components/reports/rgt-pdf-generator';
+import { FileText, MapPin, Truck, Calendar, Download, Printer } from 'lucide-react';
 
 export default function ReportsPage() {
-  const { user } = useAuth();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedCity, setSelectedCity] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-    }
-  }, [user, router]);
+  const [showBiltyForm, setShowBiltyForm] = useState(false);
+  const [biltyDataForPdf, setBiltyDataForPdf] = useState(null);
 
   const reports = [
     {
@@ -54,24 +48,21 @@ export default function ReportsPage() {
       icon: FileText,
       color: 'orange',
       type: 'consignees'
+    },
+    {
+      id: 'rgt-bilty',
+      title: 'RGT Logistics - Print Bilty',
+      description: 'Create and print bilty for RGT Logistics Company',
+      icon: Printer,
+      color: 'red',
+      type: 'rgt-bilty'
     }
   ];
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-10 h-10 bg-indigo-600 rounded-full opacity-20 animate-pulse"></div>
-            </div>
-          </div>
-          <p className="mt-6 text-gray-700 text-lg font-medium">Loading Reports...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleBiltyGenerate = (data) => {
+    setShowBiltyForm(false);
+    setBiltyDataForPdf(data);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -80,7 +71,7 @@ export default function ReportsPage() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
-          <ReportsHeader user={user} />
+          <ReportsHeader />
 
           {/* Filters Section */}
           <ReportFilters 
@@ -100,6 +91,7 @@ export default function ReportsPage() {
                 dateRange={dateRange}
                 loading={loading}
                 setLoading={setLoading}
+                onRGTBiltyClick={report.type === 'rgt-bilty' ? () => setShowBiltyForm(true) : undefined}
               />
             ))}
           </div>
@@ -147,6 +139,22 @@ export default function ReportsPage() {
           </div>
         </div>
       </main>
+
+      {/* RGT Bilty Form Modal */}
+      {showBiltyForm && (
+        <RGTBiltyForm
+          onGenerate={handleBiltyGenerate}
+          onClose={() => setShowBiltyForm(false)}
+        />
+      )}
+
+      {/* RGT PDF Preview Modal */}
+      {biltyDataForPdf && (
+        <RGTPdfGenerator
+          biltyData={biltyDataForPdf}
+          onClose={() => setBiltyDataForPdf(null)}
+        />
+      )}
     </div>
   );
 }

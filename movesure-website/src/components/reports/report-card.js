@@ -4,7 +4,7 @@ import React from 'react';
 import { Download, FileText, CheckCircle } from 'lucide-react';
 import { generateCitiesReport, generateTransportsReport, generateConsignorsReport, generateConsigneesReport } from './pdf-generator';
 
-export default function ReportCard({ report, selectedCity, dateRange, loading, setLoading }) {
+export default function ReportCard({ report, selectedCity, dateRange, loading, setLoading, onRGTBiltyClick }) {
   const colorClasses = {
     blue: {
       bg: 'bg-gradient-to-br from-blue-50 to-blue-100',
@@ -41,12 +41,27 @@ export default function ReportCard({ report, selectedCity, dateRange, loading, s
       button: 'bg-orange-600 hover:bg-orange-700',
       accent: 'bg-orange-200',
       badge: 'bg-orange-100 text-orange-700'
+    },
+    red: {
+      bg: 'bg-gradient-to-br from-red-50 to-red-100',
+      border: 'border-red-200',
+      icon: 'text-red-600',
+      iconBg: 'bg-red-100',
+      button: 'bg-red-600 hover:bg-red-700',
+      accent: 'bg-red-200',
+      badge: 'bg-red-100 text-red-700'
     }
   };
 
   const colors = colorClasses[report.color] || colorClasses.blue;
 
   const handleDownload = async () => {
+    // Handle RGT bilty separately
+    if (report.type === 'rgt-bilty') {
+      if (onRGTBiltyClick) onRGTBiltyClick();
+      return;
+    }
+
     setLoading(true);
     try {
       const filters = {
@@ -114,7 +129,7 @@ export default function ReportCard({ report, selectedCity, dateRange, loading, s
           ) : (
             <>
               <Download className="h-5 w-5" />
-              <span>Download Report</span>
+              <span>{report.type === 'rgt-bilty' ? 'Create Bilty' : 'Download Report'}</span>
             </>
           )}
         </button>

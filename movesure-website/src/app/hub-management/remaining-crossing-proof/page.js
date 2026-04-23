@@ -256,7 +256,7 @@ export default function RemainingCrossingProofPage() {
                 value={dateFrom}
                 max={dateTo}
                 onChange={e => handleDateChange('from', e.target.value)}
-                className="px-2 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                className="px-2 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 text-black"
               />
               <label className="text-xs text-gray-500 font-semibold">To</label>
               <input
@@ -265,7 +265,7 @@ export default function RemainingCrossingProofPage() {
                 min={dateFrom}
                 max={today.toISOString().slice(0, 10)}
                 onChange={e => handleDateChange('to', e.target.value)}
-                className="px-2 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+                className="px-2 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 text-black"
               />
             </div>
             <input

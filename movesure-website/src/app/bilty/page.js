@@ -25,7 +25,7 @@ const PrintModal = dynamic(() => import('../../components/bilty/print-model'), {
 const PrintBilty = dynamic(() => import('../../components/bilty/print-bilty'), { ssr: false });
 
 // Backend API URL — all bilty save/load now goes through the backend
-const BILTY_API_URL = 'https://movesure-backend.onrender.com';
+const BILTY_API_URL = 'https://api.movesure.io/';
 
 export default function BiltyForm() {
   const { user } = useAuth();

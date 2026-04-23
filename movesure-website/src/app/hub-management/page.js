@@ -226,6 +226,13 @@ export default function HubManagementPage() {
                 Bulk Pohonch
               </button>
               <button
+                onClick={() => router.push('/hub-management/remaining-crossing-proof')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-all"
+              >
+                <FileText className="h-4 w-4" />
+                Crossing Proof
+              </button>
+              <button
                 onClick={handleRefresh}
                 disabled={loading}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm disabled:opacity-50"

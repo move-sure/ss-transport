@@ -309,7 +309,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
       console.log('🚀 Sending transporter update payload (First Call):', JSON.stringify(payload, null, 2));
 
       // First API call
-      const response1 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+      const response1 = await fetch('https://api.movesure.io//api/transporter-update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -343,7 +343,7 @@ const TransporterUpdateModal = ({ isOpen, onClose, onUpdateSuccess, grData, ewbN
         // Second API call - same payload to get PDF
         let data2 = null;
         try {
-          const response2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
+          const response2 = await fetch('https://api.movesure.io//api/transporter-update', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

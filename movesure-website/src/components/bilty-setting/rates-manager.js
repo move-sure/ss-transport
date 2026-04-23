@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import supabase from '../../app/utils/supabase';
 
-const API_URL = 'https://movesure-backend.onrender.com';
+const API_URL = 'https://api.movesure.io/';
 
 // Inline Editable Rate Cell Component
 const InlineRateCell = memo(({ city, rate, branchId, onUpdate }) => {

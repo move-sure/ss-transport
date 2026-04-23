@@ -20,7 +20,7 @@ import supabase from '../app/utils/supabase';
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const BILTY_API_URL = 'https://movesure-backend.onrender.com';
+const BILTY_API_URL = 'https://api.movesure.io/';
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000;  // 5 minutes
 const REALTIME_CHANNEL_PREFIX = 'gr-reservations-';
 

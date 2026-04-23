@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { MapPin, Navigation, Loader2, AlertTriangle, CheckCircle, Search } from 'lucide-react';
 
-const DISTANCE_API = 'https://movesure-backend.onrender.com/api/distance';
+const DISTANCE_API = 'https://api.movesure.io//api/distance';
 
 export default function DistanceFinder({ onDistanceFound }) {
   const [fromPincode, setFromPincode] = useState('');

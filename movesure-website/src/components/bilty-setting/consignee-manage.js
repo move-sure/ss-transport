@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 
-const API_URL = 'https://movesure-backend.onrender.com';
+const API_URL = 'https://api.movesure.io/';
 
 const ConsigneeComponent = () => {
   const { user } = useAuth();

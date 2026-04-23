@@ -5,7 +5,7 @@ import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import { Truck, Settings, List, Plus, Search, Filter, Calendar, Eye, RefreshCw } from 'lucide-react';
 
-const API_URL = 'https://movesure-backend.onrender.com';
+const API_URL = 'https://api.movesure.io/';
 
 // Transform flat API challan row to nested objects for component compatibility
 const transformChallanRow = (row) => ({

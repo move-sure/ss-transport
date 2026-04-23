@@ -712,7 +712,7 @@ export default function StandaloneTransporterUpdate() {
       };
 
       // First API call
-      const response1 = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/transporter-update', {
+      const response1 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -734,7 +734,7 @@ export default function StandaloneTransporterUpdate() {
 
       if (isSuccess) {
         // Second API call for PDF
-        const response2 = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/transporter-update', {
+        const response2 = await fetch('https://movesure-backend.onrender.com/api/transporter-update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

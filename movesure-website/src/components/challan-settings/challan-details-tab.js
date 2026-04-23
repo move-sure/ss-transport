@@ -5,7 +5,7 @@ import { useAuth } from '../../app/utils/auth';
 import { format } from 'date-fns';
 import { FileText, Edit2, Truck, Calendar, User, TruckIcon, PackageCheck, Package } from 'lucide-react';
 
-const API_URL = 'http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io';
+const API_URL = 'https://movesure-backend.onrender.com';
 
 const ChallanDetailsTab = ({ 
   challans, 

@@ -277,7 +277,7 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
     if (!ewbNumber || ewbNumber.length < 10) return;
     setEwbFetchLoading(true);
     try {
-      const url = `http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/ewaybill?eway_bill_number=${ewbNumber}&gstin=${DEFAULT_USER_GSTIN}`;
+      const url = `https://movesure-backend.onrender.com/api/ewaybill?eway_bill_number=${ewbNumber}&gstin=${DEFAULT_USER_GSTIN}`;
       const res = await fetch(url);
       const json = await res.json();
       if ((json.status === 'success' || json.success) && json.data?.results?.message) {
@@ -376,7 +376,7 @@ export default function ExtendEwbSection({ transitDetails, challanDetails }) {
         address_line3: formData.mode_of_transport === '5' ? (formData.address_line3 || formData.address_line1) : '',
       };
 
-      const response = await fetch('http://xok5owjast5f4mxl1hu7ztq5.46.202.162.119.sslip.io/api/extend-ewaybill', {
+      const response = await fetch('https://movesure-backend.onrender.com/api/extend-ewaybill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

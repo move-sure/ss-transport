@@ -7,8 +7,9 @@ import Navbar from '../../../components/dashboard/navbar';
 import {
   Truck, Package, RefreshCw, AlertCircle, ArrowLeft, ChevronDown, ChevronUp,
   Hash, MapPin, Phone, FileText, IndianRupee, Clock, CheckCircle2, Star,
-  Calendar, Box, Users,
+  Calendar, Box, Users, FileDown,
 } from 'lucide-react';
+import CrossingProofPDFModal from './CrossingProofPDF';
 
 
 const API_URL = 'https://api.movesure.io/';
@@ -63,6 +64,7 @@ export default function RemainingCrossingProofPage() {
   const [lastFetched, setLastFetched] = useState(null);
   const [expandedGroups, setExpandedGroups] = useState({});
   const [expandedChallans, setExpandedChallans] = useState({});
+  const [pdfGroup, setPdfGroup] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   // Date range state
   const today = new Date();
@@ -351,6 +353,10 @@ export default function RemainingCrossingProofPage() {
           </div>
         )}
 
+        {pdfGroup && (
+          <CrossingProofPDFModal group={pdfGroup} onClose={() => setPdfGroup(null)} />
+        )}
+
         {filteredGroups.map((group) => {
           const isOpen = !!expandedGroups[group.gst_number];
           return (
@@ -409,6 +415,14 @@ export default function RemainingCrossingProofPage() {
                       <span className="text-gray-300">|</span>
                       <Hash className="h-3.5 w-3.5 text-purple-500" />{group.total_challans}
                     </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPdfGroup(group); }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-xs font-semibold text-red-700 transition-colors"
+                      title="Download PDF"
+                    >
+                      <FileDown className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">PDF</span>
+                    </button>
                     {isOpen
                       ? <ChevronUp className="h-5 w-5 text-gray-400" />
                       : <ChevronDown className="h-5 w-5 text-gray-400" />
@@ -499,7 +513,7 @@ export default function RemainingCrossingProofPage() {
                                         {bilty.consignee_name || '-'}
                                       </span>
                                     </td>
-                                    <td className="px-3 py-2.5 text-gray-600">{bilty.station || '-'}</td>
+                                    <td className="px-3 py-2.5 text-gray-600">{bilty.station || bilty.city_name || '-'}</td>
                                     <td className="px-3 py-2.5 text-center font-semibold text-gray-700">{bilty.no_of_pkg}</td>
                                     <td className="px-3 py-2.5 text-center text-gray-600">{bilty.weight}</td>
                                     <td className="px-3 py-2.5 text-right font-semibold text-gray-800">

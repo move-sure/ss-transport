@@ -26,7 +26,6 @@ export function generateCrossingProofPDF(group) {
       : group.transport_names?.join(', ') || '-';
   doc.text(`Transport : ${transportLabel}`, margin, 21);
   doc.text(`GSTIN     : ${group.gst_number || '-'}`, margin, 27);
-  doc.text(`City      : ${group.city_names?.join(', ') || '-'}`, margin, 33);
   doc.setFont('helvetica', 'bold');
   doc.text(
     `Generated: ${new Date().toLocaleDateString('en-IN', {
@@ -41,9 +40,9 @@ export function generateCrossingProofPDF(group) {
   // ── Divider ──────────────────────────────────────────────────────────────
   doc.setDrawColor(0);
   doc.setLineWidth(0.4);
-  doc.line(margin, 37, pageW - margin, 37);
+  doc.line(margin, 33, pageW - margin, 33);
 
-  let startY = 43;
+  let startY = 39;
 
   // ── Challans ─────────────────────────────────────────────────────────────
   const challans = group.challans || [];
@@ -83,7 +82,7 @@ export function generateCrossingProofPDF(group) {
     // #(6) GRNo(20) Cons(42) Consee(42) Station(28) Pkg(8) Wt(12) Freight(20) Kaat(16) PM(16) Pohonch(22) BiltyNo(23) Date(22) = 277
     autoTable(doc, {
       startY,
-      head: [['#', 'GR No', 'Consignor', 'Consignee', 'Station', 'Pkg', 'Wt', 'Freight', 'Kaat', 'PM', 'Pohonch', 'Bilty No', 'Date']],
+      head: [['#', 'GR No', 'Consignor', 'Consignee', 'Station', 'Pkg', 'Wt', 'Freight', 'Kaat', 'PM', 'Pohonch', 'Crossing-Bilty', 'Date']],
       body: rows,
       margin: { left: margin, right: margin },
       tableWidth: tableW,

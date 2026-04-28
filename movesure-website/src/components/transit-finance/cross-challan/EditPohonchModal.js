@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import supabase from '../../../app/utils/supabase';
-import { Loader2, X, Trash2, Plus, Search, AlertCircle, CheckCircle, Edit3, Package, Info } from 'lucide-react';
+import { Loader2, X, Trash2, Plus, Search, AlertCircle, CheckCircle, Edit3, Package, Info, Printer } from 'lucide-react';
 import { format } from 'date-fns';
+import { generatePohonchPDF } from '../../transit-finance/pohonch-print/pohonch-pdf-generator';
 
 export default function EditPohonchModal({
   show, onClose,
@@ -297,7 +298,7 @@ export default function EditPohonchModal({
                           <td className="px-3 py-2 text-gray-700 text-xs truncate max-w-[100px]" title={b.consignee}>{(b.consignee || '-').substring(0, 16)}</td>
                           <td className="px-3 py-2 text-gray-600 text-xs">{(b.destination || '-').substring(0, 12)}</td>
                           <td className="px-3 py-2 text-right text-xs text-gray-600">{(b.weight || 0).toFixed(1)}</td>
-                          <td className="px-3 py-2 text-right text-xs">{b.is_paid ? <span className="text-yellow-600 font-medium">PAID</span> : `₹${(b.amount || 0).toFixed(0)}`}</td>
+                          <td className="px-3 py-2 text-right text-xs text-gray-900 font-medium">{b.is_paid ? <span className="text-yellow-600 font-medium">PAID</span> : `₹${(b.amount || 0).toFixed(0)}`}</td>
                           <td className="px-3 py-2 text-right font-medium text-emerald-700 text-xs">₹{(b.kaat || 0).toFixed(0)}</td>
                           <td className="px-3 py-2 text-right font-bold text-teal-700 text-xs">₹{(b.pf || 0).toFixed(0)}</td>
                           <td className="px-3 py-2 text-center">
@@ -332,7 +333,7 @@ export default function EditPohonchModal({
                   }}
                   onKeyDown={e => e.key === 'Enter' && handleSearchGr()}
                   placeholder="Enter GR Number and press Enter or Search"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-300 outline-none bg-white"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:ring-2 focus:ring-indigo-300 outline-none bg-white"
                 />
                 <button
                   onClick={handleSearchGr}
@@ -425,6 +426,17 @@ export default function EditPohonchModal({
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
               >
                 Cancel
+              </button>
+              <button
+                onClick={() => {
+                  try {
+                    const transport = { transport_name: pohonch.transport_name, gst_number: pohonch.transport_gstin };
+                    generatePohonchPDF(editedBilties, transport, false);
+                  } catch (e) { alert('Failed to generate PDF: ' + e.message); }
+                }}
+                className="px-4 py-2 border border-indigo-300 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 flex items-center gap-1.5 transition-colors"
+              >
+                <Printer className="w-4 h-4" /> Print
               </button>
               <button
                 onClick={handleSave}

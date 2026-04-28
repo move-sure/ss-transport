@@ -365,6 +365,8 @@ export default function PohonchPrintPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || json.message || 'Failed to create pohonch');
       setCreateResult(json); setRecentKey(prev => prev + 1);
+      const currentGrNos = sbBilties.map(k => k.gr_no).filter(Boolean);
+      if (currentGrNos.length) fetchCrossChallanData(currentGrNos);
     } catch (err) { alert('Failed to create pohonch: ' + err.message); } finally { setCreating(false); }
   };
 
@@ -515,7 +517,11 @@ export default function PohonchPrintPage() {
           token={token}
           sbCitiesMap={sbCitiesMap}
           sbCityCodeMap={sbCityCodeMap}
-          onSaved={() => setRecentKey(prev => prev + 1)}
+          onSaved={() => {
+            setRecentKey(prev => prev + 1);
+            const currentGrNos = sbBilties.map(k => k.gr_no).filter(Boolean);
+            if (currentGrNos.length) fetchCrossChallanData(currentGrNos);
+          }}
         />
       </div>
     </div>

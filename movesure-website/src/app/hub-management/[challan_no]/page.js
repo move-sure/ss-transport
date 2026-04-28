@@ -25,11 +25,12 @@ import { generatePodPdf } from '../../../components/hub-management/PodPdfGenerat
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 import { generatePohonchPDF } from '../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
 import BulkCrossChallanModal from '../../../components/hub-management/BulkCrossChallanModal';
+import CrossChallanManagement from '../../../components/hub-management/CrossChallanManagement';
 
 export default function ChallanDetailPage() {
   const { challan_no } = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   const [challan, setChallan] = useState(null);
   const [transitDetails, setTransitDetails] = useState([]);
@@ -1443,6 +1444,19 @@ export default function ChallanDetailPage() {
             </button>
           </div>
         </div>
+
+        {/* CROSS CHALLAN MANAGEMENT SECTION */}
+        <CrossChallanManagement
+          challanNo={challan.challan_no}
+          enrichedBilties={enrichedBilties}
+          transports={transports}
+          token={token}
+          user={user}
+          onRefreshCrossMap={() => {
+            const grNos = enrichedBilties.map(b => b.gr_no).filter(Boolean);
+            if (grNos.length) fetchCrossChallanData(grNos);
+          }}
+        />
 
         {/* TABLE SECTION */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

@@ -1,5 +1,5 @@
 'use client';
-import { ChevronDown, ChevronRight, Hash, CheckSquare, Square } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, CheckSquare, Square, Edit3 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function BiltyResultsTable({
@@ -7,6 +7,8 @@ export default function BiltyResultsTable({
   sbExpandedChallans, sbCitiesMap,
   resolveDestination,
   toggleSbChallan, selectChallanBilties, toggleSelectBilty,
+  onEditPohonch,
+  crossChallanMap,
 }) {
   return (
     <>
@@ -80,6 +82,7 @@ export default function BiltyResultsTable({
                       <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">GR No.</th>
                       <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">EWB</th>
                       <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">P/B No.</th>
+                      <th className="px-2 py-2 text-center text-xs font-bold text-gray-500 uppercase">Cross Challan</th>
                       <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
                       <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Consignor</th>
                       <th className="px-2 py-2 text-left text-xs font-bold text-gray-500 uppercase">Consignee</th>
@@ -115,6 +118,7 @@ export default function BiltyResultsTable({
                       const pohonchBilty = k.pohonch_no && k.bilty_number ? `${k.pohonch_no}/${k.bilty_number}` : k.pohonch_no || k.bilty_number || '-';
                       const isSelected = selectedGrNos.has(k.gr_no);
                       const ewb = bilty?.e_way_bill || station?.e_way_bill || '';
+                      const crossChallanNo = crossChallanMap?.[k.gr_no] || null;
 
                       return (
                         <tr
@@ -134,6 +138,20 @@ export default function BiltyResultsTable({
                           </td>
                           <td className="px-2 py-2 text-[10px] font-mono text-gray-500 max-w-[80px] truncate" title={ewb || '-'}>{ewb || '-'}</td>
                           <td className="px-2 py-2 text-gray-700 text-xs">{pohonchBilty}</td>
+                          <td className="px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
+                            {crossChallanNo ? (
+                              <button
+                                onClick={() => onEditPohonch?.(crossChallanNo)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-300 rounded-full text-[10px] font-semibold hover:bg-amber-200 transition-colors"
+                                title={`Cross Challan ${crossChallanNo} — click to edit`}
+                              >
+                                <Edit3 className="w-2.5 h-2.5" />
+                                {crossChallanNo}
+                              </button>
+                            ) : (
+                              <span className="text-gray-300 text-[10px]">—</span>
+                            )}
+                          </td>
                           <td className="px-2 py-2 text-gray-600 text-xs">{dateStr}</td>
                           <td className="px-2 py-2 text-gray-700 truncate max-w-[120px]" title={bilty?.consignor_name || station?.consignor || '-'}>{(bilty?.consignor_name || station?.consignor || '-').substring(0, 15)}</td>
                           <td className="px-2 py-2 text-gray-700 truncate max-w-[120px]" title={bilty?.consignee_name || station?.consignee || '-'}>{(bilty?.consignee_name || station?.consignee || '-').substring(0, 15)}</td>

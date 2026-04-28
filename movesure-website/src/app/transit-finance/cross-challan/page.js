@@ -12,6 +12,7 @@ import ResultsSummaryBar from '../../../components/transit-finance/cross-challan
 import BiltyResultsTable from '../../../components/transit-finance/cross-challan/BiltyResultsTable';
 import CreatePohonchModal from '../../../components/transit-finance/cross-challan/CreatePohonchModal';
 import PdfPreviewModal from '../../../components/transit-finance/cross-challan/PdfPreviewModal';
+import EditPohonchModal from '../../../components/transit-finance/cross-challan/EditPohonchModal';
 import { Loader2, AlertCircle, ArrowLeft, Package, Truck, FileText } from 'lucide-react';
 
 export default function PohonchPrintPage() {
@@ -63,6 +64,28 @@ export default function PohonchPrintPage() {
   const [createPrefix, setCreatePrefix] = useState('');
   const [creating, setCreating] = useState(false);
   const [createResult, setCreateResult] = useState(null);
+
+  // Edit Pohonch modal
+  const [showEditPohonch, setShowEditPohonch] = useState(false);
+  const [editPohonchNo, setEditPohonchNo] = useState(null);
+  const handleOpenEditPohonch = (pohonchNo) => { setEditPohonchNo(pohonchNo); setShowEditPohonch(true); };
+
+  // Crossing challan map: gr_no -> pohonch_number (from pohonch table)
+  const [crossChallanMap, setCrossChallanMap] = useState({});
+  const fetchCrossChallanData = useCallback(async (grNos) => {
+    if (!grNos?.length) return;
+    try {
+      const { data } = await supabase.from('pohonch').select('pohonch_number, bilty_metadata').eq('is_active', true);
+      if (data) {
+        const ccMap = {};
+        data.forEach(p => {
+          const bilties = Array.isArray(p.bilty_metadata) ? p.bilty_metadata : [];
+          bilties.forEach(b => { if (b.gr_no && grNos.includes(b.gr_no)) ccMap[b.gr_no] = p.pohonch_number; });
+        });
+        setCrossChallanMap(ccMap);
+      }
+    } catch (e) { console.error('Cross challan fetch error:', e); }
+  }, []);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -173,6 +196,7 @@ export default function PohonchPrintPage() {
       if (selectedCity) f = f.filter(k => k.destination_city_id === selectedCity.id);
       setSbBilties(f); await fetchBiltyDetails(f);
       const em = {}; f.forEach(k => { em[k.challan_no] = true; }); setSbExpandedChallans(em);
+      fetchCrossChallanData(f.map(k => k.gr_no).filter(Boolean));
     } catch (err) { setSbError(err.message || 'Failed to search'); } finally { setSbLoading(false); }
   };
 
@@ -194,6 +218,7 @@ export default function PohonchPrintPage() {
       }
       await fetchBiltyDetails(f);
       const em = {}; f.forEach(k => { em[k.challan_no] = true; }); setSbExpandedChallans(em);
+      fetchCrossChallanData(f.map(k => k.gr_no).filter(Boolean));
       const found = new Set(f.map(k => k.gr_no));
       const notFound = grNosToSearch.filter(gr => !found.has(gr));
       if (notFound.length) setSbError(`${notFound.length} GR(s) not found: ${notFound.join(', ')}`);
@@ -216,6 +241,7 @@ export default function PohonchPrintPage() {
       }
       await fetchBiltyDetails(f);
       const em = {}; f.forEach(k => { em[k.challan_no] = true; }); setSbExpandedChallans(em);
+      fetchCrossChallanData(f.map(k => k.gr_no).filter(Boolean));
       if (!f.length) setSbError(`No bilties found for: ${val}`);
     } catch (err) { setSbError(err.message || 'Failed to search'); } finally { setSbLoading(false); }
   };
@@ -227,6 +253,7 @@ export default function PohonchPrintPage() {
     setFromChallan(''); setToChallan('');
     setSbBilties([]); setSbBiltyDetails({}); setSbError(null); setSelectedGrNos(new Set());
     setGrNosToSearch([]); setGrSearchInput(''); setPohonchSearch('');
+    setCrossChallanMap({});
   };
 
   const sbGroupedByChallan = useMemo(() => {
@@ -424,6 +451,8 @@ export default function PohonchPrintPage() {
               selectedGrNos={selectedGrNos} sbExpandedChallans={sbExpandedChallans} sbCitiesMap={sbCitiesMap}
               resolveDestination={resolveDestination}
               toggleSbChallan={toggleSbChallan} selectChallanBilties={selectChallanBilties} toggleSelectBilty={toggleSelectBilty}
+              onEditPohonch={handleOpenEditPohonch}
+              crossChallanMap={crossChallanMap}
             />
           )}
 
@@ -458,6 +487,17 @@ export default function PohonchPrintPage() {
           show={showPreview} pdfUrl={pdfUrl} onClose={closePreview}
           onDownload={handleDownloadPDF} onSave={handleSavePohonch}
           saving={saving} lastSavedPohonch={lastSavedPohonch} selectedGrNos={selectedGrNos}
+        />
+
+        <EditPohonchModal
+          show={showEditPohonch}
+          onClose={() => { setShowEditPohonch(false); setEditPohonchNo(null); }}
+          pohonchNo={editPohonchNo}
+          user={user}
+          token={token}
+          sbCitiesMap={sbCitiesMap}
+          sbCityCodeMap={sbCityCodeMap}
+          onSaved={() => setRecentKey(prev => prev + 1)}
         />
       </div>
     </div>

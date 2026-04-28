@@ -368,6 +368,24 @@ export default function PohonchPrintPage() {
     } catch (err) { alert('Failed to create pohonch: ' + err.message); } finally { setCreating(false); }
   };
 
+  const handleOpenCreateModal = async () => {
+    setCreateResult(null);
+    setCreatePrefix('');
+    if (selectedTransport) {
+      try {
+        const q = selectedTransport.gst_number
+          ? supabase.from('pohonch').select('pohonch_number').eq('transport_gstin', selectedTransport.gst_number).order('created_at', { ascending: false }).limit(5)
+          : supabase.from('pohonch').select('pohonch_number').eq('transport_name', selectedTransport.transport_name).order('created_at', { ascending: false }).limit(5);
+        const { data } = await q;
+        if (data?.length) {
+          const parsed = detectLastUsedPrefix(data[0].pohonch_number);
+          if (parsed?.prefix) setCreatePrefix(parsed.prefix);
+        }
+      } catch (e) { /* silently ignore, user can type prefix manually */ }
+    }
+    setShowCreateModal(true);
+  };
+
   if (!mounted) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar /><div className="flex items-center justify-center h-[80vh]"><Loader2 className="w-10 h-10 animate-spin text-teal-600" /></div>
@@ -434,7 +452,7 @@ export default function PohonchPrintPage() {
               selectedCity={selectedCity} fromChallan={fromChallan} toChallan={toChallan}
               selectAllBilties={selectAllBilties} deselectAllBilties={deselectAllBilties}
               generating={generating} onPrint={handlePrintSelected}
-              onOpenCreateModal={() => { setCreateResult(null); setCreatePrefix(''); setShowCreateModal(true); }}
+              onOpenCreateModal={handleOpenCreateModal}
             />
           )}
 

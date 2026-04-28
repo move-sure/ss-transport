@@ -1,5 +1,7 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { X, Zap, Check, Hash, AlertCircle, Loader2 } from 'lucide-react';
+import supabase from '../../../app/utils/supabase';
 
 export default function CreatePohonchModal({
   show, onClose,
@@ -10,6 +12,37 @@ export default function CreatePohonchModal({
   creating, createResult,
   onCreatePohonch,
 }) {
+  const [previewNo, setPreviewNo] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (!show || !createPrefix.trim()) { setPreviewNo(''); return; }
+    let cancelled = false;
+    const run = async () => {
+      setPreviewLoading(true);
+      try {
+        const { data } = await supabase
+          .from('pohonch')
+          .select('pohonch_number')
+          .ilike('pohonch_number', `${createPrefix.trim()}%`)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (cancelled) return;
+        const nums = (data || [])
+          .map(p => { const m = p.pohonch_number.match(/^([A-Za-z]+)(\d+)$/); return m && m[1].toUpperCase() === createPrefix.trim().toUpperCase() ? parseInt(m[2], 10) : 0; })
+          .filter(n => n > 0);
+        const next = nums.length ? Math.max(...nums) + 1 : 1;
+        if (!cancelled) setPreviewNo(`${createPrefix.trim().toUpperCase()}${String(next).padStart(4, '0')}`);
+      } catch (e) {
+        if (!cancelled) setPreviewNo('');
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    };
+    const t = setTimeout(run, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [show, createPrefix]);
+
   if (!show) return null;
 
   const challanNos = [...new Set(
@@ -86,6 +119,26 @@ export default function CreatePohonchModal({
                 className="w-full px-3 py-2 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-indigo-50/30 font-mono text-sm tracking-widest"
               />
               <p className="text-[10px] text-gray-400 mt-1">If blank, prefix will be auto-generated from transport name + GST.</p>
+
+              {/* Next Pohonch Number Preview */}
+              {createPrefix.trim() && (
+                <div className="mt-3 flex items-center gap-3 bg-indigo-600 rounded-xl px-4 py-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-indigo-200 font-medium mb-0.5">Next Pohonch Number</p>
+                    {previewLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span className="text-indigo-200 text-sm">Calculating...</span>
+                      </div>
+                    ) : previewNo ? (
+                      <p className="text-2xl font-extrabold text-white font-mono tracking-widest">{previewNo}</p>
+                    ) : (
+                      <p className="text-indigo-300 text-sm">—</p>
+                    )}
+                  </div>
+                  <Hash className="w-8 h-8 text-indigo-300 opacity-50" />
+                </div>
+              )}
             </div>
           )}
 

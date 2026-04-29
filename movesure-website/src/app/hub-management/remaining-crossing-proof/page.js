@@ -9,10 +9,11 @@ import {
   Hash, MapPin, Phone, FileText, IndianRupee, Clock, CheckCircle2, Star,
   Calendar, Box, Users, FileDown,
 } from 'lucide-react';
-import CrossingProofPDFModal from './CrossingProofPDF';
+import CrossingProofPDFModal, { generateChallanWisePDF, ChallanWisePDFModal } from './CrossingProofPDF';
 
 
 const API_URL = 'https://api.movesure.io/';
+const EXCLUDED_GSTIN = '09COVPS5556J1ZT'; // hidden from remaining crossing proof
 const IDB_DB = 'movesure-cache';
 const IDB_STORE = 'crossing-proof';
 const CACHE_KEY = 'data';
@@ -66,6 +67,8 @@ export default function RemainingCrossingProofPage() {
   const [expandedChallans, setExpandedChallans] = useState({});
   const [pdfGroup, setPdfGroup] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedChallan, setSelectedChallan] = useState('');
+  const [challanPdfOpen, setChallanPdfOpen] = useState(false);
   // Date range state
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -129,6 +132,22 @@ export default function RemainingCrossingProofPage() {
 
   const handleRefresh = () => fetchData(true);
 
+  // All unique challan numbers across all groups, sorted ascending
+  const challanOptions = data?.groups
+    ? [...new Set(
+        data.groups.flatMap((g) => (g.challans || []).map((c) => c.challan_no))
+      )].sort((a, b) => {
+        if (a === 'NO_CHALLAN') return 1;
+        if (b === 'NO_CHALLAN') return -1;
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      })
+    : [];
+
+  const handleDownloadChallan = () => {
+    if (!selectedChallan || !data?.groups?.length) return;
+    setChallanPdfOpen(true);
+  };
+
   const handleDateChange = (which, val) => {
     if (which === 'from') setDateFrom(val);
     else setDateTo(val);
@@ -151,7 +170,8 @@ export default function RemainingCrossingProofPage() {
     setExpandedChallans(prev => ({ ...prev, [key]: !prev[key] }));
 
   // ── Filter GSTIN groups by search ───────────────────────────────────────
-  const filteredGroups = (data?.groups || []).filter(g => {
+  const baseGroups = (data?.groups || []).filter(g => g.gst_number !== EXCLUDED_GSTIN);
+  const filteredGroups = baseGroups.filter(g => {
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     return (
@@ -238,6 +258,28 @@ export default function RemainingCrossingProofPage() {
                   {formatTime(lastFetched)}
                 </span>
               )}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedChallan}
+                  onChange={e => setSelectedChallan(e.target.value)}
+                  className="px-3 py-2.5 border border-indigo-200 rounded-xl text-sm bg-indigo-50 text-indigo-800 font-semibold focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400 disabled:opacity-50"
+                  disabled={!challanOptions.length}
+                >
+                  <option value="">Select Challan…</option>
+                  {challanOptions.map((cn) => (
+                    <option key={cn} value={cn}>{cn === 'NO_CHALLAN' ? 'No Challan' : cn}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleDownloadChallan}
+                  disabled={!selectedChallan}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 border border-indigo-600 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+                  title="Preview PDF for selected challan across all transports"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Preview
+                </button>
+              </div>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -312,21 +354,21 @@ export default function RemainingCrossingProofPage() {
               icon={<Truck className="h-5 w-5" />}
               label="GSTIN Groups"
               value={filteredGroups.length}
-              total={data.total_groups}
+              total={baseGroups.length}
               color="orange"
             />
             <StatCard
               icon={<Package className="h-5 w-5" />}
               label="Pending Bilties"
               value={filteredGroups.reduce((s, g) => s + g.total_bilties, 0)}
-              total={data.total_bilties}
+              total={baseGroups.reduce((s, g) => s + g.total_bilties, 0)}
               color="red"
             />
             <StatCard
               icon={<Users className="h-5 w-5" />}
               label="Challans"
               value={filteredGroups.reduce((s, g) => s + g.total_challans, 0)}
-              total={data.groups?.reduce((s, g) => s + g.total_challans, 0) || 0}
+              total={baseGroups.reduce((s, g) => s + g.total_challans, 0)}
               color="purple"
             />
           </div>
@@ -355,6 +397,14 @@ export default function RemainingCrossingProofPage() {
 
         {pdfGroup && (
           <CrossingProofPDFModal group={pdfGroup} onClose={() => setPdfGroup(null)} />
+        )}
+
+        {challanPdfOpen && selectedChallan && (
+          <ChallanWisePDFModal
+            challanNo={selectedChallan}
+            groups={data?.groups || []}
+            onClose={() => setChallanPdfOpen(false)}
+          />
         )}
 
         {filteredGroups.map((group) => {

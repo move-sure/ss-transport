@@ -164,7 +164,265 @@ export function generateCrossingProofPDF(group) {
   return doc;
 }
 
-// ── Modal Preview Component ──────────────────────────────────────────────────
+// ── Single-Challan PDF (one challan_no, all matching transports) ──────────────
+export function generateChallanWisePDF(challanNo, groups) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 10;
+  const tableW = pageW - 2 * margin;
+
+  const EXCLUDED = '09COVPS5556J1ZT';
+  // Only groups that actually contain this challan (excluding hidden GSTIN)
+  const matchingGroups = groups
+    .filter((g) => g.gst_number !== EXCLUDED)
+    .map((g) => ({
+      ...g,
+      challans: (g.challans || []).filter((c) => c.challan_no === challanNo),
+    }))
+    .filter((g) => g.challans.length > 0);
+
+  const totalBilties = matchingGroups.reduce(
+    (s, g) => s + g.challans.reduce((cs, c) => cs + (c.bilty_count || 0), 0),
+    0
+  );
+  const challanLabel = challanNo === 'NO_CHALLAN' ? 'No Challan' : challanNo;
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0);
+  doc.text(`Remaining Crossing Proof — Challan: ${challanLabel}`, margin, 14);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(
+    `Transports: ${matchingGroups.length}   |   Total Bilties: ${totalBilties}`,
+    margin, 21
+  );
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+    pageW - margin, 14, { align: 'right' }
+  );
+  doc.setFont('helvetica', 'normal');
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.4);
+  doc.line(margin, 27, pageW - margin, 27);
+
+  let startY = 33;
+
+  matchingGroups.forEach((group, gi) => {
+    if (gi > 0) {
+      if (startY > doc.internal.pageSize.getHeight() - 40) {
+        doc.addPage();
+        startY = 15;
+      } else {
+        startY += 4;
+      }
+    }
+
+    const transportLabel =
+      group.transport_names?.length === 1
+        ? group.transport_names[0]
+        : group.transport_names?.join(', ') || '-';
+
+    // Transport heading
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0);
+    doc.text(
+      `Transport: ${transportLabel}   |   GSTIN: ${group.gst_number || '-'}`,
+      margin, startY
+    );
+    startY += 6;
+
+    group.challans.forEach((challan) => {
+      if (startY > doc.internal.pageSize.getHeight() - 30) {
+        doc.addPage();
+        startY = 15;
+      }
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0);
+      doc.text(
+        `Bilties: ${challan.bilty_count}   |   Wt: ${challan.total_weight} kg   |   Amt: Rs.${(challan.total_amount || 0).toLocaleString('en-IN')}${challan.total_kaat > 0 ? `   |   Kaat: Rs.${challan.total_kaat}` : ''}`,
+        margin, startY
+      );
+      startY += 5;
+
+      const rows = (challan.bilties || []).map((b) => [
+        b.serial ?? '',
+        b.gr_no ?? '-',
+        b.consignor_name ?? '-',
+        b.consignee_name ?? '-',
+        b.station || b.city_name || '-',
+        b.no_of_pkg ?? '-',
+        b.weight ?? '-',
+        b.freight_amount ? `Rs.${Number(b.freight_amount).toLocaleString('en-IN')}` : '-',
+        b.kaat > 0 ? `Rs.${b.kaat}` : '-',
+        b.payment_mode ?? '-',
+        b.pohonch_no ?? 'MISSING',
+        b.bilty_number ?? 'MISSING',
+        b.bilty_date
+          ? new Date(b.bilty_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+          : '-',
+      ]);
+
+      autoTable(doc, {
+        startY,
+        head: [['#', 'GR No', 'Consignor', 'Consignee', 'Station', 'Pkg', 'Wt', 'Freight', 'Kaat', 'PM', 'Pohonch', 'Crossing-Bilty', 'Date']],
+        body: rows,
+        margin: { left: margin, right: margin },
+        tableWidth: tableW,
+        styles: {
+          fontSize: 7,
+          cellPadding: 1.5,
+          overflow: 'linebreak',
+          textColor: [0, 0, 0],
+          lineColor: [180, 180, 180],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [25, 25, 20],
+          textColor: [250, 250, 250],
+          fontStyle: 'bold',
+          fontSize: 7,
+        },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        columnStyles: {
+          0:  { cellWidth: 6 },
+          1:  { cellWidth: 20 },
+          2:  { cellWidth: 42 },
+          3:  { cellWidth: 42 },
+          4:  { cellWidth: 28 },
+          5:  { cellWidth: 8,  halign: 'center' },
+          6:  { cellWidth: 12, halign: 'center' },
+          7:  { cellWidth: 20, halign: 'right' },
+          8:  { cellWidth: 16, halign: 'right' },
+          9:  { cellWidth: 16, halign: 'center' },
+          10: { cellWidth: 22 },
+          11: { cellWidth: 23 },
+          12: { cellWidth: 22 },
+        },
+        didParseCell(data) {
+          if (data.section === 'body' && (data.column.index === 10 || data.column.index === 11)) {
+            if (data.cell.raw === 'MISSING') {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.textColor = [180, 0, 0];
+            }
+          }
+        },
+        willDrawPage(hookData) {
+          if (hookData.pageNumber > 1) {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(80);
+            doc.text(`Challan: ${challanLabel}  —  Remaining Crossing Proof`, margin, 8);
+            doc.setTextColor(0);
+          }
+        },
+      });
+
+      startY = doc.lastAutoTable.finalY + 8;
+    });
+  });
+
+  // ── Footer on every page ─────────────────────────────────────────────────
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(100);
+    doc.text(
+      `Page ${i} of ${totalPages}   |   Movesure Transport`,
+      pageW / 2,
+      doc.internal.pageSize.getHeight() - 5,
+      { align: 'center' }
+    );
+    doc.setTextColor(0);
+  }
+
+  return doc;
+}
+
+// ── Challan-Wise PDF Preview Modal ────────────────────────────────────────
+export function ChallanWisePDFModal({ challanNo, groups, onClose }) {
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [generating, setGenerating] = useState(true);
+  const urlRef = useRef(null);
+
+  const challanLabel = challanNo === 'NO_CHALLAN' ? 'No Challan' : challanNo;
+
+  useEffect(() => {
+    let cancelled = false;
+    setGenerating(true);
+    const timer = setTimeout(() => {
+      const doc = generateChallanWisePDF(challanNo, groups);
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      if (!cancelled) {
+        urlRef.current = url;
+        setPdfUrl(url);
+        setGenerating(false);
+      }
+    }, 50);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    };
+  }, [challanNo, groups]);
+
+  const handleDownload = () => {
+    const doc = generateChallanWisePDF(challanNo, groups);
+    doc.save(`crossing-proof-challan-${challanNo}.pdf`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-6xl h-[92vh] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+          <div>
+            <p className="font-bold text-gray-900 text-base">Challan: {challanLabel}</p>
+            <p className="text-xs text-gray-500">Remaining crossing proof — all transports</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </button>
+            <button onClick={onClose} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors">
+              <X className="h-4 w-4 text-gray-600" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 bg-gray-100 overflow-hidden">
+          {generating ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 text-indigo-500 animate-spin mx-auto mb-3" />
+                <p className="text-gray-500 text-sm font-medium">Generating PDF…</p>
+              </div>
+            </div>
+          ) : (
+            <iframe
+              src={`${pdfUrl}#toolbar=0&navpanes=0`}
+              className="w-full h-full border-0"
+              title="Challan Wise Crossing Proof PDF Preview"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Per-Transport Modal Preview Component ─────────────────────────────────
 export default function CrossingProofPDFModal({ group, onClose }) {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [generating, setGenerating] = useState(true);

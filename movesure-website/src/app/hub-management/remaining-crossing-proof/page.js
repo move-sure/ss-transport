@@ -95,7 +95,7 @@ export default function RemainingCrossingProofPage() {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}api/bilty/transport-pending-grouped`, {
+      const res = await fetch(`${API_URL}/api/bilty/transport-pending-grouped`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dispatch_date_from: from, dispatch_date_to: to })

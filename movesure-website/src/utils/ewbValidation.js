@@ -1,6 +1,6 @@
 // EWB Validation API utility functions with localStorage caching
 
-const EWB_API_BASE_URL = 'https://api.movesure.io//api/ewaybill';
+const EWB_API_BASE_URL = 'https://movesure-backend.onrender.com//api/ewaybill';
 const GSTIN = '09COVPS5556J1ZT';
 const CACHE_PREFIX = 'ewb_validation_';
 const CACHE_EXPIRY_HOURS = 24; // Cache for 24 hours

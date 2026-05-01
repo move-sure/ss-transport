@@ -5,7 +5,7 @@ import { useAuth } from '../../app/utils/auth';
 import { X, Save, Truck, User, Calendar, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
-const API_URL = 'https://api.movesure.io/';
+const API_URL = 'https://movesure-backend.onrender.com/';
 
 const ChallanForm = ({ 
   isOpen, 

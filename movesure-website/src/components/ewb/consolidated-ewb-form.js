@@ -158,7 +158,7 @@ const ConsolidatedEwbForm = ({ ewbNumbers, challanData, ewbToGrMapping = {}, onB
       console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
       console.log('📋 Selected EWBs:', selectedEwbs);
 
-      const response = await fetch('https://api.movesure.io//api/consolidated-ewaybill', {
+      const response = await fetch('https://movesure-backend.onrender.com//api/consolidated-ewaybill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

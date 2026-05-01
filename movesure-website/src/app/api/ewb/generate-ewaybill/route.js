@@ -241,7 +241,7 @@ export async function POST(request) {
     console.log('Generate E-Way Bill Payload:', JSON.stringify(payload, null, 2));
 
     // 3) Call Python backend
-    const response = await fetch('https://api.movesure.io//api/generate-ewaybill', {
+    const response = await fetch('https://movesure-backend.onrender.com//api/generate-ewaybill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

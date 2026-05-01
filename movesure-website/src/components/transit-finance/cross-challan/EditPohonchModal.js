@@ -175,7 +175,7 @@ export default function EditPohonchModal({
       if (remove_gr_nos.length) payload.remove_gr_nos = remove_gr_nos;
       if (add_gr_items.length) payload.add_gr_items = add_gr_items;
 
-      const res = await fetch(`https://api.movesure.io/api/pohonch/${pohonch.id}/edit`, {
+      const res = await fetch(`https://movesure-backend.onrender.com/api/pohonch/${pohonch.id}/edit`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),

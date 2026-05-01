@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 
-const API_URL = 'https://api.movesure.io/';
+const API_URL = 'https://movesure-backend.onrender.com/';
 import { 
   searchCities, 
   findDuplicateCityNames, 

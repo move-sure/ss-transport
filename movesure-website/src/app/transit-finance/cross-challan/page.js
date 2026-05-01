@@ -51,6 +51,7 @@ export default function PohonchPrintPage() {
   const [grSearchInput, setGrSearchInput] = useState('');
   const [grNosToSearch, setGrNosToSearch] = useState([]);
   const [pohonchSearch, setPohonchSearch] = useState('');
+  const [pohonchTransports, setPohonchTransports] = useState([]);
 
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -228,16 +229,28 @@ export default function PohonchPrintPage() {
   const handleSearchByPohonch = async () => {
     if (!pohonchSearch.trim()) { alert('Please enter a pohonch or bilty number'); return; }
     try {
-      setSbLoading(true); setSbError(null); setSbBilties([]); setSbBiltyDetails({}); setSelectedGrNos(new Set());
+      setSbLoading(true); setSbError(null); setSbBilties([]); setSbBiltyDetails({}); setSelectedGrNos(new Set()); setPohonchTransports([]);
       await buildCitiesMap();
       const val = pohonchSearch.trim();
       const { data: kaatData, error } = await supabase.from('bilty_wise_kaat').select('*').or(`pohonch_no.ilike.%${val}%,bilty_number.ilike.%${val}%`).order('challan_no', { ascending: true });
       if (error) throw error;
       const f = kaatData || [];
       setSbBilties(f);
-      if (f.length && f[0].transport_id && !selectedTransport) {
-        const { data: tData } = await supabase.from('transports').select('id,transport_name,gst_number,mob_number,city_name').eq('id', f[0].transport_id).limit(1);
-        if (tData?.length) { setSelectedTransport(tData[0]); setTransportSearch(`${tData[0].transport_name}${tData[0].gst_number ? ' | GST: ' + tData[0].gst_number : ''}`); }
+      if (f.length) {
+        const transportIds = [...new Set(f.map(k => k.transport_id).filter(Boolean))];
+        if (transportIds.length > 0) {
+          const { data: tData } = await supabase.from('transports').select('id,transport_name,gst_number,mob_number,city_name').in('id', transportIds);
+          const seen = new Set();
+          const unique = (tData || []).filter(t => { const k = t.gst_number ? t.gst_number.trim().toUpperCase() : `name:${t.transport_name?.trim().toUpperCase()}`; if (seen.has(k)) return false; seen.add(k); return true; });
+          setPohonchTransports(unique);
+          if (unique.length === 1) {
+            setSelectedTransport(unique[0]);
+            setTransportSearch(`${unique[0].transport_name}${unique[0].gst_number ? ' | GST: ' + unique[0].gst_number : ''}`);
+          } else {
+            setSelectedTransport(null);
+            setTransportSearch('');
+          }
+        }
       }
       await fetchBiltyDetails(f);
       const em = {}; f.forEach(k => { em[k.challan_no] = true; }); setSbExpandedChallans(em);
@@ -252,7 +265,7 @@ export default function PohonchPrintPage() {
     setCitySearch(''); setSelectedCity(null); setCitySuggestions([]);
     setFromChallan(''); setToChallan('');
     setSbBilties([]); setSbBiltyDetails({}); setSbError(null); setSelectedGrNos(new Set());
-    setGrNosToSearch([]); setGrSearchInput(''); setPohonchSearch('');
+    setGrNosToSearch([]); setGrSearchInput(''); setPohonchSearch(''); setPohonchTransports([]);
     setCrossChallanMap({});
   };
 
@@ -438,6 +451,7 @@ export default function PohonchPrintPage() {
             grSearchInput={grSearchInput} setGrSearchInput={setGrSearchInput}
             grNosToSearch={grNosToSearch} addGrToSearch={addGrToSearch} removeGrFromSearch={removeGrFromSearch} handleSearchByGrNos={handleSearchByGrNos}
             pohonchSearch={pohonchSearch} setPohonchSearch={setPohonchSearch} handleSearchByPohonch={handleSearchByPohonch}
+            pohonchTransports={pohonchTransports} onSelectPohonchTransport={handleSelectTransport}
           />
 
           {sbError && (

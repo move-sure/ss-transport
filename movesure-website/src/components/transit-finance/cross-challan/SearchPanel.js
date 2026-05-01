@@ -21,6 +21,7 @@ export default function SearchPanel({
   grSearchInput, setGrSearchInput, grNosToSearch, addGrToSearch, removeGrFromSearch, handleSearchByGrNos,
   // pohonch search
   pohonchSearch, setPohonchSearch, handleSearchByPohonch,
+  pohonchTransports, onSelectPohonchTransport,
 }) {
   return (
     <div className="bg-white rounded-xl shadow-lg p-5">
@@ -272,6 +273,50 @@ export default function SearchPanel({
               )}
             </div>
           </div>
+
+          {/* Transport picker shown when results have multiple transports */}
+          {pohonchTransports?.length > 0 && (
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Truck className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">
+                  {pohonchTransports.length === 1 ? 'Transport Detected' : `${pohonchTransports.length} Transports Found — Select one to create Pohonch for:`}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {pohonchTransports.map((t) => {
+                  const isSelected = selectedTransport?.id === t.id ||
+                    (selectedTransport?.gst_number && selectedTransport.gst_number === t.gst_number);
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => onSelectPohonchTransport(t)}
+                      className={`flex flex-col items-start px-3 py-2 rounded-lg border-2 text-left transition-all ${
+                        isSelected
+                          ? 'border-purple-500 bg-purple-100 shadow-md'
+                          : 'border-purple-200 bg-white hover:border-purple-400 hover:bg-purple-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {isSelected && <Check className="w-3.5 h-3.5 text-purple-600" />}
+                        <span className="text-sm font-bold text-gray-800">{t.transport_name}</span>
+                      </div>
+                      {t.gst_number && <span className="text-xs text-gray-500 font-mono mt-0.5">GST: {t.gst_number}</span>}
+                      {t.mob_number && <span className="text-xs text-gray-400">{t.mob_number}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTransport && (
+                <p className="text-xs text-purple-600 font-medium mt-2">
+                  <Check className="w-3 h-3 inline mr-1" />
+                  Creating pohonch for: <strong>{selectedTransport.transport_name}</strong>
+                  {selectedTransport.gst_number ? ` (GST: ${selectedTransport.gst_number})` : ''}
+                </p>
+              )}
+            </div>
+          )}
+
           <p className="text-xs text-gray-400">Shows all bilties linked to a pohonch number or bilty number. Use partial match (e.g. "NIE" to see all NIE pohonch).</p>
         </div>
       )}

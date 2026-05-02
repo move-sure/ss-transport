@@ -1,6 +1,6 @@
 # Pohonch API — Frontend Integration Guide
 
-> Base URL: `https://movesure-backend.onrender.com`  
+> Base URL: `https://api.movesure.io`  
 > All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.
 
 ---

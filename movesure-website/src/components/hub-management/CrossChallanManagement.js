@@ -5,7 +5,7 @@ import {
   Lock, Unlock, RefreshCw, Package, AlertCircle, CheckCircle2,
 } from 'lucide-react';
 
-const API_BASE = 'https://movesure-backend.onrender.com';
+const API_BASE = 'https://api.movesure.io';
 
 /* ─── helpers ─────────────────────────────────────────────────────────── */
 function fmt(n) { return (parseFloat(n) || 0).toLocaleString('en-IN'); }

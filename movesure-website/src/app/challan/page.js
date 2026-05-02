@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../utils/auth';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-const API_URL = 'https://movesure-backend.onrender.com';
+const API_URL = 'https://api.movesure.io';
 
 // Transform flat API challan row to nested objects for component compatibility
 const transformChallanRow = (row) => ({

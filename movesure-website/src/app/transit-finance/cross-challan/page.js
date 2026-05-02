@@ -374,7 +374,7 @@ export default function PohonchPrintPage() {
       const challanNos = [...new Set([...selectedGrNos].map(grNo => sbBilties.find(k => k.gr_no === grNo)?.challan_no).filter(Boolean))];
       const body = { transport_name: selectedTransport.transport_name, transport_gstin: selectedTransport.gst_number || null, challan_nos: challanNos, gr_items: grItems, created_by: user?.id || null };
       if (createPrefix.trim()) body.pohonch_prefix = createPrefix.trim().toUpperCase();
-      const res = await fetch('https://movesure-backend.onrender.com/api/pohonch/create', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+      const res = await fetch('https://api.movesure.io/api/pohonch/create', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || json.message || 'Failed to create pohonch');
       setCreateResult(json); setRecentKey(prev => prev + 1);

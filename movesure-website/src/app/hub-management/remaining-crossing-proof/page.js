@@ -12,7 +12,7 @@ import {
 import CrossingProofPDFModal, { generateChallanWisePDF, ChallanWisePDFModal } from './CrossingProofPDF';
 
 
-const API_URL = 'https://movesure-backend.onrender.com';
+const API_URL = 'https://api.movesure.io';
 const EXCLUDED_GSTIN = '09COVPS5556J1ZT'; // hidden from remaining crossing proof
 const IDB_DB = 'movesure-cache';
 const IDB_STORE = 'crossing-proof';

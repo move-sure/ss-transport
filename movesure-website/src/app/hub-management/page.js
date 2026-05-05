@@ -226,6 +226,13 @@ export default function HubManagementPage() {
                 Bulk Pohonch
               </button>
               <button
+                onClick={() => router.push('/hub-management/crossing-summary')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl text-sm font-semibold text-teal-700 hover:bg-teal-100 transition-all"
+              >
+                <Truck className="h-4 w-4" />
+                Crossing Summary
+              </button>
+              <button
                 onClick={() => router.push('/hub-management/remaining-crossing-proof')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-all"
               >

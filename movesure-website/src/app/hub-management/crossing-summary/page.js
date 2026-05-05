@@ -4,6 +4,9 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../utils/auth';
 import Navbar from '../../../components/dashboard/navbar';
+
+const API_BASE = 'https://api.movesure.io';
+import TransportSearchSelect from '../../../components/hub-management/TransportSearchSelect';
 import {
   ArrowLeft,
   Search,
@@ -50,12 +53,11 @@ function PayBadge({ mode }) {
 }
 
 export default function CrossingSummaryPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const router   = useRouter();
 
   // ── form state ─────────────────────────────────────────────────────────────
-  const [gstin,      setGstin]      = useState('');
-  const [tName,      setTName]      = useState('');
+  const [selectedTransport, setSelectedTransport] = useState(null);
   const [fromDate,   setFromDate]   = useState(FIRST_OF_MONTH);
   const [toDate,     setToDate]     = useState(TODAY);
 
@@ -73,8 +75,8 @@ export default function CrossingSummaryPage() {
   // ── fetch ──────────────────────────────────────────────────────────────────
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!gstin && !tName.trim()) {
-      setError('Please enter GSTIN or Transport Name.');
+    if (!selectedTransport) {
+      setError('Please select a transport from the dropdown.');
       return;
     }
     setLoading(true);
@@ -84,10 +86,18 @@ export default function CrossingSummaryPage() {
 
     try {
       const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
-      if (gstin.trim()) params.set('transport_gstin', gstin.trim().toUpperCase());
-      else               params.set('transport_name',  tName.trim());
+      if (selectedTransport.gst_number) {
+        params.set('transport_gstin', selectedTransport.gst_number.trim().toUpperCase());
+      } else {
+        params.set('transport_name', selectedTransport.transport_name.trim());
+      }
 
-      const res  = await fetch(`/api/bilty/transport-report?${params}`);
+      const res = await fetch(`${API_BASE}/api/bilty/transport-report?${params}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const data = await res.json();
 
       if (!res.ok || data.status === 'error') {
@@ -195,33 +205,18 @@ export default function CrossingSummaryPage() {
         {/* ── Search Form ─────────────────────────────────────────────────── */}
         <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-sm border border-gray-200/80 p-5">
           <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-4">Search Transport</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
 
-            {/* GSTIN */}
-            <div className="space-y-1.5">
+            {/* Transport searchable dropdown — spans 2 cols on xl */}
+            <div className="space-y-1.5 xl:col-span-2">
               <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                Transport GSTIN <span className="text-teal-600 font-bold">(preferred)</span>
+                Transport Name / GSTIN
               </label>
-              <input
-                type="text"
-                value={gstin}
-                onChange={e => { setGstin(e.target.value.toUpperCase()); if (e.target.value) setTName(''); }}
-                placeholder="e.g. 09AVKPJ3682J1Z2"
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all text-gray-900 placeholder-gray-400"
-              />
-            </div>
-
-            {/* Name fallback */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                Or Transport Name
-              </label>
-              <input
-                type="text"
-                value={tName}
-                onChange={e => { setTName(e.target.value); if (e.target.value) setGstin(''); }}
-                placeholder="e.g. HEERA TRANSPORT"
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all text-gray-900 placeholder-gray-400"
+              <TransportSearchSelect
+                value={selectedTransport}
+                onChange={(t) => { setSelectedTransport(t); setResult(null); setError(null); }}
+                placeholder="Type name or GSTIN to search…"
+                disabled={loading}
               />
             </div>
 
@@ -251,7 +246,7 @@ export default function CrossingSummaryPage() {
           <div className="mt-4 flex items-center gap-3">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !selectedTransport}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-semibold hover:bg-teal-700 transition-all shadow-md shadow-teal-200/50 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}

@@ -202,6 +202,25 @@ export default function CrossingSummaryPage() {
 
   const summary = result ? getSummary(result) : null;
 
+  // ── Group filtered bilties by dest_pohonch_no (ascending numeric) ──────────
+  const groupedByDest = React.useMemo(() => {
+    const map = {};
+    for (const b of filtered) {
+      const key = b.dest_pohonch_no || 'NO_DEST';
+      if (!map[key]) map[key] = [];
+      map[key].push(b);
+    }
+    const keys = Object.keys(map).sort((a, b) => {
+      if (a === 'NO_DEST') return 1;
+      if (b === 'NO_DEST') return -1;
+      const na = parseInt(a, 10);
+      const nb = parseInt(b, 10);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+    return keys.map(k => ({ key: k, bilties: map[k] }));
+  }, [filtered]);
+
   // ── CSV export ─────────────────────────────────────────────────────────────
   const handleExport = () => {
     if (!filtered.length) return;
@@ -388,340 +407,371 @@ export default function CrossingSummaryPage() {
               </span>
             </div>
 
-            {/* ── Table ─────────────────────────────────────────────────── */}
-            <div ref={tableRef} className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden">
-              {filtered.length === 0 ? (
-                <div className="p-16 text-center">
-                  <Package className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No bilties match the current filter</p>
-                </div>
-              ) : (
-                <>
-                  {/* Desktop Table */}
-                  <div className="hidden lg:block overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-6"></th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">GR No</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Consignor</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Consignee</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Route</th>
-                          <th className="px-3 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Mode</th>
-                          <th className="px-3 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pkgs</th>
-                          <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Wt</th>
-                          <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Challan</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pohonch / Crossing</th>
-                          <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kaat</th>
-                          <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Rate</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {filtered.map((b, idx) => {
-                          const isExpanded = expandedRows.has(b.gr_no);
-                          const hasPohonch = !!b.pohonch_number;
-                          const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
-                            ? b.challan_dispatch_date : null;
-                          return (
-                            <React.Fragment key={`${b.gr_no}-${idx}`}>
-                              <tr
-                                className={`hover:bg-teal-50/30 transition-colors cursor-pointer ${
-                                  hasPohonch ? '' : 'opacity-80'
-                                }`}
-                                onClick={() => toggleRow(b.gr_no)}
-                              >
-                                <td className="px-3 py-3 text-center">
-                                  {isExpanded
-                                    ? <ChevronUp className="h-3.5 w-3.5 text-teal-500 mx-auto" />
-                                    : <ChevronDown className="h-3.5 w-3.5 text-gray-400 mx-auto" />}
-                                </td>
-                                <td className="px-3 py-3">
-                                  <span className="font-bold text-indigo-600">{b.gr_no}</span>
-                                  <div className="text-[10px] text-gray-400 uppercase">
-                                    {(b.source === 'regular' || b.source === 'bilty') ? 'bilty' : 'station'}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-3 text-gray-600 whitespace-nowrap text-xs">
-                                  {b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}
-                                </td>
-                                <td className="px-3 py-3 max-w-[140px]">
-                                  <p className="text-gray-800 font-medium text-xs truncate">{b.consignor_name || '—'}</p>
-                                </td>
-                                <td className="px-3 py-3 max-w-[140px]">
-                                  <p className="text-gray-800 font-medium text-xs truncate">{b.consignee_name || '—'}</p>
-                                </td>
-                                <td className="px-3 py-3 whitespace-nowrap">
-                                  <span className="text-[11px] text-gray-500">{b.from_city || '—'}</span>
-                                  <span className="text-gray-300 mx-1">→</span>
-                                  <span className="text-[11px] text-gray-500">{b.to_city || '—'}</span>
-                                </td>
-                                <td className="px-3 py-3 text-center"><PayBadge mode={b.payment_mode} /></td>
-                                <td className="px-3 py-3 text-center">
-                                  <span className="text-xs font-semibold text-gray-700">{b.no_of_pkg ?? '—'}</span>
-                                </td>
-                                <td className="px-3 py-3 text-right">
-                                  <span className="text-xs text-gray-700 font-medium">{b.wt ?? '—'}</span>
-                                </td>
-                                <td className="px-3 py-3 text-right">
-                                  <span className="text-xs font-bold text-gray-900">₹{fmt(b.total)}</span>
-                                </td>
-                                {/* Challan */}
-                                <td className="px-3 py-3">
-                                  {b.challan_no ? (
-                                    <div>
-                                      <span className="text-[11px] font-bold text-gray-700 font-mono">{b.challan_no}</span>
-                                      {cd && (
-                                        <div className="flex flex-col gap-0.5 mt-0.5">
-                                          <div className="flex items-center gap-1">
-                                            {cd.is_dispatched
-                                              ? <Send className="h-2.5 w-2.5 text-emerald-500" />
-                                              : <Calendar className="h-2.5 w-2.5 text-gray-400" />}
-                                            <span className="text-[9px] text-gray-500">{cd.challan_date || '—'}</span>
-                                          </div>
-                                          {cd.is_received_at_hub && cd.received_at_hub_timing && (
-                                            <div className="flex items-center gap-1">
-                                              <Warehouse className="h-2.5 w-2.5 text-teal-500" />
-                                              <span className="text-[9px] text-teal-600 font-medium">
-                                                {(() => { try { return format(new Date(cd.received_at_hub_timing), 'dd MMM yy'); } catch { return cd.received_at_hub_timing; } })()}
-                                              </span>
+            {/* ── Grouped by Dest Pohonch ───────────────────────────────── */}
+            {filtered.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200/80 p-16 text-center">
+                <Package className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No bilties match the current filter</p>
+              </div>
+            ) : (
+              <div ref={tableRef} className="space-y-5">
+                {groupedByDest.map(({ key, bilties: groupBilties }) => {
+                  const grpTotals = groupBilties.reduce((a, b) => {
+                    a.pkg     += b.no_of_pkg    || 0;
+                    a.wt      += Number(b.wt)   || 0;
+                    a.freight += Number(b.total) || 0;
+                    a.kaat    += Number(b.kaat)  || 0;
+                    return a;
+                  }, { pkg: 0, wt: 0, freight: 0, kaat: 0 });
+
+                  return (
+                    <div key={key} className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden">
+                      {/* Group heading */}
+                      <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-teal-50 to-emerald-50 border-b border-teal-100">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-teal-600 rounded-xl shadow-md shadow-teal-200/60">
+                            <Hash className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Dest Pohonch</p>
+                            <p className="text-2xl font-black text-teal-800 leading-tight">
+                              {key === 'NO_DEST' ? '— No Dest Pohonch —' : key}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-right">
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Bilties</p>
+                            <p className="text-lg font-black text-gray-800">{groupBilties.length}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Wt (kg)</p>
+                            <p className="text-lg font-black text-gray-800">{grpTotals.wt.toFixed(1)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Freight</p>
+                            <p className="text-lg font-black text-gray-800">₹{fmt(grpTotals.freight)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-rose-400 uppercase font-bold">Kaat</p>
+                            <p className="text-lg font-black text-rose-700">₹{fmt(grpTotals.kaat)}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Desktop Table */}
+                      <div className="hidden lg:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-6"></th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">GR No</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Consignor</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Consignee</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Route</th>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Mode</th>
+                              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pkgs</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Wt</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Challan</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pohonch / Crossing</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kaat</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Rate</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {groupBilties.map((b, idx) => {
+                              const isExpanded = expandedRows.has(b.gr_no);
+                              const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
+                                ? b.challan_dispatch_date : null;
+                              return (
+                                <React.Fragment key={`${b.gr_no}-${idx}`}>
+                                  <tr
+                                    className="hover:bg-teal-50/30 transition-colors cursor-pointer"
+                                    onClick={() => toggleRow(b.gr_no)}
+                                  >
+                                    <td className="px-3 py-3 text-center">
+                                      {isExpanded
+                                        ? <ChevronUp className="h-3.5 w-3.5 text-teal-500 mx-auto" />
+                                        : <ChevronDown className="h-3.5 w-3.5 text-gray-400 mx-auto" />}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                      <span className="font-bold text-indigo-600">{b.gr_no}</span>
+                                      <div className="text-[10px] text-gray-400 uppercase">
+                                        {(b.source === 'regular' || b.source === 'bilty') ? 'bilty' : 'station'}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap text-xs">
+                                      {b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}
+                                    </td>
+                                    <td className="px-3 py-3 max-w-[140px]">
+                                      <p className="text-gray-800 font-medium text-xs truncate">{b.consignor_name || '—'}</p>
+                                    </td>
+                                    <td className="px-3 py-3 max-w-[140px]">
+                                      <p className="text-gray-800 font-medium text-xs truncate">{b.consignee_name || '—'}</p>
+                                    </td>
+                                    <td className="px-3 py-3 whitespace-nowrap">
+                                      <span className="text-[11px] text-gray-500">{b.from_city || '—'}</span>
+                                      <span className="text-gray-300 mx-1">→</span>
+                                      <span className="text-[11px] text-gray-500">{b.to_city || '—'}</span>
+                                    </td>
+                                    <td className="px-3 py-3 text-center"><PayBadge mode={b.payment_mode} /></td>
+                                    <td className="px-3 py-3 text-center">
+                                      <span className="text-xs font-semibold text-gray-700">{b.no_of_pkg ?? '—'}</span>
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                      <span className="text-xs text-gray-700 font-medium">{b.wt ?? '—'}</span>
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                      <span className="text-xs font-bold text-gray-900">₹{fmt(b.total)}</span>
+                                    </td>
+                                    {/* Challan */}
+                                    <td className="px-3 py-3">
+                                      {b.challan_no ? (
+                                        <div>
+                                          <span className="text-[11px] font-bold text-gray-700 font-mono">{b.challan_no}</span>
+                                          {cd && (
+                                            <div className="flex flex-col gap-0.5 mt-0.5">
+                                              <div className="flex items-center gap-1">
+                                                {cd.is_dispatched
+                                                  ? <Send className="h-2.5 w-2.5 text-emerald-500" />
+                                                  : <Calendar className="h-2.5 w-2.5 text-gray-400" />}
+                                                <span className="text-[9px] text-gray-500">{cd.challan_date || '—'}</span>
+                                              </div>
+                                              {cd.is_received_at_hub && cd.received_at_hub_timing && (
+                                                <div className="flex items-center gap-1">
+                                                  <Warehouse className="h-2.5 w-2.5 text-teal-500" />
+                                                  <span className="text-[9px] text-teal-600 font-medium">
+                                                    {(() => { try { return format(new Date(cd.received_at_hub_timing), 'dd MMM yy'); } catch { return cd.received_at_hub_timing; } })()}
+                                                  </span>
+                                                </div>
+                                              )}
                                             </div>
                                           )}
                                         </div>
+                                      ) : (
+                                        <span className="text-gray-300 text-xs italic">—</span>
                                       )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-300 text-xs italic">—</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-3">
-                                  <div className="space-y-1">
-                                    {b.pohonch_number ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold border border-indigo-100">
-                                        <Hash className="h-3 w-3" />{b.pohonch_number}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-300 text-xs italic">—</span>
-                                    )}
-                                    {b.dest_pohonch_no && (
-                                      <p className="text-[10px] text-gray-500"><span className="font-semibold">Dest:</span> {b.dest_pohonch_no}</p>
-                                    )}
-                                    {b.bilty_number && (
-                                      <p className="text-[10px] text-gray-500"><span className="font-semibold">Bilty:</span> {b.bilty_number}</p>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-3 text-right">
-                                  <span className={`text-xs font-bold ${b.kaat != null ? 'text-rose-600' : 'text-gray-300'}`}>
-                                    {b.kaat != null ? `₹${fmt(b.kaat)}` : '—'}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-3 text-right">
-                                  <span className="text-xs text-gray-500">
-                                    {b.kaat_rate != null ? `${b.kaat_rate}` : '—'}
-                                  </span>
-                                </td>
-                              </tr>
-
-                              {/* Expanded detail row */}
-                              {isExpanded && (
-                                <tr className="bg-teal-50/40">
-                                  <td colSpan={14} className="px-6 py-4">
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                                      <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Charge Breakdown</p>
-                                        <div className="space-y-1">
-                                          <ChargeRow label="Freight"  val={b.freight_amount} />
-                                          <ChargeRow label="PF"       val={b.pf_charge} />
-                                          <ChargeRow label="DD"       val={b.dd_charge} />
-                                          <ChargeRow label="Labour"   val={b.labour_charge} />
-                                          <ChargeRow label="Bill"     val={b.bill_charge} />
-                                          <ChargeRow label="Toll"     val={b.toll_charge} />
-                                          <ChargeRow label="Other"    val={b.other_charge} />
-                                          <div className="border-t border-gray-200 pt-1 mt-1">
-                                            <ChargeRow label="Total"  val={b.total} bold />
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Kaat Details</p>
-                                        <div className="space-y-1">
-                                          <ChargeRow label="Kaat"      val={b.kaat} />
-                                          <ChargeRow label="Kaat PF"   val={b.kaat_pf} />
-                                          <ChargeRow label="Kaat DD"   val={b.kaat_dd} />
-                                          <div className="mt-2">
-                                            <p className="text-gray-500"><span className="font-semibold">Rate:</span> {b.kaat_rate ?? '—'}</p>
-                                          </div>
-                                        </div>
-                                        {b.crossing_challans && (
-                                          <div className="mt-3">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Crossing Challans</p>
-                                            <p className="font-mono text-gray-700 font-semibold">{b.crossing_challans}</p>
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Challan Dispatch</p>
-                                        {cd ? (
-                                          <div className="space-y-1.5">
-                                            <p className="text-gray-700 font-mono font-bold">{b.challan_no || '—'}</p>
-                                            <p className="text-gray-500"><span className="font-semibold">Date:</span> {cd.challan_date || '—'}</p>
-                                            <div className="flex items-center gap-1.5 mt-1">
-                                              {cd.is_dispatched
-                                                ? <><Send className="h-3 w-3 text-emerald-500" /><span className="text-emerald-700 font-semibold">Dispatched</span></>
-                                                : <><Calendar className="h-3 w-3 text-gray-400" /><span className="text-gray-500">Not dispatched</span></>}
-                                            </div>
-                                            {cd.is_dispatched && cd.dispatch_date && (
-                                              <p className="text-gray-500 text-[10px]">{fmtDateTime(cd.dispatch_date)}</p>
-                                            )}
-                                            <div className="flex items-center gap-1.5 mt-1">
-                                              {cd.is_received_at_hub
-                                                ? <><Warehouse className="h-3 w-3 text-teal-500" /><span className="text-teal-700 font-semibold">Received at Hub</span></>
-                                                : <><Warehouse className="h-3 w-3 text-gray-300" /><span className="text-gray-400">Not received</span></>}
-                                            </div>
-                                            {cd.is_received_at_hub && cd.received_at_hub_timing && (
-                                              <p className="text-gray-500 text-[10px]">{fmtDateTime(cd.received_at_hub_timing)}</p>
-                                            )}
-                                            {cd.total_bilty_count != null && (
-                                              <p className="text-gray-500 mt-1"><span className="font-semibold">Total bilties:</span> {cd.total_bilty_count}</p>
-                                            )}
-                                            {cd.remarks && <p className="text-gray-500 mt-1 italic">{cd.remarks}</p>}
-                                          </div>
+                                    </td>
+                                    {/* Pohonch / Crossing */}
+                                    <td className="px-3 py-3">
+                                      <div className="space-y-1">
+                                        {b.pohonch_number ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold border border-indigo-100">
+                                            <Hash className="h-3 w-3" />{b.pohonch_number}
+                                          </span>
                                         ) : (
-                                          <p className="text-gray-400 italic">{b.challan_no ? `Challan ${b.challan_no} — details not found` : 'No challan assigned'}</p>
+                                          <span className="text-gray-300 text-xs italic">—</span>
+                                        )}
+                                        {b.bilty_number && (
+                                          <p className="text-[10px] text-gray-500"><span className="font-semibold">Bilty:</span> {b.bilty_number}</p>
                                         )}
                                       </div>
-                                      <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Contents / Transport</p>
-                                        <p className="text-gray-700">{b.contain || '—'}</p>
-                                        {b.pvt_marks && <><p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Pvt Marks</p><p className="text-gray-700">{b.pvt_marks}</p></>}
-                                        {b.remark && <><p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Remarks</p><p className="text-gray-700">{b.remark}</p></>}
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-3 mb-1">Transport</p>
-                                        <p className="text-gray-700 font-medium">{b.transport_name}</p>
-                                        <p className="text-gray-500 font-mono text-[11px] mt-1">{b.transport_gst}</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Source</p>
-                                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                          (b.source === 'regular' || b.source === 'bilty')
-                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                            : 'bg-purple-50 text-purple-700 border-purple-200'
-                                        }`}>
-                                          {(b.source === 'regular' || b.source === 'bilty') ? 'bilty table' : 'station table'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                      <span className={`text-xs font-bold ${b.kaat != null ? 'text-rose-600' : 'text-gray-300'}`}>
+                                        {b.kaat != null ? `₹${fmt(b.kaat)}` : '—'}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                      <span className="text-xs text-gray-500">
+                                        {b.kaat_rate != null ? `${b.kaat_rate}` : '—'}
+                                      </span>
+                                    </td>
+                                  </tr>
 
-                        {/* Totals row */}
-                        <tr className="bg-gray-50 border-t-2 border-gray-200 font-bold">
-                          <td colSpan={7} className="px-3 py-3 text-right text-xs text-gray-600 uppercase tracking-wide">Totals ({filtered.length} bilties)</td>
-                          <td className="px-3 py-3 text-center text-xs text-gray-900">{totals.pkg}</td>
-                          <td className="px-3 py-3 text-right text-xs text-gray-900">{totals.wt.toFixed(1)}</td>
-                          <td className="px-3 py-3 text-right text-xs text-gray-900">₹{fmt(totals.freight)}</td>
-                          <td colSpan={2} className="px-3 py-3"></td>
-                          <td className="px-3 py-3 text-right text-xs text-rose-700">₹{fmt(totals.kaat)}</td>
-                          <td className="px-3 py-3"></td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                                  {/* Expanded detail row */}
+                                  {isExpanded && (
+                                    <tr className="bg-teal-50/40">
+                                      <td colSpan={14} className="px-6 py-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                          <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Charge Breakdown</p>
+                                            <div className="space-y-1">
+                                              <ChargeRow label="Freight"  val={b.freight_amount} />
+                                              <ChargeRow label="PF"       val={b.pf_charge} />
+                                              <ChargeRow label="DD"       val={b.dd_charge} />
+                                              <ChargeRow label="Labour"   val={b.labour_charge} />
+                                              <ChargeRow label="Bill"     val={b.bill_charge} />
+                                              <ChargeRow label="Toll"     val={b.toll_charge} />
+                                              <ChargeRow label="Other"    val={b.other_charge} />
+                                              <div className="border-t border-gray-200 pt-1 mt-1">
+                                                <ChargeRow label="Total"  val={b.total} bold />
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Kaat Details</p>
+                                            <div className="space-y-1">
+                                              <ChargeRow label="Kaat"    val={b.kaat} />
+                                              <ChargeRow label="Kaat PF" val={b.kaat_pf} />
+                                              <ChargeRow label="Kaat DD" val={b.kaat_dd} />
+                                              <div className="mt-2">
+                                                <p className="text-gray-500"><span className="font-semibold">Rate:</span> {b.kaat_rate ?? '—'}</p>
+                                              </div>
+                                            </div>
+                                            {b.crossing_challans && (
+                                              <div className="mt-3">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Crossing Challans</p>
+                                                <p className="font-mono text-gray-700 font-semibold">{b.crossing_challans}</p>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Challan Dispatch</p>
+                                            {cd ? (
+                                              <div className="space-y-1.5">
+                                                <p className="text-gray-700 font-mono font-bold">{b.challan_no || '—'}</p>
+                                                <p className="text-gray-500"><span className="font-semibold">Date:</span> {cd.challan_date || '—'}</p>
+                                                <div className="flex items-center gap-1.5 mt-1">
+                                                  {cd.is_dispatched
+                                                    ? <><Send className="h-3 w-3 text-emerald-500" /><span className="text-emerald-700 font-semibold">Dispatched</span></>
+                                                    : <><Calendar className="h-3 w-3 text-gray-400" /><span className="text-gray-500">Not dispatched</span></>}
+                                                </div>
+                                                {cd.is_dispatched && cd.dispatch_date && (
+                                                  <p className="text-gray-500 text-[10px]">{fmtDateTime(cd.dispatch_date)}</p>
+                                                )}
+                                                <div className="flex items-center gap-1.5 mt-1">
+                                                  {cd.is_received_at_hub
+                                                    ? <><Warehouse className="h-3 w-3 text-teal-500" /><span className="text-teal-700 font-semibold">Received at Hub</span></>
+                                                    : <><Warehouse className="h-3 w-3 text-gray-300" /><span className="text-gray-400">Not received</span></>}
+                                                </div>
+                                                {cd.is_received_at_hub && cd.received_at_hub_timing && (
+                                                  <p className="text-gray-500 text-[10px]">{fmtDateTime(cd.received_at_hub_timing)}</p>
+                                                )}
+                                                {cd.total_bilty_count != null && (
+                                                  <p className="text-gray-500 mt-1"><span className="font-semibold">Total bilties:</span> {cd.total_bilty_count}</p>
+                                                )}
+                                                {cd.remarks && <p className="text-gray-500 mt-1 italic">{cd.remarks}</p>}
+                                              </div>
+                                            ) : (
+                                              <p className="text-gray-400 italic">{b.challan_no ? `Challan ${b.challan_no} — details not found` : 'No challan assigned'}</p>
+                                            )}
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Contents / Transport</p>
+                                            <p className="text-gray-700">{b.contain || '—'}</p>
+                                            {b.pvt_marks && <><p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Pvt Marks</p><p className="text-gray-700">{b.pvt_marks}</p></>}
+                                            {b.remark && <><p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Remarks</p><p className="text-gray-700">{b.remark}</p></>}
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mt-3 mb-1">Transport</p>
+                                            <p className="text-gray-700 font-medium">{b.transport_name}</p>
+                                            <p className="text-gray-500 font-mono text-[11px] mt-1">{b.transport_gst}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Source</p>
+                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                              (b.source === 'regular' || b.source === 'bilty')
+                                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                : 'bg-purple-50 text-purple-700 border-purple-200'
+                                            }`}>
+                                              {(b.source === 'regular' || b.source === 'bilty') ? 'bilty table' : 'station table'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                            {/* Group totals row */}
+                            <tr className="bg-teal-50 border-t-2 border-teal-200 font-bold">
+                              <td colSpan={7} className="px-3 py-2.5 text-right text-xs text-teal-700 uppercase tracking-wide">
+                                Subtotal ({groupBilties.length})
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-xs text-gray-900">{grpTotals.pkg}</td>
+                              <td className="px-3 py-2.5 text-right text-xs text-gray-900">{grpTotals.wt.toFixed(1)}</td>
+                              <td className="px-3 py-2.5 text-right text-xs text-gray-900">₹{fmt(grpTotals.freight)}</td>
+                              <td colSpan={2} className="px-3 py-2.5"></td>
+                              <td className="px-3 py-2.5 text-right text-xs text-rose-700">₹{fmt(grpTotals.kaat)}</td>
+                              <td className="px-3 py-2.5"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
 
-                  {/* Mobile Cards */}
-                  <div className="lg:hidden divide-y divide-gray-100">
-                    {filtered.map((b, idx) => {
-                      const isExpanded = expandedRows.has(b.gr_no);
-                      const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
-                        ? b.challan_dispatch_date : null;
-                      return (
-                        <div key={`${b.gr_no}-${idx}`} className="p-4">
-                          <div
-                            className="flex items-start justify-between cursor-pointer"
-                            onClick={() => toggleRow(b.gr_no)}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-100">
-                                <Hash className="h-4 w-4 text-indigo-600" />
+                      {/* Mobile Cards */}
+                      <div className="lg:hidden divide-y divide-gray-100">
+                        {groupBilties.map((b, idx) => {
+                          const isExpanded = expandedRows.has(b.gr_no);
+                          const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
+                            ? b.challan_dispatch_date : null;
+                          return (
+                            <div key={`${b.gr_no}-${idx}`} className="p-4">
+                              <div className="flex items-start justify-between cursor-pointer" onClick={() => toggleRow(b.gr_no)}>
+                                <div className="flex items-center gap-2.5">
+                                  <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                                    <Hash className="h-4 w-4 text-indigo-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-indigo-600 text-sm">{b.gr_no}</p>
+                                    <p className="text-xs text-gray-500">{b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <PayBadge mode={b.payment_mode} />
+                                  {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-bold text-indigo-600 text-sm">{b.gr_no}</p>
-                                <p className="text-xs text-gray-500">
-                                  {b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}
-                                </p>
+                              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                <InfoChip icon={<Building2 className="h-3 w-3" />} label={b.consignor_name} />
+                                <InfoChip icon={<Building2 className="h-3 w-3" />} label={b.consignee_name} />
+                                <InfoChip icon={<MapPin className="h-3 w-3" />} label={`${b.from_city} → ${b.to_city}`} />
+                                <InfoChip icon={<IndianRupee className="h-3 w-3" />} label={`₹${fmt(b.total)}`} bold />
+                                {b.challan_no && <InfoChip icon={<FileText className="h-3 w-3" />} label={b.challan_no} />}
+                                {b.pohonch_number && <InfoChip icon={<Hash className="h-3 w-3" />} label={b.pohonch_number} color="indigo" />}
+                                {b.kaat != null && <InfoChip icon={<IndianRupee className="h-3 w-3" />} label={`Kaat ₹${fmt(b.kaat)}`} color="rose" />}
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <PayBadge mode={b.payment_mode} />
-                              {isExpanded
-                                ? <ChevronUp className="h-4 w-4 text-gray-400" />
-                                : <ChevronDown className="h-4 w-4 text-gray-400" />}
-                            </div>
-                          </div>
-
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                            <InfoChip icon={<Building2 className="h-3 w-3" />} label={b.consignor_name} />
-                            <InfoChip icon={<Building2 className="h-3 w-3" />} label={b.consignee_name} />
-                            <InfoChip icon={<MapPin className="h-3 w-3" />} label={`${b.from_city} → ${b.to_city}`} />
-                            <InfoChip icon={<IndianRupee className="h-3 w-3" />} label={`₹${fmt(b.total)}`} bold />
-                            {b.challan_no && <InfoChip icon={<FileText className="h-3 w-3" />} label={b.challan_no} />}
-                            {b.pohonch_number && <InfoChip icon={<Hash className="h-3 w-3" />} label={b.pohonch_number} color="indigo" />}
-                            {b.kaat != null && <InfoChip icon={<IndianRupee className="h-3 w-3" />} label={`Kaat ₹${fmt(b.kaat)}`} color="rose" />}
-                          </div>
-
-                          {b.has_crossing_challan && (
-                            <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                              <span className="text-[11px] font-semibold text-emerald-700">Crossing: {b.crossing_challans}</span>
-                            </div>
-                          )}
-
-                          {isExpanded && (
-                            <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-3 text-xs text-gray-600">
-                              <div>
-                                <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Charges</p>
-                                <p>Freight: ₹{fmt(b.freight_amount)}</p>
-                                <p>PF: ₹{fmt(b.pf_charge)}</p>
-                                <p>DD: ₹{fmt(b.dd_charge)}</p>
-                                <p>Labour: ₹{fmt(b.labour_charge)}</p>
-                              </div>
-                              <div>
-                                <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Kaat</p>
-                                <p>Kaat: ₹{fmt(b.kaat)}</p>
-                                <p>PF: ₹{fmt(b.kaat_pf)}</p>
-                                <p>DD: ₹{fmt(b.kaat_dd)}</p>
-                                <p>Rate: {b.kaat_rate ?? '—'}</p>
-                              </div>
-                              {cd && (
-                                <div className="col-span-2">
-                                  <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Challan Dispatch</p>
-                                  <p>Challan: <span className="font-mono font-bold">{b.challan_no || '—'}</span> · Date: {cd.challan_date || '—'}</p>
-                                  <p className="mt-0.5">
-                                    {cd.is_dispatched
-                                      ? <span className="text-emerald-700 font-semibold">Dispatched {cd.dispatch_date ? `· ${fmtDateTime(cd.dispatch_date)}` : ''}</span>
-                                      : <span className="text-gray-400">Not dispatched</span>}
-                                  </p>
-                                  <p className="mt-0.5">
-                                    {cd.is_received_at_hub
-                                      ? <span className="text-teal-700 font-semibold">Received at Hub {cd.received_at_hub_timing ? `· ${fmtDateTime(cd.received_at_hub_timing)}` : ''}</span>
-                                      : <span className="text-gray-400">Not received at hub</span>}
-                                  </p>
+                              {b.crossing_challans && (
+                                <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                  <span className="text-[11px] font-semibold text-emerald-700">Crossing: {b.crossing_challans}</span>
                                 </div>
                               )}
-                              {b.contain && <div className="col-span-2"><p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Contents</p><p>{b.contain}</p></div>}
-                              {b.remark  && <div className="col-span-2"><p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Remark</p><p>{b.remark}</p></div>}
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-3 text-xs text-gray-600">
+                                  <div>
+                                    <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Charges</p>
+                                    <p>Freight: ₹{fmt(b.freight_amount)}</p>
+                                    <p>PF: ₹{fmt(b.pf_charge)}</p>
+                                    <p>DD: ₹{fmt(b.dd_charge)}</p>
+                                    <p>Labour: ₹{fmt(b.labour_charge)}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Kaat</p>
+                                    <p>Kaat: ₹{fmt(b.kaat)}</p>
+                                    <p>PF: ₹{fmt(b.kaat_pf)}</p>
+                                    <p>DD: ₹{fmt(b.kaat_dd)}</p>
+                                    <p>Rate: {b.kaat_rate ?? '—'}</p>
+                                  </div>
+                                  {cd && (
+                                    <div className="col-span-2">
+                                      <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Challan Dispatch</p>
+                                      <p>Challan: <span className="font-mono font-bold">{b.challan_no || '—'}</span> · Date: {cd.challan_date || '—'}</p>
+                                      <p className="mt-0.5">
+                                        {cd.is_dispatched
+                                          ? <span className="text-emerald-700 font-semibold">Dispatched {cd.dispatch_date ? `· ${fmtDateTime(cd.dispatch_date)}` : ''}</span>
+                                          : <span className="text-gray-400">Not dispatched</span>}
+                                      </p>
+                                      <p className="mt-0.5">
+                                        {cd.is_received_at_hub
+                                          ? <span className="text-teal-700 font-semibold">Received at Hub {cd.received_at_hub_timing ? `· ${fmtDateTime(cd.received_at_hub_timing)}` : ''}</span>
+                                          : <span className="text-gray-400">Not received at hub</span>}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {b.contain && <div className="col-span-2"><p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Contents</p><p>{b.contain}</p></div>}
+                                  {b.remark  && <div className="col-span-2"><p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Remark</p><p>{b.remark}</p></div>}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

@@ -26,13 +26,75 @@ import {
   Hash,
   MapPin,
   Download,
+  Send,
+  Warehouse,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+// ── Detect API response format ───────────────────────────────────────────────
+// Old format: result.bilties (flat array), result.total, result.with_pohonch_count
+// New format: result.with_pohonch / result.no_pohonch (grouped), result.summary.*
+function isNewFormat(result) {
+  return result.with_pohonch != null || result.no_pohonch != null;
+}
+
+// ── Flatten the new grouped API response into a flat bilties array ────────────
+function flattenResult(result) {
+  // Old format — return directly
+  if (!isNewFormat(result)) {
+    return result.bilties || [];
+  }
+  // New format — flatten grouped structure
+  const list = [];
+  const withPohonch = result.with_pohonch || {};
+  // Natural sort: HC0001, HC0002, ... HC0009, HC0010
+  const pohonchKeys = Object.keys(withPohonch).sort((a, b) => {
+    const na = parseInt(a.replace(/\D/g, ''), 10) || 0;
+    const nb = parseInt(b.replace(/\D/g, ''), 10) || 0;
+    return na - nb;
+  });
+  for (const key of pohonchKeys) {
+    const group = withPohonch[key];
+    for (const b of (group.regular || [])) list.push(b);
+    for (const b of (group.manual  || [])) list.push(b);
+  }
+  const noPohonch = result.no_pohonch || {};
+  for (const key of Object.keys(noPohonch)) {
+    for (const b of (noPohonch[key] || [])) list.push(b);
+  }
+  return list;
+}
+
+// ── Read summary fields from either API format ────────────────────────────────
+function getSummary(result) {
+  if (isNewFormat(result) && result.summary) {
+    return {
+      total:          result.summary.total,
+      with_pohonch:   result.summary.with_pohonch,
+      without_pohonch: result.summary.without_pohonch,
+      total_weight_kg: result.summary.total_weight_kg,
+      total_freight:  result.summary.total_freight,
+    };
+  }
+  // Old format
+  return {
+    total:          result.total,
+    with_pohonch:   result.with_pohonch_count,
+    without_pohonch: result.without_pohonch_count,
+    total_weight_kg: null,
+    total_freight:  null,
+  };
+}
 
 const TODAY = new Date().toISOString().split('T')[0];
 const FIRST_OF_MONTH = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   .toISOString()
   .split('T')[0];
+
+function fmtDateTime(dt) {
+  if (!dt) return '—';
+  try { return format(new Date(dt), 'dd MMM yy, hh:mm a'); } catch { return dt; }
+}
 
 function fmt(n) {
   if (n == null) return '—';
@@ -121,7 +183,7 @@ export default function CrossingSummaryPage() {
   };
 
   // ── filtered bilties ───────────────────────────────────────────────────────
-  const bilties = result?.bilties || [];
+  const bilties = result ? flattenResult(result) : [];
   const filtered = bilties.filter(b => {
     if (filterMode === 'with_pohonch')    return !!b.pohonch_number;
     if (filterMode === 'without_pohonch') return !b.pohonch_number;
@@ -138,23 +200,36 @@ export default function CrossingSummaryPage() {
     return acc;
   }, { pkg: 0, wt: 0, freight: 0, kaat: 0 });
 
+  const summary = result ? getSummary(result) : null;
+
   // ── CSV export ─────────────────────────────────────────────────────────────
   const handleExport = () => {
     if (!filtered.length) return;
     const cols = [
       'GR No','Date','Consignor','Consignee','From','To','Mode',
       'Pkgs','Wt','Freight','PF','DD','Labour','Bill','Toll','Other','Total',
+      'Challan No','Challan Date','Dispatched','Dispatch Date','Received at Hub','Hub Timing',
       'Pohonch','Has Crossing','Crossing Challans','Dest Pohonch',
       'Kaat','Kaat PF','Kaat DD','Kaat Rate','Source',
     ];
-    const rows = filtered.map(b => [
-      b.gr_no, b.bilty_date, b.consignor_name, b.consignee_name,
-      b.from_city, b.to_city, b.payment_mode,
-      b.no_of_pkg, b.wt, b.freight_amount, b.pf_charge, b.dd_charge,
-      b.labour_charge, b.bill_charge, b.toll_charge, b.other_charge, b.total,
-      b.pohonch_number, b.has_crossing_challan ? 'Yes' : 'No', b.crossing_challans,
-      b.dest_pohonch_no, b.kaat, b.kaat_pf, b.kaat_dd, b.kaat_rate, b.source,
-    ].map(v => (v == null ? '' : String(v).replace(/,/g, ' '))).join(','));
+    const rows = filtered.map(b => {
+      const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
+        ? b.challan_dispatch_date : null;
+      return [
+        b.gr_no, b.bilty_date, b.consignor_name, b.consignee_name,
+        b.from_city, b.to_city, b.payment_mode,
+        b.no_of_pkg, b.wt, b.freight_amount, b.pf_charge, b.dd_charge,
+        b.labour_charge, b.bill_charge, b.toll_charge, b.other_charge, b.total,
+        b.challan_no || '',
+        cd?.challan_date || '',
+        cd ? (cd.is_dispatched ? 'Yes' : 'No') : '',
+        cd?.dispatch_date || '',
+        cd ? (cd.is_received_at_hub ? 'Yes' : 'No') : '',
+        cd?.received_at_hub_timing || '',
+        b.pohonch_number, b.has_crossing_challan ? 'Yes' : 'No', b.crossing_challans,
+        b.dest_pohonch_no, b.kaat, b.kaat_pf, b.kaat_dd, b.kaat_rate, b.source,
+      ].map(v => (v == null ? '' : String(v).replace(/,/g, ' '))).join(',');
+    });
 
     const csv  = [cols.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -254,7 +329,7 @@ export default function CrossingSummaryPage() {
             </button>
             {result && (
               <p className="text-sm text-gray-500">
-                Found <span className="font-bold text-gray-900">{result.total}</span> bilties for{' '}
+                Found <span className="font-bold text-gray-900">{summary?.total}</span> bilties for{' '}
                 <span className="font-bold text-teal-700">{result.transport_name}</span>
               </p>
             )}
@@ -274,21 +349,21 @@ export default function CrossingSummaryPage() {
           <>
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-              <SummaryCard label="Total Bilties"       value={result.total}                  color="teal" />
-              <SummaryCard label="With Pohonch"        value={result.with_pohonch_count}     color="indigo" />
-              <SummaryCard label="Without Pohonch"     value={result.without_pohonch_count}  color="amber" />
-              <SummaryCard label="From Bilty Table"    value={result.sources.bilty_table}    color="blue" />
-              <SummaryCard label="From Station Table"  value={result.sources.station_bilty_summary} color="purple" />
-              <SummaryCard label="Total Weight (kg)"   value={totals.wt.toFixed(1)}          color="gray" />
-              <SummaryCard label="Total Freight"       value={`₹${fmt(totals.freight)}`}     color="green" />
+              <SummaryCard label="Total Bilties"       value={summary?.total}                                            color="teal" />
+              <SummaryCard label="With Pohonch"        value={summary?.with_pohonch}                                     color="indigo" />
+              <SummaryCard label="Without Pohonch"     value={summary?.without_pohonch}                                  color="amber" />
+              <SummaryCard label="From Bilty Table"    value={result.sources?.bilty_table}                               color="blue" />
+              <SummaryCard label="From Station Table"  value={result.sources?.station_bilty_summary}                     color="purple" />
+              <SummaryCard label="Total Weight (kg)"   value={summary?.total_weight_kg != null ? summary.total_weight_kg.toFixed(1) : totals.wt.toFixed(1)} color="gray" />
+              <SummaryCard label="Total Freight"       value={`₹${fmt(summary?.total_freight ?? totals.freight)}`}       color="green" />
             </div>
 
             {/* Filter Tabs */}
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { key: 'all',              label: 'All',             count: bilties.length },
-                { key: 'with_pohonch',     label: 'With Pohonch',    count: result.with_pohonch_count },
-                { key: 'without_pohonch',  label: 'No Pohonch',      count: result.without_pohonch_count },
+                { key: 'with_pohonch',     label: 'With Pohonch',    count: summary?.with_pohonch ?? 0 },
+                { key: 'without_pohonch',  label: 'No Pohonch',      count: summary?.without_pohonch ?? 0 },
                 { key: 'has_crossing',     label: 'Has Crossing',    count: bilties.filter(b => b.has_crossing_challan).length },
               ].map(f => (
                 <button
@@ -337,8 +412,8 @@ export default function CrossingSummaryPage() {
                           <th className="px-3 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pkgs</th>
                           <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Wt</th>
                           <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pohonch</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Crossing</th>
+                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Challan</th>
+                          <th className="px-3 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Pohonch / Crossing</th>
                           <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kaat</th>
                           <th className="px-3 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Rate</th>
                         </tr>
@@ -347,6 +422,8 @@ export default function CrossingSummaryPage() {
                         {filtered.map((b, idx) => {
                           const isExpanded = expandedRows.has(b.gr_no);
                           const hasPohonch = !!b.pohonch_number;
+                          const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
+                            ? b.challan_dispatch_date : null;
                           return (
                             <React.Fragment key={`${b.gr_no}-${idx}`}>
                               <tr
@@ -362,7 +439,9 @@ export default function CrossingSummaryPage() {
                                 </td>
                                 <td className="px-3 py-3">
                                   <span className="font-bold text-indigo-600">{b.gr_no}</span>
-                                  <div className="text-[10px] text-gray-400 uppercase">{b.source === 'bilty' ? 'bilty' : 'station'}</div>
+                                  <div className="text-[10px] text-gray-400 uppercase">
+                                    {(b.source === 'regular' || b.source === 'bilty') ? 'bilty' : 'station'}
+                                  </div>
                                 </td>
                                 <td className="px-3 py-3 text-gray-600 whitespace-nowrap text-xs">
                                   {b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}
@@ -388,30 +467,50 @@ export default function CrossingSummaryPage() {
                                 <td className="px-3 py-3 text-right">
                                   <span className="text-xs font-bold text-gray-900">₹{fmt(b.total)}</span>
                                 </td>
+                                {/* Challan */}
                                 <td className="px-3 py-3">
-                                  {b.pohonch_number ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold border border-indigo-100">
-                                      <Hash className="h-3 w-3" />{b.pohonch_number}
-                                    </span>
+                                  {b.challan_no ? (
+                                    <div>
+                                      <span className="text-[11px] font-bold text-gray-700 font-mono">{b.challan_no}</span>
+                                      {cd && (
+                                        <div className="flex flex-col gap-0.5 mt-0.5">
+                                          <div className="flex items-center gap-1">
+                                            {cd.is_dispatched
+                                              ? <Send className="h-2.5 w-2.5 text-emerald-500" />
+                                              : <Calendar className="h-2.5 w-2.5 text-gray-400" />}
+                                            <span className="text-[9px] text-gray-500">{cd.challan_date || '—'}</span>
+                                          </div>
+                                          {cd.is_received_at_hub && cd.received_at_hub_timing && (
+                                            <div className="flex items-center gap-1">
+                                              <Warehouse className="h-2.5 w-2.5 text-teal-500" />
+                                              <span className="text-[9px] text-teal-600 font-medium">
+                                                {(() => { try { return format(new Date(cd.received_at_hub_timing), 'dd MMM yy'); } catch { return cd.received_at_hub_timing; } })()}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   ) : (
-                                    <span className="text-gray-300 text-xs italic">none</span>
+                                    <span className="text-gray-300 text-xs italic">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-3">
-                                  {b.has_crossing_challan ? (
-                                    <div>
-                                      <div className="flex items-center gap-1 mb-0.5">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                                        <span className="text-[10px] font-bold text-emerald-700">Yes</span>
-                                      </div>
-                                      <p className="text-[10px] text-gray-500 font-mono">{b.crossing_challans}</p>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-1">
-                                      <XCircle className="h-3.5 w-3.5 text-gray-300" />
-                                      <span className="text-[10px] text-gray-400">No</span>
-                                    </div>
-                                  )}
+                                  <div className="space-y-1">
+                                    {b.pohonch_number ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold border border-indigo-100">
+                                        <Hash className="h-3 w-3" />{b.pohonch_number}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-300 text-xs italic">—</span>
+                                    )}
+                                    {b.dest_pohonch_no && (
+                                      <p className="text-[10px] text-gray-500"><span className="font-semibold">Dest:</span> {b.dest_pohonch_no}</p>
+                                    )}
+                                    {b.bilty_number && (
+                                      <p className="text-[10px] text-gray-500"><span className="font-semibold">Bilty:</span> {b.bilty_number}</p>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-3 py-3 text-right">
                                   <span className={`text-xs font-bold ${b.kaat != null ? 'text-rose-600' : 'text-gray-300'}`}>
@@ -453,30 +552,61 @@ export default function CrossingSummaryPage() {
                                           <ChargeRow label="Kaat DD"   val={b.kaat_dd} />
                                           <div className="mt-2">
                                             <p className="text-gray-500"><span className="font-semibold">Rate:</span> {b.kaat_rate ?? '—'}</p>
-                                            <p className="text-gray-500 mt-1"><span className="font-semibold">Dest Pohonch:</span> {b.dest_pohonch_no || '—'}</p>
-                                            <p className="text-gray-500 mt-1"><span className="font-semibold">Bilty No:</span> {b.bilty_number || '—'}</p>
                                           </div>
                                         </div>
+                                        {b.crossing_challans && (
+                                          <div className="mt-3">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Crossing Challans</p>
+                                            <p className="font-mono text-gray-700 font-semibold">{b.crossing_challans}</p>
+                                          </div>
+                                        )}
                                       </div>
                                       <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Contents</p>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Challan Dispatch</p>
+                                        {cd ? (
+                                          <div className="space-y-1.5">
+                                            <p className="text-gray-700 font-mono font-bold">{b.challan_no || '—'}</p>
+                                            <p className="text-gray-500"><span className="font-semibold">Date:</span> {cd.challan_date || '—'}</p>
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                              {cd.is_dispatched
+                                                ? <><Send className="h-3 w-3 text-emerald-500" /><span className="text-emerald-700 font-semibold">Dispatched</span></>
+                                                : <><Calendar className="h-3 w-3 text-gray-400" /><span className="text-gray-500">Not dispatched</span></>}
+                                            </div>
+                                            {cd.is_dispatched && cd.dispatch_date && (
+                                              <p className="text-gray-500 text-[10px]">{fmtDateTime(cd.dispatch_date)}</p>
+                                            )}
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                              {cd.is_received_at_hub
+                                                ? <><Warehouse className="h-3 w-3 text-teal-500" /><span className="text-teal-700 font-semibold">Received at Hub</span></>
+                                                : <><Warehouse className="h-3 w-3 text-gray-300" /><span className="text-gray-400">Not received</span></>}
+                                            </div>
+                                            {cd.is_received_at_hub && cd.received_at_hub_timing && (
+                                              <p className="text-gray-500 text-[10px]">{fmtDateTime(cd.received_at_hub_timing)}</p>
+                                            )}
+                                            {cd.total_bilty_count != null && (
+                                              <p className="text-gray-500 mt-1"><span className="font-semibold">Total bilties:</span> {cd.total_bilty_count}</p>
+                                            )}
+                                            {cd.remarks && <p className="text-gray-500 mt-1 italic">{cd.remarks}</p>}
+                                          </div>
+                                        ) : (
+                                          <p className="text-gray-400 italic">{b.challan_no ? `Challan ${b.challan_no} — details not found` : 'No challan assigned'}</p>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Contents / Transport</p>
                                         <p className="text-gray-700">{b.contain || '—'}</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-3 mb-1">Pvt Marks</p>
-                                        <p className="text-gray-700">{b.pvt_marks || '—'}</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-3 mb-1">Remarks</p>
-                                        <p className="text-gray-700">{b.remark || '—'}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Transport</p>
+                                        {b.pvt_marks && <><p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Pvt Marks</p><p className="text-gray-700">{b.pvt_marks}</p></>}
+                                        {b.remark && <><p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Remarks</p><p className="text-gray-700">{b.remark}</p></>}
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-3 mb-1">Transport</p>
                                         <p className="text-gray-700 font-medium">{b.transport_name}</p>
                                         <p className="text-gray-500 font-mono text-[11px] mt-1">{b.transport_gst}</p>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-3 mb-1">Source</p>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase mt-2 mb-1">Source</p>
                                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                          b.source === 'bilty'
+                                          (b.source === 'regular' || b.source === 'bilty')
                                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                                             : 'bg-purple-50 text-purple-700 border-purple-200'
                                         }`}>
-                                          {b.source}
+                                          {(b.source === 'regular' || b.source === 'bilty') ? 'bilty table' : 'station table'}
                                         </span>
                                       </div>
                                     </div>
@@ -505,6 +635,8 @@ export default function CrossingSummaryPage() {
                   <div className="lg:hidden divide-y divide-gray-100">
                     {filtered.map((b, idx) => {
                       const isExpanded = expandedRows.has(b.gr_no);
+                      const cd = b.challan_dispatch_date && typeof b.challan_dispatch_date === 'object'
+                        ? b.challan_dispatch_date : null;
                       return (
                         <div key={`${b.gr_no}-${idx}`} className="p-4">
                           <div
@@ -535,6 +667,7 @@ export default function CrossingSummaryPage() {
                             <InfoChip icon={<Building2 className="h-3 w-3" />} label={b.consignee_name} />
                             <InfoChip icon={<MapPin className="h-3 w-3" />} label={`${b.from_city} → ${b.to_city}`} />
                             <InfoChip icon={<IndianRupee className="h-3 w-3" />} label={`₹${fmt(b.total)}`} bold />
+                            {b.challan_no && <InfoChip icon={<FileText className="h-3 w-3" />} label={b.challan_no} />}
                             {b.pohonch_number && <InfoChip icon={<Hash className="h-3 w-3" />} label={b.pohonch_number} color="indigo" />}
                             {b.kaat != null && <InfoChip icon={<IndianRupee className="h-3 w-3" />} label={`Kaat ₹${fmt(b.kaat)}`} color="rose" />}
                           </div>
@@ -562,6 +695,22 @@ export default function CrossingSummaryPage() {
                                 <p>DD: ₹{fmt(b.kaat_dd)}</p>
                                 <p>Rate: {b.kaat_rate ?? '—'}</p>
                               </div>
+                              {cd && (
+                                <div className="col-span-2">
+                                  <p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Challan Dispatch</p>
+                                  <p>Challan: <span className="font-mono font-bold">{b.challan_no || '—'}</span> · Date: {cd.challan_date || '—'}</p>
+                                  <p className="mt-0.5">
+                                    {cd.is_dispatched
+                                      ? <span className="text-emerald-700 font-semibold">Dispatched {cd.dispatch_date ? `· ${fmtDateTime(cd.dispatch_date)}` : ''}</span>
+                                      : <span className="text-gray-400">Not dispatched</span>}
+                                  </p>
+                                  <p className="mt-0.5">
+                                    {cd.is_received_at_hub
+                                      ? <span className="text-teal-700 font-semibold">Received at Hub {cd.received_at_hub_timing ? `· ${fmtDateTime(cd.received_at_hub_timing)}` : ''}</span>
+                                      : <span className="text-gray-400">Not received at hub</span>}
+                                  </p>
+                                </div>
+                              )}
                               {b.contain && <div className="col-span-2"><p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Contents</p><p>{b.contain}</p></div>}
                               {b.remark  && <div className="col-span-2"><p className="font-bold text-gray-400 uppercase text-[10px] mb-1">Remark</p><p>{b.remark}</p></div>}
                             </div>

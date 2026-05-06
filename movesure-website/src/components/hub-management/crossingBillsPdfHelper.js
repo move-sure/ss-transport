@@ -67,22 +67,27 @@ export async function generateCrossingBillsPDF({
 
       if (allBilties.length === 0) { setPdfLoading(false); return; }
 
-      // 13-col row: GR No, Bilty No, Destination, Paid, To-Pay, Pkgs, Pvt Mark, Wt, Rate, Kaat, DD, Total, PF
-      const mapRowB = (b) => [
-        b.gr_no          || '',
-        b.dest_pohonch_no || b.bilty_number || '',
-        b.to_city        || '',
-        b.payment_mode === 'paid'   ? fmtN(b.total) : (b.payment_mode === 'foc' ? 'FOC' : ''),
-        b.payment_mode === 'to-pay' ? fmtN(b.total) : '',
-        b.no_of_pkg != null ? String(b.no_of_pkg) : '',
-        b.pvt_marks || '',
-        b.wt        != null ? String(b.wt)        : '',
-        b.kaat_rate != null ? String(b.kaat_rate) : '',
-        b.kaat      != null ? fmtN(b.kaat)        : '',
-        (b.kaat_dd != null && Number(b.kaat_dd) !== 0) ? fmtN(b.kaat_dd) : '',
-        fmtN(b.total),
-        b.kaat_pf   != null ? fmtN(b.kaat_pf)    : '',
-      ];
+      // 13-col row: GR No, Bilty No, Destination, Paid, To-Pay, Pkgs, Pvt Mark, Wt, Rate, DD, Kaat, Total, PF
+      const mapRowB = (b) => {
+        const dd   = Number(b.kaat_dd) || 0;
+        const kaat = Number(b.kaat)    || 0;
+        const pf   = fmtN(Number(b.kaat_pf) || 0);
+        return [
+          b.gr_no          || '',
+          b.dest_pohonch_no || b.bilty_number || '',
+          b.to_city        || '',
+          b.payment_mode === 'paid' ? 'PAID' : (b.payment_mode === 'foc' ? 'FOC' : ''),  // Paid
+          b.payment_mode === 'to-pay' ? fmtN(b.total) : '',
+          b.no_of_pkg != null ? String(b.no_of_pkg) : '',
+          b.pvt_marks || '',
+          b.wt        != null ? String(b.wt)        : '',
+          b.kaat_rate != null ? String(b.kaat_rate) : '',
+          dd   !== 0 ? fmtN(dd)   : '',  // DD
+          kaat !== 0 ? fmtN(kaat) : '',  // Kaat
+          (b.payment_mode === 'paid' || b.payment_mode === 'foc') ? 'PAID' : fmtN(b.total),
+          pf,
+        ];
+      };
 
       // Column widths (13 cols): sum = 291mm (297 - 3 left - 3 right)
       const biltyColStyles = {
@@ -95,8 +100,8 @@ export async function generateCrossingBillsPDF({
         6:  { cellWidth: 16, fontStyle: 'bold', textColor: [0,0,0], fontSize: 8 },                    // Pvt Mark
         7:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Wt
         8:  { cellWidth: 18, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Rate
-        9:  { cellWidth: 26, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Kaat
-        10: { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // DD
+        9:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // DD
+        10: { cellWidth: 26, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Kaat
         11: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Total
         12: { cellWidth: 20, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // PF
       };
@@ -105,7 +110,7 @@ export async function generateCrossingBillsPDF({
       autoTable(doc, {
         startY: 22,
         margin: { top: 4, left: marginX, right: marginX },
-        head:   [['GR No', 'Bilty No', 'Destination', 'Paid', 'To-Pay', 'Pkgs', 'Pvt Mark', 'Wt', 'Rate', 'Kaat', 'DD', 'Total', 'PF']],
+        head:   [['GR No', 'Bilty No', 'Destination', 'Paid', 'To-Pay', 'Pkgs', 'Pvt Mark', 'Wt', 'Rate', 'DD', 'Kaat', 'Total', 'PF']],
         body:   allBilties.map(mapRowB),
         theme:  'grid',
         styles: { fontSize: 6, cellPadding: 1, textColor: [0,0,0], lineColor: [160,160,160], lineWidth: 0.1, overflow: 'linebreak' },
@@ -132,9 +137,9 @@ export async function generateCrossingBillsPDF({
       const bTotPaid   = allBilties.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const bTotToPay  = allBilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const bTotPkgs   = allBilties.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
+      const bTotDD     = allBilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
       const bTotKaat   = allBilties.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-      const bTotKaatDd = allBilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-      const bTotTotal  = allBilties.reduce((s, b) => s + (Number(b.total)   || 0), 0);
+      const bTotTotal  = allBilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const bTotKaatPf = allBilties.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
       const bTotStyle  = { fillColor: [20,20,20], textColor: [255,255,255], fontStyle: 'bold', fontSize: 8, halign: 'right', cellPadding: 2, overflow: 'visible' };
 
@@ -143,14 +148,14 @@ export async function generateCrossingBillsPDF({
         margin: { left: marginX, right: marginX, top: 5 },
         body: [[
           { content: `GRAND TOTAL  (${allBilties.length} bilties)`, colSpan: 3, styles: { ...bTotStyle, halign: 'center', fontSize: 9 } },
-          { content: fmtN(bTotPaid),   styles: bTotStyle },
+          { content: '',               styles: bTotStyle },
           { content: fmtN(bTotToPay),  styles: bTotStyle },
           { content: String(bTotPkgs), styles: { ...bTotStyle, halign: 'center' } },
           { content: '',               styles: bTotStyle },
           { content: fmtN(bTotWt),     styles: bTotStyle },
           { content: '',               styles: bTotStyle },
-          { content: fmtN(bTotKaat),   styles: bTotStyle },
-          { content: fmtN(bTotKaatDd), styles: bTotStyle },
+          { content: fmtN(bTotDD),    styles: bTotStyle },  // DD
+          { content: fmtN(bTotKaat),   styles: bTotStyle },  // Kaat
           { content: fmtN(bTotTotal),  styles: bTotStyle },
           { content: fmtN(bTotKaatPf), styles: bTotStyle },
         ]],
@@ -207,20 +212,25 @@ export async function generateCrossingBillsPDF({
     const NUM_COLS      = 12;
 
     // ── Row builder (12 cols) ────────────────────────────────────────────────
-    const mapRow = (b) => [
-      b.gr_no          || '',
-      b.to_city        || '',
-      b.payment_mode === 'paid'   ? fmtN(b.total) : (b.payment_mode === 'foc' ? 'FOC' : ''),
-      b.payment_mode === 'to-pay' ? fmtN(b.total) : '',
-      b.no_of_pkg != null ? String(b.no_of_pkg) : '',
-      b.pvt_marks || '',
-      b.wt        != null ? String(b.wt)        : '',
-      b.kaat_rate != null ? String(b.kaat_rate) : '',
-      b.kaat      != null ? fmtN(b.kaat)        : '',
-      (b.kaat_dd != null && Number(b.kaat_dd) !== 0) ? fmtN(b.kaat_dd) : '',
-      fmtN(b.total),
-      b.kaat_pf   != null ? fmtN(b.kaat_pf)    : '',
-    ];
+    const mapRow = (b) => {
+      const dd   = Number(b.kaat_dd) || 0;
+      const kaat = Number(b.kaat)    || 0;
+      const pf   = fmtN(Number(b.kaat_pf) || 0);
+      return [
+        b.gr_no          || '',
+        b.to_city        || '',
+        b.payment_mode === 'paid' ? 'PAID' : (b.payment_mode === 'foc' ? 'FOC' : ''),  // Paid
+        b.payment_mode === 'to-pay' ? fmtN(b.total) : '',
+        b.no_of_pkg != null ? String(b.no_of_pkg) : '',
+        b.pvt_marks || '',
+        b.wt        != null ? String(b.wt)        : '',
+        b.kaat_rate != null ? String(b.kaat_rate) : '',
+        dd   !== 0 ? fmtN(dd)   : '',  // DD
+        kaat !== 0 ? fmtN(kaat) : '',  // Kaat
+        (b.payment_mode === 'paid' || b.payment_mode === 'foc') ? 'PAID' : fmtN(b.total),
+        pf,
+      ];
+    };
 
     // ── Styles ───────────────────────────────────────────────────────────────
     const secStyle = {
@@ -269,25 +279,25 @@ export async function generateCrossingBillsPDF({
       for (const b of grp.bilties) body.push(mapRow(b));
 
       // Per-group subtotal
-      const gPaid   = grp.bilties.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const gToPay  = grp.bilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
+      const gPaid   = grp.bilties.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const gPkgs   = grp.bilties.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
       const gWt     = grp.bilties.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
+      const gDD     = grp.bilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
       const gKaat   = grp.bilties.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-      const gKaatDd = grp.bilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-      const gTotal  = grp.bilties.reduce((s, b) => s + (Number(b.total)   || 0), 0);
+      const gTotal  = grp.bilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const gKaatPf = grp.bilties.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
 
       body.push([
         { content: `Subtotal: ${grp.key}  (${grp.bilties.length})`, colSpan: 2, styles: { ...subStyle, halign: 'center' } },
-        { content: fmtN(gPaid),   styles: subStyle },
+        { content: '',            styles: subStyle },
         { content: fmtN(gToPay),  styles: subStyle },
         { content: String(gPkgs), styles: { ...subStyle, halign: 'center' } },
         { content: '',            styles: subStyle },
         { content: fmtN(gWt),     styles: subStyle },
-        { content: '',            styles: subStyle },
-        { content: fmtN(gKaat),   styles: subStyle },
-        { content: fmtN(gKaatDd), styles: subStyle },
+        { content: '',            styles: subStyle },  // Rate
+        { content: fmtN(gDD),     styles: subStyle },  // DD
+        { content: fmtN(gKaat),   styles: subStyle },  // Kaat
         { content: fmtN(gTotal),  styles: subStyle },
         { content: fmtN(gKaatPf), styles: subStyle },
       ]);
@@ -305,25 +315,25 @@ export async function generateCrossingBillsPDF({
 
       for (const b of inclNoPohonch) body.push(mapRow(b));
 
-      const npPaid   = inclNoPohonch.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const npToPay  = inclNoPohonch.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
+      const npPaid   = inclNoPohonch.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const npPkgs   = inclNoPohonch.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
       const npWt     = inclNoPohonch.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
+      const npDD     = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
       const npKaat   = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-      const npKaatDd = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-      const npTotal  = inclNoPohonch.reduce((s, b) => s + (Number(b.total)   || 0), 0);
+      const npTotal  = inclNoPohonch.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
       const npKaatPf = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
 
       body.push([
         { content: `Subtotal: No Pohonch  (${inclNoPohonch.length})`, colSpan: 2, styles: { ...subStyle, halign: 'center' } },
-        { content: fmtN(npPaid),   styles: subStyle },
+        { content: '',             styles: subStyle },
         { content: fmtN(npToPay),  styles: subStyle },
         { content: String(npPkgs), styles: { ...subStyle, halign: 'center' } },
         { content: '',             styles: subStyle },
         { content: fmtN(npWt),     styles: subStyle },
-        { content: '',             styles: subStyle },
-        { content: fmtN(npKaat),   styles: subStyle },
-        { content: fmtN(npKaatDd), styles: subStyle },
+        { content: '',             styles: subStyle },  // Rate
+        { content: fmtN(npDD),     styles: subStyle },  // DD
+        { content: fmtN(npKaat),   styles: subStyle },  // Kaat
         { content: fmtN(npTotal),  styles: subStyle },
         { content: fmtN(npKaatPf), styles: subStyle },
       ]);
@@ -335,7 +345,7 @@ export async function generateCrossingBillsPDF({
     autoTable(doc, {
       startY: 22,
       margin: { top: 4, left: marginX, right: marginX },
-      head:   [['GR No', 'Destination', 'Paid', 'To-Pay', 'Pkgs', 'Pvt Mark', 'Wt', 'Rate', 'Kaat', 'DD', 'Total', 'PF']],
+      head:   [['GR No', 'Destination', 'Paid', 'To-Pay', 'Pkgs', 'Pvt Mark', 'Wt', 'Rate', 'DD', 'Kaat', 'Total', 'PF']],
       body,
       theme:  'grid',
       styles: {
@@ -363,8 +373,8 @@ export async function generateCrossingBillsPDF({
         5:  { cellWidth: 20, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Pvt Mark
         6:  { cellWidth: 23, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Wt
         7:  { cellWidth: 18, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Rate
-        8:  { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Kaat
-        9:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // DD
+        8:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // DD
+        9:  { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Kaat
         10: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Total
         11: { cellWidth: 27, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // PF
       },                                                                                                 // Sum = 20+45+20+25+13+20+23+18+28+22+30+27 = 291mm
@@ -395,13 +405,13 @@ export async function generateCrossingBillsPDF({
       ...inclPohonch.flatMap(g => g.bilties),
       ...inclNoPohonch,
     ];
-    const totPaid   = allB.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
     const totToPay  = allB.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
+    const totPaid   = allB.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
     const totPkgs   = allB.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
     const totWt     = allB.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
+    const totDD     = allB.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
     const totKaat   = allB.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-    const totKaatDd = allB.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-    const totTotal  = allB.reduce((s, b) => s + (Number(b.total)   || 0), 0);
+    const totTotal  = allB.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
     const totKaatPf = allB.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
 
     const totalsStyle = {
@@ -415,14 +425,14 @@ export async function generateCrossingBillsPDF({
     };
     const totalsRow = [
       { content: `GRAND TOTAL  (${allB.length} bilties)`, colSpan: 2, styles: { ...totalsStyle, halign: 'center', fontSize: 9 } },
-      { content: fmtN(totPaid),   styles: totalsStyle },
+      { content: '',             styles: totalsStyle },
       { content: fmtN(totToPay),  styles: totalsStyle },
       { content: String(totPkgs), styles: { ...totalsStyle, halign: 'center' } },
       { content: '',              styles: totalsStyle },  // Pvt Mark
       { content: fmtN(totWt),     styles: totalsStyle },
       { content: '',              styles: totalsStyle },  // Rate
-      { content: fmtN(totKaat),   styles: totalsStyle },
-      { content: fmtN(totKaatDd), styles: totalsStyle },
+      { content: fmtN(totDD),     styles: totalsStyle },  // DD
+      { content: fmtN(totKaat),   styles: totalsStyle },  // Kaat
       { content: fmtN(totTotal),  styles: totalsStyle },
       { content: fmtN(totKaatPf), styles: totalsStyle },
     ];
@@ -442,8 +452,8 @@ export async function generateCrossingBillsPDF({
         5:  { cellWidth: 20 },
         6:  { cellWidth: 23 },
         7:  { cellWidth: 18 },
-        8:  { cellWidth: 28 },
-        9:  { cellWidth: 22 },
+        8:  { cellWidth: 22 },
+        9:  { cellWidth: 28 },
         10: { cellWidth: 30 },
         11: { cellWidth: 27 },
       },

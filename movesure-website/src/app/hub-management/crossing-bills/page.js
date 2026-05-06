@@ -19,6 +19,7 @@ import {
 } from '../../../components/hub-management/transportReportUtils';
 
 import { generateCrossingBillsPDF } from '../../../components/hub-management/crossingBillsPdfHelper';
+import CrossingBillsPreviewTable from '../../../components/hub-management/CrossingBillsPreviewTable';
 
 const API_BASE    = 'https://api.movesure.io';
 const TODAY       = new Date().toISOString().split('T')[0];
@@ -57,6 +58,7 @@ export default function CrossingBillsPage() {
   const [pdfBlobUrl, setPdfBlobUrl]       = useState(null);
   const [printFormat, setPrintFormat]     = useState(null); // 'pohonch' | 'bilty'
   const [billDate, setBillDate]           = useState(TODAY);
+  const [showPreview, setShowPreview]     = useState(false);
 
 
   // ── Flatten & group bilties ────────────────────────────────────────────────
@@ -138,6 +140,28 @@ export default function CrossingBillsPage() {
 
 
   // ── Render ─────────────────────────────────────────────────────────
+  // If preview table is open, show it fullscreen
+  if (showPreview) {
+    return (
+      <CrossingBillsPreviewTable
+        pohonchGroups={pohonchGroups}
+        noPohonchGroup={noPohonchGroup}
+        excludedGroups={excludedGroups}
+        excludedBilties={excludedBilties}
+        printFormat={printFormat || 'pohonch'}
+        transportName={result?.transport_name}
+        transportGst={result?.transport_gst}
+        fromDate={fromDate}
+        toDate={toDate}
+        billDate={billDate}
+        onClose={() => setShowPreview(false)}
+        onBackToSettings={() => { setShowPreview(false); setShowModal(true); }}
+        onPrint={() => { setShowPreview(false); generatePDF(); }}
+        pdfLoading={pdfLoading}
+      />
+    );
+  }
+
   // If PDF blob is ready, show fullscreen iframe viewer
   if (pdfBlobUrl) {
     return (
@@ -367,25 +391,39 @@ export default function CrossingBillsPage() {
 
               {/* ── Format selector ─────────────────────────────────────────── */}
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Choose Print Format</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Choose Print Format</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setPrintFormat('pohonch')}
-                    className={`flex flex-col items-start gap-1 p-4 rounded-xl border-2 transition-all text-left ${
-                      printFormat === 'pohonch' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white hover:border-gray-400'
+                    className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left ${
+                      printFormat === 'pohonch'
+                        ? 'border-gray-900 bg-gray-900 shadow-lg'
+                        : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
                     }`}
                   >
-                    <span className="font-black text-sm">Pohonch Format</span>
-                    <span className={`text-xs ${printFormat === 'pohonch' ? 'text-gray-300' : 'text-gray-500'}`}>Grouped by Pohonch Number</span>
+                    {printFormat === 'pohonch' && (
+                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white flex items-center justify-center">
+                        <span className="w-2 h-2 rounded-full bg-gray-900 block" />
+                      </span>
+                    )}
+                    <span className={`font-black text-sm ${printFormat === 'pohonch' ? 'text-white' : 'text-gray-900'}`}>Pohonch Format</span>
+                    <span className={`text-xs font-medium ${printFormat === 'pohonch' ? 'text-gray-300' : 'text-gray-600'}`}>Grouped by Pohonch Number</span>
                   </button>
                   <button
                     onClick={() => setPrintFormat('bilty')}
-                    className={`flex flex-col items-start gap-1 p-4 rounded-xl border-2 transition-all text-left ${
-                      printFormat === 'bilty' ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white hover:border-gray-400'
+                    className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left ${
+                      printFormat === 'bilty'
+                        ? 'border-gray-900 bg-gray-900 shadow-lg'
+                        : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
                     }`}
                   >
-                    <span className="font-black text-sm">Bilty Number Format</span>
-                    <span className={`text-xs ${printFormat === 'bilty' ? 'text-gray-300' : 'text-gray-500'}`}>Flat list sorted by Bilty Number</span>
+                    {printFormat === 'bilty' && (
+                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white flex items-center justify-center">
+                        <span className="w-2 h-2 rounded-full bg-gray-900 block" />
+                      </span>
+                    )}
+                    <span className={`font-black text-sm ${printFormat === 'bilty' ? 'text-white' : 'text-gray-900'}`}>Bilty Number Format</span>
+                    <span className={`text-xs font-medium ${printFormat === 'bilty' ? 'text-gray-300' : 'text-gray-600'}`}>Flat list sorted by Bilty Number</span>
                   </button>
                 </div>
               </div>
@@ -522,12 +560,20 @@ export default function CrossingBillsPage() {
                   Cancel
                 </button>
                 <button
+                  onClick={() => { setShowModal(false); setShowPreview(true); }}
+                  disabled={!printFormat}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  <Eye className="h-4 w-4" />
+                  Preview Table
+                </button>
+                <button
                   onClick={generatePDF}
                   disabled={!printFormat || (printFormat === 'pohonch' && includedCount === 0) || (printFormat === 'bilty' && bilties.length === 0) || pdfLoading}
                   className="inline-flex items-center gap-2 px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                 >
-                  {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                  {pdfLoading ? 'Generating…' : 'Open PDF Preview'}
+                  {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                  {pdfLoading ? 'Generating…' : 'Generate PDF'}
                 </button>
               </div>
             </div>

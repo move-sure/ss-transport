@@ -7,6 +7,7 @@ import Navbar from '../../../components/dashboard/navbar';
 
 const API_BASE = 'https://api.movesure.io';
 import TransportSearchSelect from '../../../components/hub-management/TransportSearchSelect';
+import KaatUpdateModal from '../../../components/hub-management/KaatUpdateModal';
 import {
   ArrowLeft,
   Search,
@@ -28,6 +29,8 @@ import {
   Download,
   Send,
   Warehouse,
+  Edit3,
+  TrendingDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -131,6 +134,14 @@ export default function CrossingSummaryPage() {
   // ── UI state ───────────────────────────────────────────────────────────────
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [filterMode,   setFilterMode]   = useState('all'); // all | with_pohonch | without_pohonch | has_crossing
+
+  // ── Kaat update modal ─────────────────────────────────────────────────────
+  const [kaatModalOpen, setKaatModalOpen] = useState(false);
+  const [kaatModalTab,  setKaatModalTab]  = useState('bulk'); // 'bulk' | 'single'
+  const [kaatEditBilty, setKaatEditBilty] = useState(null);
+
+  const openKaatBulk = () => { setKaatEditBilty(null); setKaatModalTab('bulk'); setKaatModalOpen(true); };
+  const openKaatSingle = (b, e) => { e.stopPropagation(); setKaatEditBilty(b); setKaatModalTab('single'); setKaatModalOpen(true); };
 
   const tableRef = useRef(null);
 
@@ -294,13 +305,22 @@ export default function CrossingSummaryPage() {
             </div>
           </div>
           {result && (
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-all"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openKaatBulk}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-600 border border-teal-700 rounded-xl text-sm font-semibold text-white hover:bg-teal-700 transition-all shadow-md shadow-teal-200/50"
+              >
+                <TrendingDown className="h-4 w-4" />
+                Update Kaat
+              </button>
+              <button
+                onClick={handleExport}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-all"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </button>
+            </div>
           )}
           <button
             onClick={() => router.push('/hub-management/crossing-bills')}
@@ -617,9 +637,18 @@ export default function CrossingSummaryPage() {
                                       </span>
                                     </td>
                                     <td className="px-3 py-3 text-right">
-                                      <span className="text-xs text-gray-500">
-                                        {b.kaat_rate != null ? `${b.kaat_rate}` : '—'}
-                                      </span>
+                                      <div className="flex items-center justify-end gap-2">
+                                        <span className="text-xs text-gray-500">
+                                          {b.kaat_rate != null ? `${b.kaat_rate}` : '—'}
+                                        </span>
+                                        <button
+                                          onClick={(e) => openKaatSingle(b, e)}
+                                          className="p-1 rounded-lg hover:bg-indigo-100 text-indigo-400 hover:text-indigo-600 transition-colors"
+                                          title={`Edit kaat for GR ${b.gr_no}`}
+                                        >
+                                          <Edit3 className="h-3 w-3" />
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
 
@@ -818,6 +847,21 @@ export default function CrossingSummaryPage() {
           </>
         )}
       </div>
+
+      {/* ── Kaat Update Modal ──────────────────────────────────────────────── */}
+      <KaatUpdateModal
+        isOpen={kaatModalOpen}
+        onClose={() => setKaatModalOpen(false)}
+        tab={kaatModalTab}
+        onTabChange={setKaatModalTab}
+        transportGstin={selectedTransport?.gst_number || result?.transport_gstin || ''}
+        fromDate={fromDate}
+        toDate={toDate}
+        bilties={bilties}
+        bilty={kaatEditBilty}
+        token={token}
+        onSuccess={() => {/* Optionally refetch */}}
+      />
     </div>
   );
 }

@@ -20,6 +20,9 @@ Two endpoints to update kaat fields in `bilty_wise_kaat`:
 - Changing `kaat` directly recalculates `pf`
 - `kaat_dd` (`dd_chrg`) can be set independently without affecting other fields
 
+### Auto-sync to Pohonch
+Both endpoints automatically sync updated values into `pohonch.bilty_metadata` for every affected GR. After any kaat update, the matching entry in the pohonch record is updated with the new `kaat`, `pf`, `kaat_rate`, `dd`, and `amount` — no manual pohonch update needed.
+
 ---
 
 ## 1. Bulk Update by Station
@@ -36,7 +39,8 @@ Updates kaat_rate for every bilty of a transport in a date range whose **destina
   "from_date": "2026-03-31",
   "to_date": "2026-04-30",
   "station_name": "SULTANPUR",
-  "new_kaat_rate": 1.5
+  "new_kaat_rate": 1.5,
+  "new_kaat_dd": 0
 }
 ```
 
@@ -63,6 +67,7 @@ Updates kaat_rate for every bilty of a transport in a date range whose **destina
   "updated_count": 12,
   "skipped_count": 0,
   "skipped_gr_nos": [],
+  "pohonch_rows_synced": 8,
   "updated": [
     {
       "gr_no": "A09066",
@@ -161,3 +166,33 @@ PATCH /api/kaat/gr/22677
 | 400 | Missing or invalid parameters |
 | 404 | City or GR not found |
 | 500 | Internal server error |
+
+---
+
+## Real-world Examples
+
+### Update all Heera Transport bilties to Prayagraj at 0.8 (bulk)
+
+```
+POST https://api.movesure.io/api/kaat/bulk-update
+Content-Type: application/json
+
+{
+  "transport_gstin": "09AVKPJ3682J1Z2",
+  "from_date": "2026-03-01",
+  "to_date": "2026-04-30",
+  "station_name": "PRAYAGRAJ",
+  "new_kaat_rate": 0.8
+}
+```
+
+### Update a single GR (e.g. A09069) at 0.8
+
+```
+PATCH https://api.movesure.io/api/kaat/gr/A09069
+Content-Type: application/json
+
+{ "kaat_rate": 0.8 }
+```
+
+Both calls will automatically update all matching entries in `pohonch.bilty_metadata` as well.

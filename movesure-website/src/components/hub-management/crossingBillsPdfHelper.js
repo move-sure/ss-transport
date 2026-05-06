@@ -8,6 +8,7 @@ import { fmtN } from './transportReportUtils';
  * @param {object}   opts.selectedTransport   - Selected transport from TransportSearchSelect
  * @param {string}   opts.fromDate
  * @param {string}   opts.toDate
+ * @param {string}   opts.billDate            - Bill date to print on the header
  * @param {Array}    opts.pohonchGroups        - All pohonch groups (key + bilties)
  * @param {object}   opts.noPohonchGroup       - No-pohonch group or undefined
  * @param {Set}      opts.excludedGroups       - Set of excluded group keys
@@ -21,6 +22,7 @@ export async function generateCrossingBillsPDF({
   selectedTransport,
   fromDate,
   toDate,
+  billDate,
   pohonchGroups,
   noPohonchGroup,
   excludedGroups,
@@ -44,6 +46,9 @@ export async function generateCrossingBillsPDF({
     const transportName = result?.transport_name  || selectedTransport?.transport_name || '';
     const transportGst  = result?.transport_gstin || selectedTransport?.gst_number     || '';
     const dateRange     = `${fromDate}  to  ${toDate}`;
+    const billDateFmt   = billDate
+      ? new Date(billDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '';
 
     // ── Bilty Number format (flat, sorted by dest_pohonch_no) ────────────────
     if (printFormat === 'bilty') {
@@ -114,7 +119,7 @@ export async function generateCrossingBillsPDF({
             doc.setFontSize(16); doc.setFont('helvetica', 'bold');
             doc.text('SS TRANSPORT', pageW / 2, 10, { align: 'center' });
             doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
-            doc.text(`Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}`, pageW / 2, 16, { align: 'center' });
+            doc.text(`Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}   |   Bill Date: ${billDateFmt}`, pageW / 2, 16, { align: 'center' });
             doc.setLineWidth(0.3); doc.setDrawColor(150,150,150);
             doc.line(0, 19, pageW, 19);
           }
@@ -164,6 +169,22 @@ export async function generateCrossingBillsPDF({
         doc.setFontSize(7); doc.setFont('helvetica', 'normal');
         doc.text(transportGst, bRightX + bLineW / 2, bSigLineY + 13, { align: 'center' });
       }
+
+      // Notice
+      const bNoticeY = bSigLineY + 22;
+      doc.setDrawColor(120, 120, 120); doc.setLineWidth(0.2);
+      doc.line(marginX, bNoticeY - 3, pageW - marginX, bNoticeY - 3);
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'bolditalic'); doc.setTextColor(40, 40, 40);
+      doc.text(
+        'NOTICE: All pending Pohonch/POD copies against the attached Bilties must be submitted within 2 days from the date of bill receipt. Any discrepancy or non-delivery claim raised thereafter shall be treated as the responsibility of the receiving transport company.',
+        pageW / 2, bNoticeY + 1, { align: 'center', maxWidth: pageW - marginX * 2 }
+      );
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(6);
+      doc.text(
+        'Notice: Attached bilties ki pending pahunch/POD copies bill milne ke 2 din ke andar jama karein. Baad mein kisi bhi kami ya maal na milne ki zimmedari sambandhi transport company ki mani jayegi.',
+        pageW / 2, bNoticeY + 7, { align: 'center', maxWidth: pageW - marginX * 2 }
+      );
+      doc.setTextColor(0, 0, 0);
 
       const pdfBlob = doc.output('blob');
       setPdfBlobUrl(URL.createObjectURL(pdfBlob));
@@ -336,7 +357,7 @@ export async function generateCrossingBillsPDF({
           doc.setFontSize(8.5);
           doc.setFont('helvetica', 'normal');
           doc.text(
-            `Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}`,
+            `Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}   |   Bill Date: ${billDateFmt}`,
             pageW / 2, 16, { align: 'center' }
           );
           doc.setLineWidth(0.3);
@@ -427,6 +448,22 @@ export async function generateCrossingBillsPDF({
       doc.setFont('helvetica', 'normal');
       doc.text(transportGst, rightX + lineW / 2, sigLineY + 13, { align: 'center' });
     }
+
+    // ── Notice ────────────────────────────────────────────────────────────────
+    const noticeY = sigLineY + 22;
+    doc.setDrawColor(120, 120, 120); doc.setLineWidth(0.2);
+    doc.line(marginX, noticeY - 3, pageW - marginX, noticeY - 3);
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'bolditalic'); doc.setTextColor(40, 40, 40);
+    doc.text(
+      'NOTICE: All pending Pohonch/POD copies against the attached Bilties must be submitted within 2 days from the date of bill receipt. Any discrepancy or non-delivery claim raised thereafter shall be treated as the responsibility of the receiving transport company.',
+      pageW / 2, noticeY + 1, { align: 'center', maxWidth: pageW - marginX * 2 }
+    );
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(6);
+    doc.text(
+      'Notice: Attached bilties ki pending pahunch/POD copies bill milne ke 2 din ke andar jama karein. Baad mein kisi bhi kami ya maal na milne ki zimmedari sambandhi transport company ki mani jayegi.',
+      pageW / 2, noticeY + 7, { align: 'center', maxWidth: pageW - marginX * 2 }
+    );
+    doc.setTextColor(0, 0, 0);
 
     // ── Output ────────────────────────────────────────────────────────────────
     const pdfBlob = doc.output('blob');

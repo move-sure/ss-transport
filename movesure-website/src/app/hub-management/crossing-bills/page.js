@@ -56,6 +56,7 @@ export default function CrossingBillsPage() {
   const [pdfLoading, setPdfLoading]       = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl]       = useState(null);
   const [printFormat, setPrintFormat]     = useState(null); // 'pohonch' | 'bilty'
+  const [billDate, setBillDate]           = useState(TODAY);
 
 
   // ── Flatten & group bilties ────────────────────────────────────────────────
@@ -124,6 +125,7 @@ export default function CrossingBillsPage() {
     selectedTransport,
     fromDate,
     toDate,
+    billDate,
     pohonchGroups,
     noPohonchGroup,
     excludedGroups,
@@ -351,6 +353,17 @@ export default function CrossingBillsPage() {
 
             {/* Modal Body */}
             <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
+
+              {/* ── Bill Date picker ────────────────────────────────────────── */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Bill Date</p>
+                <input
+                  type="date"
+                  value={billDate}
+                  onChange={e => setBillDate(e.target.value)}
+                  className="w-full sm:w-56 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+                />
+              </div>
 
               {/* ── Format selector ─────────────────────────────────────────── */}
               <div>

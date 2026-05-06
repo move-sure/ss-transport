@@ -139,24 +139,18 @@ export default function CrossingSummaryPage() {
   const [kaatModalOpen, setKaatModalOpen] = useState(false);
   const [kaatModalTab,  setKaatModalTab]  = useState('bulk'); // 'bulk' | 'single'
   const [kaatEditBilty, setKaatEditBilty] = useState(null);
+  const [syncing,       setSyncing]       = useState(false); // background refresh after kaat update
 
   const openKaatBulk = () => { setKaatEditBilty(null); setKaatModalTab('bulk'); setKaatModalOpen(true); };
   const openKaatSingle = (b, e) => { e.stopPropagation(); setKaatEditBilty(b); setKaatModalTab('single'); setKaatModalOpen(true); };
 
   const tableRef = useRef(null);
 
-  // ── fetch ──────────────────────────────────────────────────────────────────
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!selectedTransport) {
-      setError('Please select a transport from the dropdown.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    setExpandedRows(new Set());
-
+  // ── core fetch (used by both handleSearch and post-kaat refresh) ───────────
+  const fetchReport = React.useCallback(async ({ silent = false } = {}) => {
+    if (!selectedTransport) return;
+    if (silent) { setSyncing(true); }
+    else { setLoading(true); setError(null); setResult(null); setExpandedRows(new Set()); }
     try {
       const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
       if (selectedTransport.gst_number) {
@@ -164,7 +158,6 @@ export default function CrossingSummaryPage() {
       } else {
         params.set('transport_name', selectedTransport.transport_name.trim());
       }
-
       const res = await fetch(`${API_BASE}/api/bilty/transport-report?${params}`, {
         headers: {
           'Content-Type': 'application/json',
@@ -172,18 +165,22 @@ export default function CrossingSummaryPage() {
         },
       });
       const data = await res.json();
-
       if (!res.ok || data.status === 'error') {
-        setError(data.message || 'Failed to fetch data.');
+        if (!silent) setError(data.message || 'Failed to fetch data.');
       } else {
         setResult(data);
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      if (!silent) setError('Network error. Please try again.');
     } finally {
-      setLoading(false);
+      if (silent) setSyncing(false);
+      else setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTransport, fromDate, toDate, token]);
+
+  // ── form submit ────────────────────────────────────────────────────────────
+  const handleSearch = (e) => { e.preventDefault(); fetchReport(); };
 
   const toggleRow = (gr) => {
     setExpandedRows(prev => {
@@ -287,8 +284,12 @@ export default function CrossingSummaryPage() {
       <Navbar />
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="px-4 sm:px-6 xl:px-10 py-4 flex items-center justify-between gap-3">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-30">        {syncing && (
+          <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-teal-600 text-white text-xs font-semibold">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Syncing updated kaat data…
+          </div>
+        )}        <div className="px-4 sm:px-6 xl:px-10 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/hub-management')}
@@ -860,7 +861,7 @@ export default function CrossingSummaryPage() {
         bilties={bilties}
         bilty={kaatEditBilty}
         token={token}
-        onSuccess={() => {/* Optionally refetch */}}
+        onSuccess={() => fetchReport({ silent: true })}
       />
     </div>
   );

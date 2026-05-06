@@ -206,10 +206,20 @@ export default function CrossingSummaryPage() {
   const groupedByDest = React.useMemo(() => {
     const map = {};
     for (const b of filtered) {
-      const key = b.dest_pohonch_no || 'NO_DEST';
+      const key = b.dest_pohonch_no ? String(b.dest_pohonch_no).trim() : 'NO_DEST';
       if (!map[key]) map[key] = [];
       map[key].push(b);
     }
+    // Sort bilties within each group by gr_no ascending
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) => {
+        const na = parseInt(a.gr_no, 10);
+        const nb = parseInt(b.gr_no, 10);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return String(a.gr_no).localeCompare(String(b.gr_no));
+      });
+    }
+    // Sort group keys: numeric ascending, NO_DEST always last
     const keys = Object.keys(map).sort((a, b) => {
       if (a === 'NO_DEST') return 1;
       if (b === 'NO_DEST') return -1;
@@ -219,7 +229,8 @@ export default function CrossingSummaryPage() {
       return a.localeCompare(b);
     });
     return keys.map(k => ({ key: k, bilties: map[k] }));
-  }, [filtered]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterMode, bilties]);
 
   // ── CSV export ─────────────────────────────────────────────────────────────
   const handleExport = () => {
@@ -291,6 +302,13 @@ export default function CrossingSummaryPage() {
               Export CSV
             </button>
           )}
+          <button
+            onClick={() => router.push('/hub-management/crossing-bills')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm font-semibold text-white hover:bg-gray-800 transition-all"
+          >
+            <FileText className="h-4 w-4" />
+            Crossing Bills
+          </button>
         </div>
       </div>
 
@@ -414,8 +432,32 @@ export default function CrossingSummaryPage() {
                 <p className="text-gray-500 font-medium">No bilties match the current filter</p>
               </div>
             ) : (
+              <>
+                {/* Dest pohonch count banner */}
+                {groupedByDest.filter(g => g.key !== 'NO_DEST').length > 0 && (
+                  <div className="flex items-center gap-3 px-5 py-3 bg-white rounded-2xl shadow-sm border border-gray-200/80">
+                    <div className="p-2 bg-teal-600 rounded-xl shadow-md shadow-teal-200/60">
+                      <Hash className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Total Pohonch Numbers</p>
+                      <p className="text-xl font-black text-teal-800 leading-tight">
+                        {groupedByDest.filter(g => g.key !== 'NO_DEST').length}
+                        <span className="text-sm font-semibold text-gray-400 ml-2">distinct dest pohonch</span>
+                      </p>
+                    </div>
+                    <div className="ml-auto flex items-center gap-5 text-right">
+                      {groupedByDest.filter(g => g.key !== 'NO_DEST').map(g => (
+                        <div key={g.key} className="text-center">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase">{g.key}</p>
+                          <p className="text-sm font-black text-gray-700">{g.bilties.length} <span className="text-[10px] font-medium text-gray-400">bilties</span></p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               <div ref={tableRef} className="space-y-5">
-                {groupedByDest.map(({ key, bilties: groupBilties }) => {
+                {groupedByDest.map(({ key, bilties: groupBilties }, grpIdx) => {
                   const grpTotals = groupBilties.reduce((a, b) => {
                     a.pkg     += b.no_of_pkg    || 0;
                     a.wt      += Number(b.wt)   || 0;
@@ -433,9 +475,9 @@ export default function CrossingSummaryPage() {
                             <Hash className="h-5 w-5 text-white" />
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Dest Pohonch</p>
+                            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Pohonch Number</p>
                             <p className="text-2xl font-black text-teal-800 leading-tight">
-                              {key === 'NO_DEST' ? '— No Dest Pohonch —' : key}
+                              {key === 'NO_DEST' ? '— No Pohonch Number —' : key}
                             </p>
                           </div>
                         </div>
@@ -771,6 +813,7 @@ export default function CrossingSummaryPage() {
                   );
                 })}
               </div>
+              </>
             )}
           </>
         )}

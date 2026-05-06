@@ -233,6 +233,13 @@ export default function HubManagementPage() {
                 Crossing Summary
               </button>
               <button
+                onClick={() => router.push('/hub-management/crossing-bills')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm font-semibold text-white hover:bg-gray-800 transition-all"
+              >
+                <FileText className="h-4 w-4" />
+                Crossing Bills
+              </button>
+              <button
                 onClick={() => router.push('/hub-management/remaining-crossing-proof')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-all"
               >

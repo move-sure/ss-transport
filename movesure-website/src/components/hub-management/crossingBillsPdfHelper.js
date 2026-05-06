@@ -120,6 +120,10 @@ export async function generateCrossingBillsPDF({
             doc.setLineWidth(0.3); doc.setDrawColor(150,150,150);
             doc.line(0, 19, pageW, 19);
           }
+          // Page number bottom-right
+          doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
+          doc.text(`Page ${data.pageNumber} / {bTotal}`, pageW - marginX, doc.internal.pageSize.getHeight() - 3, { align: 'right' });
+          doc.setTextColor(0, 0, 0);
         },
       });
 
@@ -155,8 +159,13 @@ export async function generateCrossingBillsPDF({
         columnStyles: biltyColStyles,
       });
 
+      // Signature + Notice: need ~90mm. If not enough room, add a new page.
+      const bPageH   = doc.internal.pageSize.getHeight();
+      const bFinalY  = doc.lastAutoTable.finalY;
+      const bBaseY   = (bFinalY + 90 > bPageH) ? (doc.addPage(), 15) : bFinalY;
+
       // Signature
-      const bSigY = doc.lastAutoTable.finalY + 18;
+      const bSigY = bBaseY + 18;
       const bSigLineY = bSigY + 14;
       const bLeftX = marginX + 15, bRightX = pageW / 2 + 15, bLineW = pageW / 2 - 30;
       doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
@@ -189,6 +198,7 @@ export async function generateCrossingBillsPDF({
       );
       doc.setTextColor(0, 0, 0);
 
+      doc.putTotalPages('{bTotal}');
       const pdfBlob = doc.output('blob');
       setPdfBlobUrl(URL.createObjectURL(pdfBlob));
       return; // skip pohonch format
@@ -373,6 +383,10 @@ export async function generateCrossingBillsPDF({
           doc.setDrawColor(150, 150, 150);
           doc.line(0, 19, pageW, 19);
         }
+        // Page number bottom-right
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
+        doc.text(`Page ${data.pageNumber} / {pTotal}`, pageW - marginX, doc.internal.pageSize.getHeight() - 3, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
       },
     });
 
@@ -435,8 +449,13 @@ export async function generateCrossingBillsPDF({
       },
     });
 
+    // Signature + Notice: need ~90mm. If not enough room, add a new page.
+    const pageH   = doc.internal.pageSize.getHeight();
+    const finalY  = doc.lastAutoTable.finalY;
+    const baseY   = (finalY + 90 > pageH) ? (doc.addPage(), 15) : finalY;
+
     // ── Signature section ─────────────────────────────────────────────────────
-    const sigY     = doc.lastAutoTable.finalY + 18;
+    const sigY     = baseY + 18;
     const sigLineY = sigY + 14;
     const leftX    = marginX + 15;
     const rightX   = pageW / 2 + 15;
@@ -478,6 +497,7 @@ export async function generateCrossingBillsPDF({
     doc.setTextColor(0, 0, 0);
 
     // ── Output ────────────────────────────────────────────────────────────────
+    doc.putTotalPages('{pTotal}');
     const pdfBlob = doc.output('blob');
     const pdfUrl  = URL.createObjectURL(pdfBlob);
     setPdfBlobUrl(pdfUrl);

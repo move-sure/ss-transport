@@ -3,8 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { X, Printer, Loader2, ArrowLeft } from 'lucide-react';
 import { fmtN } from './transportReportUtils';
 
-// Columns: GR No | Pohonch Number | Bilty Date | Pkgs | Wt | DD | Rate | To-Pay (PF) | Paid (KAAT)
-const COLS = ['GR No', 'Pohonch Number', 'Bilty Date', 'Pkgs', 'Wt', 'DD', 'Rate', 'To-Pay (PF)', 'Paid (KAAT)'];
+// Columns: GR No | Pohonch Number | Bilty Date | Station | Pkgs | Wt | DD | Rate | To-Pay (PF) | Paid (KAAT)
+const COLS = ['GR No', 'Pohonch Number', 'Bilty Date', 'Station', 'Pkgs', 'Wt', 'DD', 'Rate', 'To-Pay (PF)', 'Paid (KAAT)'];
 const COL_COUNT = COLS.length;
 
 const fmtDate = (d) =>
@@ -27,6 +27,7 @@ function DataRow({ b }) {
           : <span className="text-gray-400 italic text-[10px]">Not Provided Yet</span>}
       </td>
       <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{fmtDate(b.bilty_date)}</td>
+      <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{b.to_city || b.destination || ''}</td>
       <td className="px-2 py-1.5 text-center text-gray-700 font-semibold">{b.no_of_pkg ?? ''}</td>
       <td className="px-2 py-1.5 text-right text-gray-700">{b.wt ?? ''}</td>
       <td className="px-2 py-1.5 text-right text-gray-700">{dd !== 0 ? fmtN(dd) : ''}</td>
@@ -56,6 +57,7 @@ function TotalsRow({ bilties, label, isGrand = false }) {
         <tr className="bg-gray-800 text-white text-xs font-bold border-t-2 border-gray-600">
           <td colSpan={2} className="px-3 py-2 font-black text-sm">{label}</td>
           <td className="px-2 py-2"></td>
+          <td className="px-2 py-2"></td>
           <td className="px-2 py-2 text-center">{pkgs}</td>
           <td className="px-2 py-2 text-right">{fmtN(wt)}</td>
           <td className="px-2 py-2 text-right">{fmtN(dd)}</td>
@@ -82,6 +84,7 @@ function TotalsRow({ bilties, label, isGrand = false }) {
   return (
     <tr className="bg-gray-200 text-gray-800 text-xs font-bold border-y border-gray-300">
       <td colSpan={2} className="px-3 py-1.5 font-black text-gray-700">{label}</td>
+      <td></td>
       <td></td>
       <td className="px-2 py-1.5 text-center">{pkgs}</td>
       <td className="px-2 py-1.5 text-right">{fmtN(wt)}</td>

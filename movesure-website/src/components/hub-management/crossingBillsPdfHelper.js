@@ -42,18 +42,19 @@ export async function generateCrossingBillsPDF({
       ? new Date(billDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
       : '';
 
-    const NUM_COLS = 8;
+    const NUM_COLS = 9;
 
-    // ── Column widths (sum = 22+50+26+14+22+22+65+70 = 291mm = 297−3−3) ─────
+    // ── Column widths (sum = 20+42+22+25+12+18+18+65+69 = 291mm = 297−3−3) ──
     const colStyles = {
-      0: { cellWidth: 22, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },                   // GR No
-      1: { cellWidth: 50, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Pohonch Number
-      2: { cellWidth: 26,                    textColor: [0, 0, 0], fontSize: 7.5 },                 // Bilty Date
-      3: { cellWidth: 14, halign: 'center',  fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Pkgs
-      4: { cellWidth: 22, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Wt
-      5: { cellWidth: 22, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// DD
-      6: { cellWidth: 65, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// To-Pay (PF)
-      7: { cellWidth: 70, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// Paid (KAAT)
+      0: { cellWidth: 20, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },                   // GR No
+      1: { cellWidth: 42, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Pohonch Number
+      2: { cellWidth: 22,                    textColor: [0, 0, 0], fontSize: 7.5 },                 // Bilty Date
+      3: { cellWidth: 25,                    textColor: [0, 0, 0], fontSize: 7.5 },                 // Station
+      4: { cellWidth: 12, halign: 'center',  fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Pkgs
+      5: { cellWidth: 18, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Wt
+      6: { cellWidth: 18, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// DD
+      7: { cellWidth: 65, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// To-Pay (PF)
+      8: { cellWidth: 69, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// Paid (KAAT)
     };
 
     // ── Date formatter ────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ export async function generateCrossingBillsPDF({
         b.gr_no || '',
         b.dest_pohonch_no || b.bilty_number || 'Not Provided Yet',
         fmtDate(b.bilty_date),
+        b.destination || b.to_city || '',
         b.no_of_pkg != null ? String(b.no_of_pkg) : '',
         b.wt        != null ? String(b.wt)        : '',
         dd !== 0 ? fmtN(dd) : '',
@@ -187,14 +189,15 @@ export async function generateCrossingBillsPDF({
         body: [
           // Row 1 — one cell per column so values sit directly under headers
           [
-            { content: `GRAND TOTAL`,           styles: { ...labelStyle, fontSize: 8 } },
+            { content: `GRAND TOTAL`,                styles: { ...labelStyle, fontSize: 8 } },
             { content: `(${bilties.length} bilties)`, styles: { ...labelStyle, halign: 'center', fontSize: 8 } },
-            { content: '',                       styles: { ...totStyle, halign: 'center' } },
-            { content: String(pkgs),             styles: { ...totStyle, halign: 'center', fontSize: 12 } },
-            { content: fmtN(wt),                 styles: { ...totStyle, fontSize: 12 } },
-            { content: fmtN(dd),                 styles: { ...totStyle, fontSize: 12 } },
-            { content: fmtN(pf),                 styles: { ...totStyle, fontSize: 13 } },
-            { content: fmtN(kaat),               styles: { ...totStyle, fontSize: 13 } },
+            { content: '',                            styles: totStyle },
+            { content: '',                            styles: totStyle },
+            { content: String(pkgs),                  styles: { ...totStyle, halign: 'center', fontSize: 12 } },
+            { content: fmtN(wt),                      styles: { ...totStyle, fontSize: 12 } },
+            { content: fmtN(dd),                      styles: { ...totStyle, fontSize: 12 } },
+            { content: fmtN(pf),                      styles: { ...totStyle, fontSize: 13 } },
+            { content: fmtN(kaat),                    styles: { ...totStyle, fontSize: 13 } },
           ],
           // Row 2 — Net PF: formula on left, note on right corner
           [
@@ -207,7 +210,7 @@ export async function generateCrossingBillsPDF({
               },
             },
             {
-              content: `TOTAL = PF - PAID\nPF Includes DD Chrg.`,
+              content: `TOTAL = PF - PAID\nPAID INCLUDES DD CHRGS`,
               colSpan: 2,
               styles: {
                 fillColor: [20, 20, 20], textColor: [180, 180, 180],
@@ -244,7 +247,7 @@ export async function generateCrossingBillsPDF({
       autoTable(doc, {
         startY: 22,
         margin: { top: 4, left: marginX, right: marginX },
-        head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
+        head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Station', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
         body:   allBilties.map(mapRow),
         theme:  'grid',
         styles: { fontSize: 6, cellPadding: 1, textColor: [0, 0, 0], lineColor: [160, 160, 160], lineWidth: 0.1, overflow: 'linebreak' },
@@ -289,7 +292,8 @@ export async function generateCrossingBillsPDF({
       const { pf: gPf, kaat: gKaat, pkgs: gPkgs, wt: gWt, dd: gDD } = calcTotals(grp.bilties);
       body.push([
         { content: `Subtotal: ${grp.key}  (${grp.bilties.length})`, colSpan: 2, styles: { ...subStyle, halign: 'left' } },
-        { content: '',            styles: subStyle },
+        { content: '', styles: subStyle },
+        { content: '', styles: subStyle },
         { content: String(gPkgs), styles: { ...subStyle, halign: 'center' } },
         { content: fmtN(gWt),     styles: subStyle },
         { content: fmtN(gDD),     styles: subStyle },
@@ -312,7 +316,8 @@ export async function generateCrossingBillsPDF({
       const { pf: nPf, kaat: nKaat, pkgs: nPkgs, wt: nWt, dd: nDD } = calcTotals(inclNoPohonch);
       body.push([
         { content: `Subtotal: No Pohonch  (${inclNoPohonch.length})`, colSpan: 2, styles: { ...subStyle, halign: 'left' } },
-        { content: '',            styles: subStyle },
+        { content: '', styles: subStyle },
+        { content: '', styles: subStyle },
         { content: String(nPkgs), styles: { ...subStyle, halign: 'center' } },
         { content: fmtN(nWt),     styles: subStyle },
         { content: fmtN(nDD),     styles: subStyle },
@@ -326,7 +331,7 @@ export async function generateCrossingBillsPDF({
     autoTable(doc, {
       startY: 22,
       margin: { top: 4, left: marginX, right: marginX },
-      head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
+      head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Station', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
       body,
       theme:  'grid',
       styles: { fontSize: 6, cellPadding: 1, textColor: [0, 0, 0], lineColor: [160, 160, 160], lineWidth: 0.1, overflow: 'linebreak' },

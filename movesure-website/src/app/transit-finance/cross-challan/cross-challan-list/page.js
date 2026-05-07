@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import supabase from '../../../utils/supabase';
 import { useAuth } from '../../../utils/auth';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
+import TransportWiseAnalysis from '../../../../components/transit-finance/TransportWiseAnalysis';
 import {
   Loader2,
   RefreshCw,
@@ -25,7 +26,6 @@ import {
   ChevronLeft,
   User,
   Printer,
-  Calendar,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -212,40 +212,7 @@ export default function PohonchListPage() {
     return u ? (u.name || u.username || 'Unknown') : 'Loading...';
   };
 
-  // ====== Top PF Givers Analysis ======
-  const topPFGivers = useMemo(() => {
-    const transportMap = {};
-    allPohonch.forEach(p => {
-      const key = p.transport_gstin || p.transport_name;
-      if (!transportMap[key]) {
-        transportMap[key] = { name: p.transport_name, gstin: p.transport_gstin, pf: 0, kaat: 0, amt: 0, bilties: 0, pohonchCount: 0, challans: new Set() };
-      }
-      transportMap[key].pf += p.total_pf || 0;
-      transportMap[key].kaat += p.total_kaat || 0;
-      transportMap[key].amt += p.total_amount || 0;
-      transportMap[key].bilties += p.total_bilties || 0;
-      transportMap[key].pohonchCount += 1;
-      const challans = Array.isArray(p.challan_metadata) ? p.challan_metadata : [];
-      challans.forEach(c => transportMap[key].challans.add(c));
-    });
-    // Convert Sets to sorted arrays and compute date ranges
-    return Object.values(transportMap).map(t => {
-      const challanArr = [...t.challans].sort();
-      let firstDate = null, lastDate = null;
-      challanArr.forEach(cNo => {
-        const cd = challanDatesMap[cNo];
-        if (cd) {
-          const d = cd.dispatch_date || cd.date;
-          if (d) {
-            const dt = new Date(d);
-            if (!firstDate || dt < firstDate) firstDate = dt;
-            if (!lastDate || dt > lastDate) lastDate = dt;
-          }
-        }
-      });
-      return { ...t, challans: challanArr, firstChallan: challanArr[0] || '-', lastChallan: challanArr[challanArr.length - 1] || '-', firstDate, lastDate };
-    }).sort((a, b) => b.pf - a.pf).slice(0, 10);
-  }, [allPohonch, challanDatesMap]);
+
 
   // ====== Toggle sign ======
   const handleToggleSign = async (pohonch) => {
@@ -474,66 +441,9 @@ export default function PohonchListPage() {
           </div>
         )}
 
-        {/* Top PF Givers Analysis */}
-        {!loading && topPFGivers.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex items-center gap-2">
-              <span className="text-lg">🏆</span>
-              <h2 className="text-sm font-bold text-gray-800">Top PF Givers (Transport-wise Analysis)</h2>
-              <span className="text-[10px] text-gray-500 ml-auto">{topPFGivers.length} transports</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Rank</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Transport</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">GSTIN</th>
-                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Pohonch</th>
-                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Bilties</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">First Challan</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Last Challan</th>
-                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Date Range</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Amount</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Kaat</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold text-amber-600 uppercase">Total PF</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPFGivers.map((t, i) => (
-                    <tr key={i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-amber-50/50 transition-colors`}>
-                      <td className="px-3 py-2 text-center">
-                        {i === 0 ? <span className="text-base">🥇</span> : i === 1 ? <span className="text-base">🥈</span> : i === 2 ? <span className="text-base">🥉</span> : <span className="text-gray-500 font-semibold">{i + 1}</span>}
-                      </td>
-                      <td className="px-3 py-2 font-semibold text-gray-800">{t.name}</td>
-                      <td className="px-3 py-2 text-[10px] font-mono text-gray-500">{t.gstin || '-'}</td>
-                      <td className="px-3 py-2 text-center text-gray-700">{t.pohonchCount}</td>
-                      <td className="px-3 py-2 text-center text-gray-700">{t.bilties}</td>
-                      <td className="px-3 py-2 text-[10px] font-mono">
-                        <Link href={`/hub-management/${t.firstChallan}`} className="text-blue-700 hover:text-blue-900 hover:underline">{t.firstChallan}</Link>
-                      </td>
-                      <td className="px-3 py-2 text-[10px] font-mono">
-                        <Link href={`/hub-management/${t.lastChallan}`} className="text-blue-700 hover:text-blue-900 hover:underline">{t.lastChallan}</Link>
-                      </td>
-                      <td className="px-3 py-2 text-center text-[10px]">
-                        <div className="flex items-center justify-center gap-1">
-                          <Calendar className="w-3 h-3 text-gray-400" />
-                          <span className="text-gray-600">
-                            {t.firstDate ? format(t.firstDate, 'dd/MM/yy') : '-'}
-                            {t.firstDate && t.lastDate ? ' → ' : ''}
-                            {t.lastDate ? format(t.lastDate, 'dd/MM/yy') : ''}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-800">₹{Math.round(t.amt).toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right text-emerald-700">₹{Math.round(t.kaat).toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right font-extrabold text-amber-700">₹{Math.round(t.pf).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {/* Transport-wise Analysis (all transports, with search) */}
+        {!loading && (
+          <TransportWiseAnalysis allPohonch={allPohonch} challanDatesMap={challanDatesMap} />
         )}
 
         {/* Table */}

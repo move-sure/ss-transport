@@ -3,19 +3,11 @@ import { fmtN } from './transportReportUtils';
 /**
  * Generates the Crossing Bills PDF and sets the blob URL.
  *
- * @param {object} opts
- * @param {object}   opts.result              - API result object
- * @param {object}   opts.selectedTransport   - Selected transport from TransportSearchSelect
- * @param {string}   opts.fromDate
- * @param {string}   opts.toDate
- * @param {string}   opts.billDate            - Bill date to print on the header
- * @param {Array}    opts.pohonchGroups        - All pohonch groups (key + bilties)
- * @param {object}   opts.noPohonchGroup       - No-pohonch group or undefined
- * @param {Set}      opts.excludedGroups       - Set of excluded group keys
- * @param {Set}      opts.excludedBilties      - Set of excluded gr_no strings
- * @param {Function} opts.setShowModal
- * @param {Function} opts.setPdfLoading
- * @param {Function} opts.setPdfBlobUrl
+ * Columns: GR No | Pohonch Number | Bilty Date | Pkgs | Wt | DD | To-Pay (PF) | Paid (KAAT)
+ *
+ * To-Pay (PF)  = kaat_pf = total − (dd + kaat)   — shown only for to-pay bilties
+ * Paid (KAAT)  = dd + kaat                        — shown only for paid/foc bilties
+ * Net PF (grand total) = Σ To-Pay PF − Σ Paid KAAT
  */
 export async function generateCrossingBillsPDF({
   result,
@@ -40,7 +32,7 @@ export async function generateCrossingBillsPDF({
     const { default: autoTable } = await import('jspdf-autotable');
 
     const doc     = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pageW   = doc.internal.pageSize.getWidth();
+    const pageW   = doc.internal.pageSize.getWidth();   // 297mm landscape
     const marginX = 3;
 
     const transportName = result?.transport_name  || selectedTransport?.transport_name || '';
@@ -50,7 +42,189 @@ export async function generateCrossingBillsPDF({
       ? new Date(billDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
       : '';
 
-    // ── Bilty Number format (flat, sorted by dest_pohonch_no) ────────────────
+    const NUM_COLS = 8;
+
+    // ── Column widths (sum = 22+50+26+14+22+22+65+70 = 291mm = 297−3−3) ─────
+    const colStyles = {
+      0: { cellWidth: 22, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },                   // GR No
+      1: { cellWidth: 50, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Pohonch Number
+      2: { cellWidth: 26,                    textColor: [0, 0, 0], fontSize: 7.5 },                 // Bilty Date
+      3: { cellWidth: 14, halign: 'center',  fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Pkgs
+      4: { cellWidth: 22, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Wt
+      5: { cellWidth: 22, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// DD
+      6: { cellWidth: 65, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// To-Pay (PF)
+      7: { cellWidth: 70, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// Paid (KAAT)
+    };
+
+    // ── Date formatter ────────────────────────────────────────────────────────
+    const fmtDate = (d) => d
+      ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+      : '—';
+
+    // ── Row builder ───────────────────────────────────────────────────────────
+    // To-Pay (PF): kaat_pf only for to-pay bilties
+    // Paid (KAAT): dd + kaat only for paid/foc bilties
+    const mapRow = (b) => {
+      const dd      = Number(b.kaat_dd) || 0;
+      const kaat    = Number(b.kaat)    || 0;
+      const isPaid  = b.payment_mode === 'paid' || b.payment_mode === 'foc';
+      const pfVal   = !isPaid ? fmtN(Number(b.kaat_pf) || 0) : '';
+      const kaatVal = isPaid  ? fmtN(dd + kaat)              : '';
+      return [
+        b.gr_no || '',
+        b.dest_pohonch_no || b.bilty_number || 'Not Provided Yet',
+        fmtDate(b.bilty_date),
+        b.no_of_pkg != null ? String(b.no_of_pkg) : '',
+        b.wt        != null ? String(b.wt)        : '',
+        dd !== 0 ? fmtN(dd) : '',
+        pfVal,
+        kaatVal,
+      ];
+    };
+
+    // ── Aggregate totals helper ───────────────────────────────────────────────
+    const calcTotals = (bilties) => ({
+      pf:   bilties
+              .filter(b => b.payment_mode === 'to-pay')
+              .reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0),
+      kaat: bilties
+              .filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc')
+              .reduce((s, b) => s + (Number(b.kaat_dd) || 0) + (Number(b.kaat) || 0), 0),
+      pkgs: bilties.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0),
+      wt:   bilties.reduce((s, b) => s + (Number(b.wt)      || 0), 0),
+      dd:   bilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0),
+    });
+
+    // ── Shared styles ─────────────────────────────────────────────────────────
+    const secStyle = {
+      fillColor: [60, 60, 60], fontStyle: 'bold', halign: 'left',
+      fontSize: 10, textColor: [255, 255, 255],
+      cellPadding: { top: 3, bottom: 3, left: 4, right: 2 },
+    };
+    const subStyle = {
+      fillColor: [230, 230, 230], fontStyle: 'bold', textColor: [0, 0, 0],
+      fontSize: 7, halign: 'right', cellPadding: 1.2,
+    };
+    const spaceStyle = {
+      fillColor: [215, 215, 215],
+      cellPadding: { top: 0.5, bottom: 0.5, left: 0, right: 0 }, lineWidth: 0,
+    };
+
+    // ── Page header / footer ──────────────────────────────────────────────────
+    const drawPageHeader = (data) => {
+      if (data.pageNumber === 1) {
+        doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+        doc.text('SS TRANSPORT', pageW / 2, 10, { align: 'center' });
+        doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+        doc.text(
+          `Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}   |   Bill Date: ${billDateFmt}`,
+          pageW / 2, 16, { align: 'center' }
+        );
+        doc.setLineWidth(0.3); doc.setDrawColor(150, 150, 150);
+        doc.line(0, 19, pageW, 19);
+      }
+      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
+      doc.text(
+        `Page ${data.pageNumber} / {pTotal}`,
+        pageW - marginX, doc.internal.pageSize.getHeight() - 3, { align: 'right' }
+      );
+      doc.setTextColor(0, 0, 0);
+    };
+
+    // ── Signature + Notice ────────────────────────────────────────────────────
+    const drawSignatureAndNotice = (baseY) => {
+      const sigLineY = baseY + 32;
+      const leftX    = marginX + 15;
+      const rightX   = pageW / 2 + 15;
+      const lineW    = pageW / 2 - 30;
+
+      doc.setDrawColor(80, 80, 80); doc.setLineWidth(0.5);
+      doc.line(leftX,  sigLineY, leftX  + lineW, sigLineY);
+      doc.line(rightX, sigLineY, rightX + lineW, sigLineY);
+
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+      doc.text('Authorized Signatory', leftX  + lineW / 2, sigLineY + 4, { align: 'center' });
+      doc.text('Authorized Signatory', rightX + lineW / 2, sigLineY + 4, { align: 'center' });
+      doc.setFontSize(9);
+      doc.text('SS TRANSPORT',               leftX  + lineW / 2, sigLineY + 9, { align: 'center' });
+      doc.text(transportName || 'Transport', rightX + lineW / 2, sigLineY + 9, { align: 'center' });
+      if (transportGst) {
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+        doc.text(transportGst, rightX + lineW / 2, sigLineY + 13, { align: 'center' });
+      }
+
+      const noticeY = sigLineY + 22;
+      doc.setDrawColor(120, 120, 120); doc.setLineWidth(0.2);
+      doc.line(marginX, noticeY - 3, pageW - marginX, noticeY - 3);
+      doc.setFontSize(11); doc.setFont('helvetica', 'bolditalic'); doc.setTextColor(40, 40, 40);
+      doc.text(
+        'NOTICE: All pending Pohonch/POD copies against the attached Bilties must be submitted within 2 days from the date of bill receipt. Any discrepancy or non-delivery claim raised thereafter shall be treated as the responsibility of the receiving transport company.',
+        pageW / 2, noticeY + 1, { align: 'center', maxWidth: pageW - marginX * 2 }
+      );
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(9.5);
+      doc.text(
+        'Notice: Attached bilties ki pending pahunch/POD copies bill milne ke 2 din ke andar jama karein. Baad mein kisi bhi kami ya maal na milne ki zimmedari sambandhi transport company ki mani jayegi.',
+        pageW / 2, noticeY + 14, { align: 'center', maxWidth: pageW - marginX * 2 }
+      );
+      doc.setTextColor(0, 0, 0);
+    };
+
+    // ── Grand Total + Net PF table ────────────────────────────────────────────
+    const drawTotalsTable = (bilties) => {
+      const { pf, kaat, pkgs, wt, dd } = calcTotals(bilties);
+      const netPf = pf - kaat;
+
+      // Grand-total row: each cell aligns exactly with its column above
+      const totStyle = {
+        fillColor: [30, 30, 30], textColor: [255, 255, 255],
+        fontStyle: 'bold', fontSize: 11, halign: 'right', cellPadding: 2.5, overflow: 'visible',
+      };
+      const labelStyle = { ...totStyle, halign: 'left', fontSize: 9 };
+
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY,
+        margin: { left: marginX, right: marginX, top: 5 },
+        body: [
+          // Row 1 — one cell per column so values sit directly under headers
+          [
+            { content: `GRAND TOTAL`,           styles: { ...labelStyle, fontSize: 8 } },
+            { content: `(${bilties.length} bilties)`, styles: { ...labelStyle, halign: 'center', fontSize: 8 } },
+            { content: '',                       styles: { ...totStyle, halign: 'center' } },
+            { content: String(pkgs),             styles: { ...totStyle, halign: 'center', fontSize: 12 } },
+            { content: fmtN(wt),                 styles: { ...totStyle, fontSize: 12 } },
+            { content: fmtN(dd),                 styles: { ...totStyle, fontSize: 12 } },
+            { content: fmtN(pf),                 styles: { ...totStyle, fontSize: 13 } },
+            { content: fmtN(kaat),               styles: { ...totStyle, fontSize: 13 } },
+          ],
+          // Row 2 — Net PF: formula on left, note on right corner
+          [
+            {
+              content: `TOTAL  =  Rs. ${fmtN(netPf)}`,
+              colSpan: 6,
+              styles: {
+                fillColor: [20, 20, 20], textColor: [255, 255, 255],
+                fontStyle: 'bold', fontSize: 13, halign: 'center', cellPadding: 4, overflow: 'visible',
+              },
+            },
+            {
+              content: `TOTAL = PF - PAID\nPF Includes DD Chrg.`,
+              colSpan: 2,
+              styles: {
+                fillColor: [20, 20, 20], textColor: [180, 180, 180],
+                fontStyle: 'bold', fontSize: 7.5, halign: 'right', cellPadding: { top: 2, bottom: 2, left: 2, right: 3 }, overflow: 'visible',
+              },
+            },
+          ],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2, lineColor: [80, 80, 80], lineWidth: 0.2, overflow: 'visible' },
+        columnStyles: colStyles,
+      });
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ── BILTY FORMAT (flat list, sorted by Pohonch / Bilty Number) ────────
+    // ═══════════════════════════════════════════════════════════════════════
     if (printFormat === 'bilty') {
       const allBilties = [
         ...pohonchGroups.flatMap(g => g.bilties),
@@ -67,211 +241,44 @@ export async function generateCrossingBillsPDF({
 
       if (allBilties.length === 0) { setPdfLoading(false); return; }
 
-      // 13-col row: GR No, Bilty No, Destination, Paid, To-Pay, Pkgs, Pvt Mark, Wt, Rate, DD, Kaat, Total, PF
-      const mapRowB = (b) => {
-        const dd   = Number(b.kaat_dd) || 0;
-        const kaat = Number(b.kaat)    || 0;
-        const pf   = fmtN(Number(b.kaat_pf) || 0);
-        return [
-          b.gr_no          || '',
-          b.dest_pohonch_no || b.bilty_number || '',
-          b.to_city        || '',
-          b.payment_mode === 'paid' ? 'PAID' : (b.payment_mode === 'foc' ? 'FOC' : ''),  // Paid
-          b.payment_mode === 'to-pay' ? fmtN(b.total) : '',
-          b.no_of_pkg != null ? String(b.no_of_pkg) : '',
-          b.pvt_marks || '',
-          b.wt        != null ? String(b.wt)        : '',
-          b.kaat_rate != null ? String(b.kaat_rate) : '',
-          dd   !== 0 ? fmtN(dd)   : '',  // DD
-          kaat !== 0 ? fmtN(kaat) : '',  // Kaat
-          (b.payment_mode === 'paid' || b.payment_mode === 'foc') ? 'PAID' : fmtN(b.total),
-          pf,
-        ];
-      };
-
-      // Column widths (13 cols): sum = 291mm (297 - 3 left - 3 right)
-      const biltyColStyles = {
-        0:  { cellWidth: 20, fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },                    // GR No
-        1:  { cellWidth: 20, fontStyle: 'bold', textColor: [0,0,0], fontSize: 8 },                    // Bilty No
-        2:  { cellWidth: 42, fontStyle: 'bold', textColor: [0,0,0], fontSize: 8 },                    // Destination
-        3:  { cellWidth: 20, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Paid
-        4:  { cellWidth: 24, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // To-Pay
-        5:  { cellWidth: 13, halign: 'center', fontStyle: 'bold', textColor: [0,0,0], fontSize: 8 },  // Pkgs
-        6:  { cellWidth: 16, fontStyle: 'bold', textColor: [0,0,0], fontSize: 8 },                    // Pvt Mark
-        7:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Wt
-        8:  { cellWidth: 18, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Rate
-        9:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // DD
-        10: { cellWidth: 26, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Kaat
-        11: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // Total
-        12: { cellWidth: 20, halign: 'right', fontStyle: 'bold', textColor: [0,0,0], fontSize: 9 },   // PF
-      };
-      // Sum = 20+20+42+20+24+13+16+22+18+26+22+28+20 = 291
-
       autoTable(doc, {
         startY: 22,
         margin: { top: 4, left: marginX, right: marginX },
-        head:   [['GR No', 'Bilty No', 'Destination', 'Paid', 'To-Pay', 'Pkgs', 'Pvt Mark', 'Wt', 'Rate', 'DD', 'Kaat', 'Total', 'PF']],
-        body:   allBilties.map(mapRowB),
+        head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
+        body:   allBilties.map(mapRow),
         theme:  'grid',
-        styles: { fontSize: 6, cellPadding: 1, textColor: [0,0,0], lineColor: [160,160,160], lineWidth: 0.1, overflow: 'linebreak' },
-        headStyles: { fillColor: [50,50,50], textColor: [255,255,255], fontStyle: 'bold', fontSize: 6.5 },
-        columnStyles: biltyColStyles,
-        didDrawPage: (data) => {
-          if (data.pageNumber === 1) {
-            doc.setFontSize(16); doc.setFont('helvetica', 'bold');
-            doc.text('SS TRANSPORT', pageW / 2, 10, { align: 'center' });
-            doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
-            doc.text(`Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}   |   Bill Date: ${billDateFmt}`, pageW / 2, 16, { align: 'center' });
-            doc.setLineWidth(0.3); doc.setDrawColor(150,150,150);
-            doc.line(0, 19, pageW, 19);
-          }
-          // Page number bottom-right
-          doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
-          doc.text(`Page ${data.pageNumber} / {bTotal}`, pageW - marginX, doc.internal.pageSize.getHeight() - 3, { align: 'right' });
-          doc.setTextColor(0, 0, 0);
-        },
+        styles: { fontSize: 6, cellPadding: 1, textColor: [0, 0, 0], lineColor: [160, 160, 160], lineWidth: 0.1, overflow: 'linebreak' },
+        headStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5, cellPadding: 2.5 },
+        columnStyles: colStyles,
+        didDrawPage: (data) => drawPageHeader(data),
       });
 
-      // Grand totals
-      const bTotWt     = allBilties.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
-      const bTotPaid   = allBilties.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const bTotToPay  = allBilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const bTotPkgs   = allBilties.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
-      const bTotDD     = allBilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-      const bTotKaat   = allBilties.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-      const bTotTotal  = allBilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const bTotKaatPf = allBilties.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
-      const bTotStyle  = { fillColor: [20,20,20], textColor: [255,255,255], fontStyle: 'bold', fontSize: 8, halign: 'right', cellPadding: 2, overflow: 'visible' };
+      drawTotalsTable(allBilties);
 
-      autoTable(doc, {
-        startY: doc.lastAutoTable.finalY,
-        margin: { left: marginX, right: marginX, top: 5 },
-        body: [[
-          { content: `GRAND TOTAL  (${allBilties.length} bilties)`, colSpan: 3, styles: { ...bTotStyle, halign: 'center', fontSize: 9 } },
-          { content: '',               styles: bTotStyle },
-          { content: fmtN(bTotToPay),  styles: bTotStyle },
-          { content: String(bTotPkgs), styles: { ...bTotStyle, halign: 'center' } },
-          { content: '',               styles: bTotStyle },
-          { content: fmtN(bTotWt),     styles: bTotStyle },
-          { content: '',               styles: bTotStyle },
-          { content: fmtN(bTotDD),    styles: bTotStyle },  // DD
-          { content: fmtN(bTotKaat),   styles: bTotStyle },  // Kaat
-          { content: fmtN(bTotTotal),  styles: bTotStyle },
-          { content: fmtN(bTotKaatPf), styles: bTotStyle },
-        ]],
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2, lineColor: [80,80,80], lineWidth: 0.2, overflow: 'visible' },
-        columnStyles: biltyColStyles,
-      });
+      const bPageH  = doc.internal.pageSize.getHeight();
+      const bFinalY = doc.lastAutoTable.finalY;
+      const bBaseY  = (bFinalY + 90 > bPageH) ? (doc.addPage(), 15) : bFinalY;
+      drawSignatureAndNotice(bBaseY);
 
-      // Signature + Notice: need ~90mm. If not enough room, add a new page.
-      const bPageH   = doc.internal.pageSize.getHeight();
-      const bFinalY  = doc.lastAutoTable.finalY;
-      const bBaseY   = (bFinalY + 90 > bPageH) ? (doc.addPage(), 15) : bFinalY;
-
-      // Signature
-      const bSigY = bBaseY + 18;
-      const bSigLineY = bSigY + 14;
-      const bLeftX = marginX + 15, bRightX = pageW / 2 + 15, bLineW = pageW / 2 - 30;
-      doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
-      doc.line(bLeftX, bSigLineY, bLeftX + bLineW, bSigLineY);
-      doc.line(bRightX, bSigLineY, bRightX + bLineW, bSigLineY);
-      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-      doc.text('Authorized Signatory', bLeftX + bLineW / 2, bSigLineY + 4, { align: 'center' });
-      doc.text('Authorized Signatory', bRightX + bLineW / 2, bSigLineY + 4, { align: 'center' });
-      doc.setFontSize(9);
-      doc.text('SS TRANSPORT', bLeftX + bLineW / 2, bSigLineY + 9, { align: 'center' });
-      doc.text(transportName || 'Transport', bRightX + bLineW / 2, bSigLineY + 9, { align: 'center' });
-      if (transportGst) {
-        doc.setFontSize(7); doc.setFont('helvetica', 'normal');
-        doc.text(transportGst, bRightX + bLineW / 2, bSigLineY + 13, { align: 'center' });
-      }
-
-      // Notice
-      const bNoticeY = bSigLineY + 22;
-      doc.setDrawColor(120, 120, 120); doc.setLineWidth(0.2);
-      doc.line(marginX, bNoticeY - 3, pageW - marginX, bNoticeY - 3);
-      doc.setFontSize(11); doc.setFont('helvetica', 'bolditalic'); doc.setTextColor(40, 40, 40);
-      doc.text(
-        'NOTICE: All pending Pohonch/POD copies against the attached Bilties must be submitted within 2 days from the date of bill receipt. Any discrepancy or non-delivery claim raised thereafter shall be treated as the responsibility of the receiving transport company.',
-        pageW / 2, bNoticeY + 1, { align: 'center', maxWidth: pageW - marginX * 2 }
-      );
-      doc.setFont('helvetica', 'italic'); doc.setFontSize(9.5);
-      doc.text(
-        'Notice: Attached bilties ki pending pahunch/POD copies bill milne ke 2 din ke andar jama karein. Baad mein kisi bhi kami ya maal na milne ki zimmedari sambandhi transport company ki mani jayegi.',
-        pageW / 2, bNoticeY + 14, { align: 'center', maxWidth: pageW - marginX * 2 }
-      );
-      doc.setTextColor(0, 0, 0);
-
-      doc.putTotalPages('{bTotal}');
-      const pdfBlob = doc.output('blob');
-      setPdfBlobUrl(URL.createObjectURL(pdfBlob));
-      return; // skip pohonch format
+      doc.putTotalPages('{pTotal}');
+      setPdfBlobUrl(URL.createObjectURL(doc.output('blob')));
+      return;
     }
 
-    const NUM_COLS      = 12;
-
-    // ── Row builder (12 cols) ────────────────────────────────────────────────
-    const mapRow = (b) => {
-      const dd   = Number(b.kaat_dd) || 0;
-      const kaat = Number(b.kaat)    || 0;
-      const pf   = fmtN(Number(b.kaat_pf) || 0);
-      return [
-        b.gr_no          || '',
-        b.to_city        || '',
-        b.payment_mode === 'paid' ? 'PAID' : (b.payment_mode === 'foc' ? 'FOC' : ''),  // Paid
-        b.payment_mode === 'to-pay' ? fmtN(b.total) : '',
-        b.no_of_pkg != null ? String(b.no_of_pkg) : '',
-        b.pvt_marks || '',
-        b.wt        != null ? String(b.wt)        : '',
-        b.kaat_rate != null ? String(b.kaat_rate) : '',
-        dd   !== 0 ? fmtN(dd)   : '',  // DD
-        kaat !== 0 ? fmtN(kaat) : '',  // Kaat
-        (b.payment_mode === 'paid' || b.payment_mode === 'foc') ? 'PAID' : fmtN(b.total),
-        pf,
-      ];
-    };
-
-    // ── Styles ───────────────────────────────────────────────────────────────
-    const secStyle = {
-      fillColor:   [210, 210, 210],
-      fontStyle:   'bold',
-      halign:      'center',
-      fontSize:    7,
-      textColor:   [0, 0, 0],
-      cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
-    };
-    const subStyle = {
-      fillColor:   [230, 230, 230],
-      fontStyle:   'bold',
-      textColor:   [0, 0, 0],
-      fontSize:    7,
-      halign:      'right',
-      cellPadding: 1.2,
-    };
-    const spaceStyle = {
-      fillColor:   [215, 215, 215],
-      cellPadding: { top: 0.5, bottom: 0.5, left: 0, right: 0 },
-      lineWidth:   0,
-    };
-
-    // ── Build body rows ───────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // ── POHONCH FORMAT (grouped by Pohonch Number) ────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
     const inclPohonch   = pohonchGroups.filter(g => !excludedGroups.has(g.key));
     const inclNoPohonch = (noPohonchGroup?.bilties || []).filter(b => !excludedBilties.has(b.gr_no));
 
-    if (inclPohonch.length === 0 && inclNoPohonch.length === 0) {
-      setPdfLoading(false);
-      return;
-    }
+    if (inclPohonch.length === 0 && inclNoPohonch.length === 0) { setPdfLoading(false); return; }
 
     const body = [];
 
     for (const grp of inclPohonch) {
-      const hc     = [...new Set(grp.bilties.map(b => b.pohonch_number).filter(Boolean))].join(', ');
-      const hcPart = hc ? `  —  Crossing Challan SS : ${hc}` : '';
-
+      // Section header
       body.push([{
-        content: `Pohonch Number: ${grp.key}${hcPart}  —  ${grp.bilties.length} bilties`,
+        content: `Pohonch: ${grp.key}   —   ${grp.bilties.length} bilties`,
         colSpan: NUM_COLS,
         styles:  secStyle,
       }]);
@@ -279,30 +286,17 @@ export async function generateCrossingBillsPDF({
       for (const b of grp.bilties) body.push(mapRow(b));
 
       // Per-group subtotal
-      const gToPay  = grp.bilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const gPaid   = grp.bilties.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const gPkgs   = grp.bilties.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
-      const gWt     = grp.bilties.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
-      const gDD     = grp.bilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-      const gKaat   = grp.bilties.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-      const gTotal  = grp.bilties.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const gKaatPf = grp.bilties.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
-
+      const { pf: gPf, kaat: gKaat, pkgs: gPkgs, wt: gWt, dd: gDD } = calcTotals(grp.bilties);
       body.push([
-        { content: `Subtotal: ${grp.key}  (${grp.bilties.length})`, colSpan: 2, styles: { ...subStyle, halign: 'center' } },
+        { content: `Subtotal: ${grp.key}  (${grp.bilties.length})`, colSpan: 2, styles: { ...subStyle, halign: 'left' } },
         { content: '',            styles: subStyle },
-        { content: fmtN(gToPay),  styles: subStyle },
         { content: String(gPkgs), styles: { ...subStyle, halign: 'center' } },
-        { content: '',            styles: subStyle },
         { content: fmtN(gWt),     styles: subStyle },
-        { content: '',            styles: subStyle },  // Rate
-        { content: fmtN(gDD),     styles: subStyle },  // DD
-        { content: fmtN(gKaat),   styles: subStyle },  // Kaat
-        { content: fmtN(gTotal),  styles: subStyle },
-        { content: fmtN(gKaatPf), styles: subStyle },
+        { content: fmtN(gDD),     styles: subStyle },
+        { content: fmtN(gPf),     styles: subStyle },
+        { content: fmtN(gKaat),   styles: subStyle },
       ]);
 
-      // Spacer row between groups
       body.push([{ content: '', colSpan: NUM_COLS, styles: spaceStyle }]);
     }
 
@@ -315,202 +309,42 @@ export async function generateCrossingBillsPDF({
 
       for (const b of inclNoPohonch) body.push(mapRow(b));
 
-      const npToPay  = inclNoPohonch.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const npPaid   = inclNoPohonch.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const npPkgs   = inclNoPohonch.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
-      const npWt     = inclNoPohonch.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
-      const npDD     = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-      const npKaat   = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-      const npTotal  = inclNoPohonch.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-      const npKaatPf = inclNoPohonch.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
-
+      const { pf: nPf, kaat: nKaat, pkgs: nPkgs, wt: nWt, dd: nDD } = calcTotals(inclNoPohonch);
       body.push([
-        { content: `Subtotal: No Pohonch  (${inclNoPohonch.length})`, colSpan: 2, styles: { ...subStyle, halign: 'center' } },
-        { content: '',             styles: subStyle },
-        { content: fmtN(npToPay),  styles: subStyle },
-        { content: String(npPkgs), styles: { ...subStyle, halign: 'center' } },
-        { content: '',             styles: subStyle },
-        { content: fmtN(npWt),     styles: subStyle },
-        { content: '',             styles: subStyle },  // Rate
-        { content: fmtN(npDD),     styles: subStyle },  // DD
-        { content: fmtN(npKaat),   styles: subStyle },  // Kaat
-        { content: fmtN(npTotal),  styles: subStyle },
-        { content: fmtN(npKaatPf), styles: subStyle },
+        { content: `Subtotal: No Pohonch  (${inclNoPohonch.length})`, colSpan: 2, styles: { ...subStyle, halign: 'left' } },
+        { content: '',            styles: subStyle },
+        { content: String(nPkgs), styles: { ...subStyle, halign: 'center' } },
+        { content: fmtN(nWt),     styles: subStyle },
+        { content: fmtN(nDD),     styles: subStyle },
+        { content: fmtN(nPf),     styles: subStyle },
+        { content: fmtN(nKaat),   styles: subStyle },
       ]);
     }
 
     if (body.length === 0) { setPdfLoading(false); return; }
 
-    // ── Main table ────────────────────────────────────────────────────────────
     autoTable(doc, {
       startY: 22,
       margin: { top: 4, left: marginX, right: marginX },
-      head:   [['GR No', 'Destination', 'Paid', 'To-Pay', 'Pkgs', 'Pvt Mark', 'Wt', 'Rate', 'DD', 'Kaat', 'Total', 'PF']],
+      head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
       body,
       theme:  'grid',
-      styles: {
-        fontSize:    6,
-        cellPadding: 1,
-        textColor:   [0, 0, 0],
-        lineColor:   [160, 160, 160],
-        lineWidth:   0.1,
-        overflow:    'linebreak',
-      },
-      headStyles: {
-        fillColor: [50, 50, 50],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize:  6.5,
-      },
-      // Column widths scaled to sum exactly to 297mm (full A4 landscape width).
-      // Old total was 224mm → scale factor ≈ 1.326
-      columnStyles: {
-        0:  { cellWidth: 20, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },                   // GR No
-        1:  { cellWidth: 45, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Destination
-        2:  { cellWidth: 20, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Paid
-        3:  { cellWidth: 25, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // To-Pay
-        4:  { cellWidth: 13, halign: 'center', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 }, // Pkgs
-        5:  { cellWidth: 20, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Pvt Mark
-        6:  { cellWidth: 23, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Wt
-        7:  { cellWidth: 18, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Rate
-        8:  { cellWidth: 22, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // DD
-        9:  { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Kaat
-        10: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // Total
-        11: { cellWidth: 27, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },  // PF
-      },                                                                                                 // Sum = 20+45+20+25+13+20+23+18+28+22+30+27 = 291mm
-      didDrawPage: (data) => {
-        if (data.pageNumber === 1) {
-          doc.setFontSize(16);
-          doc.setFont('helvetica', 'bold');
-          doc.text('SS TRANSPORT', pageW / 2, 10, { align: 'center' });
-          doc.setFontSize(8.5);
-          doc.setFont('helvetica', 'normal');
-          doc.text(
-            `Transport: ${transportName}   |   GSTIN: ${transportGst}   |   Period: ${dateRange}   |   Bill Date: ${billDateFmt}`,
-            pageW / 2, 16, { align: 'center' }
-          );
-          doc.setLineWidth(0.3);
-          doc.setDrawColor(150, 150, 150);
-          doc.line(0, 19, pageW, 19);
-        }
-        // Page number bottom-right
-        doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
-        doc.text(`Page ${data.pageNumber} / {pTotal}`, pageW - marginX, doc.internal.pageSize.getHeight() - 3, { align: 'right' });
-        doc.setTextColor(0, 0, 0);
-      },
+      styles: { fontSize: 6, cellPadding: 1, textColor: [0, 0, 0], lineColor: [160, 160, 160], lineWidth: 0.1, overflow: 'linebreak' },
+      headStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5, cellPadding: 2.5 },
+      columnStyles: colStyles,
+      didDrawPage: (data) => drawPageHeader(data),
     });
 
-    // ── Grand totals row ──────────────────────────────────────────────────────
-    const allB = [
-      ...inclPohonch.flatMap(g => g.bilties),
-      ...inclNoPohonch,
-    ];
-    const totToPay  = allB.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-    const totPaid   = allB.filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc').reduce((s, b) => s + (Number(b.total) || 0), 0);
-    const totPkgs   = allB.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0);
-    const totWt     = allB.reduce((s, b) => s + (Number(b.wt)      || 0), 0);
-    const totDD     = allB.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0);
-    const totKaat   = allB.reduce((s, b) => s + (Number(b.kaat)    || 0), 0);
-    const totTotal  = allB.filter(b => b.payment_mode === 'to-pay').reduce((s, b) => s + (Number(b.total) || 0), 0);
-    const totKaatPf = allB.reduce((s, b) => s + (Number(b.kaat_pf) || 0), 0);
+    const allB = [...inclPohonch.flatMap(g => g.bilties), ...inclNoPohonch];
+    drawTotalsTable(allB);
 
-    const totalsStyle = {
-      fillColor:   [20, 20, 20],
-      textColor:   [255, 255, 255],
-      fontStyle:   'bold',
-      fontSize:    8,
-      halign:      'right',
-      cellPadding: 2,
-      overflow:    'visible',
-    };
-    const totalsRow = [
-      { content: `GRAND TOTAL  (${allB.length} bilties)`, colSpan: 2, styles: { ...totalsStyle, halign: 'center', fontSize: 9 } },
-      { content: '',             styles: totalsStyle },
-      { content: fmtN(totToPay),  styles: totalsStyle },
-      { content: String(totPkgs), styles: { ...totalsStyle, halign: 'center' } },
-      { content: '',              styles: totalsStyle },  // Pvt Mark
-      { content: fmtN(totWt),     styles: totalsStyle },
-      { content: '',              styles: totalsStyle },  // Rate
-      { content: fmtN(totDD),     styles: totalsStyle },  // DD
-      { content: fmtN(totKaat),   styles: totalsStyle },  // Kaat
-      { content: fmtN(totTotal),  styles: totalsStyle },
-      { content: fmtN(totKaatPf), styles: totalsStyle },
-    ];
+    const pageH  = doc.internal.pageSize.getHeight();
+    const finalY = doc.lastAutoTable.finalY;
+    const baseY  = (finalY + 90 > pageH) ? (doc.addPage(), 15) : finalY;
+    drawSignatureAndNotice(baseY);
 
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY,
-      margin: { left: marginX, right: marginX, top: 5 },
-      body:   [totalsRow],
-      theme:  'grid',
-      styles: { fontSize: 8, cellPadding: 2, lineColor: [80, 80, 80], lineWidth: 0.2, overflow: 'visible' },
-      columnStyles: {
-        0:  { cellWidth: 20 },
-        1:  { cellWidth: 45 },
-        2:  { cellWidth: 20 },
-        3:  { cellWidth: 25 },
-        4:  { cellWidth: 13 },
-        5:  { cellWidth: 20 },
-        6:  { cellWidth: 23 },
-        7:  { cellWidth: 18 },
-        8:  { cellWidth: 22 },
-        9:  { cellWidth: 28 },
-        10: { cellWidth: 30 },
-        11: { cellWidth: 27 },
-      },
-    });
-
-    // Signature + Notice: need ~90mm. If not enough room, add a new page.
-    const pageH   = doc.internal.pageSize.getHeight();
-    const finalY  = doc.lastAutoTable.finalY;
-    const baseY   = (finalY + 90 > pageH) ? (doc.addPage(), 15) : finalY;
-
-    // ── Signature section ─────────────────────────────────────────────────────
-    const sigY     = baseY + 18;
-    const sigLineY = sigY + 14;
-    const leftX    = marginX + 15;
-    const rightX   = pageW / 2 + 15;
-    const lineW    = pageW / 2 - 30;
-
-    doc.setDrawColor(80, 80, 80);
-    doc.setLineWidth(0.5);
-    doc.line(leftX,  sigLineY, leftX  + lineW, sigLineY);
-    doc.line(rightX, sigLineY, rightX + lineW, sigLineY);
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Authorized Signatory', leftX  + lineW / 2, sigLineY + 4, { align: 'center' });
-    doc.text('Authorized Signatory', rightX + lineW / 2, sigLineY + 4, { align: 'center' });
-
-    doc.setFontSize(9);
-    doc.text('SS TRANSPORT',                   leftX  + lineW / 2, sigLineY + 9, { align: 'center' });
-    doc.text(transportName || 'Transport',     rightX + lineW / 2, sigLineY + 9, { align: 'center' });
-    if (transportGst) {
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text(transportGst, rightX + lineW / 2, sigLineY + 13, { align: 'center' });
-    }
-
-    // ── Notice ────────────────────────────────────────────────────────────────
-    const noticeY = sigLineY + 22;
-    doc.setDrawColor(120, 120, 120); doc.setLineWidth(0.2);
-    doc.line(marginX, noticeY - 3, pageW - marginX, noticeY - 3);
-    doc.setFontSize(11); doc.setFont('helvetica', 'bolditalic'); doc.setTextColor(40, 40, 40);
-    doc.text(
-      'NOTICE: All pending Pohonch/POD copies against the attached Bilties must be submitted within 2 days from the date of bill receipt. Any discrepancy or non-delivery claim raised thereafter shall be treated as the responsibility of the receiving transport company.',
-      pageW / 2, noticeY + 1, { align: 'center', maxWidth: pageW - marginX * 2 }
-    );
-    doc.setFont('helvetica', 'italic'); doc.setFontSize(9.5);
-    doc.text(
-      'Notice: Attached bilties ki pending pahunch/POD copies bill milne ke 2 din ke andar jama karein. Baad mein kisi bhi kami ya maal na milne ki zimmedari sambandhi transport company ki mani jayegi.',
-      pageW / 2, noticeY + 14, { align: 'center', maxWidth: pageW - marginX * 2 }
-    );
-    doc.setTextColor(0, 0, 0);
-
-    // ── Output ────────────────────────────────────────────────────────────────
     doc.putTotalPages('{pTotal}');
-    const pdfBlob = doc.output('blob');
-    const pdfUrl  = URL.createObjectURL(pdfBlob);
-    setPdfBlobUrl(pdfUrl);
+    setPdfBlobUrl(URL.createObjectURL(doc.output('blob')));
 
   } catch (err) {
     console.error('PDF generation failed:', err);

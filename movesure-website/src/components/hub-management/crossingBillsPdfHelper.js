@@ -1,4 +1,5 @@
 import { fmtN } from './transportReportUtils';
+import { ALL_COLS, DEFAULT_SELECTED_COLS, computeColStyles } from './crossingBillsColumns';
 
 /**
  * Generates the Crossing Bills PDF and sets the blob URL.
@@ -20,10 +21,12 @@ export async function generateCrossingBillsPDF({
   excludedGroups,
   excludedBilties,
   printFormat = 'pohonch',
+  selectedCols = DEFAULT_SELECTED_COLS,
   setShowModal,
   setPdfLoading,
   setPdfBlobUrl,
 }) {
+  const activeCols = ALL_COLS.filter(c => selectedCols.includes(c.id));
   setShowModal(false);
   setPdfLoading(true);
 
@@ -42,20 +45,8 @@ export async function generateCrossingBillsPDF({
       ? new Date(billDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
       : '';
 
-    const NUM_COLS = 9;
-
-    // ── Column widths (sum = 20+42+22+25+12+18+18+65+69 = 291mm = 297−3−3) ──
-    const colStyles = {
-      0: { cellWidth: 20, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },                   // GR No
-      1: { cellWidth: 42, fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },                   // Pohonch Number
-      2: { cellWidth: 22,                    textColor: [0, 0, 0], fontSize: 7.5 },                 // Bilty Date
-      3: { cellWidth: 25,                    textColor: [0, 0, 0], fontSize: 7.5 },                 // Station
-      4: { cellWidth: 12, halign: 'center',  fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Pkgs
-      5: { cellWidth: 18, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// Wt
-      6: { cellWidth: 18, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 8 },// DD
-      7: { cellWidth: 65, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// To-Pay (PF)
-      8: { cellWidth: 69, halign: 'right',   fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 9 },// Paid (KAAT)
-    };
+    const NUM_COLS = activeCols.length;
+    const colStyles = computeColStyles(activeCols);
 
     // ── Date formatter ────────────────────────────────────────────────────────
     const fmtDate = (d) => d
@@ -63,26 +54,7 @@ export async function generateCrossingBillsPDF({
       : '—';
 
     // ── Row builder ───────────────────────────────────────────────────────────
-    // To-Pay (PF): kaat_pf only for to-pay bilties
-    // Paid (KAAT): dd + kaat only for paid/foc bilties
-    const mapRow = (b) => {
-      const dd      = Number(b.kaat_dd) || 0;
-      const kaat    = Number(b.kaat)    || 0;
-      const isPaid  = b.payment_mode === 'paid' || b.payment_mode === 'foc';
-      const pfVal   = !isPaid ? fmtN(Number(b.kaat_pf) || 0) : '';
-      const kaatVal = isPaid  ? fmtN(dd + kaat)              : '';
-      return [
-        b.gr_no || '',
-        b.dest_pohonch_no || b.bilty_number || 'Not Provided Yet',
-        fmtDate(b.bilty_date),
-        b.destination || b.to_city || '',
-        b.no_of_pkg != null ? String(b.no_of_pkg) : '',
-        b.wt        != null ? String(b.wt)        : '',
-        dd !== 0 ? fmtN(dd) : '',
-        pfVal,
-        kaatVal,
-      ];
-    };
+    const mapRow = (b) => activeCols.map(col => col.getPdfValue(b));
 
     // ── Aggregate totals helper ───────────────────────────────────────────────
     const calcTotals = (bilties) => ({
@@ -183,35 +155,47 @@ export async function generateCrossingBillsPDF({
       };
       const labelStyle = { ...totStyle, halign: 'left', fontSize: 9 };
 
+      const totalRow = activeCols.map((col, idx) => {
+        const isFirstLabel = idx === 0;
+        const isSecondCount = idx === 1;
+        let content = '';
+        if (isFirstLabel) content = `GRAND TOTAL`;
+        else if (isSecondCount) content = `(${bilties.length} bilties)`;
+        else {
+          switch(col.id) {
+            case 'pkgs': content = String(pkgs); break;
+            case 'wt': content = fmtN(wt); break;
+            case 'dd': content = fmtN(dd); break;
+            case 'to_pay_pf': content = fmtN(pf); break;
+            case 'paid_kaat': content = fmtN(kaat); break;
+          }
+        }
+        return {
+          content,
+          styles: isFirstLabel || isSecondCount ? { ...labelStyle, fontSize: 8 } : { ...totStyle, halign: col.halign, fontSize: 9 },
+        };
+      });
+
+      const leftSpan = Math.ceil(NUM_COLS * 2 / 3);
+      const rightSpan = NUM_COLS - leftSpan;
+
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY,
         margin: { left: marginX, right: marginX, top: 5 },
         body: [
-          // Row 1 — one cell per column so values sit directly under headers
-          [
-            { content: `GRAND TOTAL`,                styles: { ...labelStyle, fontSize: 8 } },
-            { content: `(${bilties.length} bilties)`, styles: { ...labelStyle, halign: 'center', fontSize: 8 } },
-            { content: '',                            styles: totStyle },
-            { content: '',                            styles: totStyle },
-            { content: String(pkgs),                  styles: { ...totStyle, halign: 'center', fontSize: 12 } },
-            { content: fmtN(wt),                      styles: { ...totStyle, fontSize: 12 } },
-            { content: fmtN(dd),                      styles: { ...totStyle, fontSize: 12 } },
-            { content: fmtN(pf),                      styles: { ...totStyle, fontSize: 13 } },
-            { content: fmtN(kaat),                    styles: { ...totStyle, fontSize: 13 } },
-          ],
-          // Row 2 — Net PF: formula on left, note on right corner
+          totalRow,
           [
             {
               content: `TOTAL  =  Rs. ${fmtN(netPf)}`,
-              colSpan: 6,
+              colSpan: leftSpan,
               styles: {
                 fillColor: [20, 20, 20], textColor: [255, 255, 255],
-                fontStyle: 'bold', fontSize: 13, halign: 'center', cellPadding: 4, overflow: 'visible',
+                fontStyle: 'bold', fontSize: 12, halign: 'center', cellPadding: 4, overflow: 'visible',
               },
             },
             {
               content: `TOTAL = PF - PAID\nPAID INCLUDES DD CHRGS`,
-              colSpan: 2,
+              colSpan: rightSpan,
               styles: {
                 fillColor: [20, 20, 20], textColor: [180, 180, 180],
                 fontStyle: 'bold', fontSize: 7.5, halign: 'right', cellPadding: { top: 2, bottom: 2, left: 2, right: 3 }, overflow: 'visible',
@@ -232,7 +216,9 @@ export async function generateCrossingBillsPDF({
       const allBilties = [
         ...pohonchGroups.flatMap(g => g.bilties),
         ...(noPohonchGroup?.bilties || []),
-      ].sort((a, b) => {
+      ]
+      .filter(b => !excludedBilties.has(b.gr_no))
+      .sort((a, b) => {
         const da = a.dest_pohonch_no || a.bilty_number || '';
         const db = b.dest_pohonch_no || b.bilty_number || '';
         if (da === '' && db !== '') return 1;
@@ -247,7 +233,7 @@ export async function generateCrossingBillsPDF({
       autoTable(doc, {
         startY: 22,
         margin: { top: 4, left: marginX, right: marginX },
-        head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Station', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
+        head:   [activeCols.map(c => c.label)],
         body:   allBilties.map(mapRow),
         theme:  'grid',
         styles: { fontSize: 6, cellPadding: 1, textColor: [0, 0, 0], lineColor: [160, 160, 160], lineWidth: 0.1, overflow: 'linebreak' },
@@ -290,16 +276,21 @@ export async function generateCrossingBillsPDF({
 
       // Per-group subtotal
       const { pf: gPf, kaat: gKaat, pkgs: gPkgs, wt: gWt, dd: gDD } = calcTotals(grp.bilties);
-      body.push([
+      const subtotalRow = [
         { content: `Subtotal: ${grp.key}  (${grp.bilties.length})`, colSpan: 2, styles: { ...subStyle, halign: 'left' } },
-        { content: '', styles: subStyle },
-        { content: '', styles: subStyle },
-        { content: String(gPkgs), styles: { ...subStyle, halign: 'center' } },
-        { content: fmtN(gWt),     styles: subStyle },
-        { content: fmtN(gDD),     styles: subStyle },
-        { content: fmtN(gPf),     styles: subStyle },
-        { content: fmtN(gKaat),   styles: subStyle },
-      ]);
+        ...activeCols.slice(2).map(col => {
+          let content = '';
+          switch(col.id) {
+            case 'pkgs': content = String(gPkgs); break;
+            case 'wt': content = fmtN(gWt); break;
+            case 'dd': content = fmtN(gDD); break;
+            case 'to_pay_pf': content = fmtN(gPf); break;
+            case 'paid_kaat': content = fmtN(gKaat); break;
+          }
+          return { content, styles: { ...subStyle, halign: col.halign === 'center' ? 'center' : col.halign === 'right' ? 'right' : 'left' } };
+        }),
+      ];
+      body.push(subtotalRow);
 
       body.push([{ content: '', colSpan: NUM_COLS, styles: spaceStyle }]);
     }
@@ -314,16 +305,21 @@ export async function generateCrossingBillsPDF({
       for (const b of inclNoPohonch) body.push(mapRow(b));
 
       const { pf: nPf, kaat: nKaat, pkgs: nPkgs, wt: nWt, dd: nDD } = calcTotals(inclNoPohonch);
-      body.push([
+      const noPohonchSubtotalRow = [
         { content: `Subtotal: No Pohonch  (${inclNoPohonch.length})`, colSpan: 2, styles: { ...subStyle, halign: 'left' } },
-        { content: '', styles: subStyle },
-        { content: '', styles: subStyle },
-        { content: String(nPkgs), styles: { ...subStyle, halign: 'center' } },
-        { content: fmtN(nWt),     styles: subStyle },
-        { content: fmtN(nDD),     styles: subStyle },
-        { content: fmtN(nPf),     styles: subStyle },
-        { content: fmtN(nKaat),   styles: subStyle },
-      ]);
+        ...activeCols.slice(2).map(col => {
+          let content = '';
+          switch(col.id) {
+            case 'pkgs': content = String(nPkgs); break;
+            case 'wt': content = fmtN(nWt); break;
+            case 'dd': content = fmtN(nDD); break;
+            case 'to_pay_pf': content = fmtN(nPf); break;
+            case 'paid_kaat': content = fmtN(nKaat); break;
+          }
+          return { content, styles: { ...subStyle, halign: col.halign === 'center' ? 'center' : col.halign === 'right' ? 'right' : 'left' } };
+        }),
+      ];
+      body.push(noPohonchSubtotalRow);
     }
 
     if (body.length === 0) { setPdfLoading(false); return; }
@@ -331,7 +327,7 @@ export async function generateCrossingBillsPDF({
     autoTable(doc, {
       startY: 22,
       margin: { top: 4, left: marginX, right: marginX },
-      head:   [['GR No', 'Pohonch Number', 'Bilty Date', 'Station', 'Pkgs', 'Wt', 'DD', 'To-Pay (PF)', 'Paid (KAAT)']],
+      head:   [activeCols.map(c => c.label)],
       body,
       theme:  'grid',
       styles: { fontSize: 6, cellPadding: 1, textColor: [0, 0, 0], lineColor: [160, 160, 160], lineWidth: 0.1, overflow: 'linebreak' },

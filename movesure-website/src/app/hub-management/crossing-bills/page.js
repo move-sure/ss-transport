@@ -20,6 +20,8 @@ import {
 
 import { generateCrossingBillsPDF } from '../../../components/hub-management/crossingBillsPdfHelper';
 import CrossingBillsPreviewTable from '../../../components/hub-management/CrossingBillsPreviewTable';
+import PrintColumnSelector from '../../../components/hub-management/PrintColumnSelector';
+import { DEFAULT_SELECTED_COLS } from '../../../components/hub-management/crossingBillsColumns';
 
 const API_BASE    = 'https://api.movesure.io';
 const TODAY       = new Date().toISOString().split('T')[0];
@@ -59,6 +61,7 @@ export default function CrossingBillsPage() {
   const [printFormat, setPrintFormat]     = useState(null); // 'pohonch' | 'bilty'
   const [billDate, setBillDate]           = useState(TODAY);
   const [showPreview, setShowPreview]     = useState(false);
+  const [selectedCols, setSelectedCols]   = useState(DEFAULT_SELECTED_COLS);
 
 
   // ── Flatten & group bilties ────────────────────────────────────────────────
@@ -113,6 +116,9 @@ export default function CrossingBillsPage() {
       return n;
     });
 
+  const toggleCol = (id) =>
+    setSelectedCols(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
   const includedCount = useMemo(() => {
     const pg = pohonchGroups
       .filter(g => !excludedGroups.has(g.key))
@@ -133,6 +139,7 @@ export default function CrossingBillsPage() {
     excludedGroups,
     excludedBilties,
     printFormat: printFormat || 'pohonch',
+    selectedCols,
     setShowModal,
     setPdfLoading,
     setPdfBlobUrl,
@@ -154,9 +161,11 @@ export default function CrossingBillsPage() {
         fromDate={fromDate}
         toDate={toDate}
         billDate={billDate}
+        selectedCols={selectedCols}
         onClose={() => setShowPreview(false)}
         onBackToSettings={() => { setShowPreview(false); setShowModal(true); }}
         onPrint={() => { setShowPreview(false); generatePDF(); }}
+        onToggleBilty={toggleBilty}
         pdfLoading={pdfLoading}
       />
     );
@@ -385,7 +394,7 @@ export default function CrossingBillsPage() {
                   type="date"
                   value={billDate}
                   onChange={e => setBillDate(e.target.value)}
-                  className="w-full sm:w-56 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+                  className="w-full sm:w-56 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono font-bold text-gray-900 focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
                 />
               </div>
 
@@ -428,48 +437,63 @@ export default function CrossingBillsPage() {
                 </div>
               </div>
 
+              {/* ── Column selector ────────────────────────────────────────────── */}
+              <PrintColumnSelector selectedCols={selectedCols} onToggle={toggleCol} />
+
               {/* ── Pohonch groups (pohonch format only) ──────────────────────── */}
               {printFormat === 'pohonch' && pohonchGroups.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
                     Pohonch Number Groups — click to include / exclude entire group
                   </p>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {pohonchGroups.map(grp => {
                       const excluded = excludedGroups.has(grp.key);
+                      const dates = grp.bilties.map(b => b.bilty_date).filter(d => d);
+                      const minDate = dates.length ? format(new Date(dates.sort()[0]), 'dd MMM yy') : '';
+                      const maxDate = dates.length ? format(new Date(dates.sort()[dates.length - 1]), 'dd MMM yy') : '';
+                      const dateRange = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
                       return (
                         <div
                           key={grp.key}
-                          className={`rounded-xl border transition-all ${excluded ? 'border-gray-200 bg-gray-50 opacity-50' : 'border-gray-300 bg-white'}`}
+                          className={`rounded-2xl border-2 transition-all ${excluded ? 'border-gray-200 bg-gray-50 opacity-50' : 'border-gray-300 bg-white shadow-sm'}`}
                         >
                           {/* Group toggle row */}
                           <button
-                            className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
                             onClick={() => toggleGroup(grp.key)}
                           >
                             <Checkbox checked={!excluded} />
-                            <span className="text-lg font-black text-gray-900">{grp.key}</span>
-                            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                              {grp.bilties.length} bilties
+                            <div className="flex-1">
+                              <span className="text-base font-black text-gray-900 block">{grp.key}</span>
+                              {dateRange && <span className="text-xs text-gray-500 font-medium">{dateRange}</span>}
+                            </div>
+                            <span className="text-sm font-bold text-gray-600 bg-gray-200 px-3 py-1.5 rounded-full shrink-0">
+                              {grp.bilties.length}
                             </span>
                             {excluded && (
-                              <span className="ml-auto text-xs text-red-400 font-semibold italic">Excluded from print</span>
+                              <span className="ml-2 text-xs text-red-500 font-semibold italic shrink-0">Excluded</span>
                             )}
                           </button>
 
                           {/* Bilty list inside group */}
                           {!excluded && (
-                            <div className="px-4 pb-3">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                            <div className="px-5 pb-4 border-t border-gray-100 pt-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-2">
                                 {grp.bilties.map((b, i) => (
                                   <div
                                     key={`${b.gr_no}-${i}`}
-                                    className="flex items-center gap-2 bg-gray-50 px-2.5 py-1.5 rounded-lg text-xs"
+                                    className="flex flex-col gap-1 bg-gray-50 px-3 py-2.5 rounded-lg text-xs border border-gray-100 hover:bg-gray-100 transition-colors"
                                   >
-                                    <span className="font-bold text-gray-800 shrink-0">{b.gr_no}</span>
-                                    <span className="text-gray-400">·</span>
-                                    <span className="truncate text-gray-600 flex-1">{b.consignee_name}</span>
-                                    <span className="shrink-0 text-gray-400 text-[10px]">{b.to_city}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-gray-900">{b.gr_no}</span>
+                                      <span className="text-gray-400">·</span>
+                                      <span className="text-gray-600 font-medium">{b.consignee_name || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-gray-500 ml-0">
+                                      <span className="text-[10px]">{b.to_city || 'N/A'}</span>
+                                      {b.bilty_date && <span className="text-[10px]">• {format(new Date(b.bilty_date), 'dd MMM yy')}</span>}
+                                    </div>
                                   </div>
                                 ))}
                               </div>

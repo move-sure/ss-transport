@@ -4,11 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { Printer, X, FileText, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import PDFGenerator from './pdf-generation';
+import PaymentForm from './payment-form';
+import PaymentStatus from './payment-status';
 import supabase from '../../app/utils/supabase';
 
-const PrintModal = ({ 
-  isOpen, 
-  onClose, 
+const PrintModal = ({
+  isOpen,
+  onClose,
   onSaveOnly,
   biltyData,
   branchData,
@@ -16,12 +18,21 @@ const PrintModal = ({
   toCityName,
   showShortcuts,
   cities = [], // Add cities prop for WhatsApp
-  onNewBilty // Add callback to start new bilty after PDF closes
+  onNewBilty, // Add callback to start new bilty after PDF closes
+  showPaymentForm: propShowPaymentForm,
+  setShowPaymentForm: propSetShowPaymentForm,
+  paymentStatus: propPaymentStatus,
+  setPaymentStatus: propSetPaymentStatus
 }) => {
   const [showPDFGenerator, setShowPDFGenerator] = useState(false);
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
   const [lastSendTime, setLastSendTime] = useState(0);
+
+  // Always use local state for payment management in modal
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,13 +64,63 @@ const PrintModal = ({
     }
   }, [isOpen, onSaveOnly, onClose, biltyData]);
 
-  // Reset states when modal opens
+  // Reset states and fetch payment data when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setWhatsappSent(false);
-      setWhatsappSending(false);
+    if (!isOpen) {
+      setPaymentStatus(null);
+      setShowPaymentForm(false);
+      return;
     }
-  }, [isOpen]);
+
+    setWhatsappSent(false);
+    setWhatsappSending(false);
+    setShowPaymentForm(false);
+
+    // Fetch existing payment data if bilty exists
+    if (biltyData?.id) {
+      const loadPaymentData = async () => {
+        try {
+          setPaymentLoading(true);
+          console.log('🔄 Fetching payment data for bilty:', biltyData.id);
+
+          const res = await fetch(`https://api.movesure.io/api/bilty/payment/${biltyData.id}`);
+          const result = await res.json();
+
+          console.log('📦 Payment API response:', result);
+
+          // API returns data at root level, not under result.data
+          if (result.status === 'success' && result.payment_status) {
+            setPaymentStatus({
+              payment_status: result.payment_status,
+              advance_amount: result.advance_amount,
+              remaining_amount: result.remaining_amount,
+              notes: result.notes || '',
+              payment_details: result.payment_details || {}
+            });
+            console.log('✅ Payment status set:', {
+              payment_status: result.payment_status,
+              advance_amount: result.advance_amount,
+              remaining_amount: result.remaining_amount,
+              notes: result.notes,
+              payment_details: result.payment_details
+            });
+          } else {
+            setPaymentStatus(null);
+            console.log('ℹ️ No payment data found');
+          }
+        } catch (err) {
+          console.error('❌ Error fetching payment data:', err);
+          setPaymentStatus(null);
+        } finally {
+          setPaymentLoading(false);
+        }
+      };
+
+      loadPaymentData();
+    } else {
+      setPaymentStatus(null);
+    }
+  }, [isOpen, biltyData?.id]);
 
   // Send WhatsApp message function - NEW 9-variable template
   const sendWhatsAppMessage = async () => {
@@ -485,6 +546,61 @@ const PrintModal = ({
                   <div className="text-sm text-black">{biltyData.remark}</div>
                 </div>
               )}
+
+              {/* Payment Form / Status Section */}
+              <div className="space-y-2 border-t-2 border-gray-200 pt-3">
+                {paymentStatus ? (
+                  <>
+                    {/* Display Payment Status */}
+                    <PaymentStatus
+                      paymentStatus={paymentStatus.payment_status}
+                      advanceAmount={paymentStatus.advance_amount}
+                      remainingAmount={paymentStatus.remaining_amount}
+                      totalAmount={biltyData?.total || 0}
+                      notes={paymentStatus.notes}
+                    />
+
+                    {/* Update Payment Button */}
+                    {!showPaymentForm && (
+                      <button
+                        onClick={() => setShowPaymentForm(true)}
+                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2.5 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                      >
+                        ✏️ Update Payment Details
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  /* Add Payment Button - when no payment exists */
+                  !showPaymentForm && (
+                    <button
+                      onClick={() => setShowPaymentForm(true)}
+                      className="w-full bg-gradient-to-r from-slate-700 to-slate-800 text-white px-4 py-2.5 rounded-lg hover:from-slate-800 hover:to-slate-900 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      💳 Add Payment Details
+                    </button>
+                  )
+                )}
+
+                {/* Payment Form - shown when user clicks Add/Update */}
+                {showPaymentForm && (
+                  <div className="border-t-2 border-gray-200 pt-3">
+                    <PaymentForm
+                      biltyId={biltyData?.id}
+                      totalAmount={biltyData?.total || 0}
+                      initialPaymentMode={paymentStatus?.payment_details?.payment_mode || 'cash'}
+                      initialAdvanceAmount={paymentStatus?.advance_amount ? String(paymentStatus.advance_amount) : ''}
+                      initialReferenceNumber={paymentStatus?.payment_details?.reference_number || ''}
+                      initialNotes={paymentStatus?.notes || ''}
+                      onPaymentSaved={(data) => {
+                        setPaymentStatus(data);
+                        setShowPaymentForm(false);
+                      }}
+                      onClose={() => setShowPaymentForm(false)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

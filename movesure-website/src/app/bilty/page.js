@@ -18,6 +18,8 @@ import InvoiceDetailsSection from '../../components/bilty/invoice';
 import PackageChargesSection from '../../components/bilty/charges';
 import { useGRReservation } from '../../utils/grReservation';
 import GRLiveStatus from '../../components/bilty/gr-live-status';
+import PaymentForm from '../../components/bilty/payment-form';
+import PaymentStatus from '../../components/bilty/payment-status';
 
 // ⭐ Lazy-load heavy components (jsPDF + QRCode = ~300KB) — not needed at page load
 import dynamic from 'next/dynamic';
@@ -40,10 +42,16 @@ export default function BiltyForm() {
   // Edit mode and print states
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentBiltyId, setCurrentBiltyId] = useState(null);
-  const [existingBilties, setExistingBilties] = useState([]);  const [showPrintModal, setShowPrintModal] = useState(false);
-    const [showPrintBilty, setShowPrintBilty] = useState(false);
-  const [savedBiltyData, setSavedBiltyData] = useState(null);  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [existingBilties, setExistingBilties] = useState([]);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showPrintBilty, setShowPrintBilty] = useState(false);
+  const [savedBiltyData, setSavedBiltyData] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [showBillBookDropdown, setShowBillBookDropdown] = useState(false);
+
+  // Payment management states
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
   
   // Add reset key to force component re-renders
   const [resetKey, setResetKey] = useState(0);
@@ -1192,6 +1200,10 @@ export default function BiltyForm() {
         toCityName={toCityName}
         showShortcuts={showShortcuts}
         onNewBilty={resetForm}
+        showPaymentForm={showPaymentForm}
+        setShowPaymentForm={setShowPaymentForm}
+        paymentStatus={paymentStatus}
+        setPaymentStatus={setPaymentStatus}
       />      {/* Print Component */}
       {showPrintBilty && savedBiltyData && (
         <PrintBilty

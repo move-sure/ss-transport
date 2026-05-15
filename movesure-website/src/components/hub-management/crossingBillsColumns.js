@@ -47,6 +47,16 @@ export const ALL_COLS = [
     getPdfValue: (b) => b.destination || b.to_city || '',
   },
   {
+    id: 'content',
+    label: 'Content',
+    required: false,
+    defaultOn: false,
+    baseWidth: 50,
+    halign: 'left',
+    fontSize: 7,
+    getPdfValue: (b) => b.contain || b.contents || '',
+  },
+  {
     id: 'consignor',
     label: 'Consignor',
     required: false,

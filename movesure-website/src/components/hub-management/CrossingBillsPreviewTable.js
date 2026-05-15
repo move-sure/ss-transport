@@ -34,6 +34,8 @@ function DataRow({ b, activeCols, excluded = false, onToggle }) {
         return <>{b.bilty_date ? new Date(b.bilty_date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : ''}</>;
       case 'station':
         return b.to_city || b.destination || '';
+      case 'content':
+        return b.contain || b.contents || '';
       case 'consignor':
         return b.consignor_name || '';
       case 'consignee':
@@ -66,6 +68,8 @@ function DataRow({ b, activeCols, excluded = false, onToggle }) {
         return `${baseClass} font-black text-gray-900 whitespace-nowrap`;
       case 'pohonch_no':
         return `${baseClass} font-semibold text-gray-800 whitespace-nowrap`;
+      case 'content':
+        return `${baseClass} text-gray-700`;
       case 'to_pay_pf':
         return `${baseClass} text-right font-bold text-blue-700 whitespace-nowrap`;
       case 'paid_kaat':

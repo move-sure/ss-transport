@@ -26,7 +26,7 @@ export async function generateCrossingBillsPDF({
   setPdfLoading,
   setPdfBlobUrl,
 }) {
-  const activeCols = ALL_COLS.filter(c => selectedCols.includes(c.id));
+  const activeCols = selectedCols.map(id => ALL_COLS.find(c => c.id === id)).filter(Boolean);
   setShowModal(false);
   setPdfLoading(true);
 
@@ -64,9 +64,17 @@ export async function generateCrossingBillsPDF({
       kaat: bilties
               .filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc')
               .reduce((s, b) => s + (Number(b.kaat_dd) || 0) + (Number(b.kaat) || 0), 0),
+      toPayKaat: bilties
+              .filter(b => b.payment_mode === 'to-pay')
+              .reduce((s, b) => s + (Number(b.kaat) || 0), 0),
       pkgs: bilties.reduce((s, b) => s + (b.no_of_pkg ?? 0), 0),
       wt:   bilties.reduce((s, b) => s + (Number(b.wt)      || 0), 0),
       dd:   bilties.reduce((s, b) => s + (Number(b.kaat_dd) || 0), 0),
+      rate: bilties.reduce((s, b) => s + (Number(b.kaat_rate) || 0), 0),
+      total: bilties.reduce((s, b) => {
+        const isPaid = b.payment_mode === 'paid' || b.payment_mode === 'foc';
+        return isPaid ? s : s + (Number(b.total) || 0);
+      }, 0),
     });
 
     // ── Shared styles ─────────────────────────────────────────────────────────
@@ -145,7 +153,7 @@ export async function generateCrossingBillsPDF({
 
     // ── Grand Total + Net PF table ────────────────────────────────────────────
     const drawTotalsTable = (bilties) => {
-      const { pf, kaat, pkgs, wt, dd } = calcTotals(bilties);
+      const { pf, kaat, toPayKaat, pkgs, wt, dd, rate, total } = calcTotals(bilties);
       const netPf = pf - kaat;
 
       // Grand-total row: each cell aligns exactly with its column above
@@ -166,8 +174,11 @@ export async function generateCrossingBillsPDF({
             case 'pkgs': content = String(pkgs); break;
             case 'wt': content = fmtN(wt); break;
             case 'dd': content = fmtN(dd); break;
+            case 'rate': content = fmtN(rate); break;
+            case 'total': content = fmtN(total); break;
             case 'to_pay_pf': content = fmtN(pf); break;
             case 'paid_kaat': content = fmtN(kaat); break;
+            case 'to_pay_kaat': content = fmtN(toPayKaat); break;
           }
         }
         return {

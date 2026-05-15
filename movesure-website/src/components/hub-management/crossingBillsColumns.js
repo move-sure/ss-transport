@@ -156,6 +156,21 @@ export const ALL_COLS = [
       return isPaid ? fmtN(dd + kaat) : '';
     },
   },
+  {
+    id: 'to_pay_kaat',
+    label: 'To-Pay (KAAT)',
+    required: false,
+    defaultOn: false,
+    baseWidth: 60,
+    halign: 'right',
+    fontStyle: 'bold',
+    fontSize: 9,
+    getPdfValue: (b) => {
+      const isPaid = b.payment_mode === 'paid' || b.payment_mode === 'foc';
+      const kaat = Number(b.kaat) || 0;
+      return !isPaid ? fmtN(kaat) : '';
+    },
+  },
 ];
 
 export const DEFAULT_SELECTED_COLS = ALL_COLS.filter(c => c.defaultOn).map(c => c.id);

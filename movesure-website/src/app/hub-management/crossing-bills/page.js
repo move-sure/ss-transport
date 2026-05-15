@@ -119,6 +119,24 @@ export default function CrossingBillsPage() {
   const toggleCol = (id) =>
     setSelectedCols(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
+  const moveColUp = (id) =>
+    setSelectedCols(prev => {
+      const idx = prev.indexOf(id);
+      if (idx <= 0) return prev;
+      const newCols = [...prev];
+      [newCols[idx - 1], newCols[idx]] = [newCols[idx], newCols[idx - 1]];
+      return newCols;
+    });
+
+  const moveColDown = (id) =>
+    setSelectedCols(prev => {
+      const idx = prev.indexOf(id);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
+      const newCols = [...prev];
+      [newCols[idx], newCols[idx + 1]] = [newCols[idx + 1], newCols[idx]];
+      return newCols;
+    });
+
   const includedCount = useMemo(() => {
     const pg = pohonchGroups
       .filter(g => !excludedGroups.has(g.key))
@@ -438,7 +456,7 @@ export default function CrossingBillsPage() {
               </div>
 
               {/* ── Column selector ────────────────────────────────────────────── */}
-              <PrintColumnSelector selectedCols={selectedCols} onToggle={toggleCol} />
+              <PrintColumnSelector selectedCols={selectedCols} onToggle={toggleCol} onMoveUp={moveColUp} onMoveDown={moveColDown} />
 
               {/* ── Pohonch groups (pohonch format only) ──────────────────────── */}
               {printFormat === 'pohonch' && pohonchGroups.length > 0 && (

@@ -52,6 +52,8 @@ function DataRow({ b, activeCols, excluded = false, onToggle }) {
         return !isPaid ? fmtN(Number(b.kaat_pf) || 0) : '';
       case 'paid_kaat':
         return isPaid ? fmtN(dd + kaat) : '';
+      case 'to_pay_kaat':
+        return !isPaid ? fmtN(kaat) : '';
       default:
         return '';
     }
@@ -68,6 +70,8 @@ function DataRow({ b, activeCols, excluded = false, onToggle }) {
         return `${baseClass} text-right font-bold text-blue-700 whitespace-nowrap`;
       case 'paid_kaat':
         return `${baseClass} text-right font-bold text-red-700 whitespace-nowrap`;
+      case 'to_pay_kaat':
+        return `${baseClass} text-right font-bold text-amber-700 whitespace-nowrap`;
       case 'pkgs':
         return `${baseClass} text-center text-gray-700 font-semibold`;
       case 'wt':
@@ -112,9 +116,17 @@ function TotalsRow({ bilties, label, activeCols, isGrand = false }) {
   const paid = bilties
                  .filter(b => b.payment_mode === 'paid' || b.payment_mode === 'foc')
                  .reduce((s, b) => s + (Number(b.kaat_dd) || 0) + (Number(b.kaat) || 0), 0);
+  const toPayKaat = bilties
+                 .filter(b => b.payment_mode === 'to-pay')
+                 .reduce((s, b) => s + (Number(b.kaat) || 0), 0);
   const pkgs = bilties.reduce((s, b) => s + (Number(b.no_of_pkg) || 0), 0);
   const wt   = bilties.reduce((s, b) => s + (Number(b.wt)        || 0), 0);
   const dd   = bilties.reduce((s, b) => s + (Number(b.kaat_dd)   || 0), 0);
+  const rate = bilties.reduce((s, b) => s + (Number(b.kaat_rate) || 0), 0);
+  const total = bilties.reduce((s, b) => {
+    const isPaid = b.payment_mode === 'paid' || b.payment_mode === 'foc';
+    return isPaid ? s : s + (Number(b.total) || 0);
+  }, 0);
   const netPf = pf - paid;
 
   const getCellContent = (col) => {
@@ -122,8 +134,11 @@ function TotalsRow({ bilties, label, activeCols, isGrand = false }) {
       case 'pkgs': return String(pkgs);
       case 'wt': return fmtN(wt);
       case 'dd': return fmtN(dd);
+      case 'rate': return fmtN(rate);
+      case 'total': return fmtN(total);
       case 'to_pay_pf': return fmtN(pf);
       case 'paid_kaat': return fmtN(paid);
+      case 'to_pay_kaat': return fmtN(toPayKaat);
       default: return '';
     }
   };
@@ -139,8 +154,9 @@ function TotalsRow({ bilties, label, activeCols, isGrand = false }) {
             let tdClass = 'px-3 py-2';
             if (col.id === 'to_pay_pf') tdClass += ' text-right text-blue-300';
             else if (col.id === 'paid_kaat') tdClass += ' text-right text-red-300';
+            else if (col.id === 'to_pay_kaat') tdClass += ' text-right text-amber-300';
             else if (col.id === 'pkgs') tdClass += ' text-center';
-            else if (col.id === 'wt' || col.id === 'dd') tdClass += ' text-right';
+            else if (col.id === 'wt' || col.id === 'dd' || col.id === 'rate' || col.id === 'total') tdClass += ' text-right';
             return (
               <td
                 key={col.id}
@@ -179,9 +195,11 @@ function TotalsRow({ bilties, label, activeCols, isGrand = false }) {
                 ? 'text-right text-blue-700'
                 : col.id === 'paid_kaat'
                 ? 'text-right text-red-700'
+                : col.id === 'to_pay_kaat'
+                ? 'text-right text-amber-700'
                 : col.id === 'pkgs'
                 ? 'text-center'
-                : col.id === 'wt' || col.id === 'dd'
+                : col.id === 'wt' || col.id === 'dd' || col.id === 'rate' || col.id === 'total'
                 ? 'text-right'
                 : ''
             }`}
@@ -228,7 +246,7 @@ export default function CrossingBillsPreviewTable({
   pdfLoading,
 }) {
   const [searchText, setSearchText] = useState('');
-  const activeCols = ALL_COLS.filter(c => selectedCols.includes(c.id));
+  const activeCols = selectedCols.map(id => ALL_COLS.find(c => c.id === id)).filter(Boolean);
 
   const inclPohonch   = (pohonchGroups   || []).filter(g => !excludedGroups.has(g.key));
   const inclNoPohonch = ((noPohonchGroup?.bilties) || []).filter(b => !excludedBilties.has(b.gr_no));

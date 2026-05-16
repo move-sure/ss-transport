@@ -62,6 +62,7 @@ export default function CrossingBillsPage() {
   const [billDate, setBillDate]           = useState(TODAY);
   const [showPreview, setShowPreview]     = useState(false);
   const [selectedCols, setSelectedCols]   = useState(DEFAULT_SELECTED_COLS);
+  const [searchQuery, setSearchQuery]     = useState('');
 
 
   // ── Flatten & group bilties ────────────────────────────────────────────────
@@ -70,6 +71,33 @@ export default function CrossingBillsPage() {
 
   const pohonchGroups  = groups.filter(g => g.key !== 'NO_POHONCH');
   const noPohonchGroup = groups.find(g => g.key === 'NO_POHONCH');
+
+  // ── Search filter ─────────────────────────────────────────────────────────
+  const filteredGroups = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return groups;
+    return groups
+      .map(g => ({
+        ...g,
+        bilties: g.bilties.filter(b =>
+          (b.gr_no            || '').toLowerCase().includes(q) ||
+          (b.dest_pohonch_no  || '').toLowerCase().includes(q) ||
+          (b.bilty_number     || '').toLowerCase().includes(q) ||
+          (b.consignor_name   || '').toLowerCase().includes(q) ||
+          (b.consignee_name   || '').toLowerCase().includes(q) ||
+          (b.to_city          || '').toLowerCase().includes(q) ||
+          (b.payment_mode     || '').toLowerCase().includes(q) ||
+          (b.contain          || b.contents || '').toLowerCase().includes(q) ||
+          (b.bilty_date       || '').includes(q)
+        ),
+      }))
+      .filter(g => g.bilties.length > 0);
+  }, [groups, searchQuery]);
+
+  const totalFilteredBilties = useMemo(
+    () => filteredGroups.reduce((s, g) => s + g.bilties.length, 0),
+    [filteredGroups]
+  );
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const handleSearch = async (e) => {
@@ -317,9 +345,51 @@ export default function CrossingBillsPage() {
               <SummaryChip label="No Pohonch"      value={noPohonchGroup?.bilties.length ?? 0} />
             </div>
 
+            {/* Search bar */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200/80 px-4 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by GR No, Consignor, Consignee, City, Mode, Content…"
+                  className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-400/40 focus:border-gray-600 transition-all text-gray-900 placeholder:text-gray-400"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <div className="shrink-0 flex items-center gap-2 text-xs text-gray-500">
+                {searchQuery ? (
+                  <>
+                    <span className="font-bold text-gray-900 text-sm">{totalFilteredBilties}</span>
+                    <span>of {bilties.length} bilties match</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="font-semibold text-gray-700">{filteredGroups.length} group{filteredGroups.length !== 1 ? 's' : ''}</span>
+                  </>
+                ) : (
+                  <span className="text-gray-400 italic">Sorted by date ascending</span>
+                )}
+              </div>
+            </div>
+
             {/* Grouped preview */}
             <div className="space-y-4">
-              {groups.map(({ key, bilties: gb }) => (
+              {filteredGroups.length === 0 && searchQuery && (
+                <div className="bg-white rounded-2xl border border-gray-200 px-6 py-10 text-center">
+                  <Search className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-gray-500">No bilties match</p>
+                  <p className="text-xs text-gray-400 mt-1">"{searchQuery}"</p>
+                  <button onClick={() => setSearchQuery('')} className="mt-3 text-xs font-semibold text-gray-600 hover:text-gray-900 underline">Clear search</button>
+                </div>
+              )}
+              {filteredGroups.map(({ key, bilties: gb }) => (
                 <div key={key} className="bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden">
                   {/* Group heading */}
                   <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
@@ -331,9 +401,19 @@ export default function CrossingBillsPage() {
                         {key === 'NO_POHONCH' ? 'No Pohonch Available' : key}
                       </span>
                     </div>
-                    <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
-                      {gb.length} bilties
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {gb[0]?.bilty_date && (
+                        <span className="text-[10px] text-gray-400 font-medium">
+                          {format(new Date(gb[0].bilty_date), 'dd MMM yy')}
+                          {gb.length > 1 && gb[gb.length-1]?.bilty_date && gb[0].bilty_date !== gb[gb.length-1].bilty_date
+                            ? ` – ${format(new Date(gb[gb.length-1].bilty_date), 'dd MMM yy')}`
+                            : ''}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2.5 py-1 rounded-full">
+                        {gb.length} bilties
+                      </span>
+                    </div>
                   </div>
 
                   {/* Table */}
@@ -347,33 +427,42 @@ export default function CrossingBillsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
-                        {gb.map((b, i) => (
-                          <tr key={`${b.gr_no}-${i}`} className="hover:bg-gray-50/60">
-                            <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">{b.gr_no}</td>
-                            <td className="px-3 py-2 font-mono text-gray-700 whitespace-nowrap">{b.dest_pohonch_no || b.bilty_number || '—'}</td>
-                            <td className="px-3 py-2 text-gray-400 whitespace-nowrap">
-                              {b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}
-                            </td>
-                            <td className="px-3 py-2 text-gray-600 max-w-[130px] truncate">{b.consignor_name || '—'}</td>
-                            <td className="px-3 py-2 text-gray-600 max-w-[130px] truncate">{b.consignee_name || '—'}</td>
-                            <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{b.to_city || '—'}</td>
-                            <td className="px-3 py-2">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                b.payment_mode === 'paid'   ? 'bg-emerald-100 text-emerald-700' :
-                                b.payment_mode === 'to-pay' ? 'bg-amber-100 text-amber-700' :
-                                'bg-gray-100 text-gray-500'
-                              }`}>
-                                {b.payment_mode || '—'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center text-gray-600">{b.no_of_pkg ?? '—'}</td>
-                            <td className="px-3 py-2 text-right text-gray-600">{b.wt ?? '—'}</td>
-                            <td className="px-3 py-2 text-right font-bold text-gray-800">₹{fmtDisp(b.total)}</td>
-                            <td className="px-3 py-2 text-right font-semibold text-rose-600">
-                              {b.kaat != null ? `₹${fmtDisp(b.kaat)}` : '—'}
-                            </td>
-                          </tr>
-                        ))}
+                        {gb.map((b, i) => {
+                          const q = searchQuery.trim().toLowerCase();
+                          const highlight = q && (
+                            (b.gr_no          || '').toLowerCase().includes(q) ||
+                            (b.consignor_name || '').toLowerCase().includes(q) ||
+                            (b.consignee_name || '').toLowerCase().includes(q) ||
+                            (b.to_city        || '').toLowerCase().includes(q)
+                          );
+                          return (
+                            <tr key={`${b.gr_no}-${i}`} className={`hover:bg-gray-50/60 ${highlight ? 'bg-yellow-50' : ''}`}>
+                              <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">{b.gr_no}</td>
+                              <td className="px-3 py-2 font-mono text-gray-700 whitespace-nowrap">{b.dest_pohonch_no || b.bilty_number || '—'}</td>
+                              <td className="px-3 py-2 text-gray-400 whitespace-nowrap">
+                                {b.bilty_date ? format(new Date(b.bilty_date), 'dd MMM yy') : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-gray-600 max-w-[130px] truncate">{b.consignor_name || '—'}</td>
+                              <td className="px-3 py-2 text-gray-600 max-w-[130px] truncate">{b.consignee_name || '—'}</td>
+                              <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{b.to_city || '—'}</td>
+                              <td className="px-3 py-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  b.payment_mode === 'paid'   ? 'bg-emerald-100 text-emerald-700' :
+                                  b.payment_mode === 'to-pay' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {b.payment_mode || '—'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-center text-gray-600">{b.no_of_pkg ?? '—'}</td>
+                              <td className="px-3 py-2 text-right text-gray-600">{b.wt ?? '—'}</td>
+                              <td className="px-3 py-2 text-right font-bold text-gray-800">₹{fmtDisp(b.total)}</td>
+                              <td className="px-3 py-2 text-right font-semibold text-rose-600">
+                                {b.kaat != null ? `₹${fmtDisp(b.kaat)}` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

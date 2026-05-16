@@ -62,9 +62,12 @@ export function buildDestGroups(bilties) {
     if (!map[key]) map[key] = [];
     map[key].push(b);
   }
-  // Sort bilties within each group by gr_no ascending
+  // Sort bilties within each group by bilty_date ascending, then gr_no as tiebreaker
   for (const k of Object.keys(map)) {
     map[k].sort((a, b) => {
+      const da = a.bilty_date ? new Date(a.bilty_date).getTime() : 0;
+      const db = b.bilty_date ? new Date(b.bilty_date).getTime() : 0;
+      if (da !== db) return da - db;
       const na = parseInt(a.gr_no, 10);
       const nb = parseInt(b.gr_no, 10);
       if (!isNaN(na) && !isNaN(nb)) return na - nb;

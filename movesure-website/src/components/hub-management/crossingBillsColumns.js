@@ -196,8 +196,8 @@ export const DEFAULT_SELECTED_COLS = [
   'total',
   'to_pay_pf',
   'to_pay_kaat',
-  'paid_kaat',
   'dd',
+  'paid_kaat',
 ];
 
 export const computeColStyles = (activeCols) => {

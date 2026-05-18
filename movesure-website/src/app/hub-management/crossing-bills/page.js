@@ -256,7 +256,12 @@ export default function CrossingBillsPage() {
           <div className="flex items-center gap-2">
             <a
               href={pdfBlobUrl}
-              download={`crossing-bills-${fromDate}.pdf`}
+              download={(() => {
+                const name = (result?.transport_name || 'TRANSPORT')
+                  .toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+                const fmt = (d) => { const [,m,dy] = d.split('-'); return `${dy}-${m}`; };
+                return `${name}__${fmt(fromDate)}__${fmt(toDate)}.pdf`;
+              })()}
               className="inline-flex items-center gap-2 px-4 py-1.5 bg-white text-gray-900 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors"
             >
               Download PDF

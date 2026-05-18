@@ -50,7 +50,7 @@ export const ALL_COLS = [
     id: 'content',
     label: 'Content',
     required: false,
-    defaultOn: false,
+    defaultOn: true,
     baseWidth: 50,
     halign: 'left',
     fontSize: 7,
@@ -126,7 +126,7 @@ export const ALL_COLS = [
     id: 'total',
     label: 'Total',
     required: false,
-    defaultOn: false,
+    defaultOn: true,
     baseWidth: 22,
     halign: 'right',
     fontStyle: 'bold',
@@ -170,7 +170,7 @@ export const ALL_COLS = [
     id: 'to_pay_kaat',
     label: 'To-Pay (KAAT)',
     required: false,
-    defaultOn: false,
+    defaultOn: true,
     baseWidth: 60,
     halign: 'right',
     fontStyle: 'bold',
@@ -183,7 +183,22 @@ export const ALL_COLS = [
   },
 ];
 
-export const DEFAULT_SELECTED_COLS = ALL_COLS.filter(c => c.defaultOn).map(c => c.id);
+// Default column order for Pohonch format (matches user-specified order):
+// GR No · Pohonch No (required) · Bilty Date · Station · Content · Pkgs · Wt · Total · To-Pay (PF) · To-Pay (KAAT) · Paid (KAAT) · DD
+export const DEFAULT_SELECTED_COLS = [
+  'gr_no',
+  'pohonch_no',
+  'bilty_date',
+  'station',
+  'content',
+  'pkgs',
+  'wt',
+  'total',
+  'to_pay_pf',
+  'to_pay_kaat',
+  'paid_kaat',
+  'dd',
+];
 
 export const computeColStyles = (activeCols) => {
   const totalWeight = activeCols.reduce((s, c) => s + c.baseWidth, 0);

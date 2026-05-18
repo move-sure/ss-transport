@@ -268,7 +268,10 @@ export async function generateCrossingBillsPDF({
     // ═══════════════════════════════════════════════════════════════════════
     // ── POHONCH FORMAT (grouped by Pohonch Number) ────────────────────────
     // ═══════════════════════════════════════════════════════════════════════
-    const inclPohonch   = pohonchGroups.filter(g => !excludedGroups.has(g.key));
+    const inclPohonch   = pohonchGroups
+      .filter(g => !excludedGroups.has(g.key))
+      .map(g => ({ ...g, bilties: g.bilties.filter(b => !excludedBilties.has(b.gr_no)) }))
+      .filter(g => g.bilties.length > 0);
     const inclNoPohonch = (noPohonchGroup?.bilties || []).filter(b => !excludedBilties.has(b.gr_no));
 
     if (inclPohonch.length === 0 && inclNoPohonch.length === 0) { setPdfLoading(false); return; }

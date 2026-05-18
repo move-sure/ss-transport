@@ -168,10 +168,37 @@ export default function CrossingBillsPage() {
   const includedCount = useMemo(() => {
     const pg = pohonchGroups
       .filter(g => !excludedGroups.has(g.key))
-      .reduce((s, g) => s + g.bilties.length, 0);
+      .reduce((s, g) => s + g.bilties.filter(b => !excludedBilties.has(b.gr_no)).length, 0);
     const np = (noPohonchGroup?.bilties || []).filter(b => !excludedBilties.has(b.gr_no)).length;
     return pg + np;
   }, [pohonchGroups, noPohonchGroup, excludedGroups, excludedBilties]);
+
+  // Stations gathered from bilties in non-excluded pohonch groups + no-pohonch group
+  const pohonchStations = useMemo(() => {
+    const visible = [
+      ...pohonchGroups.filter(g => !excludedGroups.has(g.key)).flatMap(g => g.bilties),
+      ...(noPohonchGroup?.bilties || []),
+    ];
+    const map = new Map();
+    for (const b of visible) {
+      const st = b.to_city || b.destination || 'Unknown';
+      if (!map.has(st)) map.set(st, []);
+      map.get(st).push(b);
+    }
+    return [...map.entries()]
+      .map(([name, bs]) => ({ name, bs }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [pohonchGroups, noPohonchGroup, excludedGroups]);
+
+  const toggleStationBilties = (stBilties) => {
+    const allSel = stBilties.every(b => !excludedBilties.has(b.gr_no));
+    setExcludedBilties(prev => {
+      const n = new Set(prev);
+      if (allSel) stBilties.forEach(b => n.add(b.gr_no));
+      else        stBilties.forEach(b => n.delete(b.gr_no));
+      return n;
+    });
+  };
 
   // ── Generate PDF ───────────────────────────────────────────────────────────
   const generatePDF = () => generateCrossingBillsPDF({
@@ -475,8 +502,8 @@ export default function CrossingBillsPage() {
 
       {/* ── Print Preview Modal ─────────────────────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] h-[95vh] flex flex-col">
 
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
@@ -491,190 +518,333 @@ export default function CrossingBillsPage() {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
+            {/* Modal Body — independently scrolling columns on wide screens */}
+            <div className="flex-1 overflow-y-auto lg:overflow-hidden lg:flex">
 
-              {/* ── Bill Date picker ────────────────────────────────────────── */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Bill Date</p>
-                <input
-                  type="date"
-                  value={billDate}
-                  onChange={e => setBillDate(e.target.value)}
-                  className="w-full sm:w-56 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono font-bold text-gray-900 focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
-                />
-              </div>
+                {/* ── LEFT COLUMN: Settings ──────────────────────────────── */}
+                <div className="px-6 py-4 lg:w-[42%] xl:w-[36%] lg:overflow-y-auto lg:border-r lg:border-gray-200 space-y-5">
 
-              {/* ── Format selector ─────────────────────────────────────────── */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Choose Print Format</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setPrintFormat('pohonch')}
-                    className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left ${
-                      printFormat === 'pohonch'
-                        ? 'border-gray-900 bg-gray-900 shadow-lg'
-                        : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
-                    }`}
-                  >
-                    {printFormat === 'pohonch' && (
-                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white flex items-center justify-center">
-                        <span className="w-2 h-2 rounded-full bg-gray-900 block" />
-                      </span>
-                    )}
-                    <span className={`font-black text-sm ${printFormat === 'pohonch' ? 'text-white' : 'text-gray-900'}`}>Pohonch Format</span>
-                    <span className={`text-xs font-medium ${printFormat === 'pohonch' ? 'text-gray-300' : 'text-gray-600'}`}>Grouped by Pohonch Number</span>
-                  </button>
-                  <button
-                    onClick={() => setPrintFormat('bilty')}
-                    className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 transition-all text-left ${
-                      printFormat === 'bilty'
-                        ? 'border-gray-900 bg-gray-900 shadow-lg'
-                        : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
-                    }`}
-                  >
-                    {printFormat === 'bilty' && (
-                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white flex items-center justify-center">
-                        <span className="w-2 h-2 rounded-full bg-gray-900 block" />
-                      </span>
-                    )}
-                    <span className={`font-black text-sm ${printFormat === 'bilty' ? 'text-white' : 'text-gray-900'}`}>Bilty Number Format</span>
-                    <span className={`text-xs font-medium ${printFormat === 'bilty' ? 'text-gray-300' : 'text-gray-600'}`}>Flat list sorted by Bilty Number</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Column selector ────────────────────────────────────────────── */}
-              <PrintColumnSelector selectedCols={selectedCols} onToggle={toggleCol} onMoveUp={moveColUp} onMoveDown={moveColDown} />
-
-              {/* ── Pohonch groups (pohonch format only) ──────────────────────── */}
-              {printFormat === 'pohonch' && pohonchGroups.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
-                    Pohonch Number Groups — click to include / exclude entire group
-                  </p>
-                  <div className="space-y-3">
-                    {pohonchGroups.map(grp => {
-                      const excluded = excludedGroups.has(grp.key);
-                      const dates = grp.bilties.map(b => b.bilty_date).filter(d => d);
-                      const minDate = dates.length ? format(new Date(dates.sort()[0]), 'dd MMM yy') : '';
-                      const maxDate = dates.length ? format(new Date(dates.sort()[dates.length - 1]), 'dd MMM yy') : '';
-                      const dateRange = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
-                      return (
-                        <div
-                          key={grp.key}
-                          className={`rounded-2xl border-2 transition-all ${excluded ? 'border-gray-200 bg-gray-50 opacity-50' : 'border-gray-300 bg-white shadow-sm'}`}
-                        >
-                          {/* Group toggle row */}
-                          <button
-                            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                            onClick={() => toggleGroup(grp.key)}
-                          >
-                            <Checkbox checked={!excluded} />
-                            <div className="flex-1">
-                              <span className="text-base font-black text-gray-900 block">{grp.key}</span>
-                              {dateRange && <span className="text-xs text-gray-500 font-medium">{dateRange}</span>}
-                            </div>
-                            <span className="text-sm font-bold text-gray-600 bg-gray-200 px-3 py-1.5 rounded-full shrink-0">
-                              {grp.bilties.length}
-                            </span>
-                            {excluded && (
-                              <span className="ml-2 text-xs text-red-500 font-semibold italic shrink-0">Excluded</span>
-                            )}
-                          </button>
-
-                          {/* Bilty list inside group */}
-                          {!excluded && (
-                            <div className="px-5 pb-4 border-t border-gray-100 pt-3">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-2">
-                                {grp.bilties.map((b, i) => (
-                                  <div
-                                    key={`${b.gr_no}-${i}`}
-                                    className="flex flex-col gap-1 bg-gray-50 px-3 py-2.5 rounded-lg text-xs border border-gray-100 hover:bg-gray-100 transition-colors"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-gray-900">{b.gr_no}</span>
-                                      <span className="text-gray-400">·</span>
-                                      <span className="text-gray-600 font-medium">{b.consignee_name || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-gray-500 ml-0">
-                                      <span className="text-[10px]">{b.to_city || 'N/A'}</span>
-                                      {b.bilty_date && <span className="text-[10px]">• {format(new Date(b.bilty_date), 'dd MMM yy')}</span>}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                  {/* Bill Date picker */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Bill Date</p>
+                    <input
+                      type="date"
+                      value={billDate}
+                      onChange={e => setBillDate(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono font-bold text-gray-900 focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+                    />
                   </div>
-                </div>
-              )}
 
-              {/* ── No-Pohonch bilties (pohonch format only) ──────────────── */}
-              {printFormat === 'pohonch' && noPohonchGroup && (
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-                    No Pohonch Available — click individual bilties to exclude
-                  </p>
-                  <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
-                      <span className="text-sm font-bold text-gray-700">
-                        Bilties without Pohonch
-                        <span className="ml-2 text-xs font-semibold text-gray-400">
-                          ({(noPohonchGroup.bilties.length - excludedBilties.size)} included)
+                  {/* Format selector */}
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Choose Print Format</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setPrintFormat('pohonch')}
+                        className={`relative flex flex-col items-start gap-1.5 p-3 rounded-xl border-2 transition-all text-left ${
+                          printFormat === 'pohonch'
+                            ? 'border-gray-900 bg-gray-900 shadow-lg'
+                            : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
+                        }`}
+                      >
+                        {printFormat === 'pohonch' && (
+                          <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white flex items-center justify-center">
+                            <span className="w-2 h-2 rounded-full bg-gray-900 block" />
+                          </span>
+                        )}
+                        <span className={`font-black text-sm ${printFormat === 'pohonch' ? 'text-white' : 'text-gray-900'}`}>Pohonch Format</span>
+                        <span className={`text-[11px] font-medium ${printFormat === 'pohonch' ? 'text-gray-300' : 'text-gray-600'}`}>Grouped by Pohonch Number</span>
+                      </button>
+                      <button
+                        onClick={() => setPrintFormat('bilty')}
+                        className={`relative flex flex-col items-start gap-1.5 p-3 rounded-xl border-2 transition-all text-left ${
+                          printFormat === 'bilty'
+                            ? 'border-gray-900 bg-gray-900 shadow-lg'
+                            : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
+                        }`}
+                      >
+                        {printFormat === 'bilty' && (
+                          <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white flex items-center justify-center">
+                            <span className="w-2 h-2 rounded-full bg-gray-900 block" />
+                          </span>
+                        )}
+                        <span className={`font-black text-sm ${printFormat === 'bilty' ? 'text-white' : 'text-gray-900'}`}>Bilty Format</span>
+                        <span className={`text-[11px] font-medium ${printFormat === 'bilty' ? 'text-gray-300' : 'text-gray-600'}`}>Flat list sorted by Bilty No.</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Column selector */}
+                  <PrintColumnSelector selectedCols={selectedCols} onToggle={toggleCol} onMoveUp={moveColUp} onMoveDown={moveColDown} />
+                </div>
+
+                {/* ── RIGHT COLUMN: Bilty selection ──────────────────────── */}
+                <div className="px-6 py-4 lg:flex-1 lg:overflow-y-auto space-y-5">
+
+                  {/* Station-wise bulk select — pohonch format only */}
+                  {printFormat === 'pohonch' && pohonchStations.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                          Bulk Select by Station
+                        </p>
+                        <span className="text-[10px] text-gray-400 font-medium">
+                          {pohonchStations.length} station{pohonchStations.length !== 1 ? 's' : ''}
                         </span>
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => setExcludedBilties(new Set(noPohonchGroup.bilties.map(b => b.gr_no)))}
-                          className="text-xs text-gray-500 hover:text-gray-900 font-semibold px-2.5 py-1 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          Exclude All
-                        </button>
-                        <button
-                          onClick={() => setExcludedBilties(new Set())}
-                          className="text-xs text-gray-500 hover:text-gray-900 font-semibold px-2.5 py-1 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          Include All
-                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-gray-50 border border-gray-200">
+                        {pohonchStations.map(({ name, bs }) => {
+                          const selCount = bs.filter(b => !excludedBilties.has(b.gr_no)).length;
+                          const allSel  = selCount === bs.length;
+                          const noneSel = selCount === 0;
+                          return (
+                            <button
+                              key={name}
+                              onClick={() => toggleStationBilties(bs)}
+                              title={allSel ? `Deselect all bilties from ${name}` : `Select all bilties from ${name}`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                                allSel
+                                  ? 'bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200'
+                                  : noneSel
+                                  ? 'bg-red-100 border-red-300 text-red-700 hover:bg-red-200'
+                                  : 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
+                              }`}
+                            >
+                              {name}
+                              <span className={`px-1.5 rounded-full text-[10px] font-black ${
+                                allSel ? 'bg-emerald-600 text-white' : noneSel ? 'bg-red-600 text-white' : 'bg-amber-600 text-white'
+                              }`}>
+                                {selCount}/{bs.length}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
+                  )}
 
-                    <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
-                      {noPohonchGroup.bilties.map((b, i) => {
-                        const excl = excludedBilties.has(b.gr_no);
-                        return (
+                  {/* Pohonch groups — pohonch format only */}
+                  {printFormat === 'pohonch' && pohonchGroups.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                          Pohonch Groups — toggle group or individual bilties
+                        </p>
+                        <div className="flex gap-1">
                           <button
-                            key={`${b.gr_no}-${i}`}
-                            onClick={() => toggleBilty(b.gr_no)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${excl ? 'opacity-40' : ''}`}
+                            onClick={() => {
+                              setExcludedGroups(new Set(pohonchGroups.map(g => g.key)));
+                              setExcludedBilties(new Set([
+                                ...pohonchGroups.flatMap(g => g.bilties.map(b => b.gr_no)),
+                                ...(noPohonchGroup?.bilties || []).map(b => b.gr_no),
+                              ]));
+                            }}
+                            className="text-[10px] text-gray-500 hover:text-gray-900 font-bold px-2 py-1 rounded hover:bg-gray-200 transition-colors uppercase tracking-wider"
                           >
-                            <Checkbox checked={!excl} />
-                            <span className="font-bold text-gray-800 text-xs w-16 shrink-0">{b.gr_no}</span>
-                            <span className="text-xs text-gray-600 truncate flex-1">{b.consignor_name}</span>
-                            <span className="text-xs text-gray-400 shrink-0">→</span>
-                            <span className="text-xs text-gray-600 shrink-0">{b.to_city}</span>
-                            <span className="text-xs font-bold text-gray-700 ml-1 shrink-0">₹{fmtDisp(b.total)}</span>
+                            Exclude All
                           </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
+                          <button
+                            onClick={() => { setExcludedGroups(new Set()); setExcludedBilties(new Set()); }}
+                            className="text-[10px] text-gray-500 hover:text-gray-900 font-bold px-2 py-1 rounded hover:bg-gray-200 transition-colors uppercase tracking-wider"
+                          >
+                            Include All
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {pohonchGroups.map(grp => {
+                          const groupExcluded = excludedGroups.has(grp.key);
+                          const grNos = grp.bilties.map(b => b.gr_no);
+                          const includedInGrp = grp.bilties.filter(b => !excludedBilties.has(b.gr_no)).length;
+                          const dates = grp.bilties.map(b => b.bilty_date).filter(d => d);
+                          const sortedDates = [...dates].sort();
+                          const minDate = sortedDates.length ? format(new Date(sortedDates[0]), 'dd MMM yy') : '';
+                          const maxDate = sortedDates.length ? format(new Date(sortedDates[sortedDates.length - 1]), 'dd MMM yy') : '';
+                          const dateRange = minDate === maxDate ? minDate : `${minDate} - ${maxDate}`;
 
-              {/* ── Bilty format preview ──────────────────────────────────── */}
-              {printFormat === 'bilty' && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4">
-                  <p className="text-sm text-gray-700">
-                    <span className="font-black text-gray-900 text-base">{bilties.length}</span>
-                    <span className="ml-1.5">bilties will be printed in flat format, sorted by Bilty Number.</span>
-                  </p>
+                          return (
+                            <div
+                              key={grp.key}
+                              className={`rounded-2xl border-2 transition-all ${groupExcluded ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-300 bg-white shadow-sm'}`}
+                            >
+                              {/* Group header */}
+                              <div className="flex items-stretch border-b border-gray-100">
+                                <button
+                                  className="flex-1 flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-tl-2xl"
+                                  onClick={() => toggleGroup(grp.key)}
+                                >
+                                  <Checkbox checked={!groupExcluded} />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-base font-black text-gray-900 block truncate">{grp.key}</span>
+                                    {dateRange && <span className="text-xs text-gray-500 font-medium">{dateRange}</span>}
+                                  </div>
+                                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                                    groupExcluded
+                                      ? 'bg-gray-200 text-gray-500'
+                                      : includedInGrp === grp.bilties.length
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : includedInGrp === 0
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {groupExcluded ? `0/${grp.bilties.length}` : `${includedInGrp}/${grp.bilties.length}`}
+                                  </span>
+                                </button>
+                                {!groupExcluded && grp.bilties.length > 1 && (
+                                  <div className="flex items-center gap-1 px-2 border-l border-gray-100">
+                                    <button
+                                      onClick={() => setExcludedBilties(prev => {
+                                        const n = new Set(prev);
+                                        grNos.forEach(g => n.add(g));
+                                        return n;
+                                      })}
+                                      className="text-[10px] text-gray-500 hover:text-red-600 font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                      title="Exclude all bilties in this group"
+                                    >
+                                      None
+                                    </button>
+                                    <button
+                                      onClick={() => setExcludedBilties(prev => {
+                                        const n = new Set(prev);
+                                        grNos.forEach(g => n.delete(g));
+                                        return n;
+                                      })}
+                                      className="text-[10px] text-gray-500 hover:text-emerald-700 font-bold px-2 py-1 rounded hover:bg-emerald-50 transition-colors"
+                                      title="Include all bilties in this group"
+                                    >
+                                      All
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Bilty list inside group — clickable to toggle */}
+                              {!groupExcluded && (
+                                <div className="p-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-2">
+                                    {grp.bilties.map((b, i) => {
+                                      const excl = excludedBilties.has(b.gr_no);
+                                      return (
+                                        <button
+                                          key={`${b.gr_no}-${i}`}
+                                          onClick={() => toggleBilty(b.gr_no)}
+                                          className={`flex items-start gap-2 px-3 py-2 rounded-lg text-xs border transition-colors text-left ${
+                                            excl
+                                              ? 'bg-red-50 border-red-200 opacity-50'
+                                              : 'bg-gray-50 border-gray-100 hover:bg-gray-100 hover:border-gray-200'
+                                          }`}
+                                        >
+                                          <span className="pt-0.5"><Checkbox checked={!excl} /></span>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className={`font-bold text-gray-900 ${excl ? 'line-through' : ''}`}>{b.gr_no}</span>
+                                              <span className="text-gray-400">·</span>
+                                              <span className={`text-gray-600 font-medium truncate ${excl ? 'line-through' : ''}`}>
+                                                {b.consignee_name || 'N/A'}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-gray-500 mt-0.5">
+                                              <span className="text-[10px]">{b.to_city || 'N/A'}</span>
+                                              {b.bilty_date && <span className="text-[10px]">• {format(new Date(b.bilty_date), 'dd MMM yy')}</span>}
+                                              {b.total != null && <span className="text-[10px] font-bold text-gray-700 ml-auto">₹{fmtDisp(b.total)}</span>}
+                                            </div>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No-Pohonch bilties — pohonch format only */}
+                  {printFormat === 'pohonch' && noPohonchGroup && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                        No Pohonch Available — click individual bilties to exclude
+                      </p>
+                      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                          <span className="text-sm font-bold text-gray-700">
+                            Bilties without Pohonch
+                            <span className="ml-2 text-xs font-semibold text-gray-400">
+                              ({noPohonchGroup.bilties.filter(b => !excludedBilties.has(b.gr_no)).length}/{noPohonchGroup.bilties.length} included)
+                            </span>
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setExcludedBilties(prev => {
+                                const n = new Set(prev);
+                                noPohonchGroup.bilties.forEach(b => n.add(b.gr_no));
+                                return n;
+                              })}
+                              className="text-xs text-gray-500 hover:text-gray-900 font-semibold px-2.5 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              Exclude All
+                            </button>
+                            <button
+                              onClick={() => setExcludedBilties(prev => {
+                                const n = new Set(prev);
+                                noPohonchGroup.bilties.forEach(b => n.delete(b.gr_no));
+                                return n;
+                              })}
+                              className="text-xs text-gray-500 hover:text-gray-900 font-semibold px-2.5 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              Include All
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                          {noPohonchGroup.bilties.map((b, i) => {
+                            const excl = excludedBilties.has(b.gr_no);
+                            return (
+                              <button
+                                key={`${b.gr_no}-${i}`}
+                                onClick={() => toggleBilty(b.gr_no)}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${excl ? 'opacity-40' : ''}`}
+                              >
+                                <Checkbox checked={!excl} />
+                                <span className={`font-bold text-gray-800 text-xs w-16 shrink-0 ${excl ? 'line-through' : ''}`}>{b.gr_no}</span>
+                                <span className="text-xs text-gray-600 truncate flex-1">{b.consignor_name}</span>
+                                <span className="text-xs text-gray-400 shrink-0">→</span>
+                                <span className="text-xs text-gray-600 shrink-0">{b.to_city}</span>
+                                <span className="text-xs font-bold text-gray-700 ml-1 shrink-0">₹{fmtDisp(b.total)}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bilty format hint */}
+                  {printFormat === 'bilty' && (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-6">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-black text-gray-900 text-base">{bilties.length}</span>
+                        <span className="ml-1.5">bilties will be printed in flat format, sorted by Bilty Number.</span>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Use <span className="font-bold">Preview Table</span> below to exclude individual bilties before printing.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Empty-state hint when no format selected */}
+                  {!printFormat && (
+                    <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-5 py-10 text-center">
+                      <Printer className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm font-semibold text-gray-500">Choose a print format</p>
+                      <p className="text-xs text-gray-400 mt-1">Select Pohonch or Bilty format to configure bilties</p>
+                    </div>
+                  )}
                 </div>
-              )}
             </div>
 
             {/* Modal Footer */}

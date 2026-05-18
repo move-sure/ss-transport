@@ -252,7 +252,10 @@ export default function CrossingBillsPreviewTable({
   const [searchText, setSearchText] = useState('');
   const activeCols = selectedCols.map(id => ALL_COLS.find(c => c.id === id)).filter(Boolean);
 
-  const inclPohonch   = (pohonchGroups   || []).filter(g => !excludedGroups.has(g.key));
+  const inclPohonch   = (pohonchGroups   || [])
+    .filter(g => !excludedGroups.has(g.key))
+    .map(g => ({ ...g, bilties: g.bilties.filter(b => !excludedBilties.has(b.gr_no)) }))
+    .filter(g => g.bilties.length > 0);
   const inclNoPohonch = ((noPohonchGroup?.bilties) || []).filter(b => !excludedBilties.has(b.gr_no));
   const allIncluded   = [...inclPohonch.flatMap(g => g.bilties), ...inclNoPohonch];
 

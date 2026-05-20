@@ -242,19 +242,127 @@ function GrPicker({ bilties, value, onChange }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
+// Station multi-select dropdown
+// ────────────────────────────────────────────────────────────────────────────────
+function StationMultiDropdown({ stations, selectedNames, onToggle, onSelectAll, onClearAll }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+
+  const filtered = useMemo(
+    () => stations.filter(s => s.name.includes(query.toUpperCase())),
+    [stations, query]
+  );
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-white border rounded-xl text-sm transition-all text-left ${
+          open ? 'border-teal-400 ring-2 ring-teal-500/30' : 'border-gray-200 hover:border-gray-300'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <MapPin className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+          {selectedNames.size === 0
+            ? <span className="text-gray-400">Select stations…</span>
+            : selectedNames.size === stations.length
+            ? <span className="font-bold text-teal-700">All {stations.length} stations selected</span>
+            : (
+              <span className="font-bold text-gray-800 truncate">
+                {[...selectedNames].join(', ')}
+              </span>
+            )
+          }
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {selectedNames.size > 0 && (
+            <span className="px-2 py-0.5 bg-teal-100 text-teal-700 text-[10px] font-black rounded-full">
+              {selectedNames.size}/{stations.length}
+            </span>
+          )}
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+          {/* Search + bulk buttons */}
+          <div className="p-2 border-b border-gray-100 space-y-1.5">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl">
+              <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search station…"
+                className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder:text-gray-400"
+              />
+            </div>
+            <div className="flex gap-1 px-1">
+              <button type="button" onClick={onSelectAll}
+                className="flex-1 text-[10px] font-bold text-teal-600 hover:bg-teal-50 py-1 rounded-lg transition-colors">
+                Select All
+              </button>
+              <button type="button" onClick={onClearAll}
+                className="flex-1 text-[10px] font-bold text-gray-500 hover:bg-gray-100 py-1 rounded-lg transition-colors">
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          {/* Station list */}
+          <div className="max-h-56 overflow-y-auto">
+            {filtered.length === 0
+              ? <p className="text-xs text-gray-400 text-center py-4">No stations found</p>
+              : filtered.map(s => {
+                const checked = selectedNames.has(s.name);
+                return (
+                  <button
+                    key={s.name}
+                    type="button"
+                    onClick={() => onToggle(s.name)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-teal-50 transition-colors text-left border-b border-gray-50 last:border-0 ${checked ? 'bg-teal-50' : ''}`}
+                  >
+                    <span className={`h-4 w-4 rounded border-2 shrink-0 flex items-center justify-center ${checked ? 'border-teal-500 bg-teal-500' : 'border-gray-300 bg-white'}`}>
+                      {checked && <span className="block w-2 h-2 bg-white rounded-sm" />}
+                    </span>
+                    <span className={`text-sm font-mono font-bold flex-1 ${checked ? 'text-teal-800' : 'text-gray-700'}`}>{s.name}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {s.avgRate != null && (
+                        <div className="text-right">
+                          <p className="text-[9px] text-gray-400 uppercase font-semibold">Avg Rate</p>
+                          <p className={`text-xs font-black ${checked ? 'text-teal-700' : 'text-rose-500'}`}>@{s.avgRate}</p>
+                        </div>
+                      )}
+                      <span className="text-[10px] text-gray-400 font-medium">{s.count} bilties</span>
+                    </div>
+                  </button>
+                );
+              })
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
 // Bulk Update by GR List (POST /api/kaat/bulk-update-by-grs)
 // ────────────────────────────────────────────────────────────────────────────────
 function BulkUpdateTab({ transportGstin, bilties, token, onSuccess }) {
   const cityStats = useMemo(() => buildCityStats(bilties), [bilties]);
 
-  const [selectedGrNos, setSelectedGrNos] = useState(() => new Set(bilties.map(b => b.gr_no)));
-  const [newKaatRate,   setNewKaatRate]   = useState('');
-  const [newKaatDd,     setNewKaatDd]     = useState('');
-  const [loading,       setLoading]       = useState(false);
-  const [result,        setResult]        = useState(null);
-  const [error,         setError]         = useState(null);
-
-  // Station list derived from bilties
+  // Station list
   const stations = useMemo(() => {
     const map = new Map();
     for (const b of bilties) {
@@ -263,245 +371,211 @@ function BulkUpdateTab({ transportGstin, bilties, token, onSuccess }) {
       map.get(st).push(b);
     }
     return [...map.entries()]
-      .map(([name, bs]) => ({ name, bs }))
+      .map(([name, bs]) => {
+        const stat = cityStats.find(c => c.city === name);
+        return { name, bs, count: bs.length, avgRate: stat?.avgRate ?? null };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [bilties]);
+  }, [bilties, cityStats]);
 
-  const toggleStation = (bs) => {
-    setSelectedGrNos(prev => {
+  // Selected station names
+  const [selectedNames, setSelectedNames] = useState(() => new Set());
+
+  // Per-station rate state: { [stationName]: { rate: string, dd: string } }
+  const [stationRates, setStationRates] = useState(() => {
+    const init = {};
+    stations.forEach(s => {
+      init[s.name] = { rate: s.avgRate != null ? String(s.avgRate) : '', dd: '' };
+    });
+    return init;
+  });
+
+  const [loading,  setLoading]  = useState(false);
+  const [results,  setResults]  = useState(null); // { [stationName]: { data, error } }
+
+  const setRate = (name, val) =>
+    setStationRates(prev => ({ ...prev, [name]: { ...prev[name], rate: val } }));
+  const setDd = (name, val) =>
+    setStationRates(prev => ({ ...prev, [name]: { ...prev[name], dd: val } }));
+
+  const toggleName = (name) => {
+    setSelectedNames(prev => {
       const n = new Set(prev);
-      const allSel = bs.every(b => n.has(b.gr_no));
-      bs.forEach(b => allSel ? n.delete(b.gr_no) : n.add(b.gr_no));
+      n.has(name) ? n.delete(name) : n.add(name);
       return n;
     });
-    // Pre-fill rate from station avg if input is still empty
-    const stat = cityStats.find(c => bs.some(b => (b.to_city || '').toUpperCase() === c.city));
-    if (stat?.avgRate != null && newKaatRate === '') setNewKaatRate(String(stat.avgRate));
-    setResult(null); setError(null);
+    setResults(null);
   };
 
-  const toggleBilty = (grNo) => {
-    setSelectedGrNos(prev => {
-      const n = new Set(prev);
-      n.has(grNo) ? n.delete(grNo) : n.add(grNo);
-      return n;
-    });
-  };
+  const selectAll = () => { setSelectedNames(new Set(stations.map(s => s.name))); setResults(null); };
+  const clearAll  = () => { setSelectedNames(new Set()); setResults(null); };
+
+  const selectedStations = stations.filter(s => selectedNames.has(s.name));
+  const totalBilties = selectedStations.reduce((sum, s) => sum + s.bs.length, 0);
+  const allRatesFilled = selectedStations.every(s => stationRates[s.name]?.rate);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const gr_nos = [...selectedGrNos];
-    if (!gr_nos.length || !newKaatRate) return;
-    setLoading(true); setError(null); setResult(null);
-    try {
-      const body = { gr_nos, new_kaat_rate: parseFloat(newKaatRate) };
-      if (newKaatDd !== '') body.new_kaat_dd = parseFloat(newKaatDd);
-      const res = await fetch(`${API_BASE}/api/kaat/bulk-update-by-grs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok || data.status === 'error') throw new Error(data.message || 'API error');
-      setResult(data);
-      onSuccess?.();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (!selectedStations.length || !allRatesFilled) return;
+    setLoading(true); setResults(null);
+    const out = {};
+    for (const s of selectedStations) {
+      const { rate, dd } = stationRates[s.name] || {};
+      const gr_nos = s.bs.map(b => b.gr_no);
+      try {
+        const body = { gr_nos, new_kaat_rate: parseFloat(rate) };
+        if (dd !== '') body.new_kaat_dd = parseFloat(dd);
+        const res = await fetch(`${API_BASE}/api/kaat/bulk-update-by-grs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok || data.status === 'error') throw new Error(data.message || 'API error');
+        out[s.name] = { data };
+      } catch (err) {
+        out[s.name] = { error: err.message };
+      }
     }
+    setResults(out);
+    setLoading(false);
+    onSuccess?.();
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Context banner */}
-      <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl px-4 py-3">
-        <p className="text-[10px] font-bold text-teal-500 uppercase tracking-widest mb-2">Selected Bilties</p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'GSTIN',    val: transportGstin || '—' },
-            { label: 'Loaded',   val: bilties.length },
-            { label: 'Selected', val: selectedGrNos.size },
-          ].map(({ label, val }) => (
-            <div key={label} className="flex items-center gap-2 bg-white/80 border border-teal-100 rounded-xl px-3 py-1.5">
-              <span className="text-[10px] font-bold text-teal-500 uppercase">{label}</span>
-              <span className="text-xs font-mono font-bold text-teal-800">{val}</span>
+      {/* Context row */}
+      <div className="flex flex-wrap gap-2 px-4 py-3 bg-teal-50 border border-teal-200 rounded-2xl">
+        <div className="flex items-center gap-2 bg-white/80 border border-teal-100 rounded-xl px-3 py-1.5">
+          <span className="text-[10px] font-bold text-teal-500 uppercase">GSTIN</span>
+          <span className="text-xs font-mono font-bold text-teal-800">{transportGstin || '—'}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-white/80 border border-teal-100 rounded-xl px-3 py-1.5">
+          <span className="text-[10px] font-bold text-teal-500 uppercase">Bilties</span>
+          <span className="text-xs font-mono font-bold text-teal-800">{bilties.length}</span>
+        </div>
+        {selectedNames.size > 0 && (
+          <div className="flex items-center gap-2 bg-emerald-100 border border-emerald-200 rounded-xl px-3 py-1.5">
+            <span className="text-[10px] font-bold text-emerald-600 uppercase">Selected</span>
+            <span className="text-xs font-mono font-bold text-emerald-800">{totalBilties} bilties · {selectedNames.size} stations</span>
+          </div>
+        )}
+      </div>
+
+      {/* Station multi-select dropdown */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
+          Select Stations <span className="text-rose-500">*</span>
+        </label>
+        <StationMultiDropdown
+          stations={stations}
+          selectedNames={selectedNames}
+          onToggle={toggleName}
+          onSelectAll={selectAll}
+          onClearAll={clearAll}
+        />
+      </div>
+
+      {/* Per-station rate cards */}
+      {selectedStations.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Set Rate Per Station</p>
+          {selectedStations.map(s => {
+            const { rate, dd } = stationRates[s.name] || { rate: '', dd: '' };
+            return (
+              <div key={s.name} className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                {/* Station header */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                    <span className="font-black text-sm text-gray-900 font-mono">{s.name}</span>
+                    <span className="text-xs text-gray-400 font-medium">{s.count} bilties</span>
+                  </div>
+                  {s.avgRate != null && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-lg">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase">Avg</span>
+                      <span className="text-xs font-black text-rose-500">@{s.avgRate}</span>
+                    </div>
+                  )}
+                </div>
+                {/* Rate inputs */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
+                      New Rate <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={rate}
+                      onChange={e => setRate(s.name, e.target.value)}
+                      placeholder={s.avgRate != null ? `avg ${s.avgRate}` : '1.50'}
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-black focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">DD (optional)</label>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={dd}
+                      onChange={e => setDd(s.name, e.target.value)}
+                      placeholder="blank = keep"
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Results per station */}
+      {results && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Results</p>
+          {Object.entries(results).map(([name, { data, error }]) => (
+            <div key={name} className={`rounded-xl px-4 py-3 border ${error ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className="flex items-center gap-2 mb-1">
+                {error
+                  ? <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                  : <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                }
+                <span className="font-black text-sm font-mono">{name}</span>
+                {error
+                  ? <span className="text-xs text-red-600 ml-1">{error}</span>
+                  : <span className="text-xs text-emerald-700 ml-1">
+                      {data.updated_count} updated · rate {data.new_kaat_rate}
+                      {data.pohonch_rows_synced > 0 ? ` · ${data.pohonch_rows_synced} pohonch synced` : ''}
+                    </span>
+                }
+              </div>
+              {!error && (data.skipped_count > 0 || data.not_found_count > 0) && (
+                <div className="flex gap-2 mt-1">
+                  {data.skipped_count > 0 && (
+                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg font-bold">
+                      {data.skipped_count} skipped: {data.skipped_gr_nos?.join(', ')}
+                    </span>
+                  )}
+                  {data.not_found_count > 0 && (
+                    <span className="text-[10px] text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-lg font-bold">
+                      {data.not_found_count} not found
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Station chips — bulk select / deselect */}
-      {stations.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Select by Station</label>
-            <div className="flex gap-1">
-              <button type="button"
-                onClick={() => setSelectedGrNos(new Set(bilties.map(b => b.gr_no)))}
-                className="text-[10px] font-bold text-teal-600 hover:text-teal-800 px-2 py-0.5 rounded hover:bg-teal-50 transition-colors">
-                All
-              </button>
-              <button type="button"
-                onClick={() => setSelectedGrNos(new Set())}
-                className="text-[10px] font-bold text-gray-500 hover:text-gray-800 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
-                None
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-1.5 p-3 bg-gray-50 rounded-xl border border-gray-200">
-            {stations.map(({ name, bs }) => {
-              const selCount = bs.filter(b => selectedGrNos.has(b.gr_no)).length;
-              const allSel  = selCount === bs.length;
-              const noneSel = selCount === 0;
-              const stat    = cityStats.find(c => c.city === name);
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => toggleStation(bs)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-                    allSel  ? 'bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200' :
-                    noneSel ? 'bg-red-100 border-red-300 text-red-700 hover:bg-red-200' :
-                              'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
-                  }`}
-                >
-                  {name}
-                  {stat?.avgRate != null && (
-                    <span className="text-[9px] opacity-70">@{stat.avgRate}</span>
-                  )}
-                  <span className={`px-1.5 rounded-full text-[10px] font-black ${
-                    allSel ? 'bg-emerald-600 text-white' : noneSel ? 'bg-red-600 text-white' : 'bg-amber-600 text-white'
-                  }`}>
-                    {selCount}/{bs.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Individual bilties list */}
-      <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 bg-white divide-y divide-gray-50">
-        {bilties.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-6">No bilties loaded</p>
-        )}
-        {bilties.map((b, i) => {
-          const sel = selectedGrNos.has(b.gr_no);
-          return (
-            <button
-              key={`${b.gr_no}-${i}`}
-              type="button"
-              onClick={() => toggleBilty(b.gr_no)}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-xs transition-colors text-left ${
-                sel ? 'bg-teal-50 hover:bg-teal-100' : 'bg-white opacity-45 hover:opacity-70'
-              }`}
-            >
-              <span className={`h-3.5 w-3.5 rounded border-2 shrink-0 flex items-center justify-center ${sel ? 'border-teal-500 bg-teal-500' : 'border-gray-300 bg-white'}`}>
-                {sel && <span className="block w-1.5 h-1.5 bg-white rounded-sm" />}
-              </span>
-              <span className="font-black font-mono text-gray-800 w-16 shrink-0">{b.gr_no}</span>
-              <span className="text-gray-500 truncate flex-1">{b.consignor_name || '—'}</span>
-              <span className="text-gray-600 shrink-0 w-20 text-right truncate">{b.to_city || '—'}</span>
-              {b.wt   != null && <span className="text-gray-400 shrink-0 w-14 text-right">{b.wt} kg</span>}
-              {b.kaat_rate != null && <span className="text-rose-500 font-bold shrink-0 w-10 text-right">@{b.kaat_rate}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Rate inputs */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
-            New Kaat Rate <span className="text-rose-500">*</span>
-          </label>
-          <input
-            type="number" step="0.01" min="0"
-            value={newKaatRate}
-            onChange={e => setNewKaatRate(e.target.value)}
-            placeholder="1.50"
-            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-black focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
-            required
-          />
-          <p className="text-[11px] text-gray-400">kaat = weight × rate</p>
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Kaat DD (optional)</label>
-          <input
-            type="number" step="0.01" min="0"
-            value={newKaatDd}
-            onChange={e => setNewKaatDd(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
-          />
-          <p className="text-[11px] text-gray-400">Leave blank to keep existing</p>
-        </div>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="flex items-start gap-2.5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
-          <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Result */}
-      {result && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-            <div>
-              <p className="text-sm font-black text-emerald-800">{result.updated_count} bilties updated</p>
-              <p className="text-xs text-emerald-600">
-                Rate: {result.new_kaat_rate}
-                {result.new_kaat_dd != null ? ` · DD: ${result.new_kaat_dd}` : ''}
-                {result.pohonch_rows_synced > 0 ? ` · ${result.pohonch_rows_synced} pohonch synced` : ''}
-              </p>
-            </div>
-          </div>
-          {result.skipped_count > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-              <p className="text-xs font-bold text-amber-700">
-                {result.skipped_count} skipped (no kaat row): {result.skipped_gr_nos?.join(', ')}
-              </p>
-            </div>
-          )}
-          {result.not_found_count > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-              <p className="text-xs font-bold text-red-700">
-                {result.not_found_count} not found: {result.not_found_gr_nos?.join(', ')}
-              </p>
-            </div>
-          )}
-          {result.updated?.length > 0 && (
-            <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
-              {result.updated.map(u => (
-                <div key={u.gr_no} className="flex items-center justify-between text-xs text-emerald-800 bg-white px-3 py-2 rounded-xl border border-emerald-100 shadow-sm">
-                  <span className="font-black font-mono w-20 shrink-0">{u.gr_no}</span>
-                  <span className="text-gray-500">Wt: <strong>{u.wt}</strong></span>
-                  <span className="text-rose-600">Kaat: <strong>₹{u.kaat}</strong></span>
-                  <span className="text-teal-700">PF: <strong>₹{u.pf}</strong></span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
       <button
         type="submit"
-        disabled={loading || !newKaatRate || selectedGrNos.size === 0}
+        disabled={loading || selectedStations.length === 0 || !allRatesFilled}
         className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl text-sm font-black hover:from-teal-700 hover:to-emerald-700 transition-all shadow-lg shadow-teal-200/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
       >
         {loading
           ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating…</>
-          : <><Zap className="h-4 w-4" /> Update {selectedGrNos.size} Bilties</>
+          : <><Zap className="h-4 w-4" /> Update {totalBilties} Bilties across {selectedStations.length} Station{selectedStations.length !== 1 ? 's' : ''}</>
         }
       </button>
     </form>
@@ -770,7 +844,7 @@ export default function KaatUpdateModal({
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[88vh]">
+      <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[94vh] sm:h-[88vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">

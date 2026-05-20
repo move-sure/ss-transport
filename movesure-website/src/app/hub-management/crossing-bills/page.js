@@ -8,6 +8,7 @@ import TransportSearchSelect from '../../../components/hub-management/TransportS
 import {
   ArrowLeft, Search, Loader2, AlertCircle,
   Package, Hash, Printer, X, Building2, Eye,
+  RefreshCw, CheckCircle2, IndianRupee,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -63,6 +64,15 @@ export default function CrossingBillsPage() {
   const [showPreview, setShowPreview]     = useState(false);
   const [selectedCols, setSelectedCols]   = useState(DEFAULT_SELECTED_COLS);
   const [searchQuery, setSearchQuery]     = useState('');
+
+  // ── Kaat update modal ────────────────────────────────────────────────────────
+  const [showKaatModal, setShowKaatModal]         = useState(false);
+  const [kaatSelectedGrNos, setKaatSelectedGrNos] = useState(new Set());
+  const [kaatRate, setKaatRate]                   = useState('');
+  const [kaatDd, setKaatDd]                       = useState('');
+  const [kaatLoading, setKaatLoading]             = useState(false);
+  const [kaatResult, setKaatResult]               = useState(null);
+  const [kaatError, setKaatError]                 = useState(null);
 
 
   // ── Flatten & group bilties ────────────────────────────────────────────────
@@ -200,6 +210,81 @@ export default function CrossingBillsPage() {
     });
   };
 
+  // ── Kaat modal: stations derived from all bilties ─────────────────────────
+  const kaatStations = useMemo(() => {
+    const map = new Map();
+    for (const b of bilties) {
+      const st = b.to_city || b.destination || 'Unknown';
+      if (!map.has(st)) map.set(st, []);
+      map.get(st).push(b);
+    }
+    return [...map.entries()]
+      .map(([name, bs]) => ({ name, bs }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [bilties]);
+
+  const openKaatModal = () => {
+    setKaatSelectedGrNos(new Set(bilties.map(b => b.gr_no)));
+    setKaatRate('');
+    setKaatDd('');
+    setKaatResult(null);
+    setKaatError(null);
+    setShowKaatModal(true);
+  };
+
+  const toggleKaatGroup = (grp) => {
+    setKaatSelectedGrNos(prev => {
+      const n = new Set(prev);
+      const allSel = grp.bilties.every(b => n.has(b.gr_no));
+      grp.bilties.forEach(b => allSel ? n.delete(b.gr_no) : n.add(b.gr_no));
+      return n;
+    });
+  };
+
+  const toggleKaatBilty = (grNo) => {
+    setKaatSelectedGrNos(prev => {
+      const n = new Set(prev);
+      n.has(grNo) ? n.delete(grNo) : n.add(grNo);
+      return n;
+    });
+  };
+
+  const toggleKaatStation = (stBilties) => {
+    setKaatSelectedGrNos(prev => {
+      const n = new Set(prev);
+      const allSel = stBilties.every(b => n.has(b.gr_no));
+      stBilties.forEach(b => allSel ? n.delete(b.gr_no) : n.add(b.gr_no));
+      return n;
+    });
+  };
+
+  const submitKaatUpdate = async () => {
+    const gr_nos = [...kaatSelectedGrNos];
+    if (!gr_nos.length || !kaatRate) return;
+    setKaatLoading(true);
+    setKaatError(null);
+    setKaatResult(null);
+    try {
+      const body = { gr_nos, new_kaat_rate: parseFloat(kaatRate) };
+      if (kaatDd !== '') body.new_kaat_dd = parseFloat(kaatDd);
+      const res = await fetch(`${API_BASE}/api/kaat/bulk-update-by-grs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status === 'error') throw new Error(data.message || 'API error');
+      setKaatResult(data);
+    } catch (err) {
+      setKaatError(err.message);
+    } finally {
+      setKaatLoading(false);
+    }
+  };
+
   // ── Generate PDF ───────────────────────────────────────────────────────────
   const generatePDF = () => generateCrossingBillsPDF({
     result,
@@ -304,13 +389,22 @@ export default function CrossingBillsPage() {
           </div>
         </div>
         {result && (
-          <button
-            onClick={openModal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors shadow-sm"
-          >
-            <Printer className="h-4 w-4" />
-            Print Bills
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openKaatModal}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 transition-colors shadow-sm"
+            >
+              <IndianRupee className="h-4 w-4" />
+              Update Kaat
+            </button>
+            <button
+              onClick={openModal}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors shadow-sm"
+            >
+              <Printer className="h-4 w-4" />
+              Print Bills
+            </button>
+          </div>
         )}
       </div>
 
@@ -880,6 +974,275 @@ export default function CrossingBillsPage() {
                 >
                   {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                   {pdfLoading ? 'Generating…' : 'Generate PDF'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Update Kaat Modal ────────────────────────────────────────────────── */}
+      {showKaatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] h-[95vh] flex flex-col">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <IndianRupee className="h-5 w-5 text-amber-500" />
+                  Update Kaat
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {result?.transport_name} · {bilties.length} bilties loaded · select which to update
+                </p>
+              </div>
+              <button onClick={() => setShowKaatModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Body — 2-column */}
+            <div className="flex-1 overflow-y-auto lg:overflow-hidden lg:flex">
+
+              {/* LEFT: rate inputs + result */}
+              <div className="px-6 py-5 lg:w-[340px] xl:w-[380px] lg:overflow-y-auto lg:border-r lg:border-gray-200 space-y-5 shrink-0">
+
+                {/* Kaat Rate */}
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+                    New Kaat Rate (per kg) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={kaatRate}
+                      onChange={e => setKaatRate(e.target.value)}
+                      placeholder="e.g. 1.50"
+                      className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-amber-400/40 focus:border-amber-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* DD Charge */}
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+                    DD Charge <span className="text-gray-400 font-normal">(optional — leave blank to keep existing)</span>
+                  </label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={kaatDd}
+                      onChange={e => setKaatDd(e.target.value)}
+                      placeholder="e.g. 50  (blank = keep existing)"
+                      className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-amber-400/40 focus:border-amber-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Selection summary */}
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 space-y-1">
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Selection Summary</p>
+                  <p className="text-2xl font-black text-amber-900">
+                    {kaatSelectedGrNos.size}
+                    <span className="text-sm font-semibold text-amber-600 ml-1.5">/ {bilties.length} bilties selected</span>
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setKaatSelectedGrNos(new Set(bilties.map(b => b.gr_no)))}
+                      className="text-[10px] font-bold text-amber-700 hover:text-amber-900 px-2 py-0.5 rounded hover:bg-amber-100 transition-colors"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setKaatSelectedGrNos(new Set())}
+                      className="text-[10px] font-bold text-amber-700 hover:text-amber-900 px-2 py-0.5 rounded hover:bg-amber-100 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error */}
+                {kaatError && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-700 font-medium">{kaatError}</p>
+                  </div>
+                )}
+
+                {/* Result */}
+                {kaatResult && (
+                  <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                      <p className="text-sm font-bold text-green-800">Kaat Updated Successfully</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        ['Updated', kaatResult.updated_count],
+                        ['Skipped', kaatResult.skipped_count],
+                        ['Not Found', kaatResult.not_found_count],
+                        ['Pohonch Synced', kaatResult.pohonch_rows_synced],
+                      ].map(([label, val]) => (
+                        <div key={label} className="bg-white rounded-lg px-3 py-2 border border-green-100">
+                          <p className="text-[10px] text-gray-500 uppercase font-bold">{label}</p>
+                          <p className="text-base font-black text-gray-900">{val}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {kaatResult.skipped_gr_nos?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-amber-600 uppercase mb-1">Skipped GRs (no kaat row)</p>
+                        <p className="text-xs text-gray-600 font-mono break-all">{kaatResult.skipped_gr_nos.join(', ')}</p>
+                      </div>
+                    )}
+                    {kaatResult.not_found_gr_nos?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Not Found GRs</p>
+                        <p className="text-xs text-gray-600 font-mono break-all">{kaatResult.not_found_gr_nos.join(', ')}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT: bilty selection */}
+              <div className="px-6 py-5 lg:flex-1 lg:overflow-y-auto space-y-4">
+
+                {/* Station bulk chips */}
+                {kaatStations.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Bulk Select by Station</p>
+                    <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-gray-50 border border-gray-200">
+                      {kaatStations.map(({ name, bs }) => {
+                        const selCount = bs.filter(b => kaatSelectedGrNos.has(b.gr_no)).length;
+                        const allSel  = selCount === bs.length;
+                        const noneSel = selCount === 0;
+                        return (
+                          <button
+                            key={name}
+                            onClick={() => toggleKaatStation(bs)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                              allSel  ? 'bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200' :
+                              noneSel ? 'bg-red-100 border-red-300 text-red-700 hover:bg-red-200' :
+                                        'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
+                            }`}
+                          >
+                            {name}
+                            <span className={`px-1.5 rounded-full text-[10px] font-black ${
+                              allSel ? 'bg-emerald-600 text-white' : noneSel ? 'bg-red-600 text-white' : 'bg-amber-600 text-white'
+                            }`}>
+                              {selCount}/{bs.length}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pohonch groups */}
+                <div className="space-y-3">
+                  {groups.map(grp => {
+                    const grNos = grp.bilties.map(b => b.gr_no);
+                    const selCount = grp.bilties.filter(b => kaatSelectedGrNos.has(b.gr_no)).length;
+                    const allSel  = selCount === grp.bilties.length;
+                    const noneSel = selCount === 0;
+                    return (
+                      <div key={grp.key} className="rounded-2xl border-2 border-gray-200 bg-white">
+                        {/* Group header */}
+                        <div className="flex items-stretch border-b border-gray-100">
+                          <button
+                            className="flex-1 flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-tl-2xl"
+                            onClick={() => toggleKaatGroup(grp)}
+                          >
+                            <Checkbox checked={!noneSel} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-black text-gray-900 block truncate">
+                                {grp.key === 'NO_POHONCH' ? 'No Pohonch Available' : grp.key}
+                              </span>
+                            </div>
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                              allSel  ? 'bg-emerald-100 text-emerald-700' :
+                              noneSel ? 'bg-red-100 text-red-700' :
+                                        'bg-amber-100 text-amber-700'
+                            }`}>
+                              {selCount}/{grp.bilties.length}
+                            </span>
+                          </button>
+                          <div className="flex items-center gap-1 px-2 border-l border-gray-100">
+                            <button onClick={() => setKaatSelectedGrNos(prev => { const n=new Set(prev); grNos.forEach(g=>n.delete(g)); return n; })}
+                              className="text-[10px] font-bold text-gray-500 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors">None</button>
+                            <button onClick={() => setKaatSelectedGrNos(prev => { const n=new Set(prev); grNos.forEach(g=>n.add(g)); return n; })}
+                              className="text-[10px] font-bold text-gray-500 hover:text-emerald-700 px-2 py-1 rounded hover:bg-emerald-50 transition-colors">All</button>
+                          </div>
+                        </div>
+
+                        {/* Individual bilties */}
+                        <div className="p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                          {grp.bilties.map((b, i) => {
+                            const sel = kaatSelectedGrNos.has(b.gr_no);
+                            return (
+                              <button
+                                key={`${b.gr_no}-${i}`}
+                                onClick={() => toggleKaatBilty(b.gr_no)}
+                                className={`flex items-start gap-2 px-3 py-2 rounded-lg text-xs border transition-colors text-left ${
+                                  sel ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-gray-50 border-gray-100 opacity-50 hover:opacity-80'
+                                }`}
+                              >
+                                <span className="pt-0.5"><Checkbox checked={sel} /></span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-gray-900">{b.gr_no}</span>
+                                    <span className="text-gray-400">·</span>
+                                    <span className="text-gray-600 truncate">{b.consignee_name || 'N/A'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-gray-500 mt-0.5">
+                                    <span className="text-[10px]">{b.to_city || 'N/A'}</span>
+                                    {b.wt != null && <span className="text-[10px]">· {b.wt} kg</span>}
+                                    {b.kaat != null && <span className="text-[10px] font-bold text-rose-600 ml-auto">₹{fmtDisp(b.kaat)}</span>}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 shrink-0 flex items-center justify-between bg-gray-50 rounded-b-2xl">
+              <p className="text-sm text-gray-600">
+                <span className="font-black text-gray-900 text-base">{kaatSelectedGrNos.size}</span>
+                <span className="ml-1.5">bilties selected for kaat update</span>
+                {kaatRate && <span className="ml-2 text-amber-600 font-bold">@ ₹{kaatRate}/kg</span>}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowKaatModal(false)}
+                  className="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitKaatUpdate}
+                  disabled={kaatLoading || !kaatRate || kaatSelectedGrNos.size === 0}
+                  className="inline-flex items-center gap-2 px-6 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  {kaatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {kaatLoading ? 'Updating…' : `Update ${kaatSelectedGrNos.size} Bilties`}
                 </button>
               </div>
             </div>

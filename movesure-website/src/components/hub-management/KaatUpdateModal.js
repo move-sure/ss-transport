@@ -242,41 +242,61 @@ function GrPicker({ bilties, value, onChange }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────────
-// Bulk Update by Station
+// Bulk Update by GR List (POST /api/kaat/bulk-update-by-grs)
 // ────────────────────────────────────────────────────────────────────────────────
-function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuccess }) {
+function BulkUpdateTab({ transportGstin, bilties, token, onSuccess }) {
   const cityStats = useMemo(() => buildCityStats(bilties), [bilties]);
 
-  const [stationName, setStationName] = useState('');
-  const [newKaatRate, setNewKaatRate] = useState('');
-  const [newKaatDd,   setNewKaatDd]   = useState('');
-  const [loading,     setLoading]     = useState(false);
-  const [result,      setResult]      = useState(null);
-  const [error,       setError]       = useState(null);
+  const [selectedGrNos, setSelectedGrNos] = useState(() => new Set(bilties.map(b => b.gr_no)));
+  const [newKaatRate,   setNewKaatRate]   = useState('');
+  const [newKaatDd,     setNewKaatDd]     = useState('');
+  const [loading,       setLoading]       = useState(false);
+  const [result,        setResult]        = useState(null);
+  const [error,         setError]         = useState(null);
 
-  const handleCitySelect = (city) => {
-    setStationName(city);
-    setResult(null); setError(null);
-    const stat = cityStats.find(c => c.city === city);
-    if (stat?.avgRate != null && newKaatRate === '') {
-      setNewKaatRate(String(stat.avgRate));
+  // Station list derived from bilties
+  const stations = useMemo(() => {
+    const map = new Map();
+    for (const b of bilties) {
+      const st = (b.to_city || 'Unknown').trim().toUpperCase();
+      if (!map.has(st)) map.set(st, []);
+      map.get(st).push(b);
     }
+    return [...map.entries()]
+      .map(([name, bs]) => ({ name, bs }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [bilties]);
+
+  const toggleStation = (bs) => {
+    setSelectedGrNos(prev => {
+      const n = new Set(prev);
+      const allSel = bs.every(b => n.has(b.gr_no));
+      bs.forEach(b => allSel ? n.delete(b.gr_no) : n.add(b.gr_no));
+      return n;
+    });
+    // Pre-fill rate from station avg if input is still empty
+    const stat = cityStats.find(c => bs.some(b => (b.to_city || '').toUpperCase() === c.city));
+    if (stat?.avgRate != null && newKaatRate === '') setNewKaatRate(String(stat.avgRate));
+    setResult(null); setError(null);
+  };
+
+  const toggleBilty = (grNo) => {
+    setSelectedGrNos(prev => {
+      const n = new Set(prev);
+      n.has(grNo) ? n.delete(grNo) : n.add(grNo);
+      return n;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stationName.trim() || !newKaatRate) return;
+    const gr_nos = [...selectedGrNos];
+    if (!gr_nos.length || !newKaatRate) return;
     setLoading(true); setError(null); setResult(null);
     try {
-      const body = {
-        transport_gstin: transportGstin,
-        from_date:       fromDate,
-        to_date:         toDate,
-        station_name:    stationName.trim().toUpperCase(),
-        new_kaat_rate:   parseFloat(newKaatRate),
-        ...(newKaatDd !== '' ? { new_kaat_dd: parseFloat(newKaatDd) } : {}),
-      };
-      const res = await fetch(`${API_BASE}/api/kaat/bulk-update`, {
+      const body = { gr_nos, new_kaat_rate: parseFloat(newKaatRate) };
+      if (newKaatDd !== '') body.new_kaat_dd = parseFloat(newKaatDd);
+      const res = await fetch(`${API_BASE}/api/kaat/bulk-update-by-grs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -295,20 +315,16 @@ function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuc
     }
   };
 
-  const selectedStat = cityStats.find(c => c.city === stationName);
-  const canSubmit = !loading && stationName.trim() && newKaatRate;
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {/* Context banner */}
-      <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl px-4 py-3.5">
-        <p className="text-[10px] font-bold text-teal-500 uppercase tracking-widest mb-2">Using Search Context</p>
+      <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl px-4 py-3">
+        <p className="text-[10px] font-bold text-teal-500 uppercase tracking-widest mb-2">Selected Bilties</p>
         <div className="flex flex-wrap gap-2">
           {[
-            { label: 'GSTIN',  val: transportGstin || '—' },
-            { label: 'From',   val: fromDate },
-            { label: 'To',     val: toDate },
-            { label: 'Cities', val: cityStats.length },
+            { label: 'GSTIN',    val: transportGstin || '—' },
+            { label: 'Loaded',   val: bilties.length },
+            { label: 'Selected', val: selectedGrNos.size },
           ].map(({ label, val }) => (
             <div key={label} className="flex items-center gap-2 bg-white/80 border border-teal-100 rounded-xl px-3 py-1.5">
               <span className="text-[10px] font-bold text-teal-500 uppercase">{label}</span>
@@ -318,42 +334,84 @@ function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuc
         </div>
       </div>
 
-      {/* City picker */}
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
-          Destination Station <span className="text-rose-500">*</span>
-        </label>
-        <CityPicker cityStats={cityStats} value={stationName} onChange={handleCitySelect} />
-
-        {/* Stats row for selected city */}
-        {selectedStat && (
-          <div className="flex items-center gap-3 px-3 py-2.5 bg-teal-50 border border-teal-100 rounded-xl">
-            <div className="text-center">
-              <p className="text-[9px] text-teal-500 font-bold uppercase">Bilties</p>
-              <p className="text-sm font-black text-teal-800">{selectedStat.count}</p>
+      {/* Station chips — bulk select / deselect */}
+      {stations.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Select by Station</label>
+            <div className="flex gap-1">
+              <button type="button"
+                onClick={() => setSelectedGrNos(new Set(bilties.map(b => b.gr_no)))}
+                className="text-[10px] font-bold text-teal-600 hover:text-teal-800 px-2 py-0.5 rounded hover:bg-teal-50 transition-colors">
+                All
+              </button>
+              <button type="button"
+                onClick={() => setSelectedGrNos(new Set())}
+                className="text-[10px] font-bold text-gray-500 hover:text-gray-800 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors">
+                None
+              </button>
             </div>
-            <div className="w-px h-8 bg-teal-200" />
-            <div className="text-center">
-              <p className="text-[9px] text-teal-500 font-bold uppercase">Avg Kaat Rate</p>
-              <p className="text-sm font-black text-teal-800">
-                {selectedStat.avgRate != null ? selectedStat.avgRate : '—'}
-              </p>
-            </div>
-            {selectedStat.avgRate != null && (
-              <>
-                <div className="w-px h-8 bg-teal-200" />
-                <p className="text-[11px] text-teal-600 flex items-center gap-1">
-                  <ChevronRight className="h-3 w-3" /> Rate pre-filled from avg
-                </p>
-              </>
-            )}
           </div>
-        )}
+          <div className="flex flex-wrap gap-1.5 p-3 bg-gray-50 rounded-xl border border-gray-200">
+            {stations.map(({ name, bs }) => {
+              const selCount = bs.filter(b => selectedGrNos.has(b.gr_no)).length;
+              const allSel  = selCount === bs.length;
+              const noneSel = selCount === 0;
+              const stat    = cityStats.find(c => c.city === name);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => toggleStation(bs)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                    allSel  ? 'bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200' :
+                    noneSel ? 'bg-red-100 border-red-300 text-red-700 hover:bg-red-200' :
+                              'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
+                  }`}
+                >
+                  {name}
+                  {stat?.avgRate != null && (
+                    <span className="text-[9px] opacity-70">@{stat.avgRate}</span>
+                  )}
+                  <span className={`px-1.5 rounded-full text-[10px] font-black ${
+                    allSel ? 'bg-emerald-600 text-white' : noneSel ? 'bg-red-600 text-white' : 'bg-amber-600 text-white'
+                  }`}>
+                    {selCount}/{bs.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-        <p className="text-[11px] text-gray-400 flex items-center gap-1">
-          <ChevronRight className="h-3 w-3" />
-          Partial match — API finds cities containing this name
-        </p>
+      {/* Individual bilties list */}
+      <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 bg-white divide-y divide-gray-50">
+        {bilties.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-6">No bilties loaded</p>
+        )}
+        {bilties.map((b, i) => {
+          const sel = selectedGrNos.has(b.gr_no);
+          return (
+            <button
+              key={`${b.gr_no}-${i}`}
+              type="button"
+              onClick={() => toggleBilty(b.gr_no)}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-xs transition-colors text-left ${
+                sel ? 'bg-teal-50 hover:bg-teal-100' : 'bg-white opacity-45 hover:opacity-70'
+              }`}
+            >
+              <span className={`h-3.5 w-3.5 rounded border-2 shrink-0 flex items-center justify-center ${sel ? 'border-teal-500 bg-teal-500' : 'border-gray-300 bg-white'}`}>
+                {sel && <span className="block w-1.5 h-1.5 bg-white rounded-sm" />}
+              </span>
+              <span className="font-black font-mono text-gray-800 w-16 shrink-0">{b.gr_no}</span>
+              <span className="text-gray-500 truncate flex-1">{b.consignor_name || '—'}</span>
+              <span className="text-gray-600 shrink-0 w-20 text-right truncate">{b.to_city || '—'}</span>
+              {b.wt   != null && <span className="text-gray-400 shrink-0 w-14 text-right">{b.wt} kg</span>}
+              {b.kaat_rate != null && <span className="text-rose-500 font-bold shrink-0 w-10 text-right">@{b.kaat_rate}</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* Rate inputs */}
@@ -381,7 +439,7 @@ function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuc
             placeholder="0.00"
             className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 transition-all"
           />
-          <p className="text-[11px] text-gray-400">Leave blank to skip DD</p>
+          <p className="text-[11px] text-gray-400">Leave blank to keep existing</p>
         </div>
       </div>
 
@@ -400,7 +458,11 @@ function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuc
             <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
             <div>
               <p className="text-sm font-black text-emerald-800">{result.updated_count} bilties updated</p>
-              <p className="text-xs text-emerald-600">{result.station_name} · Rate: {result.new_kaat_rate}</p>
+              <p className="text-xs text-emerald-600">
+                Rate: {result.new_kaat_rate}
+                {result.new_kaat_dd != null ? ` · DD: ${result.new_kaat_dd}` : ''}
+                {result.pohonch_rows_synced > 0 ? ` · ${result.pohonch_rows_synced} pohonch synced` : ''}
+              </p>
             </div>
           </div>
           {result.skipped_count > 0 && (
@@ -410,11 +472,17 @@ function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuc
               </p>
             </div>
           )}
+          {result.not_found_count > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+              <p className="text-xs font-bold text-red-700">
+                {result.not_found_count} not found: {result.not_found_gr_nos?.join(', ')}
+              </p>
+            </div>
+          )}
           {result.updated?.length > 0 && (
             <div className="max-h-44 overflow-y-auto space-y-1 pr-1">
               {result.updated.map(u => (
-                <div key={u.gr_no}
-                  className="flex items-center justify-between text-xs text-emerald-800 bg-white px-3 py-2 rounded-xl border border-emerald-100 shadow-sm">
+                <div key={u.gr_no} className="flex items-center justify-between text-xs text-emerald-800 bg-white px-3 py-2 rounded-xl border border-emerald-100 shadow-sm">
                   <span className="font-black font-mono w-20 shrink-0">{u.gr_no}</span>
                   <span className="text-gray-500">Wt: <strong>{u.wt}</strong></span>
                   <span className="text-rose-600">Kaat: <strong>₹{u.kaat}</strong></span>
@@ -428,12 +496,12 @@ function BulkUpdateTab({ transportGstin, fromDate, toDate, bilties, token, onSuc
 
       <button
         type="submit"
-        disabled={!canSubmit}
+        disabled={loading || !newKaatRate || selectedGrNos.size === 0}
         className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl text-sm font-black hover:from-teal-700 hover:to-emerald-700 transition-all shadow-lg shadow-teal-200/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
       >
         {loading
           ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating…</>
-          : <><Zap className="h-4 w-4" /> Bulk Update — {stationName || 'Select Station'}</>
+          : <><Zap className="h-4 w-4" /> Update {selectedGrNos.size} Bilties</>
         }
       </button>
     </form>
@@ -731,7 +799,7 @@ export default function KaatUpdateModal({
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            <Zap className="h-3.5 w-3.5" /> Bulk by Station
+            <Zap className="h-3.5 w-3.5" /> Bulk by GR List
           </button>
           <button
             type="button"
@@ -751,8 +819,6 @@ export default function KaatUpdateModal({
           {tab === 'bulk' ? (
             <BulkUpdateTab
               transportGstin={transportGstin}
-              fromDate={fromDate}
-              toDate={toDate}
               bilties={bilties || []}
               token={token}
               onSuccess={onSuccess}

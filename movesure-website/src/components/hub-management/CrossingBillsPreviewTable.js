@@ -1,6 +1,6 @@
 ﻿'use client';
 import React, { useState, useMemo } from 'react';
-import { X, Printer, Loader2, ArrowLeft, Search } from 'lucide-react';
+import { X, Printer, Loader2, ArrowLeft, Search, CalendarDays } from 'lucide-react';
 import { fmtN } from './transportReportUtils';
 import { ALL_COLS, DEFAULT_SELECTED_COLS } from './crossingBillsColumns';
 
@@ -250,13 +250,22 @@ export default function CrossingBillsPreviewTable({
   pdfLoading,
 }) {
   const [searchText, setSearchText] = useState('');
+  const [filterFrom, setFilterFrom] = useState(fromDate || '');
+  const [filterTo,   setFilterTo]   = useState(toDate   || '');
   const activeCols = selectedCols.map(id => ALL_COLS.find(c => c.id === id)).filter(Boolean);
+
+  const passesDate = (b) => {
+    if (!b.bilty_date) return true;
+    if (filterFrom && b.bilty_date < filterFrom) return false;
+    if (filterTo   && b.bilty_date > filterTo)   return false;
+    return true;
+  };
 
   const inclPohonch   = (pohonchGroups   || [])
     .filter(g => !excludedGroups.has(g.key))
-    .map(g => ({ ...g, bilties: g.bilties.filter(b => !excludedBilties.has(b.gr_no)) }))
+    .map(g => ({ ...g, bilties: g.bilties.filter(b => !excludedBilties.has(b.gr_no) && passesDate(b)) }))
     .filter(g => g.bilties.length > 0);
-  const inclNoPohonch = ((noPohonchGroup?.bilties) || []).filter(b => !excludedBilties.has(b.gr_no));
+  const inclNoPohonch = ((noPohonchGroup?.bilties) || []).filter(b => !excludedBilties.has(b.gr_no) && passesDate(b));
   const allIncluded   = [...inclPohonch.flatMap(g => g.bilties), ...inclNoPohonch];
 
   // Bilty format: all bilties from ALL groups (ignore group-level exclusions), sorted
@@ -264,7 +273,7 @@ export default function CrossingBillsPreviewTable({
     const all = [
       ...(pohonchGroups || []).flatMap(g => g.bilties),
       ...((noPohonchGroup?.bilties) || []),
-    ];
+    ].filter(passesDate);
     return all.sort((a, b) => {
       const da = a.dest_pohonch_no || a.bilty_number || '';
       const db = b.dest_pohonch_no || b.bilty_number || '';
@@ -275,7 +284,7 @@ export default function CrossingBillsPreviewTable({
       return da.localeCompare(db);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pohonchGroups, noPohonchGroup]);
+  }, [pohonchGroups, noPohonchGroup, filterFrom, filterTo]);
 
   // Bilty rows for PDF/totals = non-excluded only
   const biltyRows = useMemo(
@@ -406,6 +415,40 @@ export default function CrossingBillsPreviewTable({
             <span className="text-white font-bold">{biltyRows.length}/{allBiltyFlat.length} selected</span>
           </span>
         )}
+      </div>
+
+      {/* Date range filter — both formats */}
+      <div className="shrink-0 flex flex-wrap items-center gap-3 px-4 py-2 bg-gray-900 border-b border-gray-700">
+        <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-semibold shrink-0">
+          <CalendarDays className="h-3.5 w-3.5" />
+          Date Filter
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={e => setFilterFrom(e.target.value)}
+            className="px-2.5 py-1 bg-gray-800 border border-gray-600 rounded-lg text-[11px] text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+          <span className="text-gray-500 text-[11px]">to</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={e => setFilterTo(e.target.value)}
+            className="px-2.5 py-1 bg-gray-800 border border-gray-600 rounded-lg text-[11px] text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        {(filterFrom !== fromDate || filterTo !== toDate) && (
+          <button
+            onClick={() => { setFilterFrom(fromDate || ''); setFilterTo(toDate || ''); }}
+            className="text-[10px] font-bold text-amber-400 hover:text-amber-300 px-2 py-0.5 rounded hover:bg-gray-700 transition-colors"
+          >
+            Reset to search range
+          </button>
+        )}
+        <span className="ml-auto text-[11px] text-gray-400">
+          <span className="text-white font-bold">{grandBilties.length}</span> bilties in range
+        </span>
       </div>
 
       {/* Search + Station bulk-select (bilty format only) */}

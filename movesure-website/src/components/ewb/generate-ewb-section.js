@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   FileText, Send, Loader2, CheckCircle, AlertTriangle, Plus, Trash2, Copy,
   ExternalLink, Download, ChevronDown, ChevronUp, Package, Truck, MapPin, IndianRupee,
@@ -20,6 +20,7 @@ const INDIAN_STATES = [
 ];
 
 const SUPPLY_TYPES = ['outward', 'inward'];
+const SUB_SUPPLY_TYPES = ['Supply', 'Import', 'Export', 'Job Work', 'For Own Use', 'Job Work Returns', 'Sales Return', 'SKD/CKD/Lots', 'Line Sales', 'Recipient Not Known', 'Exhibition or Fairs', 'Others'];
 const DOC_TYPES = ['Tax Invoice', 'Bill of Supply', 'Bill of Entry', 'Delivery Challan', 'Credit Note', 'Others'];
 const TRANSPORT_MODES = ['Road', 'Rail', 'Air', 'Ship', 'In Transit'];
 const VEHICLE_TYPES = ['Regular', 'ODC'];
@@ -150,9 +151,9 @@ export default function GenerateEwbSection({ transitDetails, challanDetails }) {
   const [formData, setFormData] = useState({
     userGstin: '09COVPS5556J1ZT',
     supply_type: 'outward',
-    sub_supply_type: 'Supply',
+    sub_supply_type: 'Others',
     sub_supply_description: '',
-    document_type: 'Tax Invoice',
+    document_type: 'Delivery Challan',
     document_number: '',
     document_date: todayDDMMYYYY(),
     gstin_of_consignor: '',
@@ -209,6 +210,22 @@ export default function GenerateEwbSection({ transitDetails, challanDetails }) {
   const [loadingEwbData, setLoadingEwbData] = useState(false);
   const [grFetchError, setGrFetchError] = useState('');
   const [grFetchSuccess, setGrFetchSuccess] = useState('');
+
+  // Auto-sync sub_supply_description with document_number when it follows the default pattern
+  useEffect(() => {
+    setFormData(prev => {
+      const desc = prev.sub_supply_description || '';
+      if (!desc || /^Delivery against invoice/.test(desc)) {
+        return {
+          ...prev,
+          sub_supply_description: prev.document_number
+            ? `Delivery against invoice ${prev.document_number}`
+            : 'Delivery against invoice ',
+        };
+      }
+      return prev;
+    });
+  }, [formData.document_number]);
 
   // Filtered GR list
   const filteredGrList = useMemo(() => {
@@ -279,12 +296,9 @@ export default function GenerateEwbSection({ transitDetails, challanDetails }) {
       setFormData(prev => {
         const newForm = { ...prev };
 
-        // Always force userGstin to locked value
+        // Always force userGstin to locked value; keep supply_type, sub_supply_type, document_type at defaults
         newForm.userGstin = DEFAULT_USER_GSTIN;
-        if (msg.supply_type) newForm.supply_type = msg.supply_type.toLowerCase();
-        if (msg.sub_supply_type) newForm.sub_supply_type = msg.sub_supply_type;
         if (msg.sub_supply_description) newForm.sub_supply_description = msg.sub_supply_description;
-        if (msg.document_type) newForm.document_type = msg.document_type;
         if (msg.document_number) newForm.document_number = msg.document_number;
         if (msg.document_date) newForm.document_date = msg.document_date;
 
@@ -983,10 +997,13 @@ export default function GenerateEwbSection({ transitDetails, challanDetails }) {
             <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <FormInput label="User GSTIN" value={formData.userGstin} onChange={(v) => handleChange('userGstin', v)} placeholder="09COVPS5556J1ZT" required disabled />
               <FormSelect label="Supply Type" value={formData.supply_type} onChange={(v) => handleChange('supply_type', v)} options={SUPPLY_TYPES} required />
-              <FormInput label="Sub Supply Type" value={formData.sub_supply_type} onChange={(v) => handleChange('sub_supply_type', v)} placeholder="Supply" required />
+              <FormSelect label="Sub Supply Type" value={formData.sub_supply_type} onChange={(v) => handleChange('sub_supply_type', v)} options={SUB_SUPPLY_TYPES} required />
               <FormSelect label="Document Type" value={formData.document_type} onChange={(v) => handleChange('document_type', v)} options={DOC_TYPES} required />
               <FormInput label="Document Number" value={formData.document_number} onChange={(v) => handleChange('document_number', v)} placeholder="INV/25-26/001" required maxLength={16} />
               <FormInput label="Document Date (dd/mm/yyyy)" value={formData.document_date} onChange={(v) => handleChange('document_date', v)} placeholder="14/03/2026" required />
+              {(formData.document_type === 'Others' || formData.sub_supply_type === 'Others') && (
+                <FormInput label="Sub Supply Description" value={formData.sub_supply_description} onChange={(v) => handleChange('sub_supply_description', v)} placeholder={`Delivery against invoice ${formData.document_number || 'DE/00123/26-27'}`} required className="sm:col-span-2 lg:col-span-3" />
+              )}
             </div>
           </div>
 

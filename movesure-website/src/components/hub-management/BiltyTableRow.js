@@ -13,6 +13,7 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
   onToggleSelect, onTransportChange, onOpenKaat, onOpenAddTransport,
   onPreviewImage, updatingTransit, onBranch, onOut, onDelivered, userName,
   crossChallanNo, onPrintCrossChallan, printingCrossChallan, onPod, hasPod, challanNo,
+  showChallanNo,
 }) {
   const st = getStatus(b);
   const kt = kTotal(kd);
@@ -26,6 +27,13 @@ const BiltyTableRow = React.memo(function BiltyTableRow({
         </button>
       </td>
       <td className="px-1 py-1.5 text-gray-400 font-medium text-[10px]">{displayIdx}</td>
+      {showChallanNo && (
+        <td className="px-1.5 py-1.5">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 whitespace-nowrap">
+            {b.challan_no || '—'}
+          </span>
+        </td>
+      )}
       <td className="px-1 py-1.5 text-center">
         <button
           onClick={() => b.bilty_image ? onPreviewImage({ url: b.bilty_image, gr: b.gr_no, type: isMNL ? 'MNL' : 'REG' }) : null}

@@ -426,6 +426,29 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
   const [localPdfUrl,    setLocalPdfUrl]    = useState(bill.bill_url || null);
   const [copied,         setCopied]         = useState(false);
 
+  // Inline edit state
+  const [editing,     setEditing]     = useState(false);
+  const [editFrom,    setEditFrom]    = useState(bill.from_date || '');
+  const [editTo,      setEditTo]      = useState(bill.to_date   || '');
+  const [editNotes,   setEditNotes]   = useState(bill.notes     || '');
+  const [savingEdit,  setSavingEdit]  = useState(false);
+
+  const handleSaveEdit = async () => {
+    setSavingEdit(true);
+    try {
+      const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ from_date: editFrom || null, to_date: editTo || null, updated_by: userId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      onBillUpdated?.({ from_date: editFrom, to_date: editTo });
+      setEditing(false);
+    } catch (e) { alert('Save failed: ' + e.message); }
+    finally { setSavingEdit(false); }
+  };
+
   const fetchFull = useCallback(async () => {
     setLoadingFull(true);
     try {
@@ -577,17 +600,22 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
                 </button>
               )}
             </div>
-            {/* Status transitions */}
-            {nextStatuses.length > 0 && (
-              <div className="flex gap-1 flex-wrap justify-end">
-                {nextStatuses.map(s => (
-                  <button key={s} onClick={()=>handleStatus(s)} disabled={updatingStatus}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${s==='cancelled'?'text-red-600 border-red-200 hover:bg-red-50':'text-blue-700 border-blue-200 hover:bg-blue-50'}`}>
-                    {updatingStatus ? '…' : statusLabel[s] || s}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Edit + Status transitions */}
+            <div className="flex gap-1 flex-wrap justify-end">
+              {/* Edit date range */}
+              {bill.status !== 'cancelled' && !editing && (
+                <button onClick={()=>{ setEditFrom(bill.from_date||''); setEditTo(bill.to_date||''); setEditing(true); }}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-black border text-gray-600 border-gray-200 hover:bg-gray-50 transition-all">
+                  Edit Dates
+                </button>
+              )}
+              {nextStatuses.map(s => (
+                <button key={s} onClick={()=>handleStatus(s)} disabled={updatingStatus}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${s==='cancelled'?'text-red-600 border-red-200 hover:bg-red-50':'text-blue-700 border-blue-200 hover:bg-blue-50'}`}>
+                  {updatingStatus ? '…' : statusLabel[s] || s}
+                </button>
+              ))}
+            </div>
             {/* PDF URL display */}
             {pdfLink && (
               <p className="text-[9px] text-gray-300 font-mono truncate max-w-[200px]" title={pdfLink}>{pdfLink}</p>
@@ -595,6 +623,34 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
           </div>
         </div>
       </div>
+
+      {/* ── Inline edit form ── */}
+      {editing && (
+        <div className="px-5 py-4 bg-amber-50 border-t border-amber-200">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-3">Edit Bill — {bill.bill_no}</p>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div>
+              <label className="text-[10px] font-bold text-gray-600 uppercase mb-1 block">From Date</label>
+              <input type="date" value={editFrom} onChange={e=>setEditFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-black focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"/>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-gray-600 uppercase mb-1 block">To Date</label>
+              <input type="date" value={editTo} onChange={e=>setEditTo(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-black focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"/>
+            </div>
+            <button onClick={handleSaveEdit} disabled={savingEdit}
+              className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 disabled:opacity-50">
+              {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Check className="w-3.5 h-3.5"/>}
+              {savingEdit ? 'Saving…' : 'Save'}
+            </button>
+            <button onClick={()=>setEditing(false)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50">
+              <X className="w-3.5 h-3.5"/> Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Expanded detail ── */}
       {expanded && (
@@ -711,7 +767,7 @@ export default function CrossingBillTransportPage() {
   const [loadingPohonch,  setLoadingPohonch]  = useState(true);
   const [bills,           setBills]           = useState([]);
   const [loadingBills,    setLoadingBills]    = useState(true);
-  const [expandedBill,    setExpandedBill]    = useState(null);
+  const [expandedBill,    setExpandedBill]    = useState(new Set());
   const [expandedPohonch, setExpandedPohonch] = useState(new Set());
   const [activeStation,   setActiveStation]   = useState(null);
   const [txBill,          setTxBill]          = useState(null);
@@ -818,6 +874,11 @@ export default function CrossingBillTransportPage() {
   }, [gstin]);
 
   useEffect(() => { if (mounted) { fetchPohonch(); fetchBills(1); fetchHubRates(); } }, [mounted, fetchPohonch, fetchBills, fetchHubRates]);
+
+  // Auto-expand all bills when they first load
+  useEffect(() => {
+    if (bills.length > 0) setExpandedBill(new Set(bills.map(b => b.id)));
+  }, [bills.length]);
 
   // Auto-expand pohonch that contain bilties for the active station
   useEffect(() => {
@@ -1053,7 +1114,7 @@ export default function CrossingBillTransportPage() {
         </div>
 
         {/* ── Two-column layout ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
 
           {/* ── Left: Station rates (actual + contracted) ── */}
           {(stationRates.length > 0 || hubRates.length > 0) && (
@@ -1138,7 +1199,7 @@ export default function CrossingBillTransportPage() {
           )}
 
           {/* ── Right: Pohonch list ── */}
-          <div className={`${stationRates.length>0?'xl:col-span-2':'xl:col-span-3'} bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden`}>
+          <div className={`${(stationRates.length>0||hubRates.length>0)?'xl:col-span-4':'xl:col-span-5'} bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden`}>
             {/* Pohonch card header */}
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
@@ -1199,6 +1260,7 @@ export default function CrossingBillTransportPage() {
                       <tr className="bg-gray-50/50 border-b border-gray-100">
                         <th className="px-3 py-2 w-8"/>
                         <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Pohonch No.</th>
+                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">P/B No.</th>
                         <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Challans</th>
                         <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Bilties</th>
                         <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Weight</th>
@@ -1242,6 +1304,9 @@ export default function CrossingBillTransportPage() {
                                   {isExpanded ? <ChevronDown className="w-3 h-3"/> : <ChevronRight className="w-3 h-3"/>}
                                   {p.pohonch_number}
                                 </button>
+                              </td>
+                              <td className="px-3 py-2 text-[10px] font-mono text-gray-600">
+                                {[...new Set(bilties.map(b=>b.pohonch_bilty).filter(Boolean))].join(', ') || '-'}
                               </td>
                               <td className="px-3 py-2 text-gray-500 text-[10px]">
                                 {challans.length>3?`${challans.slice(0,3).join(', ')} +${challans.length-3}`:challans.join(', ')||'-'}
@@ -1311,7 +1376,7 @@ export default function CrossingBillTransportPage() {
                                     <table className="w-full text-xs">
                                       <thead>
                                         <tr className="bg-gray-100">
-                                          {['#','GR No.','EWB','P/B No.','Challan','Consignor','Consignee','Dest','Pkg','Wt','Amt','Kaat','Rate','DD','PF','Paid'].map(h=>(
+                                          {['#','GR No.','EWB','P/B No.','Challan','Consignor','Consignee','Dest','Pkg','Wt','Amt','Kaat','Rate','DD','PF','Paid','Del'].map(h=>(
                                             <th key={h} className={`px-2 py-1.5 text-left font-bold text-gray-600 text-[10px] ${activeStation&&h==='Dest'?'bg-indigo-100 text-indigo-700':''}`}>{h}</th>
                                           ))}
                                         </tr>
@@ -1343,6 +1408,11 @@ export default function CrossingBillTransportPage() {
                                                   {b.is_paid?'Paid':'To-Pay'}
                                                 </span>
                                               </td>
+                                              <td className="px-2 py-1 text-center">
+                                                {(b.delivery_type||'').toLowerCase().includes('door')
+                                                  ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Door</span>
+                                                  : <span className="text-[9px] text-gray-300">—</span>}
+                                              </td>
                                             </tr>
                                           );
                                         })}
@@ -1358,7 +1428,7 @@ export default function CrossingBillTransportPage() {
                     </tbody>
                     <tfoot>
                       <tr className="bg-gradient-to-r from-gray-100 to-slate-100 border-t-2 border-gray-300 font-bold text-xs">
-                        <td colSpan={3} className="px-3 py-2.5 text-right text-gray-600 uppercase text-[10px]">Total ({allPohonch.length})</td>
+                        <td colSpan={4} className="px-3 py-2.5 text-right text-gray-600 uppercase text-[10px]">Total ({allPohonch.length})</td>
                         <td className="px-3 py-2.5 text-center text-gray-800">{allPohonch.reduce((s,p)=>s+(p.total_bilties||0),0)}</td>
                         <td className="px-3 py-2.5 text-right text-gray-600">{allPohonch.reduce((s,p)=>s+(p.total_weight||0),0).toFixed(1)} kg</td>
                         <td className="px-3 py-2.5 text-right text-gray-800">{Rs(allPohonch.reduce((s,p)=>s+(p.total_amount||0),0))}</td>
@@ -1398,8 +1468,8 @@ export default function CrossingBillTransportPage() {
                 <BillRow
                   key={bill.id}
                   bill={bill}
-                  expanded={expandedBill===bill.id}
-                  onToggle={()=>setExpandedBill(prev=>prev===bill.id?null:bill.id)}
+                  expanded={expandedBill.has(bill.id)}
+                  onToggle={()=>setExpandedBill(prev=>{ const n=new Set(prev); n.has(bill.id)?n.delete(bill.id):n.add(bill.id); return n; })}
                   onAddTx={()=>setTxBill(bill)}
                   userId={user?.id}
                   token={token}

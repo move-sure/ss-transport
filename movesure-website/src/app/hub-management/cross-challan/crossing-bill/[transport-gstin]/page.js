@@ -12,7 +12,7 @@ import {
   ArrowLeft, Loader2, RefreshCw, Plus, FileText, TrendingDown,
   ChevronDown, ChevronRight, Printer, X, MapPin, Calendar,
   CheckSquare, Square, CheckCircle2, AlertCircle, PenTool,
-  User, Link2, Copy, Check, CreditCard, Banknote,
+  User, Link2, Copy, Check, CreditCard, Banknote, RotateCcw,
 } from 'lucide-react';
 
 const API_BASE = 'https://api.movesure.io';
@@ -63,7 +63,8 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     const topayPf  = bilties.filter(b => !b.is_paid).reduce((s, b) => s + (b.pf != null ? (b.pf || 0) : Math.max(0, (b.amount || 0) - (b.kaat || 0))), 0);
     // PAID Kaat: sum of kaat for paid bilties (kaat = weight × kaat_rate, stored on bilty)
     const paidKaat = bilties.filter(b =>  b.is_paid).reduce((s, b) => s + (b.kaat || 0), 0);
-    const challans = (pd.challan_nos || supaP.challan_metadata || []).join(', ') || '-';
+    // P/B Nos: unique pohonch_bilty values from all bilties in this pohonch
+    const pbNos    = [...new Set(bilties.map(b => b.pohonch_bilty).filter(Boolean))].join(', ') || '-';
 
     grandBilties  += pd.total_bilties || 0;
     grandPkg      += totalPkg;
@@ -75,7 +76,7 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     return [
       i + 1,
       pd.pohonch_number || '-',
-      challans,
+      pbNos,
       pd.total_bilties || 0,
       Math.round(totalPkg) || 0,
       totalWt > 0 ? `${totalWt.toFixed(1)} kg` : '-',
@@ -88,7 +89,7 @@ async function buildBillPdf(bill, pohonchMap = {}) {
   autoTable(doc, {
     startY: sy + 4,
     tableWidth: 'auto',
-    head: [['#', 'Crossing Challan No', 'Challan No', 'Bilties', 'Pkgs', 'Weight', 'TO-PAY PF', 'PAID Kaat', 'Total Amt']],
+    head: [['#', 'Crossing Challan No', 'P/B No', 'Bilties', 'Pkgs', 'Weight', 'TO-PAY PF', 'PAID Kaat', 'Total Amt']],
     body: rows,
     foot: [[
       { content: 'TOTAL', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
@@ -107,6 +108,7 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     columnStyles: {
       0: { halign: 'center' },
       1: { fontStyle: 'bold' },
+      2: { fontSize: 7 },
       3: { halign: 'center' },
       4: { halign: 'center' },
       5: { halign: 'right' },
@@ -721,6 +723,11 @@ export default function CrossingBillTransportPage() {
   // Pohonch selection
   const [selectedIds, setSelectedIds] = useState(new Set());
 
+  // Recalculate state
+  const [recalculating,     setRecalculating]     = useState(new Set()); // per-row loading
+  const [bulkRecalculating, setBulkRecalculating] = useState(false);
+  const [recalcResult,      setRecalcResult]      = useState(null);      // { type:'single'|'bulk', results }
+
   // Hub (contracted) kaat rates
   const [hubRates, setHubRates] = useState([]);
 
@@ -741,15 +748,18 @@ export default function CrossingBillTransportPage() {
 
   const fetchPohonch = useCallback(async (silent = false) => {
     if (!silent) setLoadingPohonch(true);
-    else setSyncing(true);
+    else         setSyncing(true);
     try {
       const { data, error } = await supabase
         .from('pohonch').select('*').eq('is_active', true)
-        .ilike('transport_gstin', `%${gstin}%`).order('created_at', { ascending:false });
+        .ilike('transport_gstin', `%${gstin}%`).order('created_at', { ascending: false });
       if (error) throw error;
       setAllPohonch(data || []);
     } catch (e) { console.error('fetchPohonch:', e); }
-    finally { setLoadingPohonch(false); setSyncing(false); }
+    finally {
+      if (!silent) setLoadingPohonch(false);
+      else         setSyncing(false);
+    }
   }, [gstin]);
 
   const fetchBills = useCallback(async (pg = 1) => {
@@ -922,6 +932,79 @@ export default function CrossingBillTransportPage() {
     setKaatModalOpen(true);
   };
 
+  // Single pohonch recalculate — fetches fresh Supabase data after so all fields (incl. bilty_metadata) re-render
+  const handleRecalculate = async (pohonch) => {
+    setRecalculating(prev => new Set([...prev, pohonch.id]));
+    setRecalcResult(null);
+    try {
+      const res  = await fetch(`${API_BASE}/api/pohonch/${pohonch.id}/recalculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ user_id: user?.id, force: false }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Recalculate failed');
+      // Show diff result first
+      setRecalcResult({ type: 'single', pohonch_number: json.pohonch_number, diff: json.diff, new_totals: json.new_totals });
+      // Pull fresh data from Supabase — this updates bilty_metadata + totals so expanded rows re-render correctly
+      await fetchPohonch(true);
+    } catch (e) {
+      alert('Recalculate failed: ' + e.message);
+    } finally {
+      setRecalculating(prev => { const n = new Set(prev); n.delete(pohonch.id); return n; });
+    }
+  };
+
+  // Bulk recalculate selected pohonch
+  const handleBulkRecalculate = async () => {
+    if (!selectedPohonch.length) return;
+    setBulkRecalculating(true);
+    setRecalcResult(null);
+    try {
+      const res  = await fetch(`${API_BASE}/api/pohonch/bulk-recalculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          pohonch_numbers: selectedPohonch.map(p => p.pohonch_number),
+          user_id: user?.id,
+          force: false,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Bulk recalculate failed');
+      setRecalcResult({ type: 'bulk', results: json.results || [], processed: json.processed, skipped: json.skipped_signed });
+      // Silent refresh to pick up new totals
+      await fetchPohonch(true);
+    } catch (e) {
+      alert('Bulk recalculate failed: ' + e.message);
+    } finally {
+      setBulkRecalculating(false);
+    }
+  };
+
+  // Recalculate all pohonch for this transport
+  const handleRecalculateAll = async () => {
+    if (!allPohonch.length) return;
+    if (!confirm(`Recalculate all ${allPohonch.length} pohonch for this transport?`)) return;
+    setBulkRecalculating(true);
+    setRecalcResult(null);
+    try {
+      const res  = await fetch(`${API_BASE}/api/pohonch/bulk-recalculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ transport_gstin: gstin, user_id: user?.id, force: false }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Failed');
+      setRecalcResult({ type: 'bulk', results: json.results || [], processed: json.processed, skipped: json.skipped_signed });
+      await fetchPohonch(true);
+    } catch (e) {
+      alert('Recalculate all failed: ' + e.message);
+    } finally {
+      setBulkRecalculating(false);
+    }
+  };
+
   const handleTxAdded = (updatedData) => {
     setBills(prev=>prev.map(b=>b.id===txBill?.id?{...b,...updatedData}:b));
     setTxBill(null);
@@ -945,6 +1028,12 @@ export default function CrossingBillTransportPage() {
             <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{transportName}</h1>
             <p className="text-sm font-mono text-gray-500 mt-0.5">{gstin}</p>
           </div>
+          <button onClick={handleRecalculateAll} disabled={bulkRecalculating || !allPohonch.length}
+            title="Recalculate all pohonch for this transport from live bilty data"
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-800 hover:bg-amber-100 shadow-sm disabled:opacity-50">
+            <RotateCcw className={`w-4 h-4 ${bulkRecalculating?'animate-spin':''}`}/>
+            {bulkRecalculating ? 'Recalculating…' : 'Recalc All'}
+          </button>
           <button onClick={()=>{fetchPohonch();fetchBills(1);fetchHubRates();}} disabled={loadingPohonch}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 shadow-sm">
             <RefreshCw className={`w-4 h-4 ${loadingPohonch?'animate-spin':''}`}/> Refresh
@@ -1068,6 +1157,11 @@ export default function CrossingBillTransportPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-bold text-teal-700">{selectedIds.size} selected</span>
                   <button onClick={deselectAll} className="text-xs text-red-500 hover:underline font-semibold">Clear</button>
+                  <button onClick={handleBulkRecalculate} disabled={bulkRecalculating}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors disabled:opacity-50">
+                    <RotateCcw className={`w-3.5 h-3.5 ${bulkRecalculating?'animate-spin':''}`}/>
+                    {bulkRecalculating ? 'Recalculating…' : `Recalculate (${selectedIds.size})`}
+                  </button>
                   <button onClick={openKaatModal}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
                     <TrendingDown className="w-3.5 h-3.5"/> Update Kaat
@@ -1163,14 +1257,21 @@ export default function CrossingBillTransportPage() {
                                 </span>
                               </td>
                               <td className="px-3 py-2">
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-wrap">
                                   <span className="text-gray-400 text-[10px]">{p.created_at?format(new Date(p.created_at),'dd/MM/yy'):'-'}</span>
                                   <button
                                     onClick={()=>crossChallanPrint.handlePrint(p.pohonch_number)}
                                     disabled={crossChallanPrint.printingPohonch===p.pohonch_number}
-                                    className="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 ml-1"
+                                    className="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200"
                                     title="Print pohonch">
                                     {crossChallanPrint.printingPohonch===p.pohonch_number ? <Loader2 className="w-3 h-3 animate-spin"/> : <Printer className="w-3 h-3"/>}
+                                  </button>
+                                  <button
+                                    onClick={()=>handleRecalculate(p)}
+                                    disabled={recalculating.has(p.id)}
+                                    className="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 disabled:opacity-50"
+                                    title="Recalculate from live bilty data">
+                                    {recalculating.has(p.id) ? <Loader2 className="w-3 h-3 animate-spin"/> : <RotateCcw className="w-3 h-3"/>}
                                   </button>
                                 </div>
                               </td>
@@ -1339,6 +1440,69 @@ export default function CrossingBillTransportPage() {
         token={token}
         onAdded={handleTxAdded}
       />
+
+      {/* ── Recalculate result banner ── */}
+      {recalcResult && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] w-full max-w-xl px-4">
+          <div className="bg-white border border-amber-200 rounded-2xl shadow-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0"/>
+                <p className="text-sm font-black text-gray-900">
+                  {recalcResult.type === 'single'
+                    ? `${recalcResult.pohonch_number} recalculated`
+                    : `Bulk recalculate: ${recalcResult.processed} updated${recalcResult.skipped ? `, ${recalcResult.skipped} skipped (signed)` : ''}`}
+                </p>
+              </div>
+              <button onClick={()=>setRecalcResult(null)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-4 h-4 text-gray-400"/>
+              </button>
+            </div>
+
+            {/* Single result diff */}
+            {recalcResult.type === 'single' && recalcResult.diff && (
+              <div className="flex items-center gap-3 flex-wrap">
+                {Object.entries({
+                  'Kaat': recalcResult.diff.kaat,
+                  'PF':   recalcResult.diff.pf,
+                  'Amt':  recalcResult.diff.amount,
+                }).map(([label, val]) => val !== 0 && val != null && (
+                  <span key={label} className={`text-xs font-bold px-2 py-1 rounded-lg border ${val>0?'bg-emerald-50 text-emerald-700 border-emerald-200':'bg-red-50 text-red-600 border-red-200'}`}>
+                    {label}: {val>0?'+':''}{Rs(val)}
+                  </span>
+                ))}
+                {recalcResult.new_totals && (
+                  <>
+                    <span className="text-[10px] text-gray-400 ml-1">New →</span>
+                    <span className="text-xs text-rose-600 font-semibold">Kaat: {Rs(recalcResult.new_totals.total_kaat)}</span>
+                    <span className="text-xs text-teal-700 font-semibold">PF: {Rs(recalcResult.new_totals.total_pf)}</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Bulk result rows */}
+            {recalcResult.type === 'bulk' && recalcResult.results?.length > 0 && (
+              <div className="max-h-40 overflow-y-auto space-y-1.5">
+                {recalcResult.results.map((r, i) => (
+                  <div key={i} className={`flex items-center justify-between text-xs px-3 py-1.5 rounded-lg ${r.status==='updated'?'bg-emerald-50':'bg-gray-50'}`}>
+                    <span className="font-mono font-bold text-gray-800">{r.pohonch_number}</span>
+                    {r.status === 'updated' ? (
+                      <div className="flex items-center gap-3">
+                        {r.diff?.kaat !== 0 && <span className={`font-bold ${(r.diff?.kaat||0)>0?'text-emerald-600':'text-red-500'}`}>Kaat {(r.diff?.kaat||0)>0?'+':''}{Rs(r.diff?.kaat)}</span>}
+                        {r.diff?.pf !== 0 && <span className={`font-bold ${(r.diff?.pf||0)>0?'text-emerald-600':'text-red-500'}`}>PF {(r.diff?.pf||0)>0?'+':''}{Rs(r.diff?.pf)}</span>}
+                        {r.diff?.kaat === 0 && r.diff?.pf === 0 && <span className="text-gray-400 italic">no change</span>}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic text-[10px]">{r.reason || 'skipped'}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <CrossChallanPrintModal
         previewUrl={crossChallanPrint.previewUrl}

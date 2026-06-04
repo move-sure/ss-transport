@@ -4,6 +4,31 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from './supabase';
 
+// Safe localStorage.setItem — on QuotaExceededError, clears all stale keys and retries once
+function safeSetItem(key, value) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      console.warn('localStorage quota exceeded — clearing stale data and retrying');
+      // Remove everything except the current key we're about to (re)set
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k !== key) keysToRemove.push(k);
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      // Retry — if it still fails, log and continue (don't crash login)
+      try {
+        localStorage.setItem(key, value);
+      } catch (e2) {
+        console.error('localStorage still full after clearing — session will not persist across reload', e2);
+      }
+    }
+  }
+}
+
 const AuthContext = createContext({});
 
 export const useAuth = () => {
@@ -164,20 +189,20 @@ export const AuthProvider = ({ children }) => {
   const login = async (userData, tokenData, sessionData) => {
     try {
       console.log('Login function called with:', { userData, tokenData, sessionData });
-      
+
+      // Store only the minimal fields needed to restore the session.
+      // Full user data is always re-fetched from the DB in initializeAuth,
+      // so there is no need to persist the (potentially large) userData object.
       const sessionInfo = {
-        user: userData,
-        token: tokenData.token,
+        token:     tokenData.token,
         expiresAt: tokenData.expires_at,
-        sessionId: sessionData.id
+        sessionId: sessionData.id,
       };
 
       console.log('Storing session info:', sessionInfo);
 
-      // Store in localStorage first
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('userSession', JSON.stringify(sessionInfo));
-      }
+      // Store in localStorage (safe wrapper auto-clears on quota exceeded)
+      safeSetItem('userSession', JSON.stringify(sessionInfo));
 
       // Update state synchronously
       setUser(userData);
@@ -261,7 +286,7 @@ export const AuthProvider = ({ children }) => {
         if (userSession) {
           const session = JSON.parse(userSession);
           session.user = data;
-          localStorage.setItem('userSession', JSON.stringify(session));
+          safeSetItem('userSession', JSON.stringify(session));
         }
       }
 
@@ -292,7 +317,7 @@ export const AuthProvider = ({ children }) => {
         if (userSession) {
           const session = JSON.parse(userSession);
           session.user = data;
-          localStorage.setItem('userSession', JSON.stringify(session));
+          safeSetItem('userSession', JSON.stringify(session));
         }
       }
 

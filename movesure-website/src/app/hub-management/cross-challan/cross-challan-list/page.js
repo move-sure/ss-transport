@@ -5,11 +5,12 @@ import supabase from '../../../utils/supabase';
 import { useAuth } from '../../../utils/auth';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 import TransportWiseAnalysis from '../../../../components/transit-finance/TransportWiseAnalysis';
+import KaatUpdateModal from '../../../../components/hub-management/KaatUpdateModal';
 import {
   Loader2, RefreshCw, ChevronDown, ChevronRight, FileText, PenTool,
   Trash2, Edit3, X, Check, Search, ArrowLeft, Package, Hash,
   Truck, Filter, ChevronLeft, User, Printer, Square, CheckSquare,
-  Settings, Calendar, AlignLeft,
+  Settings, Calendar, AlignLeft, TrendingDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -362,7 +363,7 @@ function PrintSettingsModal({ show, onClose, selectedRows }) {
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function PohonchListPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   const [allPohonch, setAllPohonch]   = useState([]);
@@ -389,6 +390,15 @@ export default function PohonchListPage() {
   // Selection for print
   const [selectedIds, setSelectedIds]       = useState(new Set());
   const [showPrintSettings, setShowPrintSettings] = useState(false);
+
+  // Kaat update modal
+  const [kaatModalOpen, setKaatModalOpen]   = useState(false);
+  const [kaatModalTab, setKaatModalTab]     = useState('bulk');
+  const [kaatModalBilties, setKaatModalBilties] = useState([]);
+  const [kaatModalGstin, setKaatModalGstin] = useState('');
+
+  // Background sync indicator (shown after kaat update without full reload)
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -535,6 +545,63 @@ export default function PohonchListPage() {
     finally { setActionLoading(null); }
   };
 
+  const mapBiltiesForKaat = (biltyMetadata) =>
+    (biltyMetadata || []).map(b => ({
+      gr_no:          b.gr_no,
+      to_city:        b.destination,
+      kaat:           b.kaat,
+      kaat_rate:      b.kaat_rate,
+      kaat_dd:        b.dd,
+      kaat_pf:        b.pf,
+      wt:             b.weight,
+      total:          b.amount,
+      consignor_name: b.consignor,
+    }));
+
+  // Single-row kaat update
+  const openKaatModal = (pohonch) => {
+    setKaatModalGstin(pohonch.transport_gstin || '');
+    setKaatModalBilties(mapBiltiesForKaat(pohonch.bilty_metadata));
+    setKaatModalTab('bulk');
+    setKaatModalOpen(true);
+  };
+
+  // Multi-row kaat update — merges all bilties from every selected pohonch
+  const openKaatModalMulti = () => {
+    const rows = selectedRows;
+    const gstins = [...new Set(rows.map(p => p.transport_gstin).filter(Boolean))];
+    setKaatModalGstin(gstins.length === 1 ? gstins[0] : '');
+    setKaatModalBilties(rows.flatMap(p => mapBiltiesForKaat(p.bilty_metadata)));
+    setKaatModalTab('bulk');
+    setKaatModalOpen(true);
+  };
+
+  // Silent refresh — updates pohonch data in background without resetting the table
+  const silentRefresh = useCallback(async () => {
+    try {
+      setSyncing(true);
+      let query = supabase.from('pohonch').select('*').eq('is_active', true).order('created_at', { ascending: false });
+      if (activeSearch.transport.trim()) query = query.ilike('transport_name', `%${activeSearch.transport.trim()}%`);
+      const { data, error } = await query;
+      if (error) throw error;
+      let results = data || [];
+      if (activeSearch.gr.trim()) {
+        const s = activeSearch.gr.trim().toLowerCase();
+        results = results.filter(p => (Array.isArray(p.bilty_metadata) ? p.bilty_metadata : []).some(b => (b.gr_no || '').toString().toLowerCase().includes(s)));
+      }
+      if (activeSearch.challan.trim()) {
+        const s = activeSearch.challan.trim().toLowerCase();
+        results = results.filter(p => (Array.isArray(p.challan_metadata) ? p.challan_metadata : []).some(c => (c || '').toString().toLowerCase().includes(s)));
+      }
+      setAllPohonch(results);
+      setTotalCount(results.length);
+    } catch (err) {
+      console.error('Silent refresh error:', err);
+    } finally {
+      setSyncing(false);
+    }
+  }, [activeSearch]);
+
   if (!mounted) return null;
 
   return (
@@ -624,7 +691,11 @@ export default function PohonchListPage() {
             <span className="text-sm font-bold text-teal-800">{selectedIds.size} selected</span>
             <button onClick={selectAll}   className="text-xs font-semibold text-teal-700 hover:text-teal-900 underline">Select All ({allPohonch.length})</button>
             <button onClick={deselectAll} className="text-xs font-semibold text-red-600 hover:text-red-800 underline">Deselect All</button>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={openKaatModalMulti}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm">
+                <TrendingDown className="w-4 h-4" /> Update Kaat ({selectedIds.size})
+              </button>
               <button onClick={() => setShowPrintSettings(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl text-sm font-bold hover:from-teal-700 hover:to-emerald-700 transition-all shadow-sm">
                 <Printer className="w-4 h-4" /> Print {selectedIds.size} Crossing Challan{selectedIds.size > 1 ? 's' : ''}
@@ -701,6 +772,14 @@ export default function PohonchListPage() {
                             <td className="px-2 py-2">
                               {isEditing ? (
                                 <input type="text" value={editTransportName} onChange={e => setEditTransportName(e.target.value)} className="w-full px-2 py-1 border border-teal-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 text-black" />
+                              ) : p.transport_gstin ? (
+                                <Link
+                                  href={`/hub-management/cross-challan/crossing-bill/${encodeURIComponent(p.transport_gstin)}`}
+                                  className="font-semibold text-teal-700 hover:text-teal-900 hover:underline truncate max-w-[180px] block text-xs transition-colors"
+                                  title={`View crossing bills for ${p.transport_name}`}
+                                >
+                                  {p.transport_name}
+                                </Link>
                               ) : (
                                 <span className="font-semibold text-black truncate max-w-[180px] block text-xs" title={p.transport_name}>{p.transport_name}</span>
                               )}
@@ -708,8 +787,16 @@ export default function PohonchListPage() {
                             <td className="px-2 py-2">
                               {isEditing ? (
                                 <input type="text" value={editGstin} onChange={e => setEditGstin(e.target.value)} className="w-full px-2 py-1 border border-teal-300 rounded text-[10px] font-mono focus:outline-none focus:ring-1 focus:ring-teal-500 text-black" />
+                              ) : p.transport_gstin ? (
+                                <Link
+                                  href={`/hub-management/cross-challan/crossing-bill/${encodeURIComponent(p.transport_gstin)}`}
+                                  className="text-teal-700 text-[10px] font-mono font-bold hover:underline hover:text-teal-900 transition-colors"
+                                  title="View crossing bills for this transport"
+                                >
+                                  {p.transport_gstin}
+                                </Link>
                               ) : (
-                                <span className="text-black text-[10px] font-mono">{p.transport_gstin || '-'}</span>
+                                <span className="text-black text-[10px] font-mono">-</span>
                               )}
                             </td>
                             <td className="px-2 py-2 text-black text-[10px]">
@@ -745,6 +832,7 @@ export default function PohonchListPage() {
                                   </>
                                 ) : (
                                   <>
+                                    <button onClick={() => openKaatModal(p)} className="p-1 text-teal-600 hover:bg-teal-100 rounded" title="Update Kaat"><TrendingDown className="w-3.5 h-3.5" /></button>
                                     <button onClick={() => handleStartEdit(p)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Edit"><Edit3 className="w-3.5 h-3.5" /></button>
                                     <button onClick={() => handleDelete(p)} disabled={isActing} className="p-1 text-red-500 hover:bg-red-100 rounded" title="Delete">{isActing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
                                   </>
@@ -878,6 +966,26 @@ export default function PohonchListPage() {
         selectedRows={selectedRows}
         onPrint={() => {}}
       />
+
+      {/* Kaat update modal */}
+      <KaatUpdateModal
+        isOpen={kaatModalOpen}
+        onClose={() => setKaatModalOpen(false)}
+        tab={kaatModalTab}
+        onTabChange={setKaatModalTab}
+        transportGstin={kaatModalGstin}
+        bilties={kaatModalBilties}
+        token={token}
+        onSuccess={silentRefresh}
+      />
+
+      {/* Background sync toast */}
+      {syncing && (
+        <div className="fixed bottom-5 right-5 z-[60] flex items-center gap-2.5 px-4 py-3 bg-teal-700 text-white rounded-2xl shadow-xl text-sm font-semibold">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          Syncing kaat data…
+        </div>
+      )}
     </div>
   );
 }

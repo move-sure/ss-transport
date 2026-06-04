@@ -205,65 +205,63 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
    * Draw one half-page block: header + challan info + table + signature
    */
   const drawHalf = (chunk, yStart, globalStartIdx, copyLabel) => {
-    // ── Header Line 1: Company name — CROSSING CHALLAN ──
+    // ── Header Line 1: Company name ──
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
     pdf.text('SS TRANSPORT COMPANY — CROSSING CHALLAN', pageW / 2, yStart + 4.5, { align: 'center' });
 
-    // Pohonch number (left of copy label, bold highlighted)
-    if (pohonchNumber) {
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.setTextColor(180, 0, 0);
-      const pnText = `CC No: ${pohonchNumber}`;
-      const pnWidth = pdf.getTextWidth(pnText);
-      pdf.text(pnText, pageW - mx - pnWidth - 30, yStart + 4.5);
-    }
+    // Office number (left)
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Office: 8840952946 / 9690293140', mx, yStart + 4.5);
 
-    // Copy label (right side)
+    // Copy label (right)
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(6.5);
     pdf.setTextColor(120, 120, 120);
     pdf.text(copyLabel, pageW - mx, yStart + 4.5, { align: 'right' });
 
-    // Office number (left side) — BIGGER
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Office: 8840952946 / 9690293140', mx, yStart + 4.5);
-
-    // ── Header Line 2: Transport name | GSTIN ──
+    // ── Header Line 2: Transport | GSTIN (left) · Pohonch No (right, prominent) ──
     const tName = transport?.transport_name || '-';
     const gstin = transport?.gst_number || transport?.transport_gstin || '';
-    const transportLine = gstin ? `Transport: ${tName}  |  ${gstin}` : `Transport: ${tName}`;
+    const transportLine = gstin ? `${tName}  |  GSTIN: ${gstin}` : tName;
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(7.5);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(transportLine, mx, yStart + 9);
+    pdf.text(transportLine, mx, yStart + 9.5);
 
-    if (transport?.mob_number) {
+    // Pohonch number — bold, dark, right-aligned on line 2
+    if (pohonchNumber) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Pohonch No: ${pohonchNumber}`, pageW - mx, yStart + 9.5, { align: 'right' });
+    } else if (transport?.mob_number) {
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(7);
       pdf.setTextColor(40, 40, 40);
-      pdf.text(`Mob: ${transport.mob_number}`, pageW - mx, yStart + 9, { align: 'right' });
+      pdf.text(`Mob: ${transport.mob_number}`, pageW - mx, yStart + 9.5, { align: 'right' });
     }
 
-    // ── Challan numbers line (above table, black bold text) ──
+    // ── Header Line 3: Challan numbers (left) · (E) legend (right) ──
     const challanNos = [...new Set(chunk.groups.map(g => g.challan))];
     const challanText = challanNos.length === 1
       ? `Challan No: ${challanNos[0]}`
       : `Challan Nos: ${challanNos.join(', ')}`;
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
+    pdf.setFontSize(7.5);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(challanText, mx, yStart + 12.5);
+    pdf.text(challanText, mx, yStart + 13.5);
 
-    // (E) legend on right
+    // (E) legend + mob number (if pohonch shown on line 2)
     pdf.setFont('helvetica', 'italic');
     pdf.setFontSize(5.5);
     pdf.setTextColor(100, 100, 100);
-    pdf.text('(E) = E-Way Bill', pageW - mx, yStart + 12.5, { align: 'right' });
+    const legendParts = ['(E) = E-Way Bill'];
+    if (pohonchNumber && transport?.mob_number) legendParts.push(`Mob: ${transport.mob_number}`);
+    pdf.text(legendParts.join('   '), pageW - mx, yStart + 13.5, { align: 'right' });
 
     // ── Table (clean, no challan rows inside) ──
     const { body, totalIdx } = buildBody(chunk.groups, globalStartIdx);
@@ -271,7 +269,7 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     autoTable(pdf, {
       columns,
       body,
-      startY: yStart + 14,
+      startY: yStart + 15.5,
       tableWidth: tableW,
       margin: { left: mx, right: mx },
       styles: tableStyles,

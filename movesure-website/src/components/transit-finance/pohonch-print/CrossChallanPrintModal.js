@@ -36,7 +36,7 @@ export function useCrossChallanPrint({ onDataRefreshed } = {}) {
 
       const { pohonch, bilties, transport } = await fetchFreshCrossChallanData(pohonchNumber);
 
-      const url = generatePohonchPDF(bilties, transport, true);
+      const url = generatePohonchPDF(bilties, transport, true, pohonchNumber);
       if (url) {
         setPreviewUrl(url);
         setPreviewName(pohonchNumber);
@@ -58,7 +58,7 @@ export function useCrossChallanPrint({ onDataRefreshed } = {}) {
     try {
       // Fetch fresh again for download to ensure latest data
       const { bilties, transport } = await fetchFreshCrossChallanData(previewName);
-      generatePohonchPDF(bilties, transport, false);
+      generatePohonchPDF(bilties, transport, false, previewName);
     } catch (err) {
       alert('Download failed: ' + (err.message || 'Unknown error'));
     }

@@ -13,7 +13,7 @@ import {
   ChevronDown, ChevronRight, Printer, X, MapPin, Calendar,
   CheckSquare, Square, CheckCircle2, AlertCircle, PenTool,
   User, Link2, Copy, Check, CreditCard, Banknote, RotateCcw,
-  Search, ArrowUpDown, ArrowUp, ArrowDown,
+  Search, ArrowUpDown, ArrowUp, ArrowDown, Trash2, PackagePlus,
 } from 'lucide-react';
 
 const API_BASE = 'https://api.movesure.io';
@@ -450,15 +450,64 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
     finally { setSavingEdit(false); }
   };
 
-  const fetchFull = useCallback(async () => {
+  // Pohonch management state
+  const [removingPohonch, setRemovingPohonch] = useState(null);  // pohonch_number being removed
+  const [refreshing,      setRefreshing]      = useState(false);
+
+  const fetchFull = useCallback(async (updateParent = false) => {
     setLoadingFull(true);
     try {
       const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, { headers:token?{Authorization:`Bearer ${token}`}:{} });
       const json = await res.json();
-      if (json.data) setFullBill(json.data);
+      if (json.data) {
+        setFullBill(json.data);
+        if (updateParent) onBillUpdated?.({ ...json.data });
+      }
     } catch (e) { console.error(e); }
     finally { setLoadingFull(false); }
   }, [bill.id, token]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, { headers:token?{Authorization:`Bearer ${token}`}:{} });
+      const json = await res.json();
+      if (json.data) {
+        setFullBill(json.data);
+        // Sync summary fields back to parent list
+        onBillUpdated?.({
+          total_kaat:             json.data.total_kaat,
+          total_pf:               json.data.total_pf,
+          total_amount:           json.data.total_amount,
+          total_bilties:          json.data.total_bilties,
+          total_pohonch:          json.data.total_pohonch,
+          total_paid_kaat:        json.data.total_paid_kaat,
+          total_paid_to_transport:json.data.total_paid_to_transport,
+          balance_on_transport:   json.data.balance_on_transport,
+          balance_on_us:          json.data.balance_on_us,
+          status:                 json.data.status,
+        });
+      }
+    } catch (e) { alert('Refresh failed: ' + e.message); }
+    finally { setRefreshing(false); }
+  };
+
+  const handleRemovePohonch = async (pohonchNumber) => {
+    if (!confirm(`Remove pohonch ${pohonchNumber} from bill ${bill.bill_no}?`)) return;
+    setRemovingPohonch(pohonchNumber);
+    try {
+      const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}/remove-pohonch/${encodeURIComponent(pohonchNumber)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ updated_by: userId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Failed to remove pohonch');
+      // Re-fetch full bill to reflect new totals + pohonch list
+      await fetchFull(true);
+    } catch (e) { alert(e.message); }
+    finally { setRemovingPohonch(null); }
+  };
 
   useEffect(() => { if (expanded && !fullBill) fetchFull(); }, [expanded]);
 
@@ -582,6 +631,11 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
           {/* Actions */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              <button onClick={handleRefresh} disabled={refreshing} title="Refresh bill data from server"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-200 disabled:opacity-50 transition-colors">
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing?'animate-spin':''}`}/>
+                {refreshing?'Syncing…':'Refresh'}
+              </button>
               <button onClick={()=>handlePdf({ open:true })} disabled={generatingPdf}
                 title="Generate &amp; view bill PDF"
                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 disabled:opacity-50 transition-colors">
@@ -660,14 +714,23 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
             <div className="flex items-center gap-2 text-sm text-gray-500 py-4"><Loader2 className="h-4 w-4 animate-spin"/>Loading bill details…</div>
           ) : (
             <>
-              {/* Pohonch table */}
+              {/* Pohonch table with manage actions */}
               {display.pohonch_data?.length > 0 && (
-                <div className="pt-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-widest">Pohonch in this bill</p>
+                <div className="pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      Pohonch in this bill ({display.pohonch_data.length})
+                    </p>
+                    {bill.status === 'draft' && (
+                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                        Draft — pohonch can be removed
+                      </span>
+                    )}
+                  </div>
                   <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-gray-50 border-b border-gray-100">
-                        {['Pohonch No.','Challans','Bilties','Kaat','PF','Total','Signed'].map(h=>(
+                        {['Pohonch No.','Challans','Bilties','Kaat','PF','Total','Signed', bill.status==='draft'?'Remove':''].filter(Boolean).map(h=>(
                           <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">{h}</th>
                         ))}
                       </tr></thead>
@@ -675,16 +738,30 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
                         {display.pohonch_data.map((p,i)=>(
                           <tr key={p.pohonch_number||i} className={`border-b border-gray-50 last:border-0 ${i%2===0?'bg-white':'bg-gray-50/30'}`}>
                             <td className="px-3 py-2 font-mono font-bold text-teal-700">{p.pohonch_number}</td>
-                            <td className="px-3 py-2 text-gray-500 text-[10px]">{(p.challan_nos||[]).join(', ')||'-'}</td>
-                            <td className="px-3 py-2 text-center text-gray-700">{p.total_bilties}</td>
+                            <td className="px-3 py-2 text-gray-600 text-[10px]">{(p.challan_nos||[]).join(', ')||'-'}</td>
+                            <td className="px-3 py-2 text-center text-black">{p.total_bilties}</td>
                             <td className="px-3 py-2 text-right text-rose-600 font-bold">{Rs(p.total_kaat)}</td>
                             <td className="px-3 py-2 text-right text-teal-700 font-bold">{Rs(p.total_pf)}</td>
-                            <td className="px-3 py-2 text-right text-gray-800 font-bold">{Rs(p.total_amount)}</td>
+                            <td className="px-3 py-2 text-right text-black font-bold">{Rs(p.total_amount)}</td>
                             <td className="px-3 py-2 text-center">
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.is_signed?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-500'}`}>
                                 {p.is_signed?'Signed':'Unsigned'}
                               </span>
                             </td>
+                            {bill.status === 'draft' && (
+                              <td className="px-3 py-2 text-center">
+                                <button
+                                  onClick={() => handleRemovePohonch(p.pohonch_number)}
+                                  disabled={removingPohonch === p.pohonch_number}
+                                  title={`Remove ${p.pohonch_number} from this bill`}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 disabled:opacity-50 transition-colors">
+                                  {removingPohonch === p.pohonch_number
+                                    ? <Loader2 className="w-3 h-3 animate-spin"/>
+                                    : <Trash2 className="w-3 h-3"/>}
+                                  Remove
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -1375,8 +1452,8 @@ export default function CrossingBillTransportPage() {
                             const isExpanded = expandedPohonch.has(p.id);
                             const totalPkg = bilties.reduce((s,b)=>s+(b.packages||0),0);
                             const totalWt  = bilties.reduce((s,b)=>s+(b.weight||0),0);
-                            const paidKaat = bilties.filter(b=>b.is_paid).reduce((s,b)=>s+(b.kaat||0),0);
-                            const topayPf  = bilties.filter(b=>!b.is_paid).reduce((s,b)=>s+(b.pf!=null?(b.pf||0):Math.max(0,(b.amount||0)-(b.kaat||0))),0);
+                            const paidKaat = bilties.filter(b=>b.is_paid||(b.payment_mode||'').toLowerCase()==='paid').reduce((s,b)=>s+(b.kaat||0),0);
+                            const topayPf  = bilties.filter(b=>!(b.is_paid||(b.payment_mode||'').toLowerCase()==='paid')).reduce((s,b)=>s+(b.pf!=null?(b.pf||0):Math.max(0,(b.amount||0)-(b.kaat||0))),0);
                             return (
                               <React.Fragment key={p.id}>
                                 <tr className="border-b border-indigo-100 bg-white hover:bg-indigo-50/40">
@@ -1416,7 +1493,7 @@ export default function CrossingBillTransportPage() {
                                   </td>
                                 </tr>
                                 {isExpanded && bilties.length>0 && (
-                                  <tr><td colSpan={11} className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                                  <tr><td colSpan={12} className="px-4 py-3 bg-slate-50 border-b border-slate-200">
                                     <div className="flex items-center gap-3 flex-wrap mb-2 pb-2 border-b border-slate-200 text-xs font-bold text-gray-700">
                                       <span>{p.pohonch_number} — {bilties.length} GRs</span>
                                       <span className="bg-white border border-gray-200 px-2 py-0.5 rounded-lg text-black">Pkg: {Math.round(totalPkg)}</span>
@@ -1430,6 +1507,7 @@ export default function CrossingBillTransportPage() {
                                           <th key={h} className={`px-2 py-1.5 text-left font-bold text-gray-700 text-[10px] ${activeStation&&h==='Dest'?'bg-indigo-100 text-indigo-700':''}`}>{h}</th>
                                         ))}</tr></thead>
                                         <tbody>{bilties.map((b,bi)=>{
+                                          const isPaid = b.is_paid || (b.payment_mode||'').toLowerCase()==='paid';
                                           const isActiveCity = activeStation&&(b.destination||'').trim().toUpperCase()===activeStation;
                                           return (<tr key={b.gr_no||bi} className={`border-b border-gray-50 last:border-0 ${isActiveCity?'bg-indigo-50':bi%2===0?'bg-white':'bg-gray-50/50'}`}>
                                             <td className="px-2 py-1 text-black">{bi+1}</td>
@@ -1442,12 +1520,12 @@ export default function CrossingBillTransportPage() {
                                             <td className={`px-2 py-1 font-semibold ${isActiveCity?'text-indigo-700':'text-black'}`}>{b.destination||'-'}</td>
                                             <td className="px-2 py-1 text-center text-black">{Math.round(b.packages||0)}</td>
                                             <td className="px-2 py-1 text-right text-black">{(b.weight||0).toFixed(1)}</td>
-                                            <td className="px-2 py-1 text-right font-medium text-black">{b.is_paid?'PAID':`₹${Math.round(b.amount||0)}`}</td>
+                                            <td className="px-2 py-1 text-right font-medium text-black">{isPaid?'PAID':`₹${Math.round(b.amount||0)}`}</td>
                                             <td className="px-2 py-1 text-right text-rose-700">₹{Math.round(b.kaat||0)}</td>
                                             <td className="px-2 py-1 text-right text-black text-[10px]">{b.kaat_rate?`₹${b.kaat_rate}`:'-'}</td>
                                             <td className="px-2 py-1 text-right text-red-600">{b.dd>0?`-₹${Math.round(b.dd)}`:'-'}</td>
                                             <td className="px-2 py-1 text-right font-bold text-teal-800">₹{Math.round(b.pf||0)}</td>
-                                            <td className="px-2 py-1 text-center"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${b.is_paid?'bg-emerald-100 text-emerald-700':'bg-orange-100 text-orange-700'}`}>{b.is_paid?'Paid':'To-Pay'}</span></td>
+                                            <td className="px-2 py-1 text-center"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isPaid?'bg-emerald-100 text-emerald-700':'bg-orange-100 text-orange-700'}`}>{isPaid?'PAID':'To-Pay'}</span></td>
                                             <td className="px-2 py-1 text-center">{(b.delivery_type||'').toLowerCase().includes('door')?<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Door</span>:<span className="text-[9px] text-gray-300">—</span>}</td>
                                           </tr>);
                                         })}</tbody>
@@ -1602,7 +1680,7 @@ export default function CrossingBillTransportPage() {
                             {/* ── Expanded bilties with summary stats ── */}
                             {isExpanded && bilties.length>0 && (
                               <tr>
-                                <td colSpan={11} className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                                <td colSpan={12} className="px-4 py-3 bg-slate-50 border-b border-slate-200">
                                   {/* Summary stats bar */}
                                   <div className="flex items-center gap-3 flex-wrap mb-2 pb-2 border-b border-teal-200">
                                     <p className="text-[10px] font-bold text-teal-700">{p.pohonch_number} — {bilties.length} GRs</p>
@@ -1640,29 +1718,30 @@ export default function CrossingBillTransportPage() {
                                       </thead>
                                       <tbody>
                                         {bilties.map((b,bi)=>{
+                                          const isPaid = b.is_paid || (b.payment_mode||'').toLowerCase()==='paid';
                                           const isActiveCity = activeStation && (b.destination||'').trim().toUpperCase()===activeStation;
                                           return (
                                             <tr key={b.gr_no||bi} className={`border-b border-gray-50 last:border-0 ${isActiveCity?'bg-indigo-50':bi%2===0?'bg-white':'bg-gray-50/50'}`}>
-                                              <td className="px-2 py-1 text-gray-500">{bi+1}</td>
+                                              <td className="px-2 py-1 text-black">{bi+1}</td>
                                               <td className="px-2 py-1 font-mono font-semibold text-teal-700">
                                                 {b.gr_no||'-'}{b.e_way_bill&&<span className="text-green-600 font-bold ml-0.5 text-[9px]">(E)</span>}
                                               </td>
-                                              <td className="px-2 py-1 text-[9px] font-mono text-gray-500 max-w-[60px] truncate">{b.e_way_bill||'-'}</td>
-                                              <td className="px-2 py-1 text-gray-600 font-mono">{b.pohonch_bilty||'-'}</td>
-                                              <td className="px-2 py-1 text-gray-600">{b.challan_no||'-'}</td>
-                                              <td className="px-2 py-1 text-gray-700 truncate max-w-[100px]">{b.consignor||'-'}</td>
-                                              <td className="px-2 py-1 text-gray-700 truncate max-w-[100px]">{b.consignee||'-'}</td>
-                                              <td className={`px-2 py-1 font-semibold ${isActiveCity?'text-indigo-700':'text-gray-700'}`}>{b.destination||'-'}</td>
-                                              <td className="px-2 py-1 text-center text-gray-700">{Math.round(b.packages||0)}</td>
-                                              <td className="px-2 py-1 text-right text-gray-700">{(b.weight||0).toFixed(1)}</td>
-                                              <td className="px-2 py-1 text-right font-medium text-gray-800">{b.is_paid?'PAID':`₹${Math.round(b.amount||0)}`}</td>
+                                              <td className="px-2 py-1 text-[9px] font-mono text-black max-w-[60px] truncate">{b.e_way_bill||'-'}</td>
+                                              <td className="px-2 py-1 text-black font-mono">{b.pohonch_bilty||'-'}</td>
+                                              <td className="px-2 py-1 text-black">{b.challan_no||'-'}</td>
+                                              <td className="px-2 py-1 text-black truncate max-w-[100px]">{b.consignor||'-'}</td>
+                                              <td className="px-2 py-1 text-black truncate max-w-[100px]">{b.consignee||'-'}</td>
+                                              <td className={`px-2 py-1 font-semibold ${isActiveCity?'text-indigo-700':'text-black'}`}>{b.destination||'-'}</td>
+                                              <td className="px-2 py-1 text-center text-black">{Math.round(b.packages||0)}</td>
+                                              <td className="px-2 py-1 text-right text-black">{(b.weight||0).toFixed(1)}</td>
+                                              <td className="px-2 py-1 text-right font-medium text-black">{isPaid?'PAID':`₹${Math.round(b.amount||0)}`}</td>
                                               <td className="px-2 py-1 text-right text-rose-600">₹{Math.round(b.kaat||0)}</td>
-                                              <td className="px-2 py-1 text-right text-gray-600 text-[10px]">{b.kaat_rate?`₹${b.kaat_rate}`:'-'}</td>
+                                              <td className="px-2 py-1 text-right text-black text-[10px]">{b.kaat_rate?`₹${b.kaat_rate}`:'-'}</td>
                                               <td className="px-2 py-1 text-right text-red-500">{b.dd>0?`-₹${Math.round(b.dd)}`:'-'}</td>
                                               <td className="px-2 py-1 text-right font-bold text-teal-700">₹{Math.round(b.pf||0)}</td>
                                               <td className="px-2 py-1 text-center">
-                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${b.is_paid?'bg-emerald-100 text-emerald-700':'bg-orange-100 text-orange-600'}`}>
-                                                  {b.is_paid?'Paid':'To-Pay'}
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isPaid?'bg-emerald-100 text-emerald-700':'bg-orange-100 text-orange-600'}`}>
+                                                  {isPaid?'PAID':'To-Pay'}
                                                 </span>
                                               </td>
                                               <td className="px-2 py-1 text-center">

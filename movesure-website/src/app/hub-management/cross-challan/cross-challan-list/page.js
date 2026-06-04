@@ -11,6 +11,7 @@ import {
   Trash2, Edit3, X, Check, Search, ArrowLeft, Package, Hash,
   Truck, Filter, ChevronLeft, User, Printer, Square, CheckSquare,
   Settings, Calendar, AlignLeft, TrendingDown,
+  ArrowUp, ArrowDown, ArrowUpDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -375,7 +376,15 @@ export default function PohonchListPage() {
   const [searchGR, setSearchGR]               = useState('');
   const [searchTransport, setSearchTransport] = useState('');
   const [searchChallan, setSearchChallan]     = useState('');
-  const [activeSearch, setActiveSearch]       = useState({ gr: '', transport: '', challan: '' });
+  const [searchPB, setSearchPB]               = useState('');
+  const [activeSearch, setActiveSearch]       = useState({ gr: '', transport: '', challan: '', pb: '' });
+
+  // Sort
+  const [sortBy,  setSortBy]  = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+  const toggleSort = (col) => {
+    setSortBy(prev => { if (prev === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); return prev; } setSortDir('desc'); return col; });
+  };
 
   const [itemsPerPage, setItemsPerPage] = useState(30);
   const [page, setPage]                 = useState(0);
@@ -441,6 +450,10 @@ export default function PohonchListPage() {
         const s = activeSearch.challan.trim().toLowerCase();
         results = results.filter(p => (Array.isArray(p.challan_metadata) ? p.challan_metadata : []).some(c => (c || '').toString().toLowerCase().includes(s)));
       }
+      if (activeSearch.pb.trim()) {
+        const s = activeSearch.pb.trim().toLowerCase();
+        results = results.filter(p => (Array.isArray(p.bilty_metadata) ? p.bilty_metadata : []).some(b => (b.pohonch_bilty || '').toString().toLowerCase().includes(s)));
+      }
 
       setAllPohonch(results);
       setTotalCount(results.length);
@@ -460,18 +473,29 @@ export default function PohonchListPage() {
 
   useEffect(() => { if (mounted) fetchPohonch(); }, [mounted, fetchPohonch]);
 
-  const handleSearch = () => { setActiveSearch({ gr: searchGR, transport: searchTransport, challan: searchChallan }); };
-  const handleClearSearch = () => { setSearchGR(''); setSearchTransport(''); setSearchChallan(''); setActiveSearch({ gr: '', transport: '', challan: '' }); };
+  const handleSearch = () => { setActiveSearch({ gr: searchGR, transport: searchTransport, challan: searchChallan, pb: searchPB }); };
+  const handleClearSearch = () => { setSearchGR(''); setSearchTransport(''); setSearchChallan(''); setSearchPB(''); setActiveSearch({ gr: '', transport: '', challan: '', pb: '' }); };
   const handleKeyDown = (e) => { if (e.key === 'Enter') handleSearch(); };
-  const hasActiveFilters = activeSearch.gr || activeSearch.transport || activeSearch.challan;
+  const hasActiveFilters = activeSearch.gr || activeSearch.transport || activeSearch.challan || activeSearch.pb;
 
   const ITEMS_OPTIONS = [30, 50, 100, 200, 'all'];
 
+  const sortedData = useMemo(() => {
+    const getPbNo = (p) => (Array.isArray(p.bilty_metadata) ? p.bilty_metadata.map(b => b.pohonch_bilty).filter(Boolean)[0] || '' : '');
+    return [...allPohonch].sort((a, b) => {
+      let va = sortBy === '_pb_no' ? getPbNo(a) : a[sortBy];
+      let vb = sortBy === '_pb_no' ? getPbNo(b) : b[sortBy];
+      if (va == null) va = 0; if (vb == null) vb = 0;
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+  }, [allPohonch, sortBy, sortDir]);
+
   const paginatedData = useMemo(() => {
-    if (itemsPerPage === 'all') return allPohonch;
+    if (itemsPerPage === 'all') return sortedData;
     const start = page * itemsPerPage;
-    return allPohonch.slice(start, start + itemsPerPage);
-  }, [allPohonch, page, itemsPerPage]);
+    return sortedData.slice(start, start + itemsPerPage);
+  }, [sortedData, page, itemsPerPage]);
 
   const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalCount / (itemsPerPage || 30));
 
@@ -593,6 +617,10 @@ export default function PohonchListPage() {
         const s = activeSearch.challan.trim().toLowerCase();
         results = results.filter(p => (Array.isArray(p.challan_metadata) ? p.challan_metadata : []).some(c => (c || '').toString().toLowerCase().includes(s)));
       }
+      if (activeSearch.pb.trim()) {
+        const s = activeSearch.pb.trim().toLowerCase();
+        results = results.filter(p => (Array.isArray(p.bilty_metadata) ? p.bilty_metadata : []).some(b => (b.pohonch_bilty || '').toString().toLowerCase().includes(s)));
+      }
       setAllPohonch(results);
       setTotalCount(results.length);
     } catch (err) {
@@ -638,11 +666,12 @@ export default function PohonchListPage() {
             <h2 className="text-base font-bold text-gray-800">Search Pohonch</h2>
             {hasActiveFilters && <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><Filter className="w-3 h-3" /> Filtered</span>}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: 'GR Number', icon: Hash, value: searchGR, set: setSearchGR, placeholder: 'Search by GR no...' },
-              { label: 'Transport Name', icon: Truck, value: searchTransport, set: setSearchTransport, placeholder: 'Search by transport...' },
-              { label: 'Challan Number', icon: FileText, value: searchChallan, set: setSearchChallan, placeholder: 'Search by challan no...' },
+              { label: 'GR Number',      icon: Hash,     value: searchGR,        set: setSearchGR,        placeholder: 'Search by GR no...' },
+              { label: 'Transport Name', icon: Truck,    value: searchTransport, set: setSearchTransport, placeholder: 'Search by transport...' },
+              { label: 'Challan Number', icon: FileText, value: searchChallan,   set: setSearchChallan,   placeholder: 'Search by challan no...' },
+              { label: 'P/B No.',        icon: Hash,     value: searchPB,        set: setSearchPB,        placeholder: 'Search by P/B no...' },
             ].map(({ label, icon: Icon, value, set, placeholder }) => (
               <div key={label}>
                 <label className="text-xs font-bold text-gray-600 uppercase mb-1 block">{label}</label>
@@ -704,6 +733,33 @@ export default function PohonchListPage() {
           </div>
         )}
 
+        {/* Sort toolbar */}
+        {!loading && allPohonch.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap px-1">
+            <span className="text-xs font-semibold text-gray-500">Sort:</span>
+            {[
+              { key: 'created_at',     label: 'Date' },
+              { key: 'pohonch_number', label: 'Pohonch No.' },
+              { key: '_pb_no',         label: 'P/B No.' },
+              { key: 'total_bilties',  label: 'Bilties' },
+              { key: 'total_packages', label: 'Pkgs' },
+              { key: 'total_kaat',     label: 'Kaat' },
+              { key: 'total_pf',       label: 'PF' },
+              { key: 'total_amount',   label: 'Amount' },
+            ].map(({ key, label }) => (
+              <button key={key} onClick={() => toggleSort(key)}
+                className={`flex items-center gap-0.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                  sortBy === key ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                }`}>
+                {label}
+                {sortBy === key
+                  ? sortDir === 'asc' ? <ArrowUp className="w-3 h-3"/> : <ArrowDown className="w-3 h-3"/>
+                  : <ArrowUpDown className="w-3 h-3 opacity-40"/>}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
           {loading ? (
@@ -716,27 +772,41 @@ export default function PohonchListPage() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
-                      {/* Select all checkbox */}
                       <th className="px-2 py-3 w-8">
                         <button onClick={togglePage} className="text-teal-600 hover:text-teal-800">
                           {allPageSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-gray-400" />}
                         </button>
                       </th>
                       <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">#</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">Pohonch No.</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">Transport</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">GSTIN</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">Challans</th>
-                      <th className="px-2 py-3 text-center text-[10px] font-bold text-gray-600 uppercase">Bilties</th>
-                      <th className="px-2 py-3 text-right text-[10px] font-bold text-gray-600 uppercase">Amt</th>
-                      <th className="px-2 py-3 text-right text-[10px] font-bold text-gray-600 uppercase">Kaat</th>
-                      <th className="px-2 py-3 text-right text-[10px] font-bold text-gray-600 uppercase">PF</th>
-                      <th className="px-2 py-3 text-center text-[10px] font-bold text-gray-600 uppercase">Signed</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">Created By</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">Updated By</th>
-                      <th className="px-2 py-3 text-left text-[10px] font-bold text-gray-600 uppercase">Created</th>
-                      <th className="px-2 py-3 text-center text-[10px] font-bold text-gray-600 uppercase">Print</th>
-                      <th className="px-2 py-3 text-center text-[10px] font-bold text-gray-600 uppercase">Actions</th>
+                      {[
+                        { label:'Pohonch No.', key:'pohonch_number', align:'left' },
+                        { label:'P/B No.',     key:'_pb_no',          align:'left' },
+                        { label:'Transport',   key:null,              align:'left' },
+                        { label:'GSTIN',       key:null,              align:'left' },
+                        { label:'Challans',    key:null,              align:'left' },
+                        { label:'Bilties',     key:'total_bilties',   align:'center' },
+                        { label:'Pkgs',        key:'total_packages',  align:'center' },
+                        { label:'Amt',         key:'total_amount',    align:'right' },
+                        { label:'Kaat',        key:'total_kaat',      align:'right' },
+                        { label:'PF',          key:'total_pf',        align:'right' },
+                        { label:'Signed',      key:null,              align:'center' },
+                        { label:'Created By',  key:null,              align:'left' },
+                        { label:'Updated By',  key:null,              align:'left' },
+                        { label:'Created',     key:'created_at',      align:'left' },
+                        { label:'Print',       key:null,              align:'center' },
+                        { label:'Actions',     key:null,              align:'center' },
+                      ].map(({ label, key, align }) => (
+                        <th key={label}
+                          onClick={key ? () => toggleSort(key) : undefined}
+                          className={`px-2 py-3 text-[10px] font-bold text-gray-600 uppercase text-${align} ${key ? 'cursor-pointer hover:bg-gray-100 select-none' : ''}`}>
+                          <span className="inline-flex items-center gap-0.5">
+                            {label}
+                            {key && (sortBy === key
+                              ? sortDir === 'asc' ? <ArrowUp className="w-3 h-3 text-teal-600"/> : <ArrowDown className="w-3 h-3 text-teal-600"/>
+                              : <ArrowUpDown className="w-3 h-3 text-gray-300"/>)}
+                          </span>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -768,6 +838,10 @@ export default function PohonchListPage() {
                                   {p.pohonch_number}
                                 </button>
                               )}
+                            </td>
+                            {/* P/B No */}
+                            <td className="px-2 py-2 text-[10px] font-mono text-black">
+                              {[...new Set(bilties.map(b => b.pohonch_bilty).filter(Boolean))].join(', ') || '-'}
                             </td>
                             <td className="px-2 py-2">
                               {isEditing ? (
@@ -803,6 +877,7 @@ export default function PohonchListPage() {
                               {challans.length > 3 ? `${challans.slice(0, 3).join(', ')} +${challans.length - 3}` : challans.join(', ') || '-'}
                             </td>
                             <td className="px-2 py-2 text-center font-medium text-black">{p.total_bilties}</td>
+                            <td className="px-2 py-2 text-center font-medium text-black">{Math.round(p.total_packages || 0)}</td>
                             <td className="px-2 py-2 text-right font-medium text-black">₹{Math.round(p.total_amount || 0).toLocaleString()}</td>
                             <td className="px-2 py-2 text-right font-medium text-emerald-700">₹{Math.round(p.total_kaat || 0).toLocaleString()}</td>
                             <td className="px-2 py-2 text-right font-bold text-teal-700">₹{Math.round(p.total_pf || 0).toLocaleString()}</td>
@@ -893,8 +968,9 @@ export default function PohonchListPage() {
                   </tbody>
                   <tfoot>
                     <tr className="bg-gradient-to-r from-gray-100 to-slate-100 border-t-2 border-gray-300 font-bold text-xs">
-                      <td colSpan={6} className="px-2 py-3 text-right text-black uppercase text-[10px]">Total ({totalCount} pohonch)</td>
+                      <td colSpan={8} className="px-2 py-3 text-right text-black uppercase text-[10px]">Total ({totalCount} pohonch)</td>
                       <td className="px-2 py-3 text-center text-black">{totals.bilties}</td>
+                      <td className="px-2 py-3 text-center text-black">{Math.round(totals.pkg)}</td>
                       <td className="px-2 py-3 text-right text-black">₹{Math.round(totals.amt).toLocaleString()}</td>
                       <td className="px-2 py-3 text-right text-emerald-700">₹{Math.round(totals.kaat).toLocaleString()}</td>
                       <td className="px-2 py-3 text-right text-teal-700">₹{Math.round(totals.pf).toLocaleString()}</td>

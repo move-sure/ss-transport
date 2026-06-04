@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronRight, Printer, X, MapPin, Calendar,
   CheckSquare, Square, CheckCircle2, AlertCircle, PenTool,
   User, Link2, Copy, Check, CreditCard, Banknote, RotateCcw,
+  Search, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 
 const API_BASE = 'https://api.movesure.io';
@@ -906,7 +907,51 @@ export default function CrossingBillTransportPage() {
     return m;
   }, [allPohonch]);
 
+  // Pohonch search + sort
+  const [pohonchSearch, setPohonchSearch] = useState('');
+  const [sortBy,        setSortBy]        = useState('created_at');
+  const [sortDir,       setSortDir]       = useState('desc');
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('desc'); }
+  };
+
   const selectedPohonch = useMemo(() => allPohonch.filter(p => selectedIds.has(p.id)), [allPohonch, selectedIds]);
+
+  // Unselected + filtered + sorted list
+  const displayPohonch = useMemo(() => {
+    const q = pohonchSearch.trim().toLowerCase();
+    const unselected = allPohonch.filter(p => !selectedIds.has(p.id));
+    const filtered = q
+      ? unselected.filter(p =>
+          (p.pohonch_number  || '').toLowerCase().includes(q) ||
+          (p.challan_metadata || []).some(c => String(c).toLowerCase().includes(q)) ||
+          (p.bilty_metadata  || []).some(b =>
+            (b.pohonch_bilty || '').toLowerCase().includes(q) ||
+            (b.gr_no         || '').toLowerCase().includes(q)
+          )
+        )
+      : unselected;
+    return [...filtered].sort((a, b) => {
+      let va = a[sortBy], vb = b[sortBy];
+      if (va == null) va = 0; if (vb == null) vb = 0;
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+  }, [allPohonch, selectedIds, pohonchSearch, sortBy, sortDir]);
+
+  const selectedTotals = useMemo(() => selectedPohonch.reduce(
+    (a, p) => ({
+      kaat: a.kaat + (p.total_kaat || 0),
+      pf:   a.pf   + (p.total_pf   || 0),
+      amt:  a.amt  + (p.total_amount || 0),
+      bilties: a.bilties + (p.total_bilties || 0),
+      wt:   a.wt   + (p.total_weight || 0),
+    }),
+    { kaat: 0, pf: 0, amt: 0, bilties: 0, wt: 0 }
+  ), [selectedPohonch]);
+
   const toggleRow    = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
   const selectAll    = () => setSelectedIds(new Set(allPohonch.map(p=>p.id)));
   const deselectAll  = () => setSelectedIds(new Set());
@@ -1081,9 +1126,14 @@ export default function CrossingBillTransportPage() {
 
         {/* ── Header ── */}
         <div className="flex items-start gap-4 flex-wrap">
-          <Link href="/hub-management/cross-challan/cross-challan-list"
-            className="p-2 hover:bg-white rounded-xl shadow-sm border border-gray-200 shrink-0 transition-colors mt-1">
+          <Link href="/hub-management/cross-challan/crossing-bill"
+            className="p-2 hover:bg-white rounded-xl shadow-sm border border-gray-200 shrink-0 transition-colors mt-1"
+            title="All Crossing Bills">
             <ArrowLeft className="w-5 h-5 text-gray-700"/>
+          </Link>
+          <Link href="/hub-management/cross-challan/cross-challan-list"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm shrink-0 transition-colors mt-1">
+            <FileText className="w-4 h-4"/> Pohonch List
           </Link>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{transportName}</h1>
@@ -1200,12 +1250,13 @@ export default function CrossingBillTransportPage() {
 
           {/* ── Right: Pohonch list ── */}
           <div className={`${(stationRates.length>0||hubRates.length>0)?'xl:col-span-4':'xl:col-span-5'} bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden`}>
-            {/* Pohonch card header */}
+
+            {/* ── Header ── */}
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-teal-600"/>
-                <h2 className="text-sm font-bold text-gray-800">Pohonch</h2>
-                <span className="text-xs text-gray-400">({allPohonch.length})</span>
+                <h2 className="text-sm font-bold text-gray-900">Pohonch</h2>
+                <span className="text-xs text-gray-500 font-medium">({allPohonch.length})</span>
                 {loadingPohonch && <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-500"/>}
                 {activeStation && (
                   <button onClick={()=>setActiveStation(null)}
@@ -1216,64 +1267,260 @@ export default function CrossingBillTransportPage() {
               </div>
               {selectedIds.size > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-teal-700">{selectedIds.size} selected</span>
-                  <button onClick={deselectAll} className="text-xs text-red-500 hover:underline font-semibold">Clear</button>
                   <button onClick={handleBulkRecalculate} disabled={bulkRecalculating}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors disabled:opacity-50">
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 disabled:opacity-50">
                     <RotateCcw className={`w-3.5 h-3.5 ${bulkRecalculating?'animate-spin':''}`}/>
-                    {bulkRecalculating ? 'Recalculating…' : `Recalculate (${selectedIds.size})`}
+                    {bulkRecalculating ? 'Recalculating…' : `Recalculate`}
                   </button>
                   <button onClick={openKaatModal}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700">
                     <TrendingDown className="w-3.5 h-3.5"/> Update Kaat
                   </button>
                   <button onClick={()=>setShowConfirm(true)}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-lg text-xs font-black shadow-md hover:shadow-lg transition-all">
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-lg text-xs font-black shadow-md">
                     <Plus className="w-3.5 h-3.5"/> Create Bill ({selectedIds.size})
                   </button>
                 </div>
               )}
             </div>
 
+            {/* ── Search + Sort bar ── */}
+            <div className="px-5 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"/>
+                <input
+                  type="text"
+                  value={pohonchSearch}
+                  onChange={e=>setPohonchSearch(e.target.value)}
+                  placeholder="Search by pohonch no, P/B no, challan, GR…"
+                  className="w-full pl-8 pr-3 py-1.5 text-sm text-black border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                />
+                {pohonchSearch && (
+                  <button onClick={()=>setPohonchSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <X className="w-3.5 h-3.5"/>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <span className="font-semibold">Sort:</span>
+                {[
+                  { key:'created_at',   label:'Date' },
+                  { key:'total_kaat',   label:'Kaat' },
+                  { key:'total_pf',     label:'PF' },
+                  { key:'total_bilties',label:'Bilties' },
+                  { key:'total_amount', label:'Amount' },
+                ].map(({ key, label }) => (
+                  <button key={key} onClick={()=>toggleSort(key)}
+                    className={`flex items-center gap-0.5 px-2.5 py-1 rounded-lg border font-semibold transition-colors ${sortBy===key?'bg-teal-600 text-white border-teal-600':'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}>
+                    {label}
+                    {sortBy===key
+                      ? sortDir==='asc' ? <ArrowUp className="w-3 h-3"/> : <ArrowDown className="w-3 h-3"/>
+                      : <ArrowUpDown className="w-3 h-3 opacity-40"/>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {loadingPohonch && allPohonch.length===0 ? (
-              <div className="p-10 text-center"><Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto mb-2"/><p className="text-sm text-gray-500">Loading pohonch…</p></div>
+              <div className="p-10 text-center"><Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto mb-2"/><p className="text-sm text-gray-600">Loading pohonch…</p></div>
             ) : allPohonch.length===0 ? (
-              <div className="p-10 text-center"><FileText className="w-12 h-12 text-gray-200 mx-auto mb-2"/><p className="text-sm text-gray-400">No pohonch found for this transport</p></div>
+              <div className="p-10 text-center"><FileText className="w-12 h-12 text-gray-200 mx-auto mb-2"/><p className="text-sm text-gray-500">No pohonch found for this transport</p></div>
             ) : (
               <>
-                {/* Select-all row */}
-                <div className="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100 text-xs">
+                {/* ── Selected pohonch section ── */}
+                {selectedIds.size > 0 && (
+                  <>
+                  <div className="border-b-2 border-indigo-200 bg-indigo-50/40">
+                    <div className="flex items-center justify-between px-5 py-2.5 bg-indigo-100/70">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-sm font-black text-indigo-900">{selectedIds.size} Selected Pohonch</span>
+                        <span className="text-xs font-semibold text-gray-700">Bilties: <strong className="text-black">{selectedTotals.bilties}</strong></span>
+                        <span className="text-xs font-semibold text-gray-700">Wt: <strong className="text-black">{selectedTotals.wt.toFixed(1)} kg</strong></span>
+                        <span className="text-xs font-bold text-rose-700">Kaat: {Rs(selectedTotals.kaat)}</span>
+                        <span className="text-xs font-bold text-teal-800">PF: {Rs(selectedTotals.pf)}</span>
+                        <span className="text-xs font-bold text-gray-900">Total: {Rs(selectedTotals.amt)}</span>
+                      </div>
+                      <button onClick={deselectAll} className="text-xs font-bold text-red-600 hover:text-red-800 underline">Clear All</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-indigo-100 border-b border-indigo-200">
+                            <th className="px-3 py-2.5 w-8"/>
+                            {[
+                              { label:'Pohonch No.', align:'left' },
+                              { label:'P/B No.',     align:'left' },
+                              { label:'Challans',    align:'left' },
+                              { label:'Bilties',     align:'center' },
+                              { label:'Weight',      align:'right' },
+                              { label:'Amount',      align:'right' },
+                              { label:'Kaat',        align:'right' },
+                              { label:'PF',          align:'right' },
+                              { label:'Signed',      align:'center' },
+                              { label:'Created',     align:'left' },
+                            ].map(({ label, align }) => (
+                              <th key={label} className={`px-3 py-2.5 text-[11px] font-bold text-indigo-800 uppercase text-${align}`}>{label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedPohonch.map((p) => {
+                            const challans = Array.isArray(p.challan_metadata)?p.challan_metadata:[];
+                            const bilties  = Array.isArray(p.bilty_metadata)?p.bilty_metadata:[];
+                            const isExpanded = expandedPohonch.has(p.id);
+                            const totalPkg = bilties.reduce((s,b)=>s+(b.packages||0),0);
+                            const totalWt  = bilties.reduce((s,b)=>s+(b.weight||0),0);
+                            const paidKaat = bilties.filter(b=>b.is_paid).reduce((s,b)=>s+(b.kaat||0),0);
+                            const topayPf  = bilties.filter(b=>!b.is_paid).reduce((s,b)=>s+(b.pf!=null?(b.pf||0):Math.max(0,(b.amount||0)-(b.kaat||0))),0);
+                            return (
+                              <React.Fragment key={p.id}>
+                                <tr className="border-b border-indigo-100 bg-white hover:bg-indigo-50/40">
+                                  <td className="px-3 py-2 text-center w-8">
+                                    <button onClick={()=>toggleRow(p.id)} className="text-teal-600"><CheckSquare className="w-3.5 h-3.5"/></button>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <button onClick={()=>toggleExpand(p.id)} className="font-mono font-bold text-teal-700 flex items-center gap-1">
+                                      {isExpanded?<ChevronDown className="w-3 h-3"/>:<ChevronRight className="w-3 h-3"/>}{p.pohonch_number}
+                                    </button>
+                                  </td>
+                                  <td className="px-3 py-2 font-mono text-black text-xs">{[...new Set(bilties.map(b=>b.pohonch_bilty).filter(Boolean))].join(', ')||'-'}</td>
+                                  <td className="px-3 py-2 text-black text-xs">{challans.join(', ')||'-'}</td>
+                                  <td className="px-3 py-2 text-center text-black font-semibold">{p.total_bilties}</td>
+                                  <td className="px-3 py-2 text-right text-black">{(p.total_weight||0).toFixed(1)} kg</td>
+                                  <td className="px-3 py-2 text-right text-black font-semibold">{Rs(p.total_amount)}</td>
+                                  <td className="px-3 py-2 text-right text-rose-700 font-bold">{Rs(p.total_kaat)}</td>
+                                  <td className="px-3 py-2 text-right text-teal-800 font-bold">{Rs(p.total_pf)}</td>
+                                  <td className="px-3 py-2 text-center">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.is_signed?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-600'}`}>
+                                      {p.is_signed?'Signed':'Unsigned'}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs text-gray-600">{p.created_at?format(new Date(p.created_at),'dd/MM/yy'):'-'}</span>
+                                      <button onClick={()=>crossChallanPrint.handlePrint(p.pohonch_number)} disabled={crossChallanPrint.printingPohonch===p.pohonch_number}
+                                        className="inline-flex items-center px-1.5 py-1 text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200" title="Print">
+                                        {crossChallanPrint.printingPohonch===p.pohonch_number?<Loader2 className="w-3 h-3 animate-spin"/>:<Printer className="w-3 h-3"/>}
+                                      </button>
+                                      <button onClick={()=>handleRecalculate(p)} disabled={recalculating.has(p.id)}
+                                        className="inline-flex items-center px-1.5 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 disabled:opacity-50" title="Recalculate">
+                                        {recalculating.has(p.id)?<Loader2 className="w-3 h-3 animate-spin"/>:<RotateCcw className="w-3 h-3"/>}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {isExpanded && bilties.length>0 && (
+                                  <tr><td colSpan={11} className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                                    <div className="flex items-center gap-3 flex-wrap mb-2 pb-2 border-b border-slate-200 text-xs font-bold text-gray-700">
+                                      <span>{p.pohonch_number} — {bilties.length} GRs</span>
+                                      <span className="bg-white border border-gray-200 px-2 py-0.5 rounded-lg text-black">Pkg: {Math.round(totalPkg)}</span>
+                                      <span className="bg-white border border-gray-200 px-2 py-0.5 rounded-lg text-black">Wt: {totalWt.toFixed(1)} kg</span>
+                                      <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-lg">Paid Kaat: {Rs(paidKaat)}</span>
+                                      <span className="bg-orange-50 border border-orange-200 text-orange-700 px-2 py-0.5 rounded-lg">To-Pay PF: {Rs(topayPf)}</span>
+                                    </div>
+                                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                      <table className="w-full text-xs">
+                                        <thead><tr className="bg-gray-100">{['#','GR No.','EWB','P/B No.','Challan','Consignor','Consignee','Dest','Pkg','Wt','Amt','Kaat','Rate','DD','PF','Paid','Del'].map(h=>(
+                                          <th key={h} className={`px-2 py-1.5 text-left font-bold text-gray-700 text-[10px] ${activeStation&&h==='Dest'?'bg-indigo-100 text-indigo-700':''}`}>{h}</th>
+                                        ))}</tr></thead>
+                                        <tbody>{bilties.map((b,bi)=>{
+                                          const isActiveCity = activeStation&&(b.destination||'').trim().toUpperCase()===activeStation;
+                                          return (<tr key={b.gr_no||bi} className={`border-b border-gray-50 last:border-0 ${isActiveCity?'bg-indigo-50':bi%2===0?'bg-white':'bg-gray-50/50'}`}>
+                                            <td className="px-2 py-1 text-black">{bi+1}</td>
+                                            <td className="px-2 py-1 font-mono font-semibold text-teal-700">{b.gr_no||'-'}{b.e_way_bill&&<span className="text-green-600 font-bold ml-0.5 text-[9px]">(E)</span>}</td>
+                                            <td className="px-2 py-1 text-[9px] font-mono text-black max-w-[60px] truncate">{b.e_way_bill||'-'}</td>
+                                            <td className="px-2 py-1 text-black font-mono">{b.pohonch_bilty||'-'}</td>
+                                            <td className="px-2 py-1 text-black">{b.challan_no||'-'}</td>
+                                            <td className="px-2 py-1 text-black truncate max-w-[100px]">{b.consignor||'-'}</td>
+                                            <td className="px-2 py-1 text-black truncate max-w-[100px]">{b.consignee||'-'}</td>
+                                            <td className={`px-2 py-1 font-semibold ${isActiveCity?'text-indigo-700':'text-black'}`}>{b.destination||'-'}</td>
+                                            <td className="px-2 py-1 text-center text-black">{Math.round(b.packages||0)}</td>
+                                            <td className="px-2 py-1 text-right text-black">{(b.weight||0).toFixed(1)}</td>
+                                            <td className="px-2 py-1 text-right font-medium text-black">{b.is_paid?'PAID':`₹${Math.round(b.amount||0)}`}</td>
+                                            <td className="px-2 py-1 text-right text-rose-700">₹{Math.round(b.kaat||0)}</td>
+                                            <td className="px-2 py-1 text-right text-black text-[10px]">{b.kaat_rate?`₹${b.kaat_rate}`:'-'}</td>
+                                            <td className="px-2 py-1 text-right text-red-600">{b.dd>0?`-₹${Math.round(b.dd)}`:'-'}</td>
+                                            <td className="px-2 py-1 text-right font-bold text-teal-800">₹{Math.round(b.pf||0)}</td>
+                                            <td className="px-2 py-1 text-center"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${b.is_paid?'bg-emerald-100 text-emerald-700':'bg-orange-100 text-orange-700'}`}>{b.is_paid?'Paid':'To-Pay'}</span></td>
+                                            <td className="px-2 py-1 text-center">{(b.delivery_type||'').toLowerCase().includes('door')?<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Door</span>:<span className="text-[9px] text-gray-300">—</span>}</td>
+                                          </tr>);
+                                        })}</tbody>
+                                      </table>
+                                    </div>
+                                  </td></tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-indigo-100/80 border-t-2 border-indigo-300 font-bold text-sm">
+                            <td colSpan={4} className="px-3 py-3 text-right text-indigo-900 text-xs uppercase">Total ({selectedIds.size})</td>
+                            <td className="px-3 py-3 text-center text-black">{selectedTotals.bilties}</td>
+                            <td className="px-3 py-3 text-right text-black">{selectedTotals.wt.toFixed(1)} kg</td>
+                            <td className="px-3 py-3 text-right text-black font-bold">{Rs(selectedTotals.amt)}</td>
+                            <td className="px-3 py-3 text-right text-rose-700 font-bold">{Rs(selectedTotals.kaat)}</td>
+                            <td className="px-3 py-3 text-right text-teal-800 font-bold">{Rs(selectedTotals.pf)}</td>
+                            <td colSpan={2}/>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </>
+                )}
+
+                {/* ── Gap + divider between selected and unselected ── */}
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-3 px-5 py-2 border-t-2 border-dashed border-gray-300 bg-white">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Remaining Pohonch ({displayPohonch.length})</span>
+                  </div>
+                )}
+
+                {/* ── Unselected table header row (select-all + count) ── */}
+                <div className="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
                   <button onClick={selectedIds.size===allPohonch.length?deselectAll:selectAll} className="text-teal-600 hover:text-teal-800">
                     {selectedIds.size===allPohonch.length ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4 text-gray-400"/>}
                   </button>
-                  <span className="font-semibold text-gray-600">
-                    {selectedIds.size===allPohonch.length ? 'Deselect All' : `Select All (${allPohonch.length})`}
+                  <span className="text-xs font-semibold text-gray-700">
+                    {displayPohonch.length} pohonch
+                    {pohonchSearch ? ` matching "${pohonchSearch}"` : ''}
+                    {selectedIds.size > 0 ? ` · ${selectedIds.size} selected above` : ''}
                   </span>
-                  {selectedIds.size>0 && selectedIds.size<allPohonch.length && (
-                    <span className="text-teal-600 font-bold">{selectedIds.size} selected</span>
-                  )}
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50/50 border-b border-gray-100">
-                        <th className="px-3 py-2 w-8"/>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Pohonch No.</th>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">P/B No.</th>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Challans</th>
-                        <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Bilties</th>
-                        <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Weight</th>
-                        <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Amount</th>
-                        <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Kaat</th>
-                        <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">PF</th>
-                        <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Signed</th>
-                        <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Created</th>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-3 py-2.5 w-8"/>
+                        {[
+                          { label:'Pohonch No.', key:'pohonch_number', align:'left' },
+                          { label:'P/B No.',     key:null,             align:'left' },
+                          { label:'Challans',    key:null,             align:'left' },
+                          { label:'Bilties',     key:'total_bilties',  align:'center' },
+                          { label:'Weight',      key:'total_weight',   align:'right' },
+                          { label:'Amount',      key:'total_amount',   align:'right' },
+                          { label:'Kaat',        key:'total_kaat',     align:'right' },
+                          { label:'PF',          key:'total_pf',       align:'right' },
+                          { label:'Signed',      key:null,             align:'center' },
+                          { label:'Created',     key:'created_at',     align:'left' },
+                        ].map(({ label, key, align }) => (
+                          <th key={label}
+                            onClick={key ? ()=>toggleSort(key) : undefined}
+                            className={`px-3 py-2.5 text-[11px] font-bold text-gray-700 uppercase text-${align} ${key?'cursor-pointer hover:bg-gray-100 select-none':''}`}>
+                            <span className="flex items-center gap-1 justify-start">
+                              {label}
+                              {key && (sortBy===key
+                                ? sortDir==='asc' ? <ArrowUp className="w-3 h-3 text-teal-600"/> : <ArrowDown className="w-3 h-3 text-teal-600"/>
+                                : <ArrowUpDown className="w-3 h-3 text-gray-300"/>)}
+                            </span>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {allPohonch.map((p, i)=>{
-                        const checked      = selectedIds.has(p.id);
+                      {displayPohonch.map((p, i)=>{
                         const isExpanded   = expandedPohonch.has(p.id);
                         const inStation    = stationPohonchIds.has(p.id);
                         const challans     = Array.isArray(p.challan_metadata)?p.challan_metadata:[];
@@ -1287,43 +1534,42 @@ export default function CrossingBillTransportPage() {
 
                         return (
                           <React.Fragment key={p.id}>
-                            <tr className={`border-b border-gray-50 transition-colors ${
-                              checked ? 'bg-teal-50'
-                              : activeStation && inStation ? 'bg-indigo-50 border-l-2 border-indigo-400'
-                              : isExpanded ? 'bg-teal-50/60'
-                              : i%2===0 ? 'bg-white' : 'bg-gray-50/20'
-                            } hover:bg-teal-50/40`}>
-                              <td className="px-3 py-2 text-center">
+                            <tr className={`border-b border-gray-100 transition-colors ${
+                              activeStation && inStation ? 'bg-indigo-50 border-l-2 border-indigo-400'
+                              : isExpanded ? 'bg-teal-50/40'
+                              : i%2===0 ? 'bg-white' : 'bg-gray-50/30'
+                            } hover:bg-teal-50/30`}>
+                              <td className="px-3 py-2.5 text-center">
                                 <button onClick={()=>toggleRow(p.id)} className="text-teal-600 hover:text-teal-800">
-                                  {checked ? <CheckSquare className="w-3.5 h-3.5"/> : <Square className="w-3.5 h-3.5 text-gray-300"/>}
+                                  <Square className="w-3.5 h-3.5 text-gray-300"/>
                                 </button>
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-3 py-2.5">
                                 <button onClick={()=>toggleExpand(p.id)}
-                                  className="font-mono font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1 text-xs">
-                                  {isExpanded ? <ChevronDown className="w-3 h-3"/> : <ChevronRight className="w-3 h-3"/>}
+                                  className="font-mono font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1">
+                                  {isExpanded ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
                                   {p.pohonch_number}
                                 </button>
                               </td>
-                              <td className="px-3 py-2 text-[10px] font-mono text-gray-600">
+                              <td className="px-3 py-2.5 font-mono text-black text-xs">
                                 {[...new Set(bilties.map(b=>b.pohonch_bilty).filter(Boolean))].join(', ') || '-'}
                               </td>
-                              <td className="px-3 py-2 text-gray-500 text-[10px]">
+                              <td className="px-3 py-2.5 text-black text-xs">
                                 {challans.length>3?`${challans.slice(0,3).join(', ')} +${challans.length-3}`:challans.join(', ')||'-'}
                               </td>
-                              <td className="px-3 py-2 text-center text-gray-700 font-medium">{p.total_bilties}</td>
-                              <td className="px-3 py-2 text-right text-gray-600">{(p.total_weight||0).toFixed(1)} kg</td>
-                              <td className="px-3 py-2 text-right text-gray-700 font-medium">{Rs(p.total_amount)}</td>
-                              <td className="px-3 py-2 text-right text-rose-600 font-bold">{Rs(p.total_kaat)}</td>
-                              <td className="px-3 py-2 text-right text-teal-700 font-bold">{Rs(p.total_pf)}</td>
-                              <td className="px-3 py-2 text-center">
-                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${p.is_signed?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-500'}`}>
+                              <td className="px-3 py-2.5 text-center text-black font-semibold">{p.total_bilties}</td>
+                              <td className="px-3 py-2.5 text-right text-black">{(p.total_weight||0).toFixed(1)} kg</td>
+                              <td className="px-3 py-2.5 text-right text-black font-semibold">{Rs(p.total_amount)}</td>
+                              <td className="px-3 py-2.5 text-right text-rose-700 font-bold">{Rs(p.total_kaat)}</td>
+                              <td className="px-3 py-2.5 text-right text-teal-800 font-bold">{Rs(p.total_pf)}</td>
+                              <td className="px-3 py-2.5 text-center">
+                                <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${p.is_signed?'bg-emerald-100 text-emerald-700':'bg-gray-100 text-gray-600'}`}>
                                   <PenTool className="w-2.5 h-2.5"/>{p.is_signed?'Signed':'Unsigned'}
                                 </span>
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-3 py-2.5">
                                 <div className="flex items-center gap-1 flex-wrap">
-                                  <span className="text-gray-400 text-[10px]">{p.created_at?format(new Date(p.created_at),'dd/MM/yy'):'-'}</span>
+                                  <span className="text-black text-xs font-medium">{p.created_at?format(new Date(p.created_at),'dd/MM/yy'):'-'}</span>
                                   <button
                                     onClick={()=>crossChallanPrint.handlePrint(p.pohonch_number)}
                                     disabled={crossChallanPrint.printingPohonch===p.pohonch_number}
@@ -1345,7 +1591,7 @@ export default function CrossingBillTransportPage() {
                             {/* ── Expanded bilties with summary stats ── */}
                             {isExpanded && bilties.length>0 && (
                               <tr>
-                                <td colSpan={10} className="px-4 py-3 bg-teal-50/70 border-b border-teal-100">
+                                <td colSpan={11} className="px-4 py-3 bg-slate-50 border-b border-slate-200">
                                   {/* Summary stats bar */}
                                   <div className="flex items-center gap-3 flex-wrap mb-2 pb-2 border-b border-teal-200">
                                     <p className="text-[10px] font-bold text-teal-700">{p.pohonch_number} — {bilties.length} GRs</p>
@@ -1427,13 +1673,13 @@ export default function CrossingBillTransportPage() {
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gradient-to-r from-gray-100 to-slate-100 border-t-2 border-gray-300 font-bold text-xs">
-                        <td colSpan={4} className="px-3 py-2.5 text-right text-gray-600 uppercase text-[10px]">Total ({allPohonch.length})</td>
-                        <td className="px-3 py-2.5 text-center text-gray-800">{allPohonch.reduce((s,p)=>s+(p.total_bilties||0),0)}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-600">{allPohonch.reduce((s,p)=>s+(p.total_weight||0),0).toFixed(1)} kg</td>
-                        <td className="px-3 py-2.5 text-right text-gray-800">{Rs(allPohonch.reduce((s,p)=>s+(p.total_amount||0),0))}</td>
-                        <td className="px-3 py-2.5 text-right text-rose-600">{Rs(allPohonch.reduce((s,p)=>s+(p.total_kaat||0),0))}</td>
-                        <td className="px-3 py-2.5 text-right text-teal-700">{Rs(allPohonch.reduce((s,p)=>s+(p.total_pf||0),0))}</td>
+                      <tr className="bg-gray-100 border-t-2 border-gray-300 font-bold text-sm">
+                        <td colSpan={4} className="px-3 py-3 text-right text-black uppercase text-xs">Showing {displayPohonch.length} of {allPohonch.length}</td>
+                        <td className="px-3 py-3 text-center text-black">{displayPohonch.reduce((s,p)=>s+(p.total_bilties||0),0)}</td>
+                        <td className="px-3 py-3 text-right text-black">{displayPohonch.reduce((s,p)=>s+(p.total_weight||0),0).toFixed(1)} kg</td>
+                        <td className="px-3 py-3 text-right text-black font-bold">{Rs(displayPohonch.reduce((s,p)=>s+(p.total_amount||0),0))}</td>
+                        <td className="px-3 py-3 text-right text-rose-700 font-bold">{Rs(displayPohonch.reduce((s,p)=>s+(p.total_kaat||0),0))}</td>
+                        <td className="px-3 py-3 text-right text-teal-800 font-bold">{Rs(displayPohonch.reduce((s,p)=>s+(p.total_pf||0),0))}</td>
                         <td colSpan={2}/>
                       </tr>
                     </tfoot>

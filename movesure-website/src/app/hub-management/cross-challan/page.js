@@ -415,12 +415,20 @@ export default function PohonchPrintPage() {
                 <p className="text-gray-600 mt-1">Search bilties by transport, GR no., or pohonch number</p>
               </div>
             </div>
-            <button
-              onClick={() => router.push('/hub-management/cross-challan/cross-challan-list')}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:from-teal-700 hover:to-emerald-700 transition-all"
-            >
-              <FileText className="w-4 h-4" /> Pohonch List
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/hub-management/cross-challan/crossing-bill')}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-700 to-gray-900 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all"
+              >
+                <FileText className="w-4 h-4" /> All Bills
+              </button>
+              <button
+                onClick={() => router.push('/hub-management/cross-challan/cross-challan-list')}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:from-teal-700 hover:to-emerald-700 transition-all"
+              >
+                <FileText className="w-4 h-4" /> Pohonch List
+              </button>
+            </div>
           </div>
         </div>
 

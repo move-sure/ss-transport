@@ -933,8 +933,10 @@ export default function CrossingBillTransportPage() {
           )
         )
       : unselected;
+    const getPbNo = (p) => (Array.isArray(p.bilty_metadata) ? p.bilty_metadata.map(b => b.pohonch_bilty).filter(Boolean)[0] || '' : '');
     return [...filtered].sort((a, b) => {
-      let va = a[sortBy], vb = b[sortBy];
+      let va = sortBy === '_pb_no' ? getPbNo(a) : a[sortBy];
+      let vb = sortBy === '_pb_no' ? getPbNo(b) : b[sortBy];
       if (va == null) va = 0; if (vb == null) vb = 0;
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortDir === 'asc' ? va - vb : vb - va;
@@ -1304,11 +1306,13 @@ export default function CrossingBillTransportPage() {
               <div className="flex items-center gap-1.5 text-xs text-gray-600">
                 <span className="font-semibold">Sort:</span>
                 {[
-                  { key:'created_at',   label:'Date' },
-                  { key:'total_kaat',   label:'Kaat' },
-                  { key:'total_pf',     label:'PF' },
-                  { key:'total_bilties',label:'Bilties' },
-                  { key:'total_amount', label:'Amount' },
+                  { key:'created_at',    label:'Date' },
+                  { key:'total_kaat',    label:'Kaat' },
+                  { key:'total_pf',      label:'PF' },
+                  { key:'total_bilties', label:'Bilties' },
+                  { key:'total_packages',label:'Pkgs' },
+                  { key:'total_amount',  label:'Amount' },
+                  { key:'_pb_no',        label:'P/B No' },
                 ].map(({ key, label }) => (
                   <button key={key} onClick={()=>toggleSort(key)}
                     className={`flex items-center gap-0.5 px-2.5 py-1 rounded-lg border font-semibold transition-colors ${sortBy===key?'bg-teal-600 text-white border-teal-600':'bg-white text-gray-700 border-gray-200 hover:border-gray-300'}`}>
@@ -1352,6 +1356,7 @@ export default function CrossingBillTransportPage() {
                               { label:'P/B No.',     align:'left' },
                               { label:'Challans',    align:'left' },
                               { label:'Bilties',     align:'center' },
+                              { label:'Pkgs',        align:'center' },
                               { label:'Weight',      align:'right' },
                               { label:'Amount',      align:'right' },
                               { label:'Kaat',        align:'right' },
@@ -1386,6 +1391,7 @@ export default function CrossingBillTransportPage() {
                                   <td className="px-3 py-2 font-mono text-black text-xs">{[...new Set(bilties.map(b=>b.pohonch_bilty).filter(Boolean))].join(', ')||'-'}</td>
                                   <td className="px-3 py-2 text-black text-xs">{challans.join(', ')||'-'}</td>
                                   <td className="px-3 py-2 text-center text-black font-semibold">{p.total_bilties}</td>
+                                  <td className="px-3 py-2 text-center text-black font-semibold">{Math.round(p.total_packages||0)}</td>
                                   <td className="px-3 py-2 text-right text-black">{(p.total_weight||0).toFixed(1)} kg</td>
                                   <td className="px-3 py-2 text-right text-black font-semibold">{Rs(p.total_amount)}</td>
                                   <td className="px-3 py-2 text-right text-rose-700 font-bold">{Rs(p.total_kaat)}</td>
@@ -1457,6 +1463,7 @@ export default function CrossingBillTransportPage() {
                           <tr className="bg-indigo-100/80 border-t-2 border-indigo-300 font-bold text-sm">
                             <td colSpan={4} className="px-3 py-3 text-right text-indigo-900 text-xs uppercase">Total ({selectedIds.size})</td>
                             <td className="px-3 py-3 text-center text-black">{selectedTotals.bilties}</td>
+                            <td className="px-3 py-3 text-center text-black">{selectedPohonch.reduce((s,p)=>s+(p.total_packages||0),0)}</td>
                             <td className="px-3 py-3 text-right text-black">{selectedTotals.wt.toFixed(1)} kg</td>
                             <td className="px-3 py-3 text-right text-black font-bold">{Rs(selectedTotals.amt)}</td>
                             <td className="px-3 py-3 text-right text-rose-700 font-bold">{Rs(selectedTotals.kaat)}</td>
@@ -1495,11 +1502,12 @@ export default function CrossingBillTransportPage() {
                       <tr className="bg-gray-50 border-b border-gray-200">
                         <th className="px-3 py-2.5 w-8"/>
                         {[
-                          { label:'Pohonch No.', key:'pohonch_number', align:'left' },
-                          { label:'P/B No.',     key:null,             align:'left' },
-                          { label:'Challans',    key:null,             align:'left' },
-                          { label:'Bilties',     key:'total_bilties',  align:'center' },
-                          { label:'Weight',      key:'total_weight',   align:'right' },
+                          { label:'Pohonch No.', key:'pohonch_number',  align:'left' },
+                          { label:'P/B No.',     key:'_pb_no',          align:'left' },
+                          { label:'Challans',    key:null,              align:'left' },
+                          { label:'Bilties',     key:'total_bilties',   align:'center' },
+                          { label:'Pkgs',        key:'total_packages',  align:'center' },
+                          { label:'Weight',      key:'total_weight',    align:'right' },
                           { label:'Amount',      key:'total_amount',   align:'right' },
                           { label:'Kaat',        key:'total_kaat',     align:'right' },
                           { label:'PF',          key:'total_pf',       align:'right' },
@@ -1534,17 +1542,19 @@ export default function CrossingBillTransportPage() {
 
                         return (
                           <React.Fragment key={p.id}>
-                            <tr className={`border-b border-gray-100 transition-colors ${
-                              activeStation && inStation ? 'bg-indigo-50 border-l-2 border-indigo-400'
-                              : isExpanded ? 'bg-teal-50/40'
-                              : i%2===0 ? 'bg-white' : 'bg-gray-50/30'
-                            } hover:bg-teal-50/30`}>
-                              <td className="px-3 py-2.5 text-center">
+                            <tr
+                              onClick={()=>toggleRow(p.id)}
+                              className={`border-b border-gray-100 transition-colors cursor-pointer ${
+                                activeStation && inStation ? 'bg-indigo-50 border-l-2 border-indigo-400'
+                                : isExpanded ? 'bg-teal-50/40'
+                                : i%2===0 ? 'bg-white' : 'bg-gray-50/30'
+                              } hover:bg-indigo-50/40 select-none`}>
+                              <td className="px-3 py-2.5 text-center" onClick={e=>e.stopPropagation()}>
                                 <button onClick={()=>toggleRow(p.id)} className="text-teal-600 hover:text-teal-800">
                                   <Square className="w-3.5 h-3.5 text-gray-300"/>
                                 </button>
                               </td>
-                              <td className="px-3 py-2.5">
+                              <td className="px-3 py-2.5" onClick={e=>e.stopPropagation()}>
                                 <button onClick={()=>toggleExpand(p.id)}
                                   className="font-mono font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1">
                                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
@@ -1558,6 +1568,7 @@ export default function CrossingBillTransportPage() {
                                 {challans.length>3?`${challans.slice(0,3).join(', ')} +${challans.length-3}`:challans.join(', ')||'-'}
                               </td>
                               <td className="px-3 py-2.5 text-center text-black font-semibold">{p.total_bilties}</td>
+                              <td className="px-3 py-2.5 text-center text-black font-semibold">{Math.round(p.total_packages||0)}</td>
                               <td className="px-3 py-2.5 text-right text-black">{(p.total_weight||0).toFixed(1)} kg</td>
                               <td className="px-3 py-2.5 text-right text-black font-semibold">{Rs(p.total_amount)}</td>
                               <td className="px-3 py-2.5 text-right text-rose-700 font-bold">{Rs(p.total_kaat)}</td>
@@ -1676,6 +1687,7 @@ export default function CrossingBillTransportPage() {
                       <tr className="bg-gray-100 border-t-2 border-gray-300 font-bold text-sm">
                         <td colSpan={4} className="px-3 py-3 text-right text-black uppercase text-xs">Showing {displayPohonch.length} of {allPohonch.length}</td>
                         <td className="px-3 py-3 text-center text-black">{displayPohonch.reduce((s,p)=>s+(p.total_bilties||0),0)}</td>
+                        <td className="px-3 py-3 text-center text-black">{displayPohonch.reduce((s,p)=>s+(p.total_packages||0),0)}</td>
                         <td className="px-3 py-3 text-right text-black">{displayPohonch.reduce((s,p)=>s+(p.total_weight||0),0).toFixed(1)} kg</td>
                         <td className="px-3 py-3 text-right text-black font-bold">{Rs(displayPohonch.reduce((s,p)=>s+(p.total_amount||0),0))}</td>
                         <td className="px-3 py-3 text-right text-rose-700 font-bold">{Rs(displayPohonch.reduce((s,p)=>s+(p.total_kaat||0),0))}</td>

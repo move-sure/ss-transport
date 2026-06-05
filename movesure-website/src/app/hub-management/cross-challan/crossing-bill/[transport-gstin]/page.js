@@ -60,10 +60,12 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     const totalWt  = bilties.reduce((s, b) => s + (b.weight   || 0), 0);
     const totalPkg = bilties.reduce((s, b) => s + (b.packages || 0), 0);
     const totalAmt = bilties.reduce((s, b) => s + (b.amount   || 0), 0);
+    // Helper: treat b.is_paid OR payment_mode==='paid' as paid
+    const biltyIsPaid = (b) => b.is_paid || (b.payment_mode || '').toLowerCase() === 'paid';
     // TO-PAY PF: use stored b.pf for to-pay bilties (pf = amount − kaat − dd, already computed)
-    const topayPf  = bilties.filter(b => !b.is_paid).reduce((s, b) => s + (b.pf != null ? (b.pf || 0) : Math.max(0, (b.amount || 0) - (b.kaat || 0))), 0);
+    const topayPf  = bilties.filter(b => !biltyIsPaid(b)).reduce((s, b) => s + (b.pf != null ? (b.pf || 0) : Math.max(0, (b.amount || 0) - (b.kaat || 0))), 0);
     // PAID Kaat: sum of kaat for paid bilties (kaat = weight × kaat_rate, stored on bilty)
-    const paidKaat = bilties.filter(b =>  b.is_paid).reduce((s, b) => s + (b.kaat || 0), 0);
+    const paidKaat = bilties.filter(b =>  biltyIsPaid(b)).reduce((s, b) => s + (b.kaat || 0), 0);
     // P/B Nos: unique pohonch_bilty values from all bilties in this pohonch
     const pbNos    = [...new Set(bilties.map(b => b.pohonch_bilty).filter(Boolean))].join(', ') || '-';
 
@@ -1125,7 +1127,7 @@ export default function CrossingBillTransportPage() {
       const res  = await fetch(`${API_BASE}/api/pohonch/${pohonch.id}/recalculate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ user_id: user?.id, force: false }),
+        body: JSON.stringify({ user_id: user?.id, force: true }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || 'Recalculate failed');
@@ -1152,7 +1154,7 @@ export default function CrossingBillTransportPage() {
         body: JSON.stringify({
           pohonch_numbers: selectedPohonch.map(p => p.pohonch_number),
           user_id: user?.id,
-          force: false,
+          force: true,
         }),
       });
       const json = await res.json();
@@ -1177,7 +1179,7 @@ export default function CrossingBillTransportPage() {
       const res  = await fetch(`${API_BASE}/api/pohonch/bulk-recalculate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ transport_gstin: gstin, user_id: user?.id, force: false }),
+        body: JSON.stringify({ transport_gstin: gstin, user_id: user?.id, force: true }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || 'Failed');

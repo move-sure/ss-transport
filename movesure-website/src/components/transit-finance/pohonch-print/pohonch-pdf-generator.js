@@ -84,6 +84,14 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
 
   const chunks = buildChunks(bilties);
 
+  // To-Pay PF / Paid Kaat — same definition used on the crossing bill
+  const RsRaw = (n) => `Rs.${Math.round(n || 0).toLocaleString('en-IN')}`;
+  const isPaidBilty = (b) => b.is_paid || (b.payment_mode || '').toLowerCase() === 'paid';
+  const topayPf  = bilties.filter(b => !isPaidBilty(b))
+    .reduce((s, b) => s + (b.pf != null ? (b.pf || 0) : Math.max(0, (b.amount || 0) - (b.kaat || 0) - (b.dd || 0))), 0);
+  const paidKaat = bilties.filter(isPaidBilty)
+    .reduce((s, b) => s + (b.kaat || 0), 0);
+
   // Column definitions — clean table, no challan column
   const columns = [
     { header: '#',          dataKey: 'sno' },
@@ -96,16 +104,17 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     { header: 'Pkg',        dataKey: 'pkg' },
     { header: 'Wt',         dataKey: 'wt' },
     { header: 'Amt',        dataKey: 'amt' },
-    { header: 'Kaat',       dataKey: 'kaat' },
+    { header: 'TP-KAAT',    dataKey: 'topayKaat' },
+    { header: 'Paid Kaat',   dataKey: 'paidKaat' },
     { header: 'DD',         dataKey: 'dd' },
-    { header: 'PF',         dataKey: 'pf' },
+    { header: 'To-Pay PF',  dataKey: 'pf' },
   ];
 
   const tableW = pageW - mx * 2; // 200mm usable
 
   const colWidths = {
-    sno: 6, gr: 16, pb: 14, consignor: 28, consignee: 28,
-    dest: 16, pay: 18, pkg: 10, wt: 12, amt: 15, kaat: 13, dd: 10, pf: 14,
+    sno: 6, gr: 16, pb: 14, consignor: 24, consignee: 24,
+    dest: 14, pay: 17, pkg: 10, wt: 12, amt: 15, topayKaat: 12, paidKaat: 12, dd: 10, pf: 14,
   };
 
   const tableStyles = {
@@ -137,7 +146,8 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     pkg:       { halign: 'center', cellWidth: colWidths.pkg },
     wt:        { halign: 'right',  cellWidth: colWidths.wt },
     amt:       { halign: 'right',  cellWidth: colWidths.amt },
-    kaat:      { halign: 'right',  cellWidth: colWidths.kaat },
+    topayKaat: { halign: 'right',  cellWidth: colWidths.topayKaat },
+    paidKaat:  { halign: 'right',  cellWidth: colWidths.paidKaat },
     dd:        { halign: 'right',  cellWidth: colWidths.dd },
     pf:        { halign: 'right',  cellWidth: colWidths.pf, fontStyle: 'bold' },
   };
@@ -156,46 +166,51 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
         const grText = String(b.gr_no || '-');
         const hasEwb = !!(b.e_way_bill && b.e_way_bill.trim());
         const ddSuffix = (b.delivery_type || '').toLowerCase().includes('door') ? '/DD' : '';
-        const payBase = b.is_paid ? 'PAID' : (b.payment_mode || '-').toUpperCase().replace('-', ' ');
+        const isPaid = isPaidBilty(b);
+        const payBase = isPaid ? 'PAID' : (b.payment_mode || '-').toUpperCase().replace('-', ' ');
         body.push({
           sno:       String(sno),
           gr:        hasEwb ? `${grText} (E)` : grText,
           pb:        String(b.pohonch_bilty || '-'),
-          consignor: (b.consignor || '-').substring(0, 16),
-          consignee: (b.consignee || '-').substring(0, 16),
+          consignor: (b.consignor || '-').substring(0, 14),
+          consignee: (b.consignee || '-').substring(0, 14),
           dest:      (b.destination_code || b.destination || '-').substring(0, 10),
           pay:       (payBase + ddSuffix).substring(0, 10),
           pkg:       String(Math.round(b.packages || 0)),
           wt:        (b.weight || 0).toFixed(1),
-          amt:       b.is_paid ? 'PAID' : String(Math.round(b.amount || 0)),
-          kaat:      String(Math.round(b.kaat || 0)),
+          amt:       isPaid ? 'PAID' : String(Math.round(b.amount || 0)),
+          topayKaat: isPaid ? '-' : String(Math.round(b.kaat || 0)),
+          paidKaat:  isPaid ? String(Math.round(b.kaat || 0)) : '-',
           dd:        b.dd > 0 ? String(Math.round(b.dd)) : '-',
-          pf:        String(Math.round(b.pf || 0)),
+          pf:        isPaid ? '-' : String(Math.round(b.pf || 0)),
           _hasEwb:   hasEwb,
         });
       });
     });
 
     // Grand total row
-    let tPkg = 0, tWt = 0, tAmt = 0, tKaat = 0, tDD = 0, tPF = 0;
+    let tPkg = 0, tWt = 0, tAmt = 0, tTopayKaat = 0, tPaidKaat = 0, tDD = 0, tPF = 0;
     groups.forEach(g => g.bilties.forEach(b => {
-      tPkg  += b.packages || 0;
-      tWt   += b.weight || 0;
-      tAmt  += b.is_paid ? 0 : (b.amount || 0);
-      tKaat += b.kaat || 0;
-      tDD   += b.dd || 0;
-      tPF   += b.pf || 0;
+      const isPaid = isPaidBilty(b);
+      tPkg       += b.packages || 0;
+      tWt        += b.weight || 0;
+      tAmt       += isPaid ? 0 : (b.amount || 0);
+      tTopayKaat += isPaid ? 0 : (b.kaat || 0);
+      tPaidKaat  += isPaid ? (b.kaat || 0) : 0;
+      tDD        += b.dd || 0;
+      tPF        += isPaid ? 0 : (b.pf || 0);
     }));
     const totalIdx = body.length;
     body.push({
       sno: '', gr: '', pb: '', consignor: '', consignee: '',
       dest: '', pay: 'TOTAL',
-      pkg:  String(Math.round(tPkg)),
-      wt:   tWt.toFixed(1),
-      amt:  String(Math.round(tAmt)),
-      kaat: String(Math.round(tKaat)),
-      dd:   tDD > 0 ? String(Math.round(tDD)) : '-',
-      pf:   String(Math.round(tPF)),
+      pkg:       String(Math.round(tPkg)),
+      wt:        tWt.toFixed(1),
+      amt:       String(Math.round(tAmt)),
+      topayKaat: String(Math.round(tTopayKaat)),
+      paidKaat:  String(Math.round(tPaidKaat)),
+      dd:        tDD > 0 ? String(Math.round(tDD)) : '-',
+      pf:        String(Math.round(tPF)),
     });
 
     return { body, totalIdx };
@@ -254,14 +269,21 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     pdf.setFontSize(7.5);
     pdf.setTextColor(0, 0, 0);
     pdf.text(challanText, mx, yStart + 13.5);
+    const challanTextW = pdf.getTextWidth(challanText);
 
-    // (E) legend + mob number (if pohonch shown on line 2)
+    // (E) legend — small italic, right after challan text
     pdf.setFont('helvetica', 'italic');
     pdf.setFontSize(5.5);
     pdf.setTextColor(100, 100, 100);
-    const legendParts = ['(E) = E-Way Bill'];
-    if (pohonchNumber && transport?.mob_number) legendParts.push(`Mob: ${transport.mob_number}`);
-    pdf.text(legendParts.join('   '), pageW - mx, yStart + 13.5, { align: 'right' });
+    pdf.text('(E) = E-Way Bill', mx + challanTextW + 4, yStart + 13.5);
+
+    // To-Pay PF / Paid Kaat summary (right side, bold) — includes mob number if pohonch no. took its slot on line 2
+    let summaryText = `To-Pay PF: ${RsRaw(topayPf)}   |   Paid Kaat: ${RsRaw(paidKaat)}`;
+    if (pohonchNumber && transport?.mob_number) summaryText += `   |   Mob: ${transport.mob_number}`;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(summaryText, pageW - mx, yStart + 13.5, { align: 'right' });
 
     // ── Table (clean, no challan rows inside) ──
     const { body, totalIdx } = buildBody(chunk.groups, globalStartIdx);

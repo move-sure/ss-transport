@@ -77,8 +77,8 @@ function buildChunks(bilties) {
  * @param {boolean} preview – true → blob URL, false → download
  * @param {string} [pohonchNumber] – optional pohonch/cross challan number to display on PDF
  */
-export function generatePohonchPDF(bilties, transport, preview = true, pohonchNumber = '') {
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+export function generatePohonchPDF(bilties, transport, preview = true, pohonchNumber = '', existingDoc = null, startNewPage = false) {
+  const pdf = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = 210;
   const mx = 5; // 5mm margin each side
 
@@ -330,7 +330,7 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
 
   // ── Generate pages ──
   chunks.forEach((chunk, chunkIdx) => {
-    if (chunkIdx > 0) pdf.addPage();
+    if (chunkIdx > 0 || startNewPage) pdf.addPage();
 
     const globalStartIdx = chunkIdx * ROWS_PER_HALF;
 
@@ -349,12 +349,40 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
   });
 
   // ── Output ──
+  if (existingDoc) {
+    // Caller owns the document — appended pages only, no output here.
+    return null;
+  }
   if (preview) {
     const pdfBlob = pdf.output('blob');
     return URL.createObjectURL(pdfBlob);
   } else {
     const tName = (transport?.transport_name || 'Transport').replace(/[^a-zA-Z0-9]/g, '_');
     pdf.save(`CrossingChallan_${tName}_${bilties.length}bilties.pdf`);
+    return null;
+  }
+}
+
+/**
+ * Generate ONE combined multi-pohonch PDF — appends each pohonch's
+ * Office/Transport copy pages into a single jsPDF document, in order.
+ * pohonchList: Array of { bilties, transport, pohonchNumber }
+ */
+export function generateCombinedPohonchPDF(pohonchList, preview = true) {
+  if (!pohonchList || pohonchList.length === 0) return null;
+
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  pohonchList.forEach((entry, idx) => {
+    generatePohonchPDF(entry.bilties, entry.transport, true, entry.pohonchNumber, pdf, idx > 0);
+  });
+
+  if (preview) {
+    const pdfBlob = pdf.output('blob');
+    return URL.createObjectURL(pdfBlob);
+  } else {
+    const tName = (pohonchList[0].transport?.transport_name || 'Transport').replace(/[^a-zA-Z0-9]/g, '_');
+    pdf.save(`CrossingChallans_${tName}_${pohonchList.length}pohonch.pdf`);
     return null;
   }
 }

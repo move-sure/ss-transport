@@ -13,7 +13,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { Loader2, FileText, X, Printer } from 'lucide-react';
-import { generatePohonchPDF } from './pohonch-pdf-generator';
+import { generatePohonchPDF, generateCombinedPohonchPDF } from './pohonch-pdf-generator';
 import { fetchFreshCrossChallanData } from './cross-challan-print-utils';
 
 /**
@@ -26,8 +26,10 @@ import { fetchFreshCrossChallanData } from './cross-challan-print-utils';
  */
 export function useCrossChallanPrint({ onDataRefreshed } = {}) {
   const [printingPohonch, setPrintingPohonch] = useState(null);
+  const [printingBatch, setPrintingBatch] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewName, setPreviewName] = useState(null);
+  const [previewBatch, setPreviewBatch] = useState(null); // array of pohonch numbers when previewing a combined PDF
 
   const handlePrint = useCallback(async (pohonchNumber) => {
     if (!pohonchNumber) return;
@@ -40,6 +42,7 @@ export function useCrossChallanPrint({ onDataRefreshed } = {}) {
       if (url) {
         setPreviewUrl(url);
         setPreviewName(pohonchNumber);
+        setPreviewBatch(null);
       }
 
       // Notify parent so it can update local state with refreshed data
@@ -53,28 +56,74 @@ export function useCrossChallanPrint({ onDataRefreshed } = {}) {
     }
   }, [onDataRefreshed]);
 
+  /**
+   * Generate ONE combined PDF containing every selected pohonch's crossing challan,
+   * in the order given, then preview it.
+   */
+  const handlePrintMultiple = useCallback(async (pohonchNumbers) => {
+    const numbers = (pohonchNumbers || []).filter(Boolean);
+    if (numbers.length === 0) return;
+
+    if (numbers.length === 1) {
+      return handlePrint(numbers[0]);
+    }
+
+    try {
+      setPrintingBatch(true);
+      const entries = [];
+      for (const num of numbers) {
+        const { pohonch, bilties, transport } = await fetchFreshCrossChallanData(num);
+        entries.push({ bilties, transport, pohonchNumber: num });
+        if (onDataRefreshed) onDataRefreshed(num, pohonch);
+      }
+
+      const url = generateCombinedPohonchPDF(entries, true);
+      if (url) {
+        setPreviewUrl(url);
+        setPreviewName(`${numbers.length} Pohonch (Combined)`);
+        setPreviewBatch(numbers);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to generate combined PDF');
+    } finally {
+      setPrintingBatch(false);
+    }
+  }, [onDataRefreshed, handlePrint]);
+
   const handleDownload = useCallback(async () => {
     if (!previewName) return;
     try {
+      if (previewBatch && previewBatch.length > 0) {
+        const entries = [];
+        for (const num of previewBatch) {
+          const { bilties, transport } = await fetchFreshCrossChallanData(num);
+          entries.push({ bilties, transport, pohonchNumber: num });
+        }
+        generateCombinedPohonchPDF(entries, false);
+        return;
+      }
       // Fetch fresh again for download to ensure latest data
       const { bilties, transport } = await fetchFreshCrossChallanData(previewName);
       generatePohonchPDF(bilties, transport, false, previewName);
     } catch (err) {
       alert('Download failed: ' + (err.message || 'Unknown error'));
     }
-  }, [previewName]);
+  }, [previewName, previewBatch]);
 
   const handleClose = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setPreviewName(null);
+    setPreviewBatch(null);
   }, [previewUrl]);
 
   return {
     printingPohonch,
+    printingBatch,
     previewUrl,
     previewName,
     handlePrint,
+    handlePrintMultiple,
     handleDownload,
     handleClose,
   };

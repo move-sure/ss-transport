@@ -122,9 +122,23 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     margin: { left: mg, right: mg },
   });
 
-  /* ── Net PF summary ── */
-  const netPf = grandTopayPf - grandPaidKaat;
-  const balY  = Math.min((doc.lastAutoTable?.finalY || 130) + 7, ph - 46);
+  /* ── Net PF summary + Signatures — add new page if not enough room ── */
+  const netPf      = grandTopayPf - grandPaidKaat;
+  const tableEndY  = doc.lastAutoTable?.finalY || 130;
+  const NEEDED     = 78; // mm: ~28 for net PF table + 8 gap + 42 for signatures + footer
+
+  // If less than NEEDED mm remain on the page, start a fresh page instead of overlapping the table
+  let balY;
+  if (tableEndY + NEEDED > ph - 12) {
+    doc.addPage();
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(120,120,120);
+    doc.text(`${bill.bill_no}  —  ${bill.transport_name || ''}`, mg, 10);
+    doc.setTextColor(0,0,0);
+    balY = 16;
+  } else {
+    balY = tableEndY + 9;
+  }
+
   autoTable(doc, {
     startY: balY,
     body: [
@@ -151,8 +165,8 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     margin: { left: mg, right: mg },
   });
 
-  /* ── 2 Signature boxes ── */
-  const signY = Math.min((doc.lastAutoTable?.finalY || 160) + 8, ph - 38);
+  /* ── 2 Signature boxes (always after net PF table, never overlapping) ── */
+  const signY = (doc.lastAutoTable?.finalY || balY + 30) + 10;
   doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(60,60,60);
   doc.text('Authorised Signatures', mg, signY);
   const bw = (pw - mg * 2 - 8) / 2;
@@ -1356,6 +1370,12 @@ export default function CrossingBillTransportPage() {
                   <button onClick={openKaatModal}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700">
                     <TrendingDown className="w-3.5 h-3.5"/> Update Kaat
+                  </button>
+                  <button onClick={()=>crossChallanPrint.handlePrintMultiple(selectedPohonch.map(p=>p.pohonch_number))}
+                    disabled={crossChallanPrint.printingBatch}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-700 disabled:opacity-50">
+                    {crossChallanPrint.printingBatch ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Printer className="w-3.5 h-3.5"/>}
+                    {crossChallanPrint.printingBatch ? 'Generating…' : `Print Selected (${selectedIds.size})`}
                   </button>
                   <button onClick={()=>setShowConfirm(true)}
                     className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-lg text-xs font-black shadow-md">

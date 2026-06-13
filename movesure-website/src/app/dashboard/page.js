@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [dashboardError, setDashboardError] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('1week');
   const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationLeaving, setCelebrationLeaving] = useState(false);
 
   // Party-popper confetti burst shown once right after a successful login
   const celebrationConfetti = useMemo(() => Array.from({ length: 40 }).map((_, i) => {
@@ -47,8 +48,12 @@ export default function DashboardPage() {
     if (sessionStorage.getItem('movesure_celebrate_login')) {
       sessionStorage.removeItem('movesure_celebrate_login');
       setShowCelebration(true);
-      const timer = setTimeout(() => setShowCelebration(false), 3200);
-      return () => clearTimeout(timer);
+      const hideTimer = setTimeout(() => setCelebrationLeaving(true), 2600);
+      const removeTimer = setTimeout(() => setShowCelebration(false), 3200);
+      return () => {
+        clearTimeout(hideTimer);
+        clearTimeout(removeTimer);
+      };
     }
   }, []);
 
@@ -186,7 +191,7 @@ export default function DashboardPage() {
               )
             ))}
           </div>
-          <div className="absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-amber-300/40 bg-slate-900/90 px-6 py-3 text-white shadow-2xl backdrop-blur-xl animate-fade-in-up">
+          <div className={`absolute left-1/2 top-16 flex items-center gap-3 rounded-2xl border border-amber-300/40 bg-slate-900/90 px-6 py-3 text-white shadow-2xl backdrop-blur-xl ${celebrationLeaving ? 'animate-fade-out-up' : 'animate-toast-in'}`}>
             <PartyPopper className="h-6 w-6 text-amber-300 animate-popper-shake" style={{ '--popper-rot': '-20deg' }} />
             <div className="text-center">
               <p className="bg-gradient-to-r from-amber-300 via-fuchsia-300 to-sky-300 bg-clip-text text-base font-bold text-transparent text-shimmer sm:text-lg">

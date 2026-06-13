@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import bcrypt from 'bcryptjs';
-import { Truck, User, Lock, ArrowRight, Shield, Globe, Clock, Eye, EyeOff } from 'lucide-react';
+import { Truck, User, Lock, ArrowRight, Eye, EyeOff, PartyPopper, Cake, Sparkles, CheckCircle2, FileText, Package, Weight } from 'lucide-react';
+
+const CONFETTI_COLORS = ['#fbbf24', '#f472b6', '#60a5fa', '#34d399', '#a78bfa', '#fb7185'];
+const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '⭐', '🎈'];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,31 +22,30 @@ export default function LoginPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const featureHighlights = [
-    {
-      Icon: Shield,
-      title: 'Enterprise Security',
-      description: 'Role-based controls with encryption across every touchpoint.'
-    },
-    {
-      Icon: Globe,
-      title: 'Unified Visibility',
-      description: 'Real-time fleet telemetry and exception handling in one place.'
-    },
-    {
-      Icon: Clock,
-      title: 'Faster Turnarounds',
-      description: 'AI assisted workflows that clear dispatch backlogs 4x quicker.'
-    }
-  ];
-
-  const quickStats = [
-    { value: '12k+', label: 'Monthly Shipments' },
-    { value: '98%', label: 'On-time Promise' },
-    { value: '250+', label: 'Enterprise Clients' }
+  const platformStats = [
+    { Icon: FileText, label: 'Total Records', value: '30,410', breakdown: 'Bilty: 11,630 + Manual Bilty: 18,790' },
+    { Icon: Package, label: 'Total Packages', value: '135,260', breakdown: 'Bilty: 69,530 + Manual Bilty: 65,730' },
+    { Icon: Weight, label: 'Total Weight', value: '6,310 tons', breakdown: 'Bilty: 2,730 tons + Manual Bilty: 3,580 tons' }
   ];
 
   const currentYear = new Date().getFullYear();
+
+  // Party-popper confetti burst shown over the "magical" success screen after a successful login
+  const successConfetti = useMemo(() => Array.from({ length: 40 }).map((_, i) => {
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 120 + Math.random() * 260;
+    return {
+      id: i,
+      tx: `${Math.cos(angle) * distance}px`,
+      ty: `${Math.sin(angle) * distance}px`,
+      rot: `${(Math.random() - 0.5) * 720}deg`,
+      delay: Math.random() * 0.5,
+      size: 6 + Math.random() * 8,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      round: i % 2 === 0,
+      emoji: i % 5 === 0 ? CONFETTI_EMOJIS[i % CONFETTI_EMOJIS.length] : null,
+    };
+  }), []);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -314,7 +316,10 @@ export default function LoginPage() {
 
       console.log('Login successful, redirecting to dashboard');
       setIsRedirecting(true);
-      router.push('/dashboard');
+      sessionStorage.setItem('movesure_celebrate_login', '1');
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1800);
 
     } catch (error) {
       console.error('Login error:', error);
@@ -338,71 +343,163 @@ export default function LoginPage() {
 
   if (isRedirecting) {
     return (
-      <div className="h-[100dvh] bg-slate-950 flex flex-col items-center justify-center text-white">
-        <div className="relative">
-          <div className="h-16 w-16 animate-spin rounded-full border-4 border-emerald-500/40 border-t-emerald-400"></div>
-          <ArrowRight className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-emerald-300 animate-pulse" />
+      <div className="relative h-[100dvh] overflow-hidden bg-slate-950 flex flex-col items-center justify-center text-white">
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-950 via-slate-950 to-black opacity-90"></div>
+          <div className="absolute -left-20 top-0 h-[28rem] w-[28rem] animate-blob rounded-full bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.32),_transparent_65%)] blur-3xl"></div>
+          <div className="absolute right-0 top-32 h-[26rem] w-[26rem] translate-x-24 animate-blob rounded-full bg-[radial-gradient(circle_at_center,_rgba(56,189,248,0.3),_transparent_60%)] blur-3xl" style={{ animationDelay: '-5s' }}></div>
+          <div className="absolute bottom-0 left-1/2 h-[24rem] w-[24rem] -translate-x-1/2 translate-y-1/3 animate-blob rounded-full bg-[radial-gradient(circle_at_bottom,_rgba(251,191,36,0.22),_transparent_70%)] blur-3xl" style={{ animationDelay: '-9s' }}></div>
         </div>
-        <p className="mt-4 text-base font-semibold text-emerald-200">Redirecting...</p>
+
+        {/* Party popper confetti burst */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {successConfetti.map((p) => (
+            p.emoji ? (
+              <span
+                key={p.id}
+                className="absolute left-1/2 top-1/2 block animate-confetti-burst text-xl"
+                style={{
+                  animationDelay: `${p.delay}s`,
+                  '--tx': p.tx,
+                  '--ty': p.ty,
+                  '--rot': p.rot,
+                }}
+              >
+                {p.emoji}
+              </span>
+            ) : (
+              <span
+                key={p.id}
+                className={`absolute left-1/2 top-1/2 block ${p.round ? 'rounded-full' : 'rounded-sm'} animate-confetti-burst`}
+                style={{
+                  width: `${p.size}px`,
+                  height: `${p.size}px`,
+                  backgroundColor: p.color,
+                  animationDelay: `${p.delay}s`,
+                  '--tx': p.tx,
+                  '--ty': p.ty,
+                  '--rot': p.rot,
+                }}
+              />
+            )
+          ))}
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center gap-6 px-6 text-center animate-fade-in-up">
+          <div className="relative flex h-28 w-28 items-center justify-center">
+            <PartyPopper className="absolute -left-1 bottom-1 h-10 w-10 text-amber-400 animate-popper-shake" style={{ '--popper-rot': '-45deg' }} />
+            <PartyPopper className="absolute -right-1 bottom-1 h-10 w-10 text-fuchsia-400 animate-popper-shake" style={{ '--popper-rot': '45deg', '--popper-flip': -1, animationDelay: '0.2s' }} />
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10 animate-ring-pulse">
+              <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="6" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="44"
+                  fill="none"
+                  stroke="#34d399"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray="276.5"
+                  strokeDashoffset="276.5"
+                  className="animate-draw-stroke"
+                />
+              </svg>
+              <CheckCircle2 className="h-9 w-9 text-emerald-400 animate-pop-in" style={{ animationDelay: '0.5s', opacity: 0 }} />
+            </div>
+          </div>
+
+          <div>
+            <h2 className="bg-gradient-to-r from-emerald-300 via-sky-300 to-amber-300 bg-clip-text text-3xl font-bold text-transparent text-shimmer sm:text-4xl">
+              Welcome back!
+            </h2>
+            <p className="mt-2 text-sm text-slate-300 sm:text-base">Taking you to your dashboard...</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-bounce-dot" style={{ animationDelay: '0s' }}></span>
+            <span className="h-2 w-2 rounded-full bg-sky-400 animate-bounce-dot" style={{ animationDelay: '0.15s' }}></span>
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-bounce-dot" style={{ animationDelay: '0.3s' }}></span>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative h-[100dvh] overflow-hidden bg-slate-950 text-white">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-slate-950 text-white">
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-slate-950 to-black opacity-90"></div>
-        <div className="absolute -left-20 top-0 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.32),_transparent_65%)] blur-3xl"></div>
-        <div className="absolute right-0 top-32 h-[26rem] w-[26rem] translate-x-24 rounded-full bg-[radial-gradient(circle_at_center,_rgba(14,165,233,0.3),_transparent_60%)] blur-3xl"></div>
-        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[24rem] -translate-x-1/2 translate-y-1/3 rounded-full bg-[radial-gradient(circle_at_bottom,_rgba(56,189,248,0.25),_transparent_70%)] blur-3xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
+        <div
+          className="absolute inset-0 animate-grid-drift opacity-[0.05]"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.6) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+          }}
+        ></div>
+        <div className="absolute -left-32 top-0 h-[28rem] w-[28rem] animate-blob rounded-full bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_65%)] blur-3xl"></div>
+        <div className="absolute bottom-0 right-0 h-[26rem] w-[26rem] animate-blob rounded-full bg-[radial-gradient(circle_at_center,_rgba(245,158,11,0.10),_transparent_65%)] blur-3xl" style={{ animationDelay: '-7s' }}></div>
+        <div className="absolute left-1/3 bottom-1/4 h-[20rem] w-[20rem] animate-blob rounded-full bg-[radial-gradient(circle_at_center,_rgba(168,85,247,0.08),_transparent_65%)] blur-3xl" style={{ animationDelay: '-3s' }}></div>
       </div>
 
-      <div className="relative z-10 flex h-full flex-col lg:flex-row">
-        <section className="hidden h-full w-full overflow-y-auto px-10 py-14 lg:flex lg:w-1/2 xl:px-14 xl:py-16">
-          <div className="mx-auto flex h-full max-w-xl flex-col justify-center gap-10 pb-16">
-            <div className="space-y-8">
-              <div className="flex items-center gap-3 text-white">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-                  <Truck className="h-6 w-6 text-blue-200" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.35em] text-blue-200">movesure.io</p>
-                  <p className="text-xs uppercase tracking-[0.45em] text-white/60">Transport Cloud</p>
-                </div>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.2em] text-slate-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                Logistics Intelligence
-              </div>
-              <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
-                Access the movesure.io command center
-              </h1>
-              <p className="mt-4 text-base text-slate-300 sm:text-lg">
-                Coordinate fleets, paperwork, and billing from one secure, AI-guided workspace. Built for scale and trusted by fast-moving transport teams.
-              </p>
+      {/* Anniversary banner */}
+      <div className="relative z-20 shrink-0 overflow-hidden border-b border-amber-400/20 bg-slate-900/80 px-4 py-2 backdrop-blur-sm">
+        <div className="flex items-center justify-center gap-2 text-center text-xs font-semibold tracking-wide text-slate-200 sm:text-sm">
+          <PartyPopper className="h-4 w-4 shrink-0 animate-float-y text-amber-400" />
+          <span>
+            <span className="hidden sm:inline">Happy 1st Anniversary, movesure.io! Celebrating one year of seamless logistics &mdash; </span>
+            <span className="bg-gradient-to-r from-amber-300 via-fuchsia-300 to-sky-300 bg-clip-text font-bold text-transparent text-shimmer">13th June</span>
+            <span className="hidden sm:inline"> &mdash; one year strong! 🎉</span>
+            <span className="sm:hidden"> &mdash; 1st Anniversary 🎉</span>
+          </span>
+          <Cake className="h-4 w-4 shrink-0 animate-float-y text-amber-400" style={{ animationDelay: '0.6s' }} />
+        </div>
+      </div>
 
-              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {featureHighlights.map(({ Icon, title, description }) => (
-                  <div
-                    key={title}
-                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-400 hover:bg-white/10"
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-blue-200">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="mt-3 text-base font-semibold text-white">{title}</h3>
-                    <p className="mt-1.5 text-sm text-slate-300">{description}</p>
-                    <ArrowRight className="absolute -right-8 -top-8 h-14 w-14 text-blue-400/30 transition-transform duration-300 group-hover:translate-x-3 group-hover:-translate-y-3" />
-                  </div>
-                ))}
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:flex-row">
+        <section className="hidden h-full w-full flex-col justify-center px-10 lg:flex lg:w-1/2 xl:px-14">
+          <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+            <div className="flex items-center gap-3 text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
+                <Truck className="h-6 w-6 text-blue-200" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-blue-200">movesure.io</p>
+                <p className="text-xs uppercase tracking-[0.45em] text-white/60">Transport Cloud</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 rounded-3xl border border-white/5 bg-white/5 p-5 backdrop-blur-sm">
-              {quickStats.map(({ value, label }) => (
-                <div key={label} className="flex flex-col gap-2">
-                  <span className="text-2xl font-semibold text-white sm:text-3xl">{value}</span>
-                  <span className="text-[0.65rem] uppercase tracking-[0.25em] text-slate-400">{label}</span>
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200 animate-ring-pulse">
+                <PartyPopper className="h-3.5 w-3.5" />
+                1st Anniversary &bull; 13 June
+              </div>
+              <h1 className="relative mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">
+                <span className="bg-gradient-to-r from-amber-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent text-shimmer">Happy 1st Anniversary,</span> movesure.io! 🎂
+                <Sparkles className="absolute -right-2 -top-4 h-6 w-6 text-amber-300 animate-sparkle" />
+              </h1>
+              <p className="mt-3 text-sm text-slate-300 sm:text-base">
+                One incredible year of revolutionizing transport &amp; logistics. Thank you for being part of the journey!
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {platformStats.map(({ Icon, label, value, breakdown }) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-all duration-300 hover:border-amber-400/40 hover:bg-white/10"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-300">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium text-slate-300">{label}</span>
+                      <span className="text-xl font-bold text-white sm:text-2xl">{value}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-400">{breakdown}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -422,16 +519,18 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <div className="relative rounded-3xl border border-white/10 bg-white/90 p-8 text-slate-900 shadow-2xl backdrop-blur-xl sm:p-10">
+            <div className="relative">
+              <div className="absolute -inset-1 rounded-[2rem] bg-gradient-to-r from-amber-400/30 via-blue-500/20 to-amber-400/30 opacity-60 blur-xl"></div>
+              <div className="relative rounded-3xl border border-white/10 bg-slate-900/70 p-8 text-white shadow-2xl backdrop-blur-2xl sm:p-10">
               <div className="absolute -top-12 right-8 hidden rounded-full border border-white/10 bg-white/10 p-5 text-white backdrop-blur-xl lg:block">
-                <Truck className="h-8 w-8 text-blue-600" />
+                <Truck className="h-8 w-8 text-amber-300" />
               </div>
 
               <form className="space-y-6" onSubmit={handleSubmit}>
                 {error && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+                  <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-red-300">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                      <div className="h-2 w-2 rounded-full bg-red-400"></div>
                       <span className="font-medium">{error}</span>
                     </div>
                   </div>
@@ -439,7 +538,7 @@ export default function LoginPage() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-600" htmlFor="username">
+                    <label className="mb-2 block text-sm font-semibold text-slate-300" htmlFor="username">
                       Username
                     </label>
                     <div className="relative">
@@ -457,14 +556,14 @@ export default function LoginPage() {
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck="false"
-                        className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        className="login-input w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm font-medium text-white placeholder:text-slate-500 shadow-sm outline-none transition focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20"
                         placeholder="Enter your username"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-600" htmlFor="password">
+                    <label className="mb-2 block text-sm font-semibold text-slate-300" htmlFor="password">
                       Password
                     </label>
                     <div className="relative">
@@ -482,13 +581,13 @@ export default function LoginPage() {
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck="false"
-                        className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        className="login-input w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-11 pr-12 text-sm font-medium text-white placeholder:text-slate-500 shadow-sm outline-none transition focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20"
                         placeholder="Enter your password"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors"
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200 transition-colors"
                       >
                         {showPassword ? (
                           <EyeOff className="h-5 w-5" />
@@ -503,11 +602,14 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 py-3 text-sm font-semibold text-white shadow-lg transition hover:from-blue-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-blue-600 py-3 text-sm font-semibold text-slate-950 shadow-lg transition hover:from-amber-400 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  {!isLoading && (
+                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-button-shine"></span>
+                  )}
                   {isLoading ? (
                     <div className="flex items-center gap-3">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-transparent"></div>
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-900/60 border-t-transparent"></div>
                       <span>Authenticating...</span>
                     </div>
                   ) : (
@@ -519,12 +621,12 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <div className="mt-8 flex flex-col gap-4 text-sm text-slate-500">
+              <div className="mt-8 flex flex-col gap-4 text-sm text-slate-400">
                 <div>
                   Forgot your password?{' '}
                   <button
                     onClick={() => router.push('/login/forgot-password')}
-                    className="font-semibold text-blue-600 hover:text-blue-700"
+                    className="font-semibold text-amber-300 hover:text-amber-200"
                   >
                     Reset it here
                   </button>
@@ -533,7 +635,7 @@ export default function LoginPage() {
                   Need help?{' '}
                   <a
                     href="mailto:support@movesure.io"
-                    className="font-semibold text-blue-600 hover:text-blue-700"
+                    className="font-semibold text-amber-300 hover:text-amber-200"
                   >
                     Contact support
                   </a>
@@ -542,12 +644,18 @@ export default function LoginPage() {
                   Don&apos;t have an account?{' '}
                   <button
                     onClick={() => router.push('/register')}
-                    className="font-semibold text-blue-600 hover:text-blue-700"
+                    className="font-semibold text-amber-300 hover:text-amber-200"
                   >
                     Register here
                   </button>
                 </div>
               </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/5 px-4 py-2 text-center text-xs text-amber-200/90 sm:justify-start">
+              <PartyPopper className="h-4 w-4 shrink-0 text-amber-300" />
+              <span>It&apos;s been 1 year since movesure.io launched &mdash; thank you for riding with us!</span>
             </div>
 
             <div className="mt-auto flex flex-col items-center gap-4 text-center text-xs text-slate-400 sm:flex-row sm:justify-between sm:text-left">

@@ -154,6 +154,12 @@ const MODULE_CONFIG = {
     name: 'EWB Alerts',
     path: '/notifications',
     icon: 'Bell',
+  },
+  'invoice': {
+    name: 'Invoice',
+    path: '/invoice',
+    icon: 'Receipt',
+    shortcut: 'Alt+I'
   }
 };
 
@@ -183,6 +189,8 @@ const ROUTE_MODULE_MAP = {
   '/company-ledger': 'company-ledger',
   '/hub-management': 'hub-management',
   '/notifications': 'notifications',
+  '/invoice': 'invoice',
+  '/invoice-setup': 'invoice',
 };
 
 // Public routes that don't require module access
@@ -316,6 +324,12 @@ export default function Navbar() {
               handleNavClick({ path: '/hub-management', module: 'hub-management' });
             }
             break;
+          case 'i':
+            event.preventDefault();
+            if (userModules.includes('invoice')) {
+              handleNavClick({ path: '/invoice', module: 'invoice' });
+            }
+            break;
         }
       }
     };
@@ -369,7 +383,7 @@ export default function Navbar() {
     const navigationItems = [];
     
     // Icon-only modules (left side) - MUST match module names in database
-    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'hub-management', 'transit-finance', 'fnance', 'analytics', 'staff', 'danger'];
+    const iconOnlyOrder = ['bilty', 'ewb', 'challan', 'manual', 'search', 'tracking', 'hub-management', 'transit-finance', 'fnance', 'analytics', 'invoice', 'staff', 'danger'];
     // Text modules (right side)
     const textModulesOrder = ['challan-setting', 'truck-management', 'bill', 'master', 'setting', 'godown', 'crm', 'complains', 'available', 'company-profile', 'company-ledger'];
 
@@ -431,7 +445,8 @@ export default function Navbar() {
       'analytics': <BarChart3 className="h-4 w-4" />,
       'company-profile': <Building2 className="h-4 w-4" />,
       'company-ledger': <BookOpen className="h-4 w-4" />,
-      'hub-management': <Warehouse className="h-4 w-4" />
+      'hub-management': <Warehouse className="h-4 w-4" />,
+      'invoice': <Receipt className="h-4 w-4" />
     };
 
     return iconMap[moduleName] || <FileText className="h-4 w-4" />;

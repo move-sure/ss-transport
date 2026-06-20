@@ -33,7 +33,8 @@ const AVAILABLE_MODULES = [
   { name: 'company-profile', label: 'Company Profile', description: 'Manage company profile and settings' },
   { name: 'company-ledger', label: 'Company Ledger', description: 'View and manage company financial records' },
   { name: 'hub-management', label: 'Hub Management', description: 'Monitor challans, dispatch status & transit operations' },
-  { name: 'notifications', label: 'EWB Notifications', description: 'View E-Way Bill expiry alerts and notifications' }
+  { name: 'notifications', label: 'EWB Notifications', description: 'View E-Way Bill expiry alerts and notifications' },
+  { name: 'invoice', label: 'Invoice', description: 'Create GST invoices, manage tenants, receivers and inventory' }
 ];
 
 export default function UserModulesPage() {

@@ -121,10 +121,10 @@ export async function generateInvoicePDF(data) {
   // ─────────────────────────────────────────────────────────────
   // 1. TITLE BAR
   // ─────────────────────────────────────────────────────────────
-  const titleH = 10;
+  const titleH = 8;
   fb(ML, y, CW, titleH, 28, 78, 168);
   pdf.setTextColor(255, 255, 255);
-  sf(13, 'bold'); t(titleLabel, ML + CW/2, y + 6.8, { align:'center' });
+  sf(11, 'bold'); t(titleLabel, ML + CW/2, y + 5.5, { align:'center' });
   pdf.setTextColor(0, 0, 0);
   y += titleH;
 
@@ -145,28 +145,28 @@ export async function generateInvoicePDF(data) {
     ...(po_number         ? [{ l:"Buyer's P.O.",    v: po_number }]   : []),
     ...(gr_no             ? [{ l:'GR / Ref No.',    v: gr_no }]       : []),
   ];
-  // Each meta row needs ~8mm for larger font; section minimum 46mm
-  const s1H = Math.max(46, metaItems.length * 8);
+  // Each meta row ~6mm; section minimum 36mm
+  const s1H = Math.max(36, metaItems.length * 6);
 
   // Seller (left)
-  sf(9.5, 'bold');
-  t(seller_name, ML + 2, y + 7);
-  sf(7.5, 'normal');
+  sf(8.5, 'bold');
+  t(seller_name, ML + 2, y + 5);
+  sf(7, 'normal');
   const addrW = pdf.splitTextToSize(seller_address, half - 6);
-  addrW.slice(0, 3).forEach((l, i) => t(l, ML + 2, y + 13 + i * 4));
-  let sy = y + 13 + Math.min(3, addrW.length) * 4 + 1;
-  if (seller_gstin)     { sf(7,'bold'); t('GSTIN:', ML+2, sy); sf(7,'normal'); t(seller_gstin, ML+16, sy); sy += 4.5; }
-  if (seller_pan)       { sf(7,'bold'); t('PAN:',   ML+2, sy); sf(7,'normal'); t(seller_pan,   ML+12, sy); sy += 4.5; }
-  if (seller_state_code){ sf(7,'bold'); t('State Code:', ML+2, sy); sf(7,'normal'); t(seller_state_code, ML+22, sy); }
+  addrW.slice(0, 3).forEach((l, i) => t(l, ML + 2, y + 10 + i * 3.5));
+  let sy = y + 10 + Math.min(3, addrW.length) * 3.5 + 1;
+  if (seller_gstin)     { sf(6.5,'bold'); t('GSTIN:', ML+2, sy); sf(6.5,'normal'); t(seller_gstin, ML+15, sy); sy += 4; }
+  if (seller_pan)       { sf(6.5,'bold'); t('PAN:',   ML+2, sy); sf(6.5,'normal'); t(seller_pan,   ML+11, sy); sy += 4; }
+  if (seller_state_code){ sf(6.5,'bold'); t('State:', ML+2, sy); sf(6.5,'normal'); t(seller_state_code, ML+14, sy); }
 
-  // Invoice meta (right half) — bigger font, even row height
+  // Invoice meta (right half) — tighter rows
   const rx = ML + half + 3;
   const mRowH = s1H / metaItems.length;
-  let mry = y + mRowH * 0.6;
+  let mry = y + mRowH * 0.5;
   metaItems.forEach(({ l, v }) => {
-    sf(8.5, 'bold');   t(l + ':', rx, mry);
-    sf(8.5, 'normal'); t(v,       rx + 38, mry);
-    hl(mry + 2, ML + half, ML + CW, 0.12);
+    sf(7.5, 'bold');   t(l + ':', rx, mry);
+    sf(7.5, 'normal'); t(v,       rx + 36, mry);
+    hl(mry + 1.5, ML + half, ML + CW, 0.12);
     mry += mRowH;
   });
 
@@ -192,40 +192,40 @@ export async function generateInvoicePDF(data) {
     ...(po_date        ? [{ l:'P.O. Date',   v: fmtDate(po_date) }] : []),
   ];
 
-  const s2H = Math.max(32, buyerLineCount * 5.5 + 4, dRows.length * 6 + 8);
+  const s2H = Math.max(22, buyerLineCount * 4 + 2, dRows.length * 5 + 6);
   const secY2 = y;
 
   // Buyer label + name
-  sf(7, 'bold');   t('Consignee / Bill To:', ML+2, y+5);
-  sf(9.5, 'bold'); t(buyer_name, ML+2, y+11);
+  sf(6.5, 'bold');   t('Consignee / Bill To:', ML+2, y+4);
+  sf(8.5, 'bold');   t(buyer_name, ML+2, y+9);
 
-  // Dynamic detail lines (all near the name)
-  let by = y + 17;
-  const bline = (label, val, labelW = 22) => {
+  // Dynamic detail lines — compact spacing
+  let by = y + 14;
+  const bline = (label, val, labelW = 18) => {
     if (!val) return;
-    sf(7, 'bold');   t(label + ':', ML+2, by);
-    sf(7, 'normal'); t(val,         ML + labelW, by);
-    by += 5;
+    sf(6.5, 'bold');   t(label + ':', ML+2, by);
+    sf(6.5, 'normal'); t(val,         ML + labelW, by);
+    by += 4;
   };
-  bline('GSTIN',      buyer_gstin,         16);
-  bline('Aadhaar',    buyer_aadhar_number, 20);
+  bline('GSTIN',   buyer_gstin,         14);
+  bline('Aadhaar', buyer_aadhar_number, 18);
   if (buyer_state || buyer_state_code) {
     bline('State',
       [buyer_state, buyer_state_code ? `(${buyer_state_code})` : ''].filter(Boolean).join(' '),
-      14);
+      13);
   }
   if (bAddr.length > 0) {
-    sf(7, 'normal');
-    bAddr.slice(0, 2).forEach((l, i) => t(l, ML+2, by + i * 4));
-    by += Math.min(2, bAddr.length) * 4;
+    sf(6.5, 'normal');
+    bAddr.slice(0, 2).forEach((l, i) => t(l, ML+2, by + i * 3.5));
+    by += Math.min(2, bAddr.length) * 3.5;
   }
 
   // Transport / dispatch (right half)
-  let dry = secY2 + 6;
+  let dry = secY2 + 5;
   dRows.forEach(({ l, v }) => {
-    sf(7.5, 'bold');   t(l+':', rx, dry);
-    sf(7.5, 'normal'); t(v,     rx + 26, dry);
-    dry += 6;
+    sf(7, 'bold');   t(l+':', rx, dry);
+    sf(7, 'normal'); t(v,     rx + 24, dry);
+    dry += 5;
   });
 
   vl(ML + half, secY2, secY2 + s2H);
@@ -235,14 +235,14 @@ export async function generateInvoicePDF(data) {
   // ─────────────────────────────────────────────────────────────
   // 4. LINE ITEMS TABLE HEADER
   // ─────────────────────────────────────────────────────────────
-  const thH = 10;
+  const thH = 6;
   fb(ML, y, CW, thH, 232, 238, 250);
   let cx = ML;
   COLS.forEach((col, i) => {
     sf(6.5, 'bold');
     const tw = col.w - 3;
     const lines = pdf.splitTextToSize(col.h, tw);
-    const startY = y + (thH / 2) - ((lines.length - 1) * 1.8);
+    const startY = y + (thH / 2) - ((lines.length - 1) * 1.5);
     lines.forEach((ln, li) => {
       const tx2 = col.a === 'right' ? cx + col.w - 2 : col.a === 'left' ? cx + 2 : cx + col.w / 2;
       t(ln, tx2, startY + li * 3.5, { align: col.a === 'right' ? 'right' : col.a === 'left' ? 'left' : 'center' });
@@ -263,10 +263,7 @@ export async function generateInvoicePDF(data) {
     const igstAmt  = Number(item.igst_amount     || 0);
     const lineTotal= Number(item.total_amount    || 0);
     const gstRate  = Number(item.gst_rate        || 0);
-    const pvtMarks = item.pvt_marks || '';
-
-    // Row is taller when pvt_marks is present (extra sub-line under description)
-    const rowH = pvtMarks ? 13 : 9;
+    const rowH = 6;
 
     const vals = hasIGST ? [
       String(idx + 1), item.item_name || '', item.hsn_sac_code || '',
@@ -283,20 +280,14 @@ export async function generateInvoicePDF(data) {
     let cx2 = ML;
     vals.forEach((val, ci) => {
       const col = COLS[ci];
-      sf(7.5, 'normal');
+      sf(7, 'normal');
       const tx2 = col.a === 'right' ? cx2 + col.w - 2 : col.a === 'left' ? cx2 + 2 : cx2 + col.w / 2;
       if (ci === 1) {
-        // Item name on first line
+        // Item name
         const wrapped = pdf.splitTextToSize(val, col.w - 3);
-        wrapped.slice(0, 1).forEach((wl) => t(wl, tx2, y + 4.5, { align: 'left' }));
-        // Pvt marks as grey sub-line
-        if (pvtMarks) {
-          sf(6.5, 'normal'); pdf.setTextColor(100, 100, 100);
-          t(`Pvt: ${pvtMarks}`, tx2, y + 9, { align: 'left' });
-          pdf.setTextColor(0, 0, 0);
-        }
+        wrapped.slice(0, 1).forEach((wl) => t(wl, tx2, y + rowH/2 + 1, { align: 'left' }));
       } else {
-        t(val, tx2, y + rowH/2 + 1.5, { align: col.a === 'right' ? 'right' : col.a === 'center' ? 'center' : 'left' });
+        t(val, tx2, y + rowH/2 + 1, { align: col.a === 'right' ? 'right' : col.a === 'center' ? 'center' : 'left' });
       }
       if (ci < COLS.length - 1) vl(cx2 + col.w, y, y + rowH, 0.15);
       cx2 += col.w;
@@ -318,9 +309,9 @@ export async function generateInvoicePDF(data) {
   const totW   = CW - gstW;
   const totX   = ML + gstW;
 
-  const gstThH  = 8;
-  const gstRowH = 7;
-  const gstTotH = 7;
+  const gstThH  = 6;
+  const gstRowH = 5;
+  const gstTotH = 5;
   const gstBlockH = gstThH + line_items.length * gstRowH + gstTotH;
 
   const totRows = [
@@ -333,11 +324,11 @@ export async function generateInvoicePDF(data) {
         ]),
     ...(Number(round_off) !== 0 ? [{ label:'Round Off', val:`${RS}${fm(round_off)}` }] : []),
   ];
-  const totRowH  = 8;
+  const totRowH  = 6;
   const totBodyH = totRows.length * totRowH;
   const gtH      = Math.max(gstBlockH - totBodyH, 10);
   const parallelH = Math.max(gstBlockH, totBodyH + gtH);
-  const awH       = 9;
+  const awH       = 7;
   const finalBlockH = parallelH + awH;
 
   // ─────────────────────────────────────────────────────────────
@@ -385,7 +376,7 @@ export async function generateInvoicePDF(data) {
   gstCols.forEach((gc, gi) => {
     sf(6.5, 'bold');
     const gtx = gc.a === 'right' ? gcx + gc.w - 2 : gcx + gc.w/2;
-    t(gc.h, gtx, y + 5, { align: gc.a === 'right' ? 'right' : 'center' });
+    t(gc.h, gtx, y + 4, { align: gc.a === 'right' ? 'right' : 'center' });
     if (gi < gstCols.length-1) vl(gcx + gc.w, y, y + gstThH, 0.15);
     gcx += gc.w;
   });
@@ -408,9 +399,9 @@ export async function generateInvoicePDF(data) {
     let gcx2 = ML;
     gVals.forEach((val, gi) => {
       const gc = gstCols[gi];
-      sf(7.5, 'normal');
+      sf(7, 'normal');
       const gtx = gc.a === 'right' ? gcx2 + gc.w - 2 : gcx2 + gc.w/2;
-      t(val, gtx, gy + gstRowH/2 + 1.5, { align: gc.a === 'right' ? 'right' : 'center' });
+      t(val, gtx, gy + gstRowH/2 + 1, { align: gc.a === 'right' ? 'right' : 'center' });
       if (gi < gstCols.length-1) vl(gcx2 + gc.w, gy, gy + gstRowH, 0.12);
       gcx2 += gc.w;
     });
@@ -420,7 +411,7 @@ export async function generateInvoicePDF(data) {
 
   // GST total row
   fb(ML, gy, gstW, gstTotH, 220, 228, 245);
-  sf(7.5, 'bold');
+  sf(7, 'bold');
   let gcx3 = ML;
   gstCols.forEach((gc, gi) => {
     let val = '';
@@ -431,7 +422,7 @@ export async function generateInvoicePDF(data) {
     else if (hasIGST && gi === 3) val = fm(total_igst);
     if (val) {
       const gtx = gc.a === 'right' ? gcx3 + gc.w - 2 : gcx3 + gc.w/2;
-      t(val, gtx, gy + gstTotH/2 + 1.5, { align: gc.a === 'right' ? 'right' : gc.a === 'center' ? 'center' : 'left' });
+      t(val, gtx, gy + gstTotH/2 + 1, { align: gc.a === 'right' ? 'right' : gc.a === 'center' ? 'center' : 'left' });
     }
     if (gi < gstCols.length-1) vl(gcx3 + gc.w, gy, gy + gstTotH, 0.15);
     gcx3 += gc.w;
@@ -442,10 +433,10 @@ export async function generateInvoicePDF(data) {
   // Totals block (right, parallel)
   let ty = secTop;
   totRows.forEach(({ label, val, bold }) => {
-    sf(7.5, bold ? 'bold' : 'normal');
-    t(label, totX + 3, ty + totRowH/2 + 1.5);
-    sf(7.5, 'bold');
-    t(val, totX + totW - 3, ty + totRowH/2 + 1.5, { align:'right' });
+    sf(7, bold ? 'bold' : 'normal');
+    t(label, totX + 3, ty + totRowH/2 + 1);
+    sf(7, 'bold');
+    t(val, totX + totW - 3, ty + totRowH/2 + 1, { align:'right' });
     hl(ty + totRowH, totX, totX + totW, 0.15);
     ty += totRowH;
   });
@@ -453,8 +444,8 @@ export async function generateInvoicePDF(data) {
   // Grand total fills remaining height to align with GST block bottom
   fb(totX, ty, totW, gtH, 28, 78, 168);
   pdf.setTextColor(255, 255, 255);
-  sf(8,   'bold'); t('Grand Total',            totX + 4,        ty + gtH/2 + 0.5);
-  sf(9.5, 'bold'); t(`${RS}${fm(total_amount)}`, totX + totW - 3, ty + gtH/2 + 0.5, { align:'right' });
+  sf(7.5, 'bold'); t('Grand Total',              totX + 4,        ty + gtH/2 + 1);
+  sf(8.5, 'bold'); t(`${RS}${fm(total_amount)}`, totX + totW - 3, ty + gtH/2 + 1, { align:'right' });
   pdf.setTextColor(0, 0, 0);
   ty += gtH;
 
@@ -466,8 +457,8 @@ export async function generateInvoicePDF(data) {
   // 7. AMOUNT IN WORDS
   // ─────────────────────────────────────────────────────────────
   fb(ML, y, CW, awH, 248, 249, 250);
-  sf(7.5, 'bold');   t('Amount in Words:', ML+2, y+6);
-  sf(7.5, 'normal'); t(numberToWords(Number(total_amount)), ML+37, y+6);
+  sf(7, 'bold');   t('Amount in Words:', ML+2, y+4.8);
+  sf(7, 'normal'); t(numberToWords(Number(total_amount)), ML+35, y+4.8);
   hl(y + awH, ML, ML + CW, 0.3);
   y += awH;
 

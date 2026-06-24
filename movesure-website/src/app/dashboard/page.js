@@ -9,7 +9,7 @@ import BiltyStats from '../../components/common/bilty-stats';
 import BiltyActivityChart from '../../components/common/bilty-activity-chart';
 import UserSessions from '../../components/common/user-sessions';
 import LastLoginInfo from '../../components/common/last-login-info';
-import { PartyPopper, Cake, Sparkles } from 'lucide-react';
+import { PartyPopper, Sparkles } from 'lucide-react';
 
 const CONFETTI_COLORS = ['#fbbf24', '#f472b6', '#60a5fa', '#34d399', '#a78bfa', '#fb7185'];
 const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '⭐', '🎈'];
@@ -204,19 +204,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Anniversary banner */}
-      <div className="relative overflow-hidden border-b border-amber-300/30 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-2">
-        <div className="flex items-center justify-center gap-2 text-center text-xs font-semibold tracking-wide text-slate-200 sm:text-sm">
-          <PartyPopper className="h-4 w-4 shrink-0 animate-float-y text-amber-400" />
-          <span>
-            <span className="hidden sm:inline">Happy 1st Anniversary, movesure.io! Celebrating one year of seamless logistics &mdash; </span>
-            <span className="bg-gradient-to-r from-amber-300 via-fuchsia-300 to-sky-300 bg-clip-text font-bold text-transparent text-shimmer">13th June</span>
-            <span className="hidden sm:inline"> &mdash; one year strong! 🎉</span>
-            <span className="sm:hidden"> &mdash; 1st Anniversary 🎉</span>
-          </span>
-          <Cake className="h-4 w-4 shrink-0 animate-float-y text-amber-400" style={{ animationDelay: '0.6s' }} />
-        </div>
-      </div>
 
       <Navbar />
 

@@ -173,17 +173,9 @@ export default function HubManagementPage() {
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-600 hover:bg-indigo-100 transition-all">
                 <Hash className="h-4 w-4" /> GR-wise Search
               </button>
-              <button onClick={() => router.push('/hub-management/gr-wise-management/bulk-update-pohonch')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl text-sm font-semibold text-purple-600 hover:bg-purple-100 transition-all">
-                <FileText className="h-4 w-4" /> Bulk Pohonch
-              </button>
-              <button onClick={() => router.push('/hub-management/crossing-summary')}
+<button onClick={() => router.push('/hub-management/crossing-summary')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl text-sm font-semibold text-teal-700 hover:bg-teal-100 transition-all">
                 <Truck className="h-4 w-4" /> Crossing Summary
-              </button>
-              <button onClick={() => router.push('/hub-management/cross-challan/crossing-bill')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-800 rounded-xl text-sm font-semibold text-white hover:bg-gray-900 transition-all">
-                <FileText className="h-4 w-4" /> All Crossing Bills
               </button>
               <button onClick={() => router.push('/hub-management/cross-challan')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-600 rounded-xl text-sm font-semibold text-white hover:bg-teal-700 transition-all shadow-sm">

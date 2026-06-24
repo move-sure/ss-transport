@@ -417,6 +417,12 @@ export default function PohonchPrintPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => router.push('/hub-management/gr-wise-management/bulk-update-pohonch')}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:from-purple-700 hover:to-indigo-700 transition-all"
+              >
+                <FileText className="w-4 h-4" /> Bulk Pohonch
+              </button>
+              <button
                 onClick={() => router.push('/hub-management/cross-challan/crossing-bill')}
                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-700 to-gray-900 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all"
               >

@@ -74,6 +74,10 @@ export const buildColumnConfig = (selectedColumnIds, totalTableWidth) => {
         return (detail) => formatCurrency(detail.other_charge || 0);
       case 'total':
         return (detail) => formatCurrency(detail.bilty_total || 0);
+      case 'remark1':
+      case 'remark2':
+      case 'remark3':
+        return () => '';
       default:
         return () => '';
     }
@@ -105,6 +109,10 @@ export const buildColumnConfig = (selectedColumnIds, totalTableWidth) => {
       case 'sno':
         return () => 'TOTAL';
       case 'challanNo':
+        return () => '';
+      case 'remark1':
+      case 'remark2':
+      case 'remark3':
         return () => '';
       default:
         return () => '';

@@ -295,6 +295,33 @@ export default function BillFilterPanel({
           </div>
         </div>
 
+        {/* No. of Packages Filter with Operator */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            No. of Packages
+          </label>
+          <div className="flex gap-2">
+            <select
+              value={filters.packageOperator || 'equal'}
+              onChange={(e) => handleInputChange('packageOperator', e.target.value)}
+              className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="equal">Equal</option>
+              <option value="more-than">More Than</option>
+              <option value="less-than">Less Than</option>
+            </select>
+            <input
+              type="number"
+              value={filters.noOfPackages || ''}
+              onChange={(e) => handleInputChange('noOfPackages', e.target.value)}
+              placeholder="Enter packages"
+              min="0"
+              step="1"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
         {/* City Name Filter with Autocomplete */}
         <div className="space-y-1 relative" ref={cityDropdownRef}>
           <label className="block text-sm font-medium text-gray-700">
@@ -432,7 +459,15 @@ export default function BillFilterPanel({
               displayValue = operatorSymbol + ' ' + value + ' kg';
               break;
             case 'weightOperator':
-              return null; // Don't show operator separately, it's included in weight display
+              return null;
+            case 'noOfPackages':
+              displayKey = 'Packages';
+              const pkgOp = filters.packageOperator || 'equal';
+              const pkgSymbol = pkgOp === 'more-than' ? '>' : pkgOp === 'less-than' ? '<' : '=';
+              displayValue = pkgSymbol + ' ' + value;
+              break;
+            case 'packageOperator':
+              return null;
             case 'cityName':
               displayKey = 'Destination City';
               break;

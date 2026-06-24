@@ -49,6 +49,8 @@ export default function BillSearch() {
     pvtMarks: '',
     weight: '',
     weightOperator: 'equal', // 'equal', 'more-than', 'less-than'
+    noOfPackages: '',
+    packageOperator: 'equal', // 'equal', 'more-than', 'less-than'
     cityName: '',
     paymentMode: '',
     eWayBill: '',
@@ -357,13 +359,27 @@ export default function BillSearch() {
       if (filters.weight && !isNaN(parseFloat(filters.weight))) {
         const weightValue = parseFloat(filters.weight);
         const operator = filters.weightOperator || 'equal';
-        
+
         if (operator === 'more-than') {
           query = query.gt('wt', weightValue);
         } else if (operator === 'less-than') {
           query = query.lt('wt', weightValue);
-        } else { // equal
+        } else {
           query = query.eq('wt', weightValue);
+        }
+      }
+
+      // Handle no. of packages filter
+      if (filters.noOfPackages && !isNaN(parseInt(filters.noOfPackages))) {
+        const pkgValue = parseInt(filters.noOfPackages);
+        const pkgOp = filters.packageOperator || 'equal';
+
+        if (pkgOp === 'more-than') {
+          query = query.gt('no_of_pkg', pkgValue);
+        } else if (pkgOp === 'less-than') {
+          query = query.lt('no_of_pkg', pkgValue);
+        } else {
+          query = query.eq('no_of_pkg', pkgValue);
         }
       }
 
@@ -544,13 +560,27 @@ export default function BillSearch() {
       if (filters.weight && !isNaN(parseFloat(filters.weight))) {
         const weightValue = parseFloat(filters.weight);
         const operator = filters.weightOperator || 'equal';
-        
+
         if (operator === 'more-than') {
           query = query.gt('weight', weightValue);
         } else if (operator === 'less-than') {
           query = query.lt('weight', weightValue);
-        } else { // equal
+        } else {
           query = query.eq('weight', weightValue);
+        }
+      }
+
+      // Handle no. of packages filter for station bilties
+      if (filters.noOfPackages && !isNaN(parseInt(filters.noOfPackages))) {
+        const pkgValue = parseInt(filters.noOfPackages);
+        const pkgOp = filters.packageOperator || 'equal';
+
+        if (pkgOp === 'more-than') {
+          query = query.gt('no_of_packets', pkgValue);
+        } else if (pkgOp === 'less-than') {
+          query = query.lt('no_of_packets', pkgValue);
+        } else {
+          query = query.eq('no_of_packets', pkgValue);
         }
       }
 
@@ -722,6 +752,8 @@ export default function BillSearch() {
       pvtMarks: '',
       weight: '',
       weightOperator: 'equal',
+      noOfPackages: '',
+      packageOperator: 'equal',
       cityName: '',
       paymentMode: '',
       eWayBill: '',

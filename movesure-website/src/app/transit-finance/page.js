@@ -335,7 +335,7 @@ export default function TransitFinancePage() {
                 <span className="relative z-10">CROSSING CHALLAN</span>
               </button>
               <button
-                onClick={() => router.push('/transit-finance/kaat-rate')}
+                onClick={() => router.push('/hub-management/kaat-rate')}
                 className="group relative bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center gap-2 overflow-hidden"
                 title="View detailed kaat rate management"
               >

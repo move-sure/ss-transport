@@ -173,6 +173,10 @@ export default function HubManagementPage() {
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-sm font-semibold text-indigo-600 hover:bg-indigo-100 transition-all">
                 <Hash className="h-4 w-4" /> GR-wise Search
               </button>
+              <button onClick={() => router.push('/hub-management/kaat-rate')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-all">
+                <TrendingUp className="h-4 w-4" /> Kaat Rate
+              </button>
 <button onClick={() => router.push('/hub-management/crossing-summary')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl text-sm font-semibold text-teal-700 hover:bg-teal-100 transition-all">
                 <Truck className="h-4 w-4" /> Crossing Summary

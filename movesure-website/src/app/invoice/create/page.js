@@ -281,7 +281,7 @@ export default function CreateInvoicePage() {
   // Load recent 10 invoices
   const loadRecent = useCallback(() => {
     setRecentLoading(true);
-    api('/api/invoice/list?page_size=10')
+    api('/api/invoice/list?page_size=500')
       .then(data => setRecentInvoices(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setRecentLoading(false));
@@ -631,7 +631,7 @@ export default function CreateInvoicePage() {
             >
               <div className="flex items-center gap-2.5">
                 <Clock className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-bold text-gray-800">Recent Invoices</span>
+                <span className="text-sm font-bold text-gray-800">All Invoices</span>
                 <span className="text-xs text-gray-400">— click any to edit</span>
                 {editingId && (
                   <span className="inline-flex items-center gap-1 text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
@@ -679,7 +679,7 @@ export default function CreateInvoicePage() {
                 ) : filteredRecent.length === 0 ? (
                   <div className="text-center py-6 text-sm text-gray-400">No invoices found</div>
                 ) : (
-                  <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto">
+                  <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
                     {filteredRecent.map(inv => {
                       const isActive = editingId === inv.id;
                       return (

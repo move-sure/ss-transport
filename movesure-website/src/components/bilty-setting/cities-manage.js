@@ -1,61 +1,51 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../app/utils/auth';
 
 const API_URL = 'https://api.movesure.io';
-import { 
-  searchCities, 
-  findDuplicateCityNames, 
-  filterDuplicateCities, 
-  sortCities, 
+import {
+  searchCities,
+  findDuplicateCityNames,
+  filterDuplicateCities,
+  sortCities,
   exportToCSV,
   validateCityCode,
   validateCityName
 } from './cities-search-helper';
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
+
 const CitiesComponent = () => {
   const { user } = useAuth();
   const [cities, setCities] = useState([]);
-  const [filteredCities, setFilteredCities] = useState([]);
+  const [states, setStates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [formData, setFormData] = useState({
-    city_code: '',
-    city_name: ''
-  });
+  const [formData, setFormData] = useState({ city_code: '', city_name: '', state_id: '' });
   const [editingId, setEditingId] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  useEffect(() => {
-    fetchCities();
-  }, []);
+  useEffect(() => { fetchCities(); fetchStates(); }, []);
 
-  useEffect(() => {
-    applyFilters();
+  // Reset to page 1 whenever filters/sort change
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, showDuplicatesOnly, sortBy, sortOrder]);
+
+  const filteredCities = useMemo(() => {
+    let result = cities;
+    if (showDuplicatesOnly) result = filterDuplicateCities(result);
+    if (searchTerm.trim()) result = searchCities(result, searchTerm);
+    return sortCities(result, sortBy, sortOrder);
   }, [cities, searchTerm, showDuplicatesOnly, sortBy, sortOrder]);
 
-  const applyFilters = () => {
-    let result = cities;
-    
-    // Apply duplicate filter
-    if (showDuplicatesOnly) {
-      result = filterDuplicateCities(result);
-    }
-    
-    // Apply search filter
-    if (searchTerm.trim()) {
-      result = searchCities(result, searchTerm);
-    }
-    
-    // Apply sorting
-    result = sortCities(result, sortBy, sortOrder);
-    
-    setFilteredCities(result);
-  };
+  const totalPages = Math.max(1, Math.ceil(filteredCities.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedCities = filteredCities.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const fetchCities = async () => {
     try {
@@ -72,20 +62,35 @@ const CitiesComponent = () => {
     }
   };
 
+  const fetchStates = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/bilty/master/states?page=1&page_size=100`);
+      const result = await res.json();
+      if (result.status === 'success') setStates(result.data.rows || []);
+    } catch (error) {
+      console.error('Error fetching states:', error);
+    }
+  };
+
+  const getStateFields = (stateId) => {
+    const st = states.find(s => s.id === stateId);
+    return st
+      ? { state_id: st.id, state_code: st.state_code, state_name: st.state_name }
+      : { state_id: null, state_code: null, state_name: null };
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+    if (e?.preventDefault) e.preventDefault();
     const codeError = validateCityCode(formData.city_code);
     const nameError = validateCityName(formData.city_name);
-    
-    if (codeError || nameError) {
-      alert(codeError || nameError);
-      return;
-    }
+    if (codeError || nameError) { alert(codeError || nameError); return; }
+
+    const stateFields = formData.state_id
+      ? getStateFields(formData.state_id)
+      : { state_id: null, state_code: null, state_name: null };
 
     try {
       setLoading(true);
-
       if (editingId) {
         const res = await fetch(`${API_URL}/api/bilty/master/cities/${editingId}`, {
           method: 'PUT',
@@ -93,7 +98,8 @@ const CitiesComponent = () => {
           body: JSON.stringify({
             user_id: user?.id,
             city_code: formData.city_code.trim().toUpperCase(),
-            city_name: formData.city_name.trim()
+            city_name: formData.city_name.trim(),
+            ...stateFields
           }),
         });
         const result = await res.json();
@@ -106,15 +112,15 @@ const CitiesComponent = () => {
           body: JSON.stringify({
             user_id: user?.id,
             city_code: formData.city_code.trim().toUpperCase(),
-            city_name: formData.city_name.trim()
+            city_name: formData.city_name.trim(),
+            ...stateFields
           }),
         });
         const result = await res.json();
         if (result.status !== 'success') throw new Error(result.message);
         alert('City added successfully!');
       }
-
-      setFormData({ city_code: '', city_name: '' });
+      setFormData({ city_code: '', city_name: '', state_id: '' });
       setEditingId(null);
       setExpandedRows({});
       fetchCities();
@@ -127,23 +133,19 @@ const CitiesComponent = () => {
   };
 
   const handleEdit = (city) => {
-    setFormData({
-      city_code: city.city_code,
-      city_name: city.city_name
-    });
+    setFormData({ city_code: city.city_code, city_name: city.city_name, state_id: city.state_id || '' });
     setEditingId(city.id);
     setExpandedRows({ [city.id]: true });
   };
-  
+
   const handleInlineCancel = () => {
-    setFormData({ city_code: '', city_name: '' });
+    setFormData({ city_code: '', city_name: '', state_id: '' });
     setEditingId(null);
     setExpandedRows({});
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this city?')) return;
-
     try {
       setLoading(true);
       const res = await fetch(`${API_URL}/api/bilty/master/cities/${id}`, { method: 'DELETE' });
@@ -160,25 +162,50 @@ const CitiesComponent = () => {
   };
 
   const downloadCSV = () => {
-    const dataToExport = filteredCities.length > 0 ? filteredCities : cities;
-    const count = exportToCSV(dataToExport, 'cities');
+    const data = filteredCities.length > 0 ? filteredCities : cities;
+    const count = exportToCSV(data, 'cities');
     if (count) alert(`Exported ${count} cities to CSV`);
   };
 
   const toggleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
-    }
+    if (sortBy === field) setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(field); setSortOrder('asc'); }
   };
 
   const duplicateNames = findDuplicateCityNames(cities);
   const duplicateCount = filterDuplicateCities(cities).length;
 
+  // Pagination page numbers with ellipsis
+  const getPageNumbers = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [];
+    if (safePage <= 4) {
+      pages.push(1, 2, 3, 4, 5, '...', totalPages);
+    } else if (safePage >= totalPages - 3) {
+      pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      pages.push(1, '...', safePage - 1, safePage, safePage + 1, '...', totalPages);
+    }
+    return pages;
+  };
+
+  const StateSelect = ({ value, onChange, disabled }) => (
+    <select
+      value={value}
+      onChange={onChange}
+      disabled={disabled || states.length === 0}
+      className="px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black bg-white"
+    >
+      <option value="">— State —</option>
+      {states.map(s => (
+        <option key={s.id} value={s.id}>{s.state_code} – {s.state_name}</option>
+      ))}
+    </select>
+  );
+
   return (
     <div className="bg-white p-3 rounded-lg">
+      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-bold text-black">Cities</h2>
         <div className="flex gap-2">
@@ -186,7 +213,7 @@ const CitiesComponent = () => {
             onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
             className={`px-3 py-1 text-xs rounded ${showDuplicatesOnly ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'} hover:opacity-80`}
           >
-            {showDuplicatesOnly ? `Duplicates (${duplicateCount})` : `Show Duplicates ${duplicateCount > 0 ? `(${duplicateCount})` : ''}`}
+            {showDuplicatesOnly ? `Duplicates (${duplicateCount})` : `Show Duplicates${duplicateCount > 0 ? ` (${duplicateCount})` : ''}`}
           </button>
           <button
             onClick={downloadCSV}
@@ -198,7 +225,7 @@ const CitiesComponent = () => {
         </div>
       </div>
 
-      {/* Search and Add Form */}
+      {/* Search + Add */}
       <div className="mb-3 bg-gray-50 p-2 rounded">
         <div className="flex gap-2 mb-2">
           <input
@@ -206,20 +233,15 @@ const CitiesComponent = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-black"
-            placeholder="🔍 Search by code or name..."
+            placeholder="🔍 Search by code, name or state..."
           />
           {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="px-2 text-xs text-gray-600 hover:text-gray-800"
-            >
-              ✖
-            </button>
+            <button onClick={() => setSearchTerm('')} className="px-2 text-xs text-gray-600 hover:text-gray-800">✖</button>
           )}
         </div>
-        
+
         {!editingId && (
-          <form onSubmit={handleSubmit} className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-6 gap-2">
             <input
               type="text"
               value={formData.city_code}
@@ -233,89 +255,104 @@ const CitiesComponent = () => {
               type="text"
               value={formData.city_name}
               onChange={(e) => setFormData({ ...formData, city_name: e.target.value })}
-              className="col-span-3 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
+              className="col-span-2 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
               placeholder="City Name"
               disabled={loading}
               maxLength={100}
             />
-            <button
-              type="submit"
+            <StateSelect
+              value={formData.state_id}
+              onChange={(e) => setFormData({ ...formData, state_id: e.target.value })}
               disabled={loading}
-              className="bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600 disabled:opacity-50"
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="col-span-2 bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600 disabled:opacity-50"
             >
-              {loading ? '...' : 'Add'}
+              {loading ? '...' : 'Add City'}
             </button>
-          </form>
+          </div>
         )}
       </div>
 
-      {/* Stats */}
-      <div className="mb-2 text-xs text-gray-600 flex justify-between">
-        <span>Total: {cities.length} | Showing: {filteredCities.length}</span>
-        {duplicateCount > 0 && (
-          <span className="text-orange-600">⚠️ {duplicateCount} duplicates found</span>
-        )}
+      {/* Stats + per-page */}
+      <div className="mb-2 text-xs text-gray-600 flex items-center justify-between">
+        <span>
+          Total: {cities.length} | Filtered: {filteredCities.length} |
+          Page {safePage} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          {duplicateCount > 0 && (
+            <span className="text-orange-600">⚠️ {duplicateCount} duplicates</span>
+          )}
+          <span className="text-gray-500">Rows:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+            className="px-1 py-0.5 border rounded text-xs text-black bg-white"
+          >
+            {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
       </div>
 
-      {/* Cities Table */}
+      {/* Table */}
       <div className="overflow-x-auto border rounded">
         <table className="w-full table-auto border-collapse text-xs">
           <thead>
             <tr className="bg-gray-100 border-b">
-              <th 
-                className="border-r px-2 py-2 text-left font-bold text-black cursor-pointer hover:bg-gray-200"
+              <th
+                className="border-r px-2 py-2 text-left font-bold text-black cursor-pointer hover:bg-gray-200 w-20"
                 onClick={() => toggleSort('code')}
               >
                 Code {sortBy === 'code' && (sortOrder === 'asc' ? '↑' : '↓')}
               </th>
-              <th 
+              <th
                 className="border-r px-2 py-2 text-left font-bold text-black cursor-pointer hover:bg-gray-200"
                 onClick={() => toggleSort('name')}
               >
                 City Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
               </th>
+              <th className="border-r px-2 py-2 text-left font-bold text-black w-44">State</th>
               <th className="px-2 py-2 text-left font-bold text-black w-20">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredCities.length > 0 ? filteredCities.map((city) => {
+            {pagedCities.length > 0 ? pagedCities.map((city) => {
               const isDuplicate = duplicateNames.has(city.city_name?.toLowerCase().trim());
               return (
                 <React.Fragment key={city.id}>
                   <tr className={`hover:bg-blue-50 ${isDuplicate ? 'bg-orange-50' : ''}`}>
-                    <td className="border-r border-t px-2 py-2 text-black font-medium">
-                      {city.city_code}
-                    </td>
+                    <td className="border-r border-t px-2 py-2 text-black font-medium">{city.city_code}</td>
                     <td className="border-r border-t px-2 py-2 text-black">
                       {city.city_name}
                       {isDuplicate && <span className="ml-2 text-orange-600">⚠️</span>}
                     </td>
+                    <td className="border-r border-t px-2 py-2 text-black">
+                      {city.state_name ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            {city.state_code}
+                          </span>
+                          <span className="text-gray-700">{city.state_name}</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">Not set</span>
+                      )}
+                    </td>
                     <td className="border-t px-2 py-2">
                       <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEdit(city)}
-                          className="text-blue-600 hover:text-blue-800 px-1"
-                          disabled={loading}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(city.id)}
-                          className="text-red-600 hover:text-red-800 px-1"
-                          disabled={loading}
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
+                        <button onClick={() => handleEdit(city)} className="text-blue-600 hover:text-blue-800 px-1" disabled={loading} title="Edit">✏️</button>
+                        <button onClick={() => handleDelete(city.id)} className="text-red-600 hover:text-red-800 px-1" disabled={loading} title="Delete">🗑️</button>
                       </div>
                     </td>
                   </tr>
-                  
+
                   {editingId === city.id && expandedRows[city.id] && (
                     <tr>
-                      <td colSpan="3" className="border-t bg-blue-50 px-2 py-2">
-                        <form onSubmit={handleSubmit} className="grid grid-cols-6 gap-2">
+                      <td colSpan="4" className="border-t bg-blue-50 px-2 py-2">
+                        <div className="grid grid-cols-7 gap-2">
                           <input
                             type="text"
                             value={formData.city_code}
@@ -329,13 +366,18 @@ const CitiesComponent = () => {
                             type="text"
                             value={formData.city_name}
                             onChange={(e) => setFormData({ ...formData, city_name: e.target.value })}
-                            className="col-span-3 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
+                            className="col-span-2 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-blue-500 text-black"
                             placeholder="City Name"
                             disabled={loading}
                             maxLength={100}
                           />
+                          <StateSelect
+                            value={formData.state_id}
+                            onChange={(e) => setFormData({ ...formData, state_id: e.target.value })}
+                            disabled={loading}
+                          />
                           <button
-                            type="submit"
+                            onClick={handleSubmit}
                             disabled={loading}
                             className="bg-green-500 text-white px-2 py-1 text-xs rounded hover:bg-green-600 disabled:opacity-50"
                           >
@@ -344,11 +386,11 @@ const CitiesComponent = () => {
                           <button
                             type="button"
                             onClick={handleInlineCancel}
-                            className="bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600"
+                            className="col-span-2 bg-gray-500 text-white px-2 py-1 text-xs rounded hover:bg-gray-600"
                           >
                             Cancel
                           </button>
-                        </form>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -356,7 +398,7 @@ const CitiesComponent = () => {
               );
             }) : (
               <tr>
-                <td colSpan="3" className="px-2 py-8 text-center text-gray-500 text-xs">
+                <td colSpan="4" className="px-2 py-8 text-center text-gray-500 text-xs">
                   {loading ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
@@ -381,6 +423,62 @@ const CitiesComponent = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            Showing {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filteredCities.length)} of {filteredCities.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={safePage === 1}
+              className="px-2 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-100 text-black"
+            >
+              «
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="px-2 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-100 text-black"
+            >
+              ‹
+            </button>
+            {getPageNumbers().map((page, i) =>
+              page === '...' ? (
+                <span key={`ellipsis-${i}`} className="px-2 py-1 text-xs text-gray-400">…</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-2.5 py-1 text-xs border rounded font-medium ${
+                    safePage === page
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'hover:bg-gray-100 text-black'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            )}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="px-2 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-100 text-black"
+            >
+              ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={safePage === totalPages}
+              className="px-2 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-100 text-black"
+            >
+              »
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

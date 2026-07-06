@@ -435,7 +435,7 @@ function TransactionModal({ isOpen, bill, onClose, userId, token, onAdded }) {
 }
 
 /* ─── Bill Row ────────────────────────────────────────────────────────────── */
-function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdated, pohonchMap }) {
+function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdated, pohonchMap, crossChallanPrint }) {
   const [fullBill,       setFullBill]       = useState(null);
   const [loadingFull,    setLoadingFull]    = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -733,26 +733,40 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
               {/* Pohonch table with manage actions */}
               {display.pohonch_data?.length > 0 && (
                 <div className="pt-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                       Pohonch in this bill ({display.pohonch_data.length})
                     </p>
-                    {bill.status === 'draft' && (
-                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
-                        Draft — pohonch can be removed
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {bill.status === 'draft' && (
+                        <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                          Draft — pohonch can be removed
+                        </span>
+                      )}
+                      {crossChallanPrint && display.pohonch_data?.length > 0 && (
+                        <button
+                          onClick={() => crossChallanPrint.handlePrintMultiple(display.pohonch_data.map(p => p.pohonch_number))}
+                          disabled={crossChallanPrint.printingBatch}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                        >
+                          {crossChallanPrint.printingBatch
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin"/>Generating…</>
+                            : <><Printer className="w-3.5 h-3.5"/>Print All Pohonch ({display.pohonch_data.length})</>}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                     <table className="w-full text-xs">
                       <thead><tr className="bg-gray-50 border-b border-gray-100">
-                        {['Pohonch No.','Challans','Bilties','Kaat','PF','Total','Signed', bill.status==='draft'?'Remove':''].filter(Boolean).map(h=>(
+                        {['#','Pohonch No.','Challans','Bilties','Kaat','PF','Total','Signed', bill.status==='draft'?'Remove':''].filter(Boolean).map(h=>(
                           <th key={h} className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">{h}</th>
                         ))}
                       </tr></thead>
                       <tbody>
                         {display.pohonch_data.map((p,i)=>(
                           <tr key={p.pohonch_number||i} className={`border-b border-gray-50 last:border-0 ${i%2===0?'bg-white':'bg-gray-50/30'}`}>
+                            <td className="px-3 py-2 text-gray-400 font-medium text-center">{i+1}</td>
                             <td className="px-3 py-2 font-mono font-bold text-teal-700">{p.pohonch_number}</td>
                             <td className="px-3 py-2 text-gray-600 text-[10px]">{(p.challan_nos||[]).join(', ')||'-'}</td>
                             <td className="px-3 py-2 text-center text-black">{p.total_bilties}</td>
@@ -1833,6 +1847,7 @@ export default function CrossingBillTransportPage() {
                   userId={user?.id}
                   token={token}
                   pohonchMap={pohonchMap}
+                  crossChallanPrint={crossChallanPrint}
                   onBillUpdated={(updated)=>setBills(prev=>prev.map(b=>b.id===bill.id?{...b,...updated}:b))}
                 />
               ))}

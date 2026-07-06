@@ -12,6 +12,7 @@ import RatesComponent from '../../components/bilty-setting/rates-manager';
 import PermanentDetailsComponent from '../../components/bilty-setting/permanent-details';
 import ConsignorRatesSearch from '../../components/bilty-setting/consignor-rates-search';
 import TransportAdminComponent from '../../components/bilty-setting/transport-admin-manage';
+import StatesComponent from '../../components/bilty-setting/states-manage';
 
 const BiltySettingsPage = () => {
   const { user, requireAuth, loading: authLoading } = useAuth();
@@ -67,6 +68,7 @@ const BiltySettingsPage = () => {
   }
 
   const tabs = [
+    { id: 'states', name: 'States', icon: '🗺️', description: 'Manage Indian states (GST codes)' },
     { id: 'cities', name: 'Cities', icon: '🏙️', description: 'Manage city locations' },
     { id: 'transporters', name: 'Transporters', icon: '🚛', description: 'Transport companies' },
     { id: 'transport-admin', name: 'Transport Admin', icon: '🏭', description: 'Parent transport companies' },
@@ -192,6 +194,7 @@ const BiltySettingsPage = () => {
             </div>
             
             <div className="p-6">
+              {activeTab === 'states' && <StatesComponent />}
               {activeTab === 'cities' && <CitiesComponent />}
               {activeTab === 'transporters' && <TransportersComponent />}
               {activeTab === 'transport-admin' && <TransportAdminComponent />}

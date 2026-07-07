@@ -435,7 +435,7 @@ function TransactionModal({ isOpen, bill, onClose, userId, token, onAdded }) {
 }
 
 /* ─── Bill Row ────────────────────────────────────────────────────────────── */
-function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdated, pohonchMap, crossChallanPrint }) {
+function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdated, onDeleted, pohonchMap, crossChallanPrint }) {
   const [fullBill,       setFullBill]       = useState(null);
   const [loadingFull,    setLoadingFull]    = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -449,6 +449,60 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
   const [editTo,      setEditTo]      = useState(bill.to_date   || '');
   const [editNotes,   setEditNotes]   = useState(bill.notes     || '');
   const [savingEdit,  setSavingEdit]  = useState(false);
+
+  // Bill recalculate state
+  const [billRecalculating, setBillRecalculating] = useState(false);
+  const [billRecalcResult,  setBillRecalcResult]  = useState(null);
+
+  // Bill delete state
+  const [billDeleting, setBillDeleting] = useState(false);
+
+  const handleDeleteBill = async () => {
+    if (!confirm(
+      `Delete crossing bill ${bill.bill_no}?\n\nThis will permanently delete the bill and unlink all ${bill.total_pohonch || 0} pohonch from it.\n\nThis action cannot be undone.`
+    )) return;
+    setBillDeleting(true);
+    try {
+      const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Delete failed');
+      onDeleted?.(bill.id);
+    } catch (e) { alert('Delete failed: ' + e.message); }
+    finally { setBillDeleting(false); }
+  };
+
+  const handleBillRecalculate = async () => {
+    setBillRecalculating(true);
+    setBillRecalcResult(null);
+    try {
+      const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}/recalculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ updated_by: userId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Recalculate failed');
+      setBillRecalcResult({ diff: json.diff, new_totals: json.new_totals });
+      if (json.data) {
+        setFullBill(json.data);
+        onBillUpdated?.({
+          total_kaat:              json.data.total_kaat,
+          total_pf:                json.data.total_pf,
+          total_amount:            json.data.total_amount,
+          total_bilties:           json.data.total_bilties,
+          total_pohonch:           json.data.total_pohonch,
+          total_paid_kaat:         json.data.total_paid_kaat,
+          total_paid_to_transport: json.data.total_paid_to_transport,
+          balance_on_transport:    json.data.balance_on_transport,
+          balance_on_us:           json.data.balance_on_us,
+        });
+      }
+    } catch (e) { alert('Bill recalculate failed: ' + e.message); }
+    finally { setBillRecalculating(false); }
+  };
 
   const handleSaveEdit = async () => {
     setSavingEdit(true);
@@ -652,6 +706,18 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshing?'animate-spin':''}`}/>
                 {refreshing?'Syncing…':'Refresh'}
               </button>
+              <button onClick={handleBillRecalculate} disabled={billRecalculating || bill.status === 'cancelled'}
+                title="Recalculate bill totals from live pohonch data"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 disabled:opacity-50 transition-colors">
+                <RotateCcw className={`w-3.5 h-3.5 ${billRecalculating?'animate-spin':''}`}/>
+                {billRecalculating?'Recalculating…':'Recalc Bill'}
+              </button>
+              <button onClick={handleDeleteBill} disabled={billDeleting}
+                title="Permanently delete this crossing bill"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 disabled:opacity-50 transition-colors">
+                {billDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Trash2 className="w-3.5 h-3.5"/>}
+                {billDeleting ? 'Deleting…' : 'Delete'}
+              </button>
               <button onClick={()=>handlePdf({ open:true })} disabled={generatingPdf}
                 title="Generate &amp; view bill PDF"
                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 disabled:opacity-50 transition-colors">
@@ -694,6 +760,27 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
           </div>
         </div>
       </div>
+
+      {/* ── Recalc result diff banner ── */}
+      {billRecalcResult && (
+        <div className="px-5 py-3 bg-amber-50 border-t border-amber-200 flex items-center gap-3 flex-wrap">
+          <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0"/>
+          <span className="text-xs font-bold text-amber-800">{bill.bill_no} recalculated</span>
+          {billRecalcResult.diff && Object.entries({ Kaat: billRecalcResult.diff.kaat, PF: billRecalcResult.diff.pf, Amount: billRecalcResult.diff.amount }).map(([label, val]) =>
+            val !== 0 && val != null ? (
+              <span key={label} className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${val > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                {label}: {val > 0 ? '+' : ''}{Rs(val)}
+              </span>
+            ) : null
+          )}
+          {billRecalcResult.diff && billRecalcResult.diff.kaat === 0 && billRecalcResult.diff.pf === 0 && (
+            <span className="text-xs text-gray-500 italic">No change in totals</span>
+          )}
+          <button onClick={() => setBillRecalcResult(null)} className="ml-auto p-1 hover:bg-amber-100 rounded-lg">
+            <X className="w-3.5 h-3.5 text-amber-500"/>
+          </button>
+        </div>
+      )}
 
       {/* ── Inline edit form ── */}
       {editing && (
@@ -1848,6 +1935,7 @@ export default function CrossingBillTransportPage() {
                   token={token}
                   pohonchMap={pohonchMap}
                   crossChallanPrint={crossChallanPrint}
+                  onDeleted={(id)=>setBills(prev=>prev.filter(b=>b.id!==id))}
                   onBillUpdated={(updated)=>setBills(prev=>prev.map(b=>b.id===bill.id?{...b,...updated}:b))}
                 />
               ))}

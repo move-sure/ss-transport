@@ -697,6 +697,12 @@ const PDFGenerator = ({
       y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
       STYLES.FONTS.ENHANCED_VALUES // Using enhanced bold style for the eway bill value
     );
+    // DD CHARGE — centered on page, just below caution box, driver copy only
+    if (copyType.toUpperCase() === 'DRIVER' && biltyData.dd_charge > 0) {
+      const ddY = COORDINATES.QR_SECTION.CAUTION_BOX.y + COORDINATES.QR_SECTION.CAUTION_BOX.height + 3; // y=84
+      addStyledText(pdf, `D/D - ${biltyData.dd_charge}`, 115, y + ddY, STYLES.FONTS.NOTICE, { align: 'center' });
+    }
+
       // 📋 TABLE SECTION WITH ENHANCED STYLING
     // Top horizontal line - Thicker
     pdf.setLineWidth(STYLES.LINES.THICK);
@@ -842,16 +848,16 @@ const PDFGenerator = ({
     
     addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
     addStyledText(pdf, `${biltyData.other_charge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
-    
-    // Total section - Extra thick line
+
+    // Total section
     pdf.setLineWidth(STYLES.LINES.NORMAL);
     pdf.line(
-      COORDINATES.TABLE_SECTION.TOTAL_LINE.x1, 
+      COORDINATES.TABLE_SECTION.TOTAL_LINE.x1,
       y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y,
-      COORDINATES.TABLE_SECTION.TOTAL_LINE.x2, 
+      COORDINATES.TABLE_SECTION.TOTAL_LINE.x2,
       y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y
     );
-      // Total amount - Aligned with charges section using same column structure - ENHANCED
+    // Total amount - Aligned with charges section using same column structure - ENHANCED
     addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES);
     addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment - POSITIONED BELOW CAUTION BOX
     const paymentText = formatPaymentMode(biltyData.payment_mode);

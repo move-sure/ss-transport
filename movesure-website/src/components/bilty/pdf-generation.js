@@ -699,8 +699,8 @@ const PDFGenerator = ({
     );
     // DD CHARGE — centered on page, just below caution box, driver copy only
     if (copyType.toUpperCase() === 'DRIVER' && biltyData.dd_charge > 0) {
-      const ddY = COORDINATES.QR_SECTION.CAUTION_BOX.y + COORDINATES.QR_SECTION.CAUTION_BOX.height + 3; // y=84
-      addStyledText(pdf, `D/D - ${biltyData.dd_charge}`, 115, y + ddY, STYLES.FONTS.NOTICE, { align: 'center' });
+      const ddY = COORDINATES.QR_SECTION.CAUTION_BOX.y + COORDINATES.QR_SECTION.CAUTION_BOX.height - 20; // y=71
+      addStyledText(pdf, `D/D - ${biltyData.dd_charge}`, 115, y + ddY, STYLES.FONTS.COMPANY_NAME, { align: 'center' });
     }
 
       // 📋 TABLE SECTION WITH ENHANCED STYLING

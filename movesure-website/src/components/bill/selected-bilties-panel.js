@@ -128,13 +128,17 @@ const SelectedBiltiesPanel = memo(({
     let totalAmount = 0;
     let paidAmount = 0;
     let toPayAmount = 0;
+    let totalPackages = 0;
+    let totalWeight = 0;
 
     filteredBilties.forEach(bilty => {
       const amount = getEffectiveAmount(bilty);
       totalAmount += amount;
-      
+      totalPackages += parseFloat(bilty.no_of_pkg || bilty.no_of_packets || 0);
+      totalWeight += parseFloat(bilty.wt || bilty.weight || 0);
+
       const paymentStatus = bilty.payment_mode || bilty.payment_status || '';
-      
+
       if (paymentStatus.toLowerCase() === 'paid') {
         paidAmount += amount;
       } else if (paymentStatus.toLowerCase() === 'to-pay') {
@@ -142,7 +146,7 @@ const SelectedBiltiesPanel = memo(({
       }
     });
 
-    return { totalAmount, paidAmount, toPayAmount };
+    return { totalAmount, paidAmount, toPayAmount, totalPackages, totalWeight };
   };
 
   const totals = calculateTotals();
@@ -487,7 +491,19 @@ const SelectedBiltiesPanel = memo(({
 
           {filteredBilties.length > 0 && (
             <section className="border-b border-blue-100 bg-blue-50/60 px-7 py-3">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 grid-cols-3 sm:grid-cols-6">
+                <div className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-center shadow-sm shadow-blue-100/60">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Bilties</p>
+                  <p className="mt-1 text-sm font-semibold text-blue-900">{filteredBilties.length}</p>
+                </div>
+                <div className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-center shadow-sm shadow-blue-100/60">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Packages</p>
+                  <p className="mt-1 text-sm font-semibold text-violet-700">{totals.totalPackages}</p>
+                </div>
+                <div className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-center shadow-sm shadow-blue-100/60">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-600">Weight</p>
+                  <p className="mt-1 text-sm font-semibold text-cyan-700">{totals.totalWeight} kg</p>
+                </div>
                 <div className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-center shadow-sm shadow-blue-100/60">
                   <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">Total amount</p>
                   <p className="mt-1 text-sm font-semibold text-blue-900">{formatCurrency(totals.totalAmount)}</p>

@@ -1,22 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Package, 
-  Weight, 
-  DollarSign, 
+import { useRouter } from 'next/navigation';
+import {
+  BarChart3,
+  TrendingUp,
+  Package,
+  Weight,
+  DollarSign,
   FileText,
   Users,
   MapPin,
   Truck,
   RefreshCw,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight
 } from 'lucide-react';
 import Navbar from '../../components/dashboard/navbar';
 import { useAuth } from '../utils/auth';
+import ConsignorAnalytics from '../../components/analytics/ConsignorAnalytics';
 import StatCard from '../../components/analytics/stat-card';
 import BarChart from '../../components/analytics/bar-chart';
 import LineChart from '../../components/analytics/line-chart';
@@ -27,6 +32,8 @@ import AnalyticsPDFGenerator from '../../components/analytics/analytics-pdf-gene
 
 export default function AnalyticsPage() {
   const { user, requireAuth } = useAuth();
+  const router = useRouter();
+  const [showPartyAnalytics, setShowPartyAnalytics] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,6 +125,25 @@ export default function AnalyticsPage() {
               Refresh
             </button>
           </div>
+        </div>
+
+        {/* Party Analytics Navigation Card */}
+        <div className="mb-6">
+          <button
+            onClick={() => router.push('/analytics/consignor-consignee-analytics')}
+            className="flex items-center justify-between w-full sm:w-auto gap-6 px-6 py-4 rounded-2xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-violet-50 hover:border-blue-400 hover:shadow-md hover:shadow-blue-100 transition-all group text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-md group-hover:scale-105 transition-transform">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 text-sm">Consignor / Consignee Analytics</p>
+                <p className="text-xs text-gray-500 mt-0.5">City trends · counterparties · payment splits · month-over-month</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-blue-500 group-hover:translate-x-1 transition-transform shrink-0" />
+          </button>
         </div>
 
         {/* Loading State */}

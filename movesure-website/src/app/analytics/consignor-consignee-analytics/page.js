@@ -314,6 +314,8 @@ export default function ConsignorConsigneeAnalyticsPage() {
   const [error, setError]     = useState(null);
   const [cityWin, setCityWin] = useState('this_month');
   const [cpWin,   setCpWin]   = useState('this_month');
+  const [trendVis, setTrendVis] = useState({ count: true, packages: true, weight: true });
+  const toggleTrend = (key) => setTrendVis(v => ({ ...v, [key]: !v[key] }));
 
   const search = async () => {
     const q = query.trim();
@@ -446,13 +448,35 @@ export default function ConsignorConsigneeAnalyticsPage() {
             {/* 12-month area trend + payment donut */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
               <div className="xl:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-                <SectionTitle title="12-Month Shipment Trend" sub="Consignment count and total weight across the last 12 months" />
+                <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+                  <SectionTitle title="12-Month Shipment Trend" sub="Toggle lines to compare consignments, packages, and weight" />
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    {[
+                      { key: 'count',    label: 'Consignments', color: '#3b82f6' },
+                      { key: 'packages', label: 'Packages',     color: '#f97316' },
+                      { key: 'weight',   label: 'Weight (kg)',  color: '#10b981' },
+                    ].map(({ key, label, color }) => (
+                      <button key={key} onClick={() => toggleTrend(key)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-bold transition-all ${
+                          trendVis[key] ? 'text-white border-transparent shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-400'
+                        }`}
+                        style={trendVis[key] ? { background: color } : {}}>
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: trendVis[key] ? '#fff' : color }} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <ResponsiveContainer width="100%" height={380}>
                   <AreaChart data={trend} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                     <defs>
                       <linearGradient id="gcnt" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.3} />
                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="gpkg" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#f97316" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#f97316" stopOpacity={0.02} />
                       </linearGradient>
                       <linearGradient id="gwt" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
@@ -461,12 +485,12 @@ export default function ConsignorConsigneeAnalyticsPage() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                     <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} interval={0} />
-                    <YAxis yAxisId="count"  orientation="left"  tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="weight" orientation="right" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="left"  orientation="left"  tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTip />} />
-                    <Legend wrapperStyle={{ fontSize: 14, paddingTop: 16 }} />
-                    <Area yAxisId="count"  type="monotone" dataKey="count"  name="Consignments" stroke="#3b82f6" strokeWidth={3} fill="url(#gcnt)" dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 7 }} />
-                    <Area yAxisId="weight" type="monotone" dataKey="weight" name="Weight (kg)"  stroke="#10b981" strokeWidth={3} fill="url(#gwt)"  dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 7 }} />
+                    {trendVis.count    && <Area yAxisId="left"  type="monotone" dataKey="count"    name="Consignments" stroke="#3b82f6" strokeWidth={3} fill="url(#gcnt)" dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 7 }} />}
+                    {trendVis.packages && <Area yAxisId="left"  type="monotone" dataKey="packages" name="Packages"     stroke="#f97316" strokeWidth={3} fill="url(#gpkg)" dot={{ r: 4, fill: '#f97316' }} activeDot={{ r: 7 }} />}
+                    {trendVis.weight   && <Area yAxisId="right" type="monotone" dataKey="weight"   name="Weight (kg)"  stroke="#10b981" strokeWidth={3} fill="url(#gwt)"  dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 7 }} />}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

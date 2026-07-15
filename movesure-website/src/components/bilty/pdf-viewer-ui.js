@@ -14,7 +14,12 @@ const PDFViewerUI = ({
   onRefresh,
   onPrint,
   onDownload,
-  isMobile = false
+  isMobile = false,
+  zeroConsignorCharges = false,
+  zeroDriverCharges = false,
+  onToggleConsignorCharges,
+  onToggleDriverCharges,
+  onToggleBothCharges,
 }) => {
   const printButtonRef = useRef(null);
 
@@ -81,6 +86,37 @@ const PDFViewerUI = ({
             >
               <Download className="w-4 h-4" />
               Download
+            </button>
+          </div>
+
+          {/* Mobile — Zero Charges Toggles */}
+          <div className="mt-3 bg-white/10 rounded-xl p-3 flex gap-2">
+            <button
+              onClick={onToggleConsignorCharges}
+              className={`flex-1 flex items-center justify-between px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
+                zeroConsignorCharges ? 'bg-red-500 text-white' : 'bg-white/20 text-white'
+              }`}
+            >
+              <span>Consignor 0</span>
+              <span className={`w-3 h-3 rounded-full border-2 border-white flex-shrink-0 ml-1 ${zeroConsignorCharges ? 'bg-white' : ''}`} />
+            </button>
+            <button
+              onClick={onToggleDriverCharges}
+              className={`flex-1 flex items-center justify-between px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
+                zeroDriverCharges ? 'bg-red-500 text-white' : 'bg-white/20 text-white'
+              }`}
+            >
+              <span>Driver 0</span>
+              <span className={`w-3 h-3 rounded-full border-2 border-white flex-shrink-0 ml-1 ${zeroDriverCharges ? 'bg-white' : ''}`} />
+            </button>
+            <button
+              onClick={onToggleBothCharges}
+              className={`flex-1 flex items-center justify-between px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
+                zeroConsignorCharges && zeroDriverCharges ? 'bg-red-600 text-white' : 'bg-white/20 text-white'
+              }`}
+            >
+              <span>Both 0</span>
+              <span className={`w-3 h-3 rounded-full border-2 border-white flex-shrink-0 ml-1 ${zeroConsignorCharges && zeroDriverCharges ? 'bg-white' : ''}`} />
             </button>
           </div>
         </div>
@@ -222,6 +258,85 @@ const PDFViewerUI = ({
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Charge Visibility Toggles */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <h4 className="font-bold text-gray-800 text-sm mb-3">Zero Charges On Copy</h4>
+                <div className="space-y-3">
+                  {/* Consignor Copy Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Consignor Copy</div>
+                      <div className="text-xs text-gray-500">
+                        {zeroConsignorCharges ? 'Charges hidden' : 'Charges visible'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={onToggleConsignorCharges}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                        zeroConsignorCharges ? 'bg-red-500' : 'bg-gray-300'
+                      }`}
+                      title="Toggle zero charges on consignor copy"
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                        zeroConsignorCharges ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Driver Copy Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Driver Copy</div>
+                      <div className="text-xs text-gray-500">
+                        {zeroDriverCharges ? 'Charges hidden' : 'Charges visible'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={onToggleDriverCharges}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                        zeroDriverCharges ? 'bg-red-500' : 'bg-gray-300'
+                      }`}
+                      title="Toggle zero charges on driver copy"
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                        zeroDriverCharges ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Both Copies Toggle */}
+                  <div className="flex items-center justify-between pt-2 border-t border-amber-200">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Both Copies</div>
+                      <div className="text-xs text-gray-500">
+                        {zeroConsignorCharges && zeroDriverCharges ? 'All charges hidden' : 'Zero all at once'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={onToggleBothCharges}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                        zeroConsignorCharges && zeroDriverCharges ? 'bg-red-600' : 'bg-gray-300'
+                      }`}
+                      title="Zero charges on both consignor and driver copies"
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                        zeroConsignorCharges && zeroDriverCharges ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+
+                {(zeroConsignorCharges || zeroDriverCharges) && (
+                  <div className="mt-3 pt-3 border-t border-amber-200 text-xs text-amber-700 font-semibold">
+                    {zeroConsignorCharges && zeroDriverCharges
+                      ? 'Both copies: charges zeroed'
+                      : zeroConsignorCharges
+                      ? 'Consignor copy: charges zeroed — Driver copy shows charges'
+                      : 'Driver copy: charges zeroed — Consignor copy shows charges'}
+                  </div>
+                )}
               </div>
 
               {/* Consignor & Consignee */}

@@ -23,6 +23,8 @@ const PDFGenerator = ({
   const [isMobile, setIsMobile] = useState(false);
   const [darkenedSignature, setDarkenedSignature] = useState(null);
   const [signatureReady, setSignatureReady] = useState(false);
+  const [zeroConsignorCharges, setZeroConsignorCharges] = useState(false);
+  const [zeroDriverCharges, setZeroDriverCharges] = useState(false);
 
   // Mobile detection
   useEffect(() => {
@@ -361,6 +363,13 @@ const PDFGenerator = ({
     }
   }, [darkenedSignature]);
 
+  // Regenerate PDF when charge-visibility toggles change
+  useEffect(() => {
+    if (permanentDetails && !loading) {
+      generatePDFPreview();
+    }
+  }, [zeroConsignorCharges, zeroDriverCharges]);
+
   // NEW: Add keyboard event listener for Enter key to print PDF
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -487,7 +496,7 @@ const PDFGenerator = ({
   // ==========================================
   // 🎯 MAIN PDF GENERATION FUNCTION WITH ENHANCED STYLING
   // ==========================================
-  const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, toCity, transport) => {
+  const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, toCity, transport, showCharges = true) => {
     const y = yStart; // Base Y offset for this copy
 
     // 🏢 HEADER SECTION WITH ENHANCED STYLING
@@ -698,7 +707,7 @@ const PDFGenerator = ({
       STYLES.FONTS.ENHANCED_VALUES // Using enhanced bold style for the eway bill value
     );
     // DD CHARGE — centered on page, just below caution box, driver copy only
-    if (copyType.toUpperCase() === 'DRIVER' && biltyData.dd_charge > 0) {
+    if (copyType.toUpperCase() === 'DRIVER' && biltyData.dd_charge > 0 && showCharges) {
       const ddY = COORDINATES.QR_SECTION.CAUTION_BOX.y + COORDINATES.QR_SECTION.CAUTION_BOX.height - 20; // y=71
       addStyledText(pdf, `D/D - ${biltyData.dd_charge}`, 115, y + ddY, STYLES.FONTS.COMPANY_NAME, { align: 'center' });
     }
@@ -824,30 +833,37 @@ const PDFGenerator = ({
     
       // RIGHT SECTION - Charges with enhanced styling and proper alignment - BIGGER & ALL BOLD
     // Use freight_amount directly from biltyData (already calculated with minimum weight logic)
-    const amount = biltyData.freight_amount || Math.round(parseFloat(biltyData.wt) * parseFloat(biltyData.rate));
-    
+    // When showCharges is false, render zero for all charge values
+    const amount = showCharges ? (biltyData.freight_amount || Math.round(parseFloat(biltyData.wt) * parseFloat(biltyData.rate))) : 0;
+    const labourCharge = showCharges ? biltyData.labour_charge : 0;
+    const billCharge = showCharges ? biltyData.bill_charge : 0;
+    const tollCharge = showCharges ? biltyData.toll_charge : 0;
+    const pfCharge = showCharges ? biltyData.pf_charge : 0;
+    const otherCharge = showCharges ? biltyData.other_charge : 0;
+    const totalAmount = showCharges ? biltyData.total : 0;
+
     // Define column positions for proper alignment
     const labelX = COORDINATES.TABLE_SECTION.AMOUNT.x;     // Label column at x=155
     const valueX = labelX + 45;                            // Value column at x=200 (45mm offset)
-    
+
     // Charges section with aligned columns - ENHANCED BIGGER FONTS AND ALL BOLD VALUES
     addStyledText(pdf, `AMOUNT:`, labelX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.ENHANCED_CHARGES);
     addStyledText(pdf, `${amount}`, valueX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
-    
+
     addStyledText(pdf, `LABOUR CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
-    addStyledText(pdf, `${biltyData.labour_charge}`, valueX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
-    
+    addStyledText(pdf, `${labourCharge}`, valueX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
     addStyledText(pdf, `BILTY CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
-    addStyledText(pdf, `${biltyData.bill_charge}`, valueX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
-    
+    addStyledText(pdf, `${billCharge}`, valueX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
     addStyledText(pdf, `TOLL TAX:`, labelX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES);
-    addStyledText(pdf, `${biltyData.toll_charge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
-    
+    addStyledText(pdf, `${tollCharge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
     addStyledText(pdf, `PF:`, labelX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES);
-    addStyledText(pdf, `${biltyData.pf_charge}`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
-    
+    addStyledText(pdf, `${pfCharge}`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
     addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
-    addStyledText(pdf, `${biltyData.other_charge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+    addStyledText(pdf, `${otherCharge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
 
     // Total section
     pdf.setLineWidth(STYLES.LINES.NORMAL);
@@ -859,7 +875,7 @@ const PDFGenerator = ({
     );
     // Total amount - Aligned with charges section using same column structure - ENHANCED
     addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES);
-    addStyledText(pdf, `${biltyData.total}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment - POSITIONED BELOW CAUTION BOX
+    addStyledText(pdf, `${totalAmount}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment - POSITIONED BELOW CAUTION BOX
     const paymentText = formatPaymentMode(biltyData.payment_mode);
     const deliveryTypeText = formatDeliveryType(biltyData.delivery_type);
     const combinedText = paymentText + (deliveryTypeText ? ` ${deliveryTypeText}` : '');
@@ -1115,17 +1131,17 @@ const PDFGenerator = ({
       pdf.text(jurisdictionText, centerX, secondCopyJurisdictionY, { align: 'center' });
       
       // 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING
-      // First copy (Consignee)
-      addBillCopy(pdf, 0, 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport);
-      
+      // First copy (Consignor) — showCharges = false when zeroConsignorCharges is toggled on
+      addBillCopy(pdf, 0, 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport, !zeroConsignorCharges);
+
       // ➖ DASHED SEPARATOR LINE - Enhanced
       pdf.setLineWidth(STYLES.LINES.THICK);
       pdf.setLineDashPattern(STYLES.LINES.DASHED, 0);
       pdf.line(10, COORDINATES.SPACING.DASHED_LINE_Y, 200, COORDINATES.SPACING.DASHED_LINE_Y);
       pdf.setLineDashPattern([], 0); // Reset to solid line
-      
-      // Second copy (Driver) with Y offset
-      addBillCopy(pdf, COORDINATES.SPACING.SECOND_COPY_OFFSET, 'DRIVER', qrDataURL, permDetails, fromCity, toCity, transport);
+
+      // Second copy (Driver) with Y offset — showCharges = false when zeroDriverCharges is toggled on
+      addBillCopy(pdf, COORDINATES.SPACING.SECOND_COPY_OFFSET, 'DRIVER', qrDataURL, permDetails, fromCity, toCity, transport, !zeroDriverCharges);
       
       // Create blob URL for preview
       const pdfBlob = pdf.output('blob');
@@ -1221,6 +1237,15 @@ const PDFGenerator = ({
       onPrint={printPDF}
       onDownload={downloadPDF}
       isMobile={isMobile}
+      zeroConsignorCharges={zeroConsignorCharges}
+      zeroDriverCharges={zeroDriverCharges}
+      onToggleConsignorCharges={() => setZeroConsignorCharges(prev => !prev)}
+      onToggleDriverCharges={() => setZeroDriverCharges(prev => !prev)}
+      onToggleBothCharges={() => {
+        const newVal = !(zeroConsignorCharges && zeroDriverCharges);
+        setZeroConsignorCharges(newVal);
+        setZeroDriverCharges(newVal);
+      }}
     />
   );
 };

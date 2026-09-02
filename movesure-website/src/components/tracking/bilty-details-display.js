@@ -429,6 +429,8 @@ const BiltyDetailsDisplay = ({ bilty, transitDetails, createdByUser, onBiltyUpda
 
           {/* Extra details */}
           <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+            {kaatDetails?.pohonch_no && <Pill label="Pohonch No" value={kaatDetails.pohonch_no} bold />}
+            {kaatDetails?.bilty_number && <Pill label="Bilty No" value={kaatDetails.bilty_number} bold />}
             {bilty.contain && <Pill label="Contains" value={bilty.contain} />}
             {bilty.e_way_bill && <Pill label="E-Way" value={bilty.e_way_bill} />}
             {bilty.invoice_no && <Pill label="Invoice" value={bilty.invoice_no} />}

@@ -1165,7 +1165,7 @@ return (
 
         {/* DD Charge + RS Charge Applied Indicator - Below grid, above buttons */}
         {formData.delivery_type === 'door-delivery' && (formData._dd_charge_applied > 0 || formData._dd_print_applied > 0 || formData._rs_charge_applied > 0) && (
-          <div className="mt-2 mb-10 mx-1 flex items-center gap-2 px-2 py-1.5 bg-blue-50 text-blue-700 rounded border border-blue-200 text-[10px] font-semibold">
+          <div className="mt-2 mb-2 mx-1 flex items-center gap-2 px-2 py-1.5 bg-blue-50 text-blue-700 rounded border border-blue-200 text-[10px] font-semibold">
             <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
               <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7h4a1 1 0 011 1v6h-2.05a2.5 2.5 0 00-4.9 0H12V8a1 1 0 00-1-1h-1v5h4V7z" />
@@ -1186,27 +1186,73 @@ return (
           </div>
         )}
 
-        {/* Draft and Reset Buttons - Bottom Left */}
-        <div className="absolute bottom-3 left-3 flex gap-2">
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            disabled={saving}
-            tabIndex="-1"
-            className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg text-xs font-bold hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-all border border-amber-400"
-          >
-            <FileText className="w-3 h-3" />
-            DRAFT
-          </button>
-          <button
-            type="button"
-            onClick={onReset}
-            tabIndex="-1"
-            className="px-3 py-1.5 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg text-xs font-bold hover:from-gray-600 hover:to-gray-700 flex items-center gap-1.5 shadow-sm transition-all border border-gray-400"
-          >
-            <RotateCcw className="w-3 h-3" />
-            RESET
-          </button>
+        {/* Spacer reserving room for the absolutely positioned bottom-left controls */}
+        <div className="h-16" aria-hidden="true" />
+
+        {/* Short Packages + Advance Bilty + Draft/Reset Buttons - Bottom Left */}
+        <div className="absolute bottom-3 left-3 flex flex-col items-start gap-2">
+          {/* Short Packages Count + Advance Bilty Flag */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="bg-rose-600 text-white px-2 py-1 text-[10px] font-bold rounded shadow-sm whitespace-nowrap" title="Number of packages short/missing for this bilty">
+                SHORT PKG
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={formData.short_packages_count || ''}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  setFormData(prev => ({ ...prev, short_packages_count: value ? parseInt(value) : 0 }));
+                }}
+                onFocus={(e) => e.target.select()}
+                tabIndex="-1"
+                className="w-14 px-1.5 py-1 text-black text-xs font-bold border border-slate-300 rounded text-center bg-white hover:border-rose-300 focus:border-rose-400 focus:ring-0 transition-all"
+                placeholder="0"
+              />
+            </div>
+
+            <label
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border cursor-pointer shadow-sm transition-all ${
+                formData.is_advance_bilty
+                  ? 'bg-indigo-600 border-indigo-700 text-white'
+                  : 'bg-white border-slate-300 text-indigo-700 hover:border-indigo-400'
+              }`}
+              title="Mark this bilty as an advance (freight paid upfront) bilty"
+            >
+              <input
+                type="checkbox"
+                checked={!!formData.is_advance_bilty}
+                onChange={(e) => setFormData(prev => ({ ...prev, is_advance_bilty: e.target.checked }))}
+                tabIndex="-1"
+                className="w-3.5 h-3.5 accent-indigo-600"
+              />
+              <span className="text-[10px] font-bold whitespace-nowrap">ADVANCE BILTY</span>
+            </label>
+          </div>
+
+          {/* Draft and Reset Buttons */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onSaveDraft}
+              disabled={saving}
+              tabIndex="-1"
+              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg text-xs font-bold hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-all border border-amber-400"
+            >
+              <FileText className="w-3 h-3" />
+              DRAFT
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              tabIndex="-1"
+              className="px-3 py-1.5 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg text-xs font-bold hover:from-gray-600 hover:to-gray-700 flex items-center gap-1.5 shadow-sm transition-all border border-gray-400"
+            >
+              <RotateCcw className="w-3 h-3" />
+              RESET
+            </button>
+          </div>
         </div>
       </div>
 

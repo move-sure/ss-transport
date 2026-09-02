@@ -605,28 +605,29 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
               })()}
               onChange={(e) => {
                 let value = e.target.value.replace(/[^0-9\/]/g, '');
-                
+
                 const currentDate = new Date();
                 const currentYear = currentDate.getFullYear();
                 const currentMonth = currentDate.getMonth() + 1;
-                
+                const daysInMonth = (year, month) => new Date(year, month, 0).getDate();
+
                 if (/^\d{1,2}$/.test(value)) {
                   const day = parseInt(value);
-                  if (day >= 1 && day <= 31) {
+                  if (day >= 1 && day <= daysInMonth(currentYear, currentMonth)) {
                     const formattedDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
                 }
                 else if (/^\d{1,2}\/\d{1,2}$/.test(value)) {
                   const [day, month] = value.split('/').map(n => parseInt(n));
-                  if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                  if (day >= 1 && month >= 1 && month <= 12 && day <= daysInMonth(currentYear, month)) {
                     const formattedDate = `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }
                 }
                 else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
                   const [day, month, year] = value.split('/').map(n => parseInt(n));
-                  if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                  if (day >= 1 && month >= 1 && month <= 12 && day <= daysInMonth(year, month)) {
                     const formattedDate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
                     setFormData(prev => ({ ...prev, invoice_date: formattedDate }));
                   }

@@ -96,7 +96,7 @@ const CityTransportSection = ({
     };
   }, [register, unregister]);
   // Shared rate fetching logic — uses backend-cached data (no Supabase calls)
-  const fetchRateForCity = async (city, transport) => {
+  const fetchRateForCity = async (city, transport, forceTransport = false) => {
     let selectedRate = null;
     let profileTransport = null;
 
@@ -139,7 +139,8 @@ const CityTransportSection = ({
     }
 
     // Use profile transport if available, otherwise use city-matched transport
-    const effectiveTransport = profileTransport || transport;
+    // (unless the caller explicitly picked a transport — that choice must win)
+    const effectiveTransport = forceTransport ? transport : (profileTransport || transport);
 
     // Update form data
     setFormData(prev => ({
@@ -161,7 +162,7 @@ const CityTransportSection = ({
     // Find the city object for rate lookup
     const city = cities.find(c => c.id === transport.city_id);
     if (city) {
-      fetchRateForCity(city, transport);
+      fetchRateForCity(city, transport, true); // user explicitly picked this transport — don't let the consignor's profile transport override it
     } else {
       // Fallback: just set transport fields
       setFormData(prev => ({

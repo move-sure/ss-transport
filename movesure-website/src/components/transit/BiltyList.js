@@ -418,19 +418,50 @@ const BiltyList = ({
 
   const isChallanLocked = Boolean(selectedChallan?.is_dispatched);
 
+  // Remark cell — short packages count in a red circle, "A" (advance) in an orange circle, "|" between them
+  const renderRemark = (bilty) => {
+    const hasShort = bilty.short_packages_count > 0;
+    const isAdvance = !!bilty.is_advance_bilty;
+    if (!hasShort && !isAdvance) return <span className="text-slate-300">-</span>;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {hasShort && (
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white"
+            title={`${bilty.short_packages_count} package(s) short`}
+          >
+            {bilty.short_packages_count}
+          </span>
+        )}
+        {hasShort && isAdvance && <span className="text-slate-300">|</span>}
+        {isAdvance && (
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white"
+            title="Advance bilty"
+          >
+            A
+          </span>
+        )}
+      </span>
+    );
+  };
+
   // Calculate totals for filtered bilties
   const calculateTotals = (biltiesArray) => {
     return biltiesArray.reduce((acc, bilty) => {
       const weight = parseFloat(bilty.wt || bilty.weight || 0);
       const packages = parseInt(bilty.no_of_pkg || bilty.no_of_packets || 0);
       const amount = parseFloat(bilty.total || bilty.amount || 0);
-      
+      const shortPackages = parseInt(bilty.short_packages_count || 0);
+
       return {
         totalWeight: acc.totalWeight + weight,
         totalPackages: acc.totalPackages + packages,
-        totalAmount: acc.totalAmount + amount
+        totalAmount: acc.totalAmount + amount,
+        totalShortPackages: acc.totalShortPackages + shortPackages,
+        advanceCount: acc.advanceCount + (bilty.is_advance_bilty ? 1 : 0)
       };
-    }, { totalWeight: 0, totalPackages: 0, totalAmount: 0 });
+    }, { totalWeight: 0, totalPackages: 0, totalAmount: 0, totalShortPackages: 0, advanceCount: 0 });
   };
 
   const availableTotals = calculateTotals(fullyFilteredBilties);
@@ -460,7 +491,7 @@ const BiltyList = ({
     }
     // Define columns to export (matching table headers)
     const headers = [
-      'Type', 'GR No', 'Date', 'Consignor', 'Consignee', 'Content', 'Destination', 'PVT Marks', 'Payment', 'Pkgs', 'Weight', 'Amount'
+      'Type', 'GR No', 'Date', 'Consignor', 'Consignee', 'Content', 'Destination', 'PVT Marks', 'Payment', 'Pkgs', 'Weight', 'Amount', 'Remark'
     ];
     const rows = sortedTransitBilties.map(bilty => [
       bilty.bilty_type === 'mnl' || bilty.source === 'station_bilty_summary' ? 'MNL' : 'REG',
@@ -474,7 +505,8 @@ const BiltyList = ({
       bilty.payment_mode || bilty.payment_status || '',
       bilty.no_of_pkg || bilty.no_of_packets || '',
       bilty.wt || bilty.weight || '',
-      bilty.freight_amount || bilty.amount || ''
+      bilty.freight_amount || bilty.amount || '',
+      [bilty.short_packages_count > 0 ? `${bilty.short_packages_count} short` : '', bilty.is_advance_bilty ? 'A' : ''].filter(Boolean).join(' / ')
     ]);
     const csvContent = [headers, ...rows]
       .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
@@ -668,6 +700,7 @@ const BiltyList = ({
                     <th className="px-2.5 py-2.5 text-left cursor-pointer hover:bg-slate-100" onClick={() => handleSort('amount', false)}>
                       <div className="flex items-center">Amount{getSortIcon('amount', false)}</div>
                     </th>
+                    <th className="px-2.5 py-2.5 text-left">Remark</th>
                     {!isChallanLocked && (
                       <th className="px-2.5 py-2.5 text-left">Action</th>
                     )}
@@ -748,6 +781,7 @@ const BiltyList = ({
                         <td className="px-2.5 py-2.5 text-slate-700">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</td>
                         <td className="px-2.5 py-2.5 text-slate-700">{bilty.wt || bilty.weight || 0}</td>
                         <td className="px-2.5 py-2.5 font-semibold text-slate-900">₹{bilty.total || bilty.amount || 0}</td>
+                        <td className="px-2.5 py-2.5">{renderRemark(bilty)}</td>
                         {!isChallanLocked && (
                           <td className="px-2.5 py-2.5">
                             <button
@@ -779,6 +813,11 @@ const BiltyList = ({
                       <td className="px-2.5 py-3 text-sm font-bold text-indigo-700">{transitTotals.totalPackages}</td>
                       <td className="px-2.5 py-3 text-sm font-bold text-indigo-700">{transitTotals.totalWeight.toFixed(2)}</td>
                       <td className="px-2.5 py-3 text-sm font-bold text-indigo-700">₹{transitTotals.totalAmount.toFixed(2)}</td>
+                      <td className="px-2.5 py-3 text-sm">
+                        <span className="font-bold text-red-600">{transitTotals.totalShortPackages}</span>
+                        <span className="mx-1 text-slate-400">|</span>
+                        <span className="font-bold text-orange-500">{transitTotals.advanceCount}A</span>
+                      </td>
                       {!isChallanLocked && <td className="px-2.5 py-3"></td>}
                     </tr>
                   </tfoot>
@@ -953,6 +992,7 @@ const BiltyList = ({
                   <th className="px-2.5 py-2.5 text-left">Pkgs</th>
                   <th className="px-2.5 py-2.5 text-left">Weight</th>
                   <th className="px-2.5 py-2.5 text-left">Amount</th>
+                  <th className="px-2.5 py-2.5 text-left">Remark</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white [&_.selected-row>td]:bg-indigo-100/80">
@@ -1031,6 +1071,7 @@ const BiltyList = ({
                       <td className="px-2.5 py-2.5 text-slate-700">{bilty.no_of_pkg || bilty.no_of_packets || '-'}</td>
                       <td className="px-2.5 py-2.5 text-slate-700">{bilty.wt || bilty.weight || 0}</td>
                       <td className="px-2.5 py-2.5 font-semibold text-slate-900">₹{bilty.total || bilty.amount || 0}</td>
+                      <td className="px-2.5 py-2.5">{renderRemark(bilty)}</td>
                     </tr>
                   );
                 })}
@@ -1047,6 +1088,11 @@ const BiltyList = ({
                     <td className="px-2.5 py-3 text-sm font-bold text-emerald-700">{availableTotals.totalPackages}</td>
                     <td className="px-2.5 py-3 text-sm font-bold text-emerald-700">{availableTotals.totalWeight.toFixed(2)}</td>
                     <td className="px-2.5 py-3 text-sm font-bold text-emerald-700">₹{availableTotals.totalAmount.toFixed(2)}</td>
+                    <td className="px-2.5 py-3 text-sm">
+                      <span className="font-bold text-red-600">{availableTotals.totalShortPackages}</span>
+                      <span className="mx-1 text-slate-400">|</span>
+                      <span className="font-bold text-orange-500">{availableTotals.advanceCount}A</span>
+                    </td>
                   </tr>
                 </tfoot>
               )}

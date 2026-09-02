@@ -45,6 +45,46 @@ const ChallanPDFPreview = ({
     return bilty.to_city_name || '';
   };
 
+  // Draws the Remark column contents for a bilty row: E/W indicators, then short-packages count (red)
+  // and Advance flag "A" (orange), separated by "|". Advances doc's text cursor left-to-right from (x, y).
+  const drawRemarkColumn = (doc, bilty, x, y) => {
+    const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
+    const missingConsignorOrConsignee = bilty.bilty_type === 'mnl' &&
+      (!bilty.consignor_name || bilty.consignor_name.trim() === '' ||
+       !bilty.consignee_name || bilty.consignee_name.trim() === '');
+    const hasShort = (bilty.short_packages_count || 0) > 0;
+    const isAdvance = !!bilty.is_advance_bilty;
+
+    let cursorX = x;
+    const draw = (text, size, color) => {
+      doc.setFontSize(size);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(text, cursorX, y);
+      cursorX += doc.getTextWidth(text) + 1;
+    };
+
+    if (hasEwayBill && missingConsignorOrConsignee) {
+      draw('E,W', 8, [0, 0, 0]);
+    } else if (hasEwayBill) {
+      draw('E', 9, [0, 0, 0]);
+    } else if (missingConsignorOrConsignee) {
+      draw('W', 9, [0, 0, 0]);
+    }
+
+    if (hasShort) {
+      if (cursorX > x) draw('|', 8, [150, 150, 150]);
+      draw(String(bilty.short_packages_count), 9, [220, 38, 38]); // red
+    }
+
+    if (isAdvance) {
+      if (cursorX > x) draw('|', 8, [150, 150, 150]);
+      draw('A', 9, [234, 88, 12]); // orange
+    }
+
+    doc.setTextColor(0, 0, 0); // reset for subsequent columns
+  };
+
   // Generate PDF blob for preview
   const generatePDFBlob = useCallback(async () => {
     try {
@@ -266,26 +306,9 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, margin + 62, currentY);
         
-        // Add E-way bill indicator or W (missing consignor/consignee) in remark column
-        const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
-        const missingConsignorOrConsignee = bilty.bilty_type === 'mnl' && 
-          (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
-           !bilty.consignee_name || bilty.consignee_name.trim() === '');
-        
-        if (hasEwayBill && missingConsignorOrConsignee) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.text('E,W', margin + 88, currentY);
-        } else if (hasEwayBill) {
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.text('E', margin + 90, currentY);
-        } else if (missingConsignorOrConsignee) {
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.text('W', margin + 90, currentY);
-        }
-        
+        // Remark column: E-way bill / missing-info indicators + short packages (red) + Advance "A" (orange)
+        drawRemarkColumn(doc, bilty, margin + 88, currentY);
+
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.2);
@@ -398,25 +421,8 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
-        // Add E-way bill indicator or W (missing consignor/consignee) in remark column
-        const hasEwayBill = bilty.e_way_bill && bilty.e_way_bill.toString().trim() !== '';
-        const missingConsignorOrConsignee = bilty.bilty_type === 'mnl' && 
-          (!bilty.consignor_name || bilty.consignor_name.trim() === '' || 
-           !bilty.consignee_name || bilty.consignee_name.trim() === '');
-        
-        if (hasEwayBill && missingConsignorOrConsignee) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.text('E,W', rightColumnX + 88, currentY);
-        } else if (hasEwayBill) {
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.text('E', rightColumnX + 90, currentY);
-        } else if (missingConsignorOrConsignee) {
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.text('W', rightColumnX + 90, currentY);
-        }
+        // Remark column: E-way bill / missing-info indicators + short packages (red) + Advance "A" (orange)
+        drawRemarkColumn(doc, bilty, rightColumnX + 88, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);

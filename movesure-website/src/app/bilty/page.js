@@ -133,6 +133,8 @@ export default function BiltyForm() {
     pf_charge: 0,
     total: 70,
     remark: '',
+    short_packages_count: 0,
+    is_advance_bilty: false,
     saving_option: 'SAVE'
   });
   // Load initial data
@@ -709,6 +711,8 @@ export default function BiltyForm() {
         pf_charge: parseFloat(formData.pf_charge) || 0,
         total: parseFloat(formData.total) || 0,
         remark: formData.remark?.toString().trim() || null,
+        short_packages_count: parseInt(formData.short_packages_count) || 0,
+        is_advance_bilty: !!formData.is_advance_bilty,
         saving_option: isDraft ? 'DRAFT' : 'SAVE',
         // Bill book — backend auto-advances current_number safely
         bill_book_id: selectedBillBook?.id || null,
@@ -921,6 +925,8 @@ export default function BiltyForm() {
       pf_charge: 0,
       total: 70,
       remark: '',
+      short_packages_count: 0,
+      is_advance_bilty: false,
       saving_option: 'SAVE',
       // Reset internal state flags
       _rate_unit: 'PER_KG',

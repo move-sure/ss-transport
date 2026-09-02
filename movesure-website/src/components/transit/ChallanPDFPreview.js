@@ -307,7 +307,7 @@ const ChallanPDFPreview = ({
         doc.text(pvtMarkText, margin + 62, currentY);
         
         // Remark column: E-way bill / missing-info indicators + short packages (red) + Advance "A" (orange)
-        drawRemarkColumn(doc, bilty, margin + 88, currentY);
+        drawRemarkColumn(doc, bilty, margin + 90, currentY);
 
         // Draw row borders
         doc.setDrawColor(0, 0, 0);
@@ -422,7 +422,7 @@ const ChallanPDFPreview = ({
         doc.text(pvtMarkText, rightColumnX + 62, currentY);
         
         // Remark column: E-way bill / missing-info indicators + short packages (red) + Advance "A" (orange)
-        drawRemarkColumn(doc, bilty, rightColumnX + 88, currentY);
+        drawRemarkColumn(doc, bilty, rightColumnX + 90, currentY);
         
         // Draw row borders
         doc.setDrawColor(0, 0, 0);

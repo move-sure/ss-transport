@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import supabase from '../../../../utils/supabase';
 import { useAuth } from '../../../../utils/auth';
 import KaatUpdateModal from '../../../../../components/hub-management/KaatUpdateModal';
+import NilBiltyFinder from '../../../../../components/hub-management/NilBiltyFinder';
+import TransportChallanReport from '../../../../../components/hub-management/TransportChallanReport';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -13,7 +15,7 @@ import {
   ChevronDown, ChevronRight, Printer, X, MapPin, Calendar,
   CheckSquare, Square, CheckCircle2, AlertCircle, PenTool,
   User, Link2, Copy, Check, CreditCard, Banknote, RotateCcw,
-  Search, ArrowUpDown, ArrowUp, ArrowDown, Trash2, PackagePlus,
+  Search, ArrowUpDown, ArrowUp, ArrowDown, Trash2, PackagePlus, Lock, Zap, FileSearch,
 } from 'lucide-react';
 
 const API_BASE = 'https://api.movesure.io';
@@ -435,7 +437,7 @@ function TransactionModal({ isOpen, bill, onClose, userId, token, onAdded }) {
 }
 
 /* ─── Bill Row ────────────────────────────────────────────────────────────── */
-function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdated, onDeleted, pohonchMap, crossChallanPrint }) {
+function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdated, onDeleted, pohonchMap, crossChallanPrint, onPohonchDataLoaded }) {
   const [fullBill,       setFullBill]       = useState(null);
   const [loadingFull,    setLoadingFull]    = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -580,6 +582,12 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
   };
 
   useEffect(() => { if (expanded && !fullBill) fetchFull(); }, [expanded]);
+
+  // Lift pohonch_data up to the parent so it can lock already-billed pohonch from re-selection
+  useEffect(() => {
+    if (fullBill?.pohonch_data) onPohonchDataLoaded?.({ ...bill, ...fullBill });
+    else if (bill?.pohonch_data) onPohonchDataLoaded?.(bill);
+  }, [fullBill, bill, onPohonchDataLoaded]);
 
   const handleStatus = async (s) => {
     setUpdatingStatus(true);
@@ -967,12 +975,31 @@ export default function CrossingBillTransportPage() {
   const [activeStation,   setActiveStation]   = useState(null);
   const [txBill,          setTxBill]          = useState(null);
   const [showConfirm,     setShowConfirm]     = useState(false);
+  const [showNilFinder,   setShowNilFinder]   = useState(false);
+  const [showChallanReport, setShowChallanReport] = useState(false);
   const [page,            setPage]            = useState(1);
   const [hasMore,         setHasMore]         = useState(false);
   const [mounted,         setMounted]         = useState(false);
 
   // Pohonch selection
   const [selectedIds, setSelectedIds] = useState(new Set());
+
+  // Pohonch already covered by an existing (non-cancelled) bill — locked from re-selection
+  const [billedPohonchMap, setBilledPohonchMap] = useState(new Map()); // pohonch_number -> bill_no
+  const handlePohonchDataLoaded = useCallback((billData) => {
+    if (!billData || billData.status === 'cancelled' || !Array.isArray(billData.pohonch_data)) return;
+    setBilledPohonchMap(prev => {
+      let changed = false;
+      const next = new Map(prev);
+      billData.pohonch_data.forEach(p => {
+        if (p?.pohonch_number && next.get(p.pohonch_number) !== billData.bill_no) {
+          next.set(p.pohonch_number, billData.bill_no);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, []);
 
   // Recalculate state
   const [recalculating,     setRecalculating]     = useState(new Set()); // per-row loading
@@ -1129,13 +1156,18 @@ export default function CrossingBillTransportPage() {
       : unselected;
     const getPbNo = (p) => (Array.isArray(p.bilty_metadata) ? p.bilty_metadata.map(b => b.pohonch_bilty).filter(Boolean)[0] || '' : '');
     return [...filtered].sort((a, b) => {
+      // Unbilled (selectable) pohonch always float above locked/billed ones
+      const aBilled = billedPohonchMap.has(a.pohonch_number);
+      const bBilled = billedPohonchMap.has(b.pohonch_number);
+      if (aBilled !== bBilled) return aBilled ? 1 : -1;
+
       let va = sortBy === '_pb_no' ? getPbNo(a) : a[sortBy];
       let vb = sortBy === '_pb_no' ? getPbNo(b) : b[sortBy];
       if (va == null) va = 0; if (vb == null) vb = 0;
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortDir === 'asc' ? va - vb : vb - va;
     });
-  }, [allPohonch, selectedIds, pohonchSearch, sortBy, sortDir]);
+  }, [allPohonch, selectedIds, pohonchSearch, sortBy, sortDir, billedPohonchMap]);
 
   const selectedTotals = useMemo(() => selectedPohonch.reduce(
     (a, p) => ({
@@ -1148,9 +1180,25 @@ export default function CrossingBillTransportPage() {
     { kaat: 0, pf: 0, amt: 0, bilties: 0, wt: 0 }
   ), [selectedPohonch]);
 
-  const toggleRow    = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
-  const selectAll    = () => setSelectedIds(new Set(allPohonch.map(p=>p.id)));
+  const toggleRow    = (id) => {
+    const p = allPohonch.find(x => x.id === id);
+    if (p && billedPohonchMap.has(p.pohonch_number)) return; // locked — already billed
+    setSelectedIds(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
+  };
+  const selectAll    = () => setSelectedIds(new Set(allPohonch.filter(p => !billedPohonchMap.has(p.pohonch_number)).map(p=>p.id)));
   const deselectAll  = () => setSelectedIds(new Set());
+
+  // Safety net: if a pohonch gets marked billed after it was already selected (race on load), drop it
+  useEffect(() => {
+    if (billedPohonchMap.size === 0) return;
+    setSelectedIds(prev => {
+      const billedSelected = allPohonch.filter(p => prev.has(p.id) && billedPohonchMap.has(p.pohonch_number));
+      if (!billedSelected.length) return prev;
+      const next = new Set(prev);
+      billedSelected.forEach(p => next.delete(p.id));
+      return next;
+    });
+  }, [billedPohonchMap, allPohonch]);
   const toggleExpand = (id) => setExpandedPohonch(prev => { const n = new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
 
   const handleStationClick = (city) => {
@@ -1169,6 +1217,22 @@ export default function CrossingBillTransportPage() {
     { total_kaat:0, total_pf:0, balance_transport:0, balance_us:0, total_paid_kaat:0, total_paid_us:0 }
   ), [bills]);
 
+  // Month-wise total PF for this transport — across ALL pohonch (billed or not), by pohonch creation month
+  const monthlyPfStats = useMemo(() => {
+    const map = {};
+    allPohonch.forEach(p => {
+      if (!p.created_at) return;
+      const d   = new Date(p.created_at);
+      const key = format(d, 'yyyy-MM');
+      if (!map[key]) map[key] = { key, label: format(d, 'MMM yyyy'), pf: 0, kaat: 0, pohonchCount: 0, biltyCount: 0 };
+      map[key].pf          += p.total_pf      || 0;
+      map[key].kaat         += p.total_kaat    || 0;
+      map[key].pohonchCount += 1;
+      map[key].biltyCount   += p.total_bilties || 0;
+    });
+    return Object.values(map).sort((a, b) => b.key.localeCompare(a.key)); // newest month first
+  }, [allPohonch]);
+
   // Build a lookup: cityName(uppercase) → best hub rate row for this transport
   const hubRatesByCity = useMemo(() => {
     const m = {};
@@ -1183,14 +1247,17 @@ export default function CrossingBillTransportPage() {
 
   const stationRates = useMemo(() => {
     const map = {};
-    allPohonch.forEach(p => {
+    // Skip pohonch already covered by an existing bill (locked) — their kaat rate is settled,
+    // so it shouldn't pull the actual/contract variance for a station out of whack.
+    allPohonch.filter(p => !billedPohonchMap.has(p.pohonch_number)).forEach(p => {
       (p.bilty_metadata||[]).forEach(b => {
         const city = (b.destination||'').trim().toUpperCase();
         if (!city) return;
-        if (!map[city]) map[city] = { city, rates:[], count:0, kaat:0 };
+        if (!map[city]) map[city] = { city, rates:[], count:0, kaat:0, grNos:[] };
         map[city].count++;
         map[city].kaat += b.kaat||0;
         if (b.kaat_rate!=null) map[city].rates.push(parseFloat(b.kaat_rate));
+        if (b.gr_no) map[city].grNos.push(b.gr_no);
       });
     });
     return Object.values(map)
@@ -1203,11 +1270,37 @@ export default function CrossingBillTransportPage() {
         const variance = avgRate != null && contractedRate != null ? +(avgRate - contractedRate).toFixed(2) : null;
         return {
           city:c.city, count:c.count, avgRate, totalKaat:c.kaat,
-          hub, contractedRate, variance,
+          hub, contractedRate, variance, grNos: c.grNos,
         };
       })
       .sort((a,b)=>b.count-a.count);
-  }, [allPohonch, hubRatesByCity]);
+  }, [allPohonch, hubRatesByCity, billedPohonchMap]);
+
+  // Fix a station's bilties to the contracted kaat rate — POST /api/kaat/bulk-update-by-grs
+  const [fixingStation, setFixingStation] = useState(null); // city currently being fixed
+  const [fixResult,     setFixResult]     = useState(null); // { city, data } | { city, error }
+
+  const handleFixStationRate = async (station) => {
+    if (!station.contractedRate || !station.grNos?.length) return;
+    if (!confirm(`Update kaat rate to ₹${station.contractedRate} for all ${station.grNos.length} bilties in ${station.city}?\n\nThis recalculates kaat + PF for each bilty from the contracted rate.`)) return;
+    setFixingStation(station.city);
+    setFixResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/kaat/bulk-update-by-grs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ gr_nos: station.grNos, new_kaat_rate: station.contractedRate }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.status === 'error') throw new Error(json.message || 'Failed to update kaat rate');
+      setFixResult({ city: station.city, data: json });
+      await fetchPohonch(true); // refresh so rates/variance recompute from live data
+    } catch (e) {
+      setFixResult({ city: station.city, error: e.message });
+    } finally {
+      setFixingStation(null);
+    }
+  };
 
   // Pohonch IDs that have bilties for the active station (for highlight)
   const stationPohonchIds = useMemo(() => {
@@ -1335,6 +1428,16 @@ export default function CrossingBillTransportPage() {
             <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">{transportName}</h1>
             <p className="text-sm font-mono text-gray-500 mt-0.5">{gstin}</p>
           </div>
+          <button onClick={()=>setShowNilFinder(true)}
+            title="Find dispatched bilties with no pohonch proof, and create a catch-up pohonch"
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl text-sm font-semibold text-rose-700 hover:bg-rose-100 shadow-sm">
+            <PackagePlus className="w-4 h-4"/> Nil Bilty Finder
+          </button>
+          <button onClick={()=>setShowChallanReport(true)}
+            title="See every challan dispatched in a month, and every bilty on them, with proof status"
+            className="flex items-center gap-2 px-4 py-2.5 bg-sky-50 border border-sky-200 rounded-xl text-sm font-semibold text-sky-700 hover:bg-sky-100 shadow-sm">
+            <FileSearch className="w-4 h-4"/> Challan Report
+          </button>
           <button onClick={handleRecalculateAll} disabled={bulkRecalculating || !allPohonch.length}
             title="Recalculate all pohonch for this transport from live bilty data"
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-800 hover:bg-amber-100 shadow-sm disabled:opacity-50">
@@ -1359,6 +1462,29 @@ export default function CrossingBillTransportPage() {
           ].map(c=><StatCard key={c.label} {...c}/>)}
         </div>
 
+        {/* ── Month-wise Total PF ── */}
+        {monthlyPfStats.length > 0 && (
+          <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-teal-600"/>
+              <h2 className="text-sm font-bold text-gray-900">Month-wise Total PF</h2>
+              <span className="text-xs text-gray-400">{transportName}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="flex gap-3 px-5 py-4 min-w-max">
+                {monthlyPfStats.map(m => (
+                  <div key={m.key} className="shrink-0 w-40 rounded-xl border border-teal-100 bg-teal-50/40 px-3.5 py-3">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{m.label}</p>
+                    <p className="text-lg font-black text-teal-800 mt-0.5">{Rs(m.pf)}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">PF · {m.pohonchCount} pohonch · {m.biltyCount} bilties</p>
+                    <p className="text-[10px] text-rose-500 font-semibold mt-0.5">Kaat: {Rs(m.kaat)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Two-column layout ── */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
 
@@ -1373,9 +1499,9 @@ export default function CrossingBillTransportPage() {
 
               {/* Legend */}
               <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] text-gray-500">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-400 inline-block"/>Actual avg</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block"/>Actual avg</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"/>Contracted</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>Variance</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>Mismatch only</span>
               </div>
 
               <div className="divide-y divide-gray-50">
@@ -1402,19 +1528,47 @@ export default function CrossingBillTransportPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {s.avgRate!=null
-                          ? <span className="bg-rose-50 border border-rose-200 rounded-lg px-2 py-1 text-[11px] font-black text-rose-600">Actual @{s.avgRate}/kg</span>
-                          : <span className="text-[10px] text-gray-300 italic">no actual data</span>}
-                        {s.contractedRate!=null
-                          ? <span className="bg-blue-50 border border-blue-200 rounded-lg px-2 py-1 text-[11px] font-black text-blue-700">Contract @{s.contractedRate}{modeLabel}</span>
-                          : <span className="text-[10px] text-gray-300 italic">no contract</span>}
-                        {s.variance!=null && (
-                          <span className={`rounded-lg px-2 py-1 text-[11px] font-black border ${varPos?'bg-emerald-50 text-emerald-700 border-emerald-200':varNeg?'bg-red-50 text-red-600 border-red-200':'bg-gray-50 text-gray-600 border-gray-200'}`}>
-                            {varPos?'+':''}{s.variance}
+                      {s.variance===0 ? (
+                        // Rates match — one calm confirmation, no red/rose noise
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 text-[11px] font-bold text-emerald-700">
+                            <CheckCircle2 className="w-3 h-3"/> Matches contract @{s.avgRate}{modeLabel}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {s.avgRate!=null
+                            ? <span className={`rounded-lg px-2 py-1 text-[11px] font-black border ${
+                                s.variance!=null ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-600'
+                              }`}>Actual @{s.avgRate}/kg</span>
+                            : <span className="text-[10px] text-gray-300 italic">no actual data</span>}
+                          {s.contractedRate!=null
+                            ? <span className="bg-blue-50 border border-blue-200 rounded-lg px-2 py-1 text-[11px] font-black text-blue-700">Contract @{s.contractedRate}{modeLabel}</span>
+                            : <span className="text-[10px] text-gray-300 italic">no contract</span>}
+                          {s.variance!=null && (
+                            <span className={`rounded-lg px-2 py-1 text-[11px] font-black border ${varPos?'bg-emerald-50 text-emerald-700 border-emerald-200':varNeg?'bg-red-50 text-red-600 border-red-200':'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                              {varPos?'+':''}{s.variance}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {s.variance!=null && s.variance!==0 && s.contractedRate!=null && s.grNos?.length>0 && (
+                        <button
+                          onClick={(e)=>{ e.stopPropagation(); handleFixStationRate(s); }}
+                          disabled={fixingStation===s.city}
+                          title={`Update all ${s.count} bilties in ${s.city} to the contracted rate ₹${s.contractedRate}`}
+                          className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                          {fixingStation===s.city ? <Loader2 className="w-3 h-3 animate-spin"/> : <Zap className="w-3 h-3"/>}
+                          {fixingStation===s.city ? 'Fixing…' : `Fix ${s.count} Bilties to Contract Rate (₹${s.contractedRate})`}
+                        </button>
+                      )}
+                      {fixResult && fixResult.city===s.city && (
+                        <div className={`mt-1.5 px-2 py-1 rounded-lg text-[10px] font-bold ${fixResult.error?'bg-red-50 text-red-600 border border-red-200':'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                          {fixResult.error
+                            ? fixResult.error
+                            : `✓ ${fixResult.data.updated_count} updated to ₹${fixResult.data.new_kaat_rate}${fixResult.data.pohonch_rows_synced>0?` · ${fixResult.data.pohonch_rows_synced} pohonch synced`:''}`}
+                        </div>
+                      )}
                       {s.hub && (s.hub.bilty_chrg>0||s.hub.ewb_chrg>0||s.hub.labour_chrg>0||s.hub.other_chrg>0||s.hub.min_charge>0) && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {s.hub.min_charge>0    && <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">Min ₹{Math.round(s.hub.min_charge)}</span>}
@@ -1734,6 +1888,8 @@ export default function CrossingBillTransportPage() {
                         const inStation    = stationPohonchIds.has(p.id);
                         const challans     = Array.isArray(p.challan_metadata)?p.challan_metadata:[];
                         const bilties      = Array.isArray(p.bilty_metadata)?p.bilty_metadata:[];
+                        const billedInNo   = billedPohonchMap.get(p.pohonch_number);
+                        const isBilled     = !!billedInNo;
 
                         // Per-bilty stats for expanded summary
                         const totalPkg     = bilties.reduce((s,b)=>s+(b.packages||0),0);
@@ -1744,16 +1900,24 @@ export default function CrossingBillTransportPage() {
                         return (
                           <React.Fragment key={p.id}>
                             <tr
-                              onClick={()=>toggleRow(p.id)}
-                              className={`border-b border-gray-100 transition-colors cursor-pointer ${
-                                activeStation && inStation ? 'bg-indigo-50 border-l-2 border-indigo-400'
-                                : isExpanded ? 'bg-teal-50/40'
-                                : i%2===0 ? 'bg-white' : 'bg-gray-50/30'
-                              } hover:bg-indigo-50/40 select-none`}>
+                              onClick={()=>{ if (!isBilled) toggleRow(p.id); }}
+                              title={isBilled ? `Already billed in ${billedInNo} — remove it from that bill first to re-select` : undefined}
+                              className={`border-b border-gray-100 transition-colors ${
+                                isBilled ? 'bg-gray-50 opacity-60 cursor-not-allowed'
+                                : `cursor-pointer hover:bg-indigo-50/40 ${
+                                    activeStation && inStation ? 'bg-indigo-50 border-l-2 border-indigo-400'
+                                    : isExpanded ? 'bg-teal-50/40'
+                                    : i%2===0 ? 'bg-white' : 'bg-gray-50/30'
+                                  }`
+                              } select-none`}>
                               <td className="px-3 py-2.5 text-center" onClick={e=>e.stopPropagation()}>
-                                <button onClick={()=>toggleRow(p.id)} className="text-teal-600 hover:text-teal-800">
-                                  <Square className="w-3.5 h-3.5 text-gray-300"/>
-                                </button>
+                                {isBilled ? (
+                                  <Lock className="w-3.5 h-3.5 text-gray-300 mx-auto" />
+                                ) : (
+                                  <button onClick={()=>toggleRow(p.id)} className="text-teal-600 hover:text-teal-800">
+                                    <Square className="w-3.5 h-3.5 text-gray-300"/>
+                                  </button>
+                                )}
                               </td>
                               <td className="px-3 py-2.5" onClick={e=>e.stopPropagation()}>
                                 <button onClick={()=>toggleExpand(p.id)}
@@ -1761,6 +1925,11 @@ export default function CrossingBillTransportPage() {
                                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
                                   {p.pohonch_number}
                                 </button>
+                                {isBilled && (
+                                  <span className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded-full">
+                                    <Lock className="w-2.5 h-2.5"/>Billed in {billedInNo}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-3 py-2.5 font-mono text-black text-xs">
                                 {[...new Set(bilties.map(b=>b.pohonch_bilty).filter(Boolean))].join(', ') || '-'}
@@ -1937,6 +2106,7 @@ export default function CrossingBillTransportPage() {
                   crossChallanPrint={crossChallanPrint}
                   onDeleted={(id)=>setBills(prev=>prev.filter(b=>b.id!==id))}
                   onBillUpdated={(updated)=>setBills(prev=>prev.map(b=>b.id===bill.id?{...b,...updated}:b))}
+                  onPohonchDataLoaded={handlePohonchDataLoaded}
                 />
               ))}
               {hasMore && (
@@ -1953,6 +2123,22 @@ export default function CrossingBillTransportPage() {
       </div>
 
       {/* ── Modals ── */}
+      <NilBiltyFinder
+        isOpen={showNilFinder}
+        onClose={()=>setShowNilFinder(false)}
+        transportGstin={gstin}
+        userId={user?.id}
+        token={token}
+        onPohonchCreated={() => { fetchPohonch(); fetchBills(1); }}
+      />
+
+      <TransportChallanReport
+        isOpen={showChallanReport}
+        onClose={()=>setShowChallanReport(false)}
+        transportGstin={gstin}
+        transportName={transportName}
+      />
+
       <ConfirmBillModal
         isOpen={showConfirm}
         onClose={()=>setShowConfirm(false)}

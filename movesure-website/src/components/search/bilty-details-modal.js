@@ -99,16 +99,16 @@ const BiltyDetailsModal = memo(({
   // Payment badge component
   const getPaymentBadge = (paymentMode) => {
     const badges = {
-      'to-pay': 'bg-orange-100 text-orange-800',
-      'paid': 'bg-green-100 text-green-800',
-      'freeofcost': 'bg-blue-100 text-blue-800'
+      'to-pay':     'bg-orange-100 text-orange-800',
+      'paid':       'bg-green-100 text-green-800',
+      'freeofcost': 'bg-blue-100 text-blue-800',
+      'foc':        'bg-blue-100 text-blue-800'
     };
-    
     const colorClass = badges[paymentMode] || 'bg-gray-100 text-gray-800';
-    
+    const displayText = paymentMode === 'foc' ? 'FOC' : (paymentMode?.replace('-', ' ').toUpperCase() || 'Unknown');
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>
-        {paymentMode?.replace('-', ' ').toUpperCase() || 'Unknown'}
+        {displayText}
       </span>
     );
   };
@@ -333,22 +333,33 @@ const BiltyDetailsModal = memo(({
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-slate-600">No. of Packages:</span>
-                  <span className="font-semibold text-slate-900">{bilty.no_of_pkg || 0}</span>
+                  <span className="font-semibold text-slate-900">
+                    {isStation ? (bilty.no_of_packets || 0) : (bilty.no_of_pkg || 0)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Weight:</span>
-                  <span className="font-semibold text-slate-900">{bilty.wt || bilty.weight || 0} kg</span>
-                </div>                <div className="flex justify-between">
-                  <span className="text-slate-600">Rate per kg:</span>
-                  <span className="font-semibold text-slate-900">₹{bilty.rate || 0}</span>
+                  <span className="font-semibold text-slate-900">
+                    {isStation ? (bilty.weight || 0) : (bilty.wt || 0)} kg
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Labour Rate:</span>
-                  <span className="font-semibold text-slate-900">₹{bilty.labour_rate || 0}/pkg</span>
-                </div>
+                {!isStation && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Rate per kg:</span>
+                      <span className="font-semibold text-slate-900">₹{bilty.rate || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Labour Rate:</span>
+                      <span className="font-semibold text-slate-900">₹{bilty.labour_rate || 0}/pkg</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-600">Content:</span>
-                  <span className="font-semibold text-slate-900">{bilty.contain || 'N/A'}</span>
+                  <span className="font-semibold text-slate-900">
+                    {isStation ? (bilty.contents || bilty.content_field || 'N/A') : (bilty.contain || 'N/A')}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Private Marks:</span>
@@ -367,27 +378,40 @@ const BiltyDetailsModal = memo(({
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-slate-600">Payment Mode:</span>
-                  {getPaymentBadge(bilty.payment_mode)}
+                  {getPaymentBadge(isStation ? bilty.payment_status : bilty.payment_mode)}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Freight Amount:</span>
-                  <span className="font-semibold text-slate-900">₹{bilty.freight_amount || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Labour Charge:</span>
-                  <span className="font-semibold text-slate-900">₹{bilty.labour_charge || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Bill Charge:</span>
-                  <span className="font-semibold text-slate-900">₹{bilty.bill_charge || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Other Charges:</span>
-                  <span className="font-semibold text-slate-900">₹{bilty.other_charge || 0}</span>
-                </div>
+                {isStation ? (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Delivery Type:</span>
+                    <span className="font-semibold text-slate-900 capitalize">
+                      {bilty.delivery_type || 'N/A'}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Freight Amount:</span>
+                      <span className="font-semibold text-slate-900">₹{bilty.freight_amount || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Labour Charge:</span>
+                      <span className="font-semibold text-slate-900">₹{bilty.labour_charge || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Bill Charge:</span>
+                      <span className="font-semibold text-slate-900">₹{bilty.bill_charge || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Other Charges:</span>
+                      <span className="font-semibold text-slate-900">₹{bilty.other_charge || 0}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between border-t pt-2">
                   <span className="text-slate-800 font-semibold">Total Amount:</span>
-                  <span className="font-bold text-green-600 text-lg">₹{bilty.total || 0}</span>
+                  <span className="font-bold text-green-600 text-lg">
+                    ₹{isStation ? (bilty.amount || 0) : (bilty.total || 0)}
+                  </span>
                 </div>
               </div>
             </div>

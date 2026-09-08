@@ -203,7 +203,7 @@ const BiltySearchHeader = ({
               <p className="text-blue-100 text-sm font-medium">Total Bilties</p>
               <p className="text-2xl font-bold">
                 {loading ? (
-                  <div className="animate-pulse bg-blue-400 h-8 w-16 rounded"></div>
+                  <span className="animate-pulse bg-blue-400 h-8 w-16 rounded block"></span>
                 ) : (
                   stats.total.toLocaleString()
                 )}
@@ -220,7 +220,7 @@ const BiltySearchHeader = ({
               <p className="text-indigo-100 text-sm font-medium">Filtered</p>
               <p className="text-2xl font-bold">
                 {searchLoading ? (
-                  <div className="animate-pulse bg-indigo-400 h-8 w-16 rounded"></div>
+                  <span className="animate-pulse bg-indigo-400 h-8 w-16 rounded block"></span>
                 ) : (
                   stats.filtered.toLocaleString()
                 )}
@@ -248,7 +248,7 @@ const BiltySearchHeader = ({
               <p className="text-amber-100 text-sm font-medium">Total Amount</p>
               <p className="text-xl font-bold">
                 {loading ? (
-                  <div className="animate-pulse bg-amber-400 h-6 w-20 rounded"></div>
+                  <span className="animate-pulse bg-amber-400 h-6 w-20 rounded block"></span>
                 ) : (
                   `₹${stats.totalAmount.toLocaleString()}`
                 )}

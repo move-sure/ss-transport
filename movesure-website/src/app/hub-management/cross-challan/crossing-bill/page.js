@@ -225,15 +225,26 @@ export default function AllBillsPage() {
     return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredBills]);
 
-  // Group by month
+  // Group by month — with total PF (and per-transport PF breakdown) for each month
   const monthGroups = useMemo(() => {
     const map = {};
     filteredBills.forEach(b => {
       const key = b.created_at ? format(new Date(b.created_at), 'MMMM yyyy') : 'Unknown';
-      if (!map[key]) map[key] = { label: key, date: b.created_at || '', bills: [] };
-      map[key].bills.push(b);
+      if (!map[key]) map[key] = { label: key, date: b.created_at || '', bills: [], totalPf: 0, totalKaat: 0, byTransport: {} };
+      const g = map[key];
+      g.bills.push(b);
+      g.totalPf   += b.total_pf   || 0;
+      g.totalKaat += b.total_kaat || 0;
+
+      const tKey = b.transport_gstin || b.transport_name || 'Unknown';
+      if (!g.byTransport[tKey]) g.byTransport[tKey] = { name: b.transport_name || tKey, gstin: b.transport_gstin || '', pf: 0, kaat: 0, bills: 0 };
+      g.byTransport[tKey].pf    += b.total_pf   || 0;
+      g.byTransport[tKey].kaat  += b.total_kaat || 0;
+      g.byTransport[tKey].bills += 1;
     });
-    return Object.values(map).sort((a, b) => new Date(b.date) - new Date(a.date));
+    return Object.values(map)
+      .map(g => ({ ...g, transports: Object.values(g.byTransport).sort((a, b) => b.pf - a.pf) }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [filteredBills]);
 
   if (!mounted) return null;
@@ -349,10 +360,29 @@ export default function AllBillsPage() {
           <div className="space-y-5">
             {monthGroups.map(mg => (
               <div key={mg.label} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <Calendar className="w-4 h-4 text-gray-500"/>
-                  <h3 className="text-sm font-black text-gray-900">{mg.label}</h3>
-                  <span className="text-xs text-gray-400">{mg.bills.length} bills</span>
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 space-y-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Calendar className="w-4 h-4 text-gray-500"/>
+                    <h3 className="text-sm font-black text-gray-900">{mg.label}</h3>
+                    <span className="text-xs text-gray-400">{mg.bills.length} bills · {mg.transports.length} transports</span>
+                    <span className="ml-auto text-sm font-black text-teal-700">Total PF: {Rs(mg.totalPf)}</span>
+                    <span className="text-xs font-bold text-rose-600">Kaat: {Rs(mg.totalKaat)}</span>
+                  </div>
+                  {/* Per-transport PF breakdown for this month */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {mg.transports.map(t => (
+                      <Link
+                        key={t.gstin || t.name}
+                        href={`/hub-management/cross-challan/crossing-bill/${encodeURIComponent(t.gstin || t.name)}`}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-teal-100 rounded-lg text-[11px] hover:border-teal-300 hover:bg-teal-50/50 transition-colors"
+                        title={`${t.bills} bill(s) · Kaat ${Rs(t.kaat)}`}
+                      >
+                        <Truck className="w-3 h-3 text-gray-400"/>
+                        <span className="font-semibold text-gray-700">{t.name}</span>
+                        <span className="font-black text-teal-700">{Rs(t.pf)}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
                 <div className="divide-y divide-gray-50">
                   {mg.bills.map(bill => <BillItem key={bill.id} bill={bill}/>)}

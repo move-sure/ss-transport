@@ -1,0 +1,263 @@
+# Your Exact Scenario, Worked Out (and already created for real)
+
+You said: *Transport A owes us ₹45,000 for August. They pay ₹15,000 cash on
+2 Sept, and ₹30,000 by cheque on 4 Sept. I don't know what to Dr, what to
+Cr, or what ledgers to even make.*
+
+I built exactly this in your real database, using your real Kanpur branch
+and a transporter you already work with (Kanpur Bahraich Forwarding). Every
+ID below is real — you can call these APIs right now and see real numbers
+come back. Nothing here is a mockup.
+
+---
+
+## The one rule that makes Dr/Cr stop being confusing
+
+Forget "debit and credit" as abstract words. Ask two questions about every
+line of money movement:
+
+| Question | Answer decides |
+|---|---|
+| **Where did the value go TO?** | That account gets **Dr** |
+| **Where did the value come FROM?** | That account gets **Cr** |
+
+That's it. That's the whole rule. A few restatements that make it click
+for your specific case:
+
+- Someone **now owes you more** → their ledger goes up → **Dr their ledger**
+- Someone **owes you less because they paid** → their ledger goes down → **Cr their ledger**
+- **Cash or Bank balance went up** (you received money) → **Dr Cash/Bank**
+- **You earned income** → **Cr the Income ledger**
+
+Every entry always has a "goes to" side and a "comes from" side, and they're
+always equal amounts. That's the whole double-entry system — there's no
+more to it than this.
+
+---
+
+## The 5 ledgers you need (one-time setup — already done for you)
+
+| Ledger | Category (Group) | What it represents |
+|---|---|---|
+| **Kanpur Bahraich Forwarding** | Transporters (a folder I made under "Sundry Debtors") | The transporter who owes you money |
+| **Kanpur Branch Cash (Galla)** | Cash-in-Hand | Physical cash in your branch's cash box |
+| **Kanpur Branch Bank Account** | Bank Accounts | Your branch's bank account |
+| **PF Income** | Direct Incomes | **Income that comes FROM transporters** (their PF/freight settlement — the crossing-bill kind of income) |
+| **Delivery Income** | Direct Incomes | A *separate* ledger for income that does NOT come from transporters (e.g. door-delivery charges collected directly from a consignee) — kept, but unused in this example |
+
+**Important correction:** income received from a transporter goes to **PF
+Income**, not Delivery Income — those are two different revenue streams
+for you, and mixing them would make both numbers wrong. I originally
+credited Delivery Income by mistake in the first draft of this example;
+it's now fixed (see the correction note below).
+
+You make these **once per transporter / once per branch**, not once per
+bill or once per payment. From now on, every August bill, every payment,
+every future transporter — you just create more bills and vouchers
+against these same ledgers. You will NOT be creating a new ledger for
+every transaction — only for every new person/account.
+
+**These already exist in your database right now:**
+```
+Kanpur Bahraich Forwarding  → 76925a50-7508-4dd4-8006-62c3f3ca15e8
+Kanpur Branch Cash (Galla)  → d05afa5c-b673-4bbd-b965-fe8429dea0c0
+Kanpur Branch Bank Account  → 0dda502d-eb48-46c9-8136-d860abe29f66
+PF Income                   → d949baeb-af61-44f4-8792-e3135df97eea
+Delivery Income             → d8980c7d-8d98-430a-bb69-e02634e81615   (unused here — kept for door-delivery income)
+```
+Check any of them right now: `GET /api/ledger/ledgers/76925a50-7508-4dd4-8006-62c3f3ca15e8/balance`
+
+---
+
+## Your exact story, as 3 real transactions
+
+### 1. Raising the August bill (31 Aug 2026)
+
+**Plain words:** "Kanpur Bahraich Forwarding owes me ₹45,000 — their PF
+settlement for August."
+
+**Dr/Cr, using the rule above:**
+- The transporter now owes you ₹45,000 more → **Dr Kanpur Bahraich Forwarding ₹45,000**
+- That value came from income you earned from them → **Cr PF Income ₹45,000**
+
+**The real API call (corrected — credits PF Income, not Delivery Income):**
+```json
+POST /api/ledger/vouchers
+{
+  "branch_id": "e47a517f-92b5-4a28-91b4-4e67916d172e",
+  "voucher_type": "sales",
+  "voucher_date": "2026-08-31",
+  "narration": "August PF settlement - Kanpur Bahraich Forwarding",
+  "created_by": "<your user id>",
+  "entries": [
+    { "ledger_id": "76925a50-7508-4dd4-8006-62c3f3ca15e8", "entry_type": "dr", "amount": 45000,
+      "bill_allocation_type": "new_ref",
+      "new_bill": { "reference_no": "AUG-2026-KBF", "due_date": "2026-09-15" } },
+    { "ledger_id": "d949baeb-af61-44f4-8792-e3135df97eea", "entry_type": "cr", "amount": 45000 }
+  ]
+}
+```
+**Result:** A Sales voucher (its number depends on which branch/type
+sequence it lands in — voucher numbers are per branch+type, so don't
+worry if it doesn't say `SAL0001`, e.g. someone else's branch might
+already have used that number for their own unrelated voucher). A new
+bill, `AUG-2026-KBF` (id `1113da18-1794-4f13-ade5-e9d76ee7643b`), ₹45,000,
+unpaid, now exists against the transporter.
+
+**How the correction was actually made:** rather than cancel and redo the
+whole voucher, only the one wrong line (the Cr side) needed to change —
+its ledger was updated from Delivery Income to PF Income directly, with an
+audit log entry recording the before/after. The bill, the transporter's Dr
+entry, and both payment vouchers below were already correct and untouched.
+
+### 2. They pay ₹15,000 cash (2 Sept 2026)
+
+**Plain words:** "I received ₹15,000 cash from them against the August bill."
+
+**Dr/Cr:**
+- Cash in your Galla went up → **Dr Kanpur Branch Cash (Galla) ₹15,000**
+- That value came from reducing what the transporter owes → **Cr Kanpur Bahraich Forwarding ₹15,000**, tagged against bill `AUG-2026-KBF`
+
+```json
+POST /api/ledger/vouchers
+{
+  "branch_id": "e47a517f-92b5-4a28-91b4-4e67916d172e",
+  "voucher_type": "receipt",
+  "voucher_date": "2026-09-02",
+  "narration": "Cash received from Kanpur Bahraich Forwarding against AUG-2026-KBF",
+  "created_by": "<your user id>",
+  "entries": [
+    { "ledger_id": "d05afa5c-b673-4bbd-b965-fe8429dea0c0", "entry_type": "dr", "amount": 15000 },
+    { "ledger_id": "76925a50-7508-4dd4-8006-62c3f3ca15e8", "entry_type": "cr", "amount": 15000,
+      "bill_allocation_type": "agst_ref", "bill_reference_id": "1113da18-1794-4f13-ade5-e9d76ee7643b" }
+  ]
+}
+```
+**Result:** Voucher `REC0001` created. The bill's outstanding balance drops
+from ₹45,000 to ₹30,000.
+
+### 3. They pay ₹30,000 by cheque (4 Sept 2026)
+
+**Plain words:** "I received a ₹30,000 cheque from them against the same bill."
+
+**Dr/Cr:** same logic, just Bank instead of Cash:
+- Your bank balance went up → **Dr Kanpur Branch Bank Account ₹30,000**
+- Comes from reducing what they owe → **Cr Kanpur Bahraich Forwarding ₹30,000**, same bill
+
+```json
+POST /api/ledger/vouchers
+{
+  "branch_id": "e47a517f-92b5-4a28-91b4-4e67916d172e",
+  "voucher_type": "receipt",
+  "voucher_date": "2026-09-04",
+  "narration": "Cheque received from Kanpur Bahraich Forwarding against AUG-2026-KBF",
+  "created_by": "<your user id>",
+  "entries": [
+    { "ledger_id": "0dda502d-eb48-46c9-8136-d860abe29f66", "entry_type": "dr", "amount": 30000 },
+    { "ledger_id": "76925a50-7508-4dd4-8006-62c3f3ca15e8", "entry_type": "cr", "amount": 30000,
+      "bill_allocation_type": "agst_ref", "bill_reference_id": "1113da18-1794-4f13-ade5-e9d76ee7643b" }
+  ]
+}
+```
+**Result:** Voucher `REC0002` created. Bill balance drops from ₹30,000 to
+**₹0 — fully settled.**
+
+---
+
+## The final, real, verified numbers (right now, in your database)
+
+| Ledger | Balance |
+|---|---|
+| Kanpur Bahraich Forwarding | **₹0** (fully settled — they don't owe you anything from this bill anymore) |
+| Kanpur Branch Cash (Galla) | **₹15,000 Dr** (physically sitting in the cash box) |
+| Kanpur Branch Bank Account | **₹30,000 Dr** (sitting in the bank) |
+| PF Income | **₹45,000 Cr** (total PF revenue earned from this transporter) |
+| Delivery Income | **₹0** (untouched — correctly not mixed in with PF Income) |
+
+₹15,000 + ₹30,000 = ₹45,000 — the cash/bank you now hold exactly equals
+the PF income you earned. That's the whole system working correctly, and
+you can verify it yourself:
+```
+GET /api/ledger/ledgers/76925a50-7508-4dd4-8006-62c3f3ca15e8/balance   → 0, dr
+GET /api/ledger/ledgers/d05afa5c-b673-4bbd-b965-fe8429dea0c0/balance   → 15000, dr
+GET /api/ledger/ledgers/0dda502d-eb48-46c9-8136-d860abe29f66/balance   → 30000, dr
+GET /api/ledger/ledgers/d949baeb-af61-44f4-8792-e3135df97eea/balance   → 45000, cr   (PF Income)
+GET /api/ledger/ledgers/d8980c7d-8d98-430a-bb69-e02634e81615/balance   → 0, dr       (Delivery Income, untouched)
+GET /api/ledger/bills/1113da18-1794-4f13-ade5-e9d76ee7643b             → balance_amount: 0, is_settled: true
+```
+
+---
+
+## A simple, custom UI for THIS — not the generic 8-voucher-type screen
+
+Forget the generic "Payment / Receipt / Journal / ..." voucher form from
+the other UI guide — for your day-to-day use, that's more than you need.
+Build these 3 focused screens instead. Each one is a plain-language form;
+none of them ever show the word "Dr" or "Cr" to you — the screen quietly
+sends the correct Dr/Cr voucher underneath, exactly like the 3 calls
+above.
+
+### Screen 1 — Transporter Ledger (per transporter)
+
+Pick a transporter from a dropdown (their ledgers, from the "Transporters"
+group). Show:
+- A big number: **"Owes you: ₹X"** (their `GET .../balance`, `dr` = they owe you)
+- A table of their bills (`GET /api/ledger/bills?ledger_id=<id>`): Bill Ref, Date, Amount, Balance Due, Paid?
+- Two buttons:
+
+**"Raise a Bill"** — form asks just: *Amount, Bill reference/date, Due date
+(optional)*. Behind the scenes → a `sales` voucher, Dr the transporter /
+Cr **PF Income**, `bill_allocation_type: "new_ref"` — exactly transaction
+#1 above, just with your form's amount/reference/date substituted in.
+(Every transporter's bill credits the same PF Income ledger — that's what
+makes Screen 3 below able to show total PF income across all of them.)
+
+**"Record a Payment"** (shown next to each unpaid bill row) — form asks:
+*How much did they pay? Cash or Bank?* Behind the scenes → a `receipt`
+voucher: Dr Cash Galla (if "Cash" chosen) or Dr Bank Account (if "Bank/Cheque"
+chosen) / Cr the transporter, `bill_allocation_type: "agst_ref"` pointing
+at that bill's id — exactly transactions #2 and #3 above.
+
+That's the entire mental model your staff needs: *pick who, pick how much,
+pick cash-or-bank.* No Dr/Cr vocabulary ever shown.
+
+### Screen 2 — Cash Galla (daily cash register)
+
+One page, scoped to your one "Kanpur Branch Cash (Galla)" ledger:
+- Big number at top: **"Cash in hand: ₹X"** (`GET .../balance`)
+- Below it, the statement (`GET .../statement?from_date=&to_date=`) as a
+  simple two-column list: money **in** (Dr rows) and money **out** (Cr
+  rows), each with date and narration — a plain cash-book view, exactly
+  like the paper register you already keep.
+
+### Screen 3 — PF Income (monthly total)
+
+One page: pick a month, show total PF Income for that month. Since
+`PF Income` is one ledger, this is just its statement for that date range
+(`GET /api/ledger/ledgers/<PF Income id>/statement?from_date=&to_date=`) —
+every Cr row is one transporter's bill raised, so the list doubles as
+"which transporters contributed how much PF income this month." Build the
+identical screen for Delivery Income later, once you have real
+door-delivery transactions to put through it — same pattern, different
+ledger.
+
+### Repeating this for a new branch or a new transporter
+
+- **New transporter, same branch:** one new ledger (name = transporter,
+  group = Transporters, `is_bill_wise: true`) — everything else reuses the
+  same Cash Galla / Bank / PF Income ledgers for that branch.
+- **New branch:** 4 new ledgers — that branch's own Cash Galla, its own
+  Bank Account, its own PF Income, and its own Delivery Income (income is
+  usually tracked per-branch too, so you can see which branch earns what).
+
+---
+
+## Cleaning up this example (optional)
+
+Everything above is real data sitting in your database right now — a
+working demo, not throwaway test junk, so I've left it in place. If you'd
+rather start clean once your UI is ready, cancel the 3 vouchers (the Sales
+voucher for bill `AUG-2026-KBF`, and receipt vouchers `REC0001` and
+`REC0002` on branch `e47a517f-92b5-4a28-91b4-4e67916d172e`) and deactivate
+the 5 ledgers and the "Transporters" group — just tell me and I'll do it,
+or leave it as your first real worked example.

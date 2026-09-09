@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Truck, Menu, X, Phone } from 'lucide-react';
+import { COMPANY_NAME, CUSTOMER_CARE, formatPhone, telHref } from '@/data/company';
 
 const LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/about', label: 'About Us' },
-  { href: '/contact', label: 'Contact' },
+  { href: '#home', label: 'Home' },
+  { href: '#about', label: 'About Us' },
+  { href: '#branches', label: 'Branches' },
+  { href: '#stations', label: 'Stations' },
+  { href: '#contact', label: 'Contact' },
 ];
 
 export default function Navbar() {
@@ -21,10 +24,7 @@ export default function Navbar() {
             <span className="bg-blue-900 text-white rounded-lg p-2">
               <Truck className="w-5 h-5" />
             </span>
-            <span className="text-lg leading-tight">
-              SS Transport<br className="hidden sm:block" />
-              <span className="font-normal text-sm text-slate-500 sm:hidden"> Corporation</span>
-            </span>
+            <span className="text-lg leading-tight uppercase">{COMPANY_NAME}</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -36,15 +36,15 @@ export default function Navbar() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <a href="tel:+911234567890" className="flex items-center gap-2 text-sm font-semibold text-blue-900">
-              <Phone className="w-4 h-4" /> +91 123 456 7890
+            <a href={telHref(CUSTOMER_CARE.phone)} className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+              <Phone className="w-4 h-4" /> {formatPhone(CUSTOMER_CARE.phone)}
             </a>
-            <Link
-              href="/contact"
+            <a
+              href="#contact"
               className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               Get a Quote
-            </Link>
+            </a>
           </div>
 
           <button
@@ -70,8 +70,8 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            <a href="tel:+911234567890" className="py-2.5 text-sm font-semibold text-blue-900 flex items-center gap-2">
-              <Phone className="w-4 h-4" /> +91 123 456 7890
+            <a href={telHref(CUSTOMER_CARE.phone)} className="py-2.5 text-sm font-semibold text-blue-900 flex items-center gap-2">
+              <Phone className="w-4 h-4" /> {formatPhone(CUSTOMER_CARE.phone)}
             </a>
           </nav>
         </div>

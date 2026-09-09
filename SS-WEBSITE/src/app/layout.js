@@ -14,15 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "SS Transport Corporation | Freight & Logistics",
-  description: "SS Transport Corporation — reliable freight, trucking and logistics services across India. On-time delivery, every route, every load.",
+  title: "SS Transport Co. | Freight & Logistics",
+  description: "SS Transport Co. — reliable freight, trucking and logistics services across India. On-time delivery, every route, every load.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
       <body className="min-h-full flex flex-col">
         <Navbar />

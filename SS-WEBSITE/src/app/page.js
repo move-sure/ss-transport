@@ -11,7 +11,7 @@ import StationsSearch from '@/components/StationsSearch';
 const SERVICES = [
   { icon: Truck, image: '/full-truck-load.png', title: 'Full Truckload (FTL)', description: 'Dedicated trucks for large shipments, moving door-to-door with no stops in between.' },
   { icon: PackageCheck, image: '/part-truck-load.png', title: 'Part Load Delivery', description: 'Cost-effective shared-load transport for smaller consignments across our network.' },
-  { icon: Warehouse, image: '/warehouse.png', title: 'Warehousing', description: 'Secure storage and cross-docking facilities to keep your goods moving efficiently.' },
+  { icon: Warehouse, image: '/dube-parao1.jpeg', title: 'Warehousing', description: 'Secure storage and cross-docking facilities to keep your goods moving efficiently.' },
   { icon: MapPinned, image: '/pan-india.png', title: 'Pan-India Network', description: 'Reliable coverage across major routes and cities, with hubs built for fast transit.' },
 ];
 
@@ -62,15 +62,23 @@ export default function HomePage() {
   return (
     <div>
       {/* Home / Hero */}
-      <section id="home" className="relative bg-amber-900 text-white scroll-mt-16 overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-32 -left-16 w-80 h-80 bg-amber-400/10 rounded-full blur-3xl" />
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-28 grid md:grid-cols-2 gap-10 items-center">
-          <div>
+      <section id="home" className="relative text-white scroll-mt-16 overflow-hidden min-h-[85vh] flex items-center">
+        <Image
+          src="/full-truck-load.png"
+          alt="SS Transport Co. truck being loaded"
+          fill
+          priority
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-950/95 via-amber-950/80 to-amber-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-amber-950/90 via-transparent to-amber-950/30" />
+
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-20 w-full">
+          <div className="max-w-xl">
             <p className="opacity-0 animate-[fade-in-up_0.8s_ease-out_1.7s_both] text-amber-300 font-semibold text-sm tracking-wide uppercase mb-3">
               All India Service · Freight & Logistics
             </p>
-            <h1 className="opacity-0 animate-[fade-in-up_0.8s_ease-out_1.85s_both] text-4xl sm:text-5xl font-bold leading-tight mb-5">
+            <h1 className="opacity-0 animate-[fade-in-up_0.8s_ease-out_1.85s_both] text-4xl sm:text-6xl font-bold leading-tight mb-5">
               Moving Your Business, <span className="text-amber-300">On Every Route</span>
             </h1>
             <p className="opacity-0 animate-[fade-in-up_0.8s_ease-out_2s_both] text-amber-50 text-lg mb-8 max-w-lg">
@@ -78,7 +86,7 @@ export default function HomePage() {
               and warehousing services across India — built for businesses that
               can&apos;t afford delays.
             </p>
-            <div className="opacity-0 animate-[fade-in-up_0.8s_ease-out_2.15s_both] flex flex-wrap gap-4">
+            <div className="opacity-0 animate-[fade-in-up_0.8s_ease-out_2.15s_both] flex flex-wrap gap-4 mb-12">
               <a href="#contact" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 hover:scale-105 text-white font-semibold px-6 py-3.5 rounded-lg transition-all">
                 Get a Quote <ArrowRight className="w-4 h-4" />
               </a>
@@ -87,9 +95,21 @@ export default function HomePage() {
               </a>
             </div>
           </div>
-          <div className="hidden md:flex justify-center opacity-0 animate-[fade-in_1s_ease-out_1.9s_both]">
-            <div className="animate-[float_4s_ease-in-out_infinite] bg-white/10 border border-white/20 rounded-2xl p-8 w-full max-w-sm">
-              <Truck className="w-full h-40 text-amber-300" strokeWidth={1} />
+
+          <div className="opacity-0 animate-[fade-in-up_0.8s_ease-out_2.3s_both] inline-flex flex-wrap items-center gap-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-6 py-4">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-bold text-amber-300">35+</span>
+              <span className="text-sm text-amber-50 leading-tight">Years of<br />Excellence</span>
+            </div>
+            <div className="w-px h-10 bg-white/20 hidden sm:block" />
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-bold text-amber-300">1L+</span>
+              <span className="text-sm text-amber-50 leading-tight">Consignments<br />Delivered</span>
+            </div>
+            <div className="w-px h-10 bg-white/20 hidden sm:block" />
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-bold text-amber-300">550+</span>
+              <span className="text-sm text-amber-50 leading-tight">Cities<br />Covered</span>
             </div>
           </div>
         </div>
@@ -272,9 +292,22 @@ export default function HomePage() {
                   </div>
                   <h3 className="text-xl font-bold text-slate-900 mb-2">{branch.name}</h3>
                   <p className="text-slate-600 leading-relaxed mb-3">{branch.address}</p>
-                  <p className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
                     <Clock className="w-4 h-4" /> {branch.hours}
                   </p>
+                  {branch.phones?.length > 0 && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {branch.phones.map((phone) => (
+                        <a
+                          key={phone}
+                          href={telHref(phone)}
+                          className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-amber-700 transition-colors"
+                        >
+                          <Phone className="w-4 h-4 text-amber-600" /> {formatPhone(phone)}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-2xl overflow-hidden border border-slate-100 min-h-[260px]">
                   <iframe

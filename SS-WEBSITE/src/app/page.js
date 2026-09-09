@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Truck, Warehouse, MapPinned, ShieldCheck, Clock, ArrowRight, PackageCheck,
-  Target, Eye, HeartHandshake, Users, MapPin, Phone, Mail,
+  Target, Eye, HeartHandshake, Users, MapPin, Phone, Mail, Leaf, Zap, Wind, Recycle,
 } from 'lucide-react';
 import { BRANCHES, COMPANY_EMAIL, CUSTOMER_CARE, OWNER_CONTACTS, formatPhone, telHref } from '@/data/company';
 import ContactForm from '@/components/ContactForm';
@@ -32,6 +32,12 @@ const VALUES = [
   { icon: Target, title: 'Our Mission', description: 'To move every shipment safely and on time, so our customers never have to worry about their freight.' },
   { icon: Eye, title: 'Our Vision', description: 'To be the most trusted logistics partner for businesses across India, one delivery at a time.' },
   { icon: HeartHandshake, title: 'Our Values', description: 'Reliability, transparency, and respect — for our customers, our drivers, and our partners.' },
+];
+
+const GREEN_POINTS = [
+  { icon: Zap, text: 'Zero tailpipe emissions on every electric delivery' },
+  { icon: Wind, text: 'Lower noise, cleaner air in the cities we serve' },
+  { icon: Recycle, text: 'Reduced fuel dependency and a smaller carbon footprint' },
 ];
 
 function ContactRow({ icon: Icon, label, href, value }) {
@@ -158,6 +164,42 @@ export default function HomePage() {
             <a href="#contact" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
               Contact Us <ArrowRight className="w-4 h-4" />
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Sustainability */}
+      <section id="sustainability" className="bg-white scroll-mt-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
+          <div className="relative h-80 sm:h-96 rounded-2xl overflow-hidden border border-slate-100 shadow-sm order-2 md:order-1">
+            <Image src="/electric.jpeg" alt="SS Transport Co. electric delivery truck" fill className="object-cover" />
+          </div>
+          <div className="order-1 md:order-2">
+            <div className="bg-amber-50 text-amber-800 rounded-xl w-12 h-12 flex items-center justify-center mb-4">
+              <Leaf className="w-6 h-6" />
+            </div>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">Green Energy & Sustainability</p>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">Driving Toward a Cleaner Tomorrow</h2>
+            <p className="text-slate-600 leading-relaxed mb-6">
+              We believe in green energy and sustainability — that&apos;s why
+              SS Transport Co. has introduced electric motor fleets into our
+              operations. It&apos;s a step toward reducing our environmental
+              impact while still delivering the same reliability our
+              customers count on.
+            </p>
+            <div className="space-y-3">
+              {GREEN_POINTS.map((g) => {
+                const Icon = g.icon;
+                return (
+                  <div key={g.text} className="flex items-center gap-3">
+                    <div className="bg-amber-50 text-amber-700 rounded-lg w-8 h-8 shrink-0 flex items-center justify-center">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <p className="text-sm text-slate-600">{g.text}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>

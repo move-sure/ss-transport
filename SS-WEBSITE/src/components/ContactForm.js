@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Send, CheckCircle2 } from 'lucide-react';
 
-const inputCls = 'w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900';
+const inputCls = 'w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:border-amber-700';
 
 export default function ContactForm() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
@@ -61,7 +61,7 @@ export default function ContactForm() {
       </div>
       <button
         type="submit"
-        className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+        className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
       >
         Send Message <Send className="w-4 h-4" />
       </button>

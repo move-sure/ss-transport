@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Truck, Menu, X, Phone } from 'lucide-react';
+import Image from 'next/image';
+import { Menu, X, Phone } from 'lucide-react';
 import { COMPANY_NAME, CUSTOMER_CARE, formatPhone, telHref } from '@/data/company';
 
 const LINKS = [
@@ -21,27 +22,25 @@ export default function Navbar() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2 font-bold text-slate-900" onClick={() => setOpen(false)}>
-            <span className="bg-blue-900 text-white rounded-lg p-2">
-              <Truck className="w-5 h-5" />
-            </span>
+            <Image src="/logo.png" alt={COMPANY_NAME} width={1063} height={1063} className="h-11 w-11 object-contain" priority />
             <span className="text-lg leading-tight uppercase">{COMPANY_NAME}</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
             {LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className="text-sm font-medium text-slate-600 hover:text-blue-900 transition-colors">
+              <Link key={link.href} href={link.href} className="text-sm font-medium text-slate-600 hover:text-amber-700 transition-colors">
                 {link.label}
               </Link>
             ))}
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <a href={telHref(CUSTOMER_CARE.phone)} className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+            <a href={telHref(CUSTOMER_CARE.phone)} className="flex items-center gap-2 text-sm font-semibold text-amber-800">
               <Phone className="w-4 h-4" /> {formatPhone(CUSTOMER_CARE.phone)}
             </a>
             <a
               href="#contact"
-              className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               Get a Quote
             </a>
@@ -65,12 +64,12 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="py-2.5 text-sm font-medium text-slate-700 hover:text-blue-900"
+                className="py-2.5 text-sm font-medium text-slate-700 hover:text-amber-700"
               >
                 {link.label}
               </Link>
             ))}
-            <a href={telHref(CUSTOMER_CARE.phone)} className="py-2.5 text-sm font-semibold text-blue-900 flex items-center gap-2">
+            <a href={telHref(CUSTOMER_CARE.phone)} className="py-2.5 text-sm font-semibold text-amber-800 flex items-center gap-2">
               <Phone className="w-4 h-4" /> {formatPhone(CUSTOMER_CARE.phone)}
             </a>
           </nav>

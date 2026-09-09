@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Truck, Warehouse, MapPinned, ShieldCheck, Clock, ArrowRight, PackageCheck,
   Target, Eye, HeartHandshake, Users, MapPin, Phone, Mail,
@@ -8,17 +9,17 @@ import ContactForm from '@/components/ContactForm';
 import StationsSearch from '@/components/StationsSearch';
 
 const SERVICES = [
-  { icon: Truck, title: 'Full Truckload (FTL)', description: 'Dedicated trucks for large shipments, moving door-to-door with no stops in between.' },
-  { icon: PackageCheck, title: 'Part Load Delivery', description: 'Cost-effective shared-load transport for smaller consignments across our network.' },
-  { icon: Warehouse, title: 'Warehousing', description: 'Secure storage and cross-docking facilities to keep your goods moving efficiently.' },
-  { icon: MapPinned, title: 'Pan-India Network', description: 'Reliable coverage across major routes and cities, with hubs built for fast transit.' },
+  { icon: Truck, image: '/full-truck-load.png', title: 'Full Truckload (FTL)', description: 'Dedicated trucks for large shipments, moving door-to-door with no stops in between.' },
+  { icon: PackageCheck, image: '/part-truck-load.png', title: 'Part Load Delivery', description: 'Cost-effective shared-load transport for smaller consignments across our network.' },
+  { icon: Warehouse, image: '/warehouse.png', title: 'Warehousing', description: 'Secure storage and cross-docking facilities to keep your goods moving efficiently.' },
+  { icon: MapPinned, image: '/pan-india.png', title: 'Pan-India Network', description: 'Reliable coverage across major routes and cities, with hubs built for fast transit.' },
 ];
 
 const STATS = [
-  { value: '25+', label: 'Years in Business' },
-  { value: '500+', label: 'Trucks on the Road' },
-  { value: '50,000+', label: 'Deliveries Completed' },
-  { value: '100+', label: 'Cities Covered' },
+  { value: '35+', label: 'Years Of Excellence' },
+  { value: '1 Lakh+', label: 'Consignments Done' },
+  { value: '10k+', label: 'Trips' },
+  { value: '550+', label: 'Cities Covered' },
 ];
 
 const WHY_US = [
@@ -36,13 +37,13 @@ const VALUES = [
 function ContactRow({ icon: Icon, label, href, value }) {
   return (
     <div className="flex gap-4">
-      <div className="bg-blue-50 text-blue-900 rounded-lg w-11 h-11 shrink-0 flex items-center justify-center">
+      <div className="bg-amber-50 text-amber-800 rounded-lg w-11 h-11 shrink-0 flex items-center justify-center">
         <Icon className="w-5 h-5" />
       </div>
       <div>
         <p className="text-sm font-semibold text-slate-900">{label}</p>
         {href ? (
-          <a href={href} className="text-sm text-slate-500 mt-0.5 block hover:text-blue-900">{value}</a>
+          <a href={href} className="text-sm text-slate-500 mt-0.5 block hover:text-amber-700">{value}</a>
         ) : (
           <p className="text-sm text-slate-500 mt-0.5">{value}</p>
         )}
@@ -55,20 +56,20 @@ export default function HomePage() {
   return (
     <div>
       {/* Home / Hero */}
-      <section id="home" className="bg-blue-900 text-white scroll-mt-16">
+      <section id="home" className="bg-amber-900 text-white scroll-mt-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-28 grid md:grid-cols-2 gap-10 items-center">
           <div>
-            <p className="text-orange-400 font-semibold text-sm tracking-wide uppercase mb-3">Freight & Logistics</p>
+            <p className="text-amber-300 font-semibold text-sm tracking-wide uppercase mb-3">All India Service · Freight & Logistics</p>
             <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-5">
-              Moving Your Business, <span className="text-orange-400">On Every Route</span>
+              Moving Your Business, <span className="text-amber-300">On Every Route</span>
             </h1>
-            <p className="text-blue-100 text-lg mb-8 max-w-lg">
+            <p className="text-amber-50 text-lg mb-8 max-w-lg">
               SS Transport Co. delivers reliable full truckload, part load,
               and warehousing services across India — built for businesses that
               can&apos;t afford delays.
             </p>
             <div className="flex flex-wrap gap-4">
-              <a href="#contact" className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3.5 rounded-lg transition-colors">
+              <a href="#contact" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3.5 rounded-lg transition-colors">
                 Get a Quote <ArrowRight className="w-4 h-4" />
               </a>
               <a href="#about" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold px-6 py-3.5 rounded-lg transition-colors">
@@ -78,7 +79,7 @@ export default function HomePage() {
           </div>
           <div className="hidden md:flex justify-center">
             <div className="bg-white/10 border border-white/20 rounded-2xl p-8 w-full max-w-sm">
-              <Truck className="w-full h-40 text-orange-400" strokeWidth={1} />
+              <Truck className="w-full h-40 text-amber-300" strokeWidth={1} />
             </div>
           </div>
         </div>
@@ -89,7 +90,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {STATS.map((s) => (
             <div key={s.label}>
-              <p className="text-3xl font-bold text-blue-900">{s.value}</p>
+              <p className="text-3xl font-bold text-amber-800">{s.value}</p>
               <p className="text-sm text-slate-500 mt-1">{s.label}</p>
             </div>
           ))}
@@ -100,19 +101,24 @@ export default function HomePage() {
       <section className="bg-slate-50">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-orange-600 font-semibold text-sm tracking-wide uppercase mb-2">What We Do</p>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">What We Do</p>
             <h2 className="text-3xl font-bold text-slate-900">Services Built for Your Freight</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {SERVICES.map((s) => {
               const Icon = s.icon;
               return (
-                <div key={s.title} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="bg-blue-50 text-blue-900 rounded-xl w-12 h-12 flex items-center justify-center mb-4">
-                    <Icon className="w-6 h-6" />
+                <div key={s.title} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                  <div className="relative w-full h-36 bg-slate-100">
+                    <Image src={s.image} alt={s.title} fill className="object-cover" />
                   </div>
-                  <h3 className="font-semibold text-slate-900 mb-2">{s.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{s.description}</p>
+                  <div className="p-6">
+                    <div className="bg-amber-50 text-amber-800 rounded-xl w-12 h-12 flex items-center justify-center mb-4 -mt-12 relative border-4 border-white shadow-sm">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 mb-2">{s.title}</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">{s.description}</p>
+                  </div>
                 </div>
               );
             })}
@@ -124,14 +130,14 @@ export default function HomePage() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <p className="text-orange-600 font-semibold text-sm tracking-wide uppercase mb-2">Why Choose Us</p>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">Why Choose Us</p>
             <h2 className="text-3xl font-bold text-slate-900 mb-6">A Partner You Can Rely On</h2>
             <div className="space-y-6">
               {WHY_US.map((w) => {
                 const Icon = w.icon;
                 return (
                   <div key={w.title} className="flex gap-4">
-                    <div className="bg-orange-50 text-orange-600 rounded-lg w-11 h-11 shrink-0 flex items-center justify-center">
+                    <div className="bg-amber-50 text-amber-700 rounded-lg w-11 h-11 shrink-0 flex items-center justify-center">
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
@@ -143,13 +149,13 @@ export default function HomePage() {
               })}
             </div>
           </div>
-          <div className="bg-blue-900 rounded-2xl p-10 text-white">
+          <div className="bg-amber-900 rounded-2xl p-10 text-white">
             <h3 className="text-2xl font-bold mb-3">Need a shipment moved?</h3>
-            <p className="text-blue-100 mb-6">
+            <p className="text-amber-50 mb-6">
               Tell us your route and load — our team will get back to you with a
               quote the same day.
             </p>
-            <a href="#contact" className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
+            <a href="#contact" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
               Contact Us <ArrowRight className="w-4 h-4" />
             </a>
           </div>
@@ -160,7 +166,7 @@ export default function HomePage() {
       <section id="about" className="bg-slate-50 scroll-mt-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-orange-600 font-semibold text-sm tracking-wide uppercase mb-2">About Us</p>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">About Us</p>
             <h2 className="text-3xl font-bold text-slate-900">Built on Trust, Driven by Delivery</h2>
           </div>
 
@@ -181,7 +187,7 @@ export default function HomePage() {
               </p>
             </div>
             <div className="flex items-center justify-center bg-white rounded-2xl p-10 border border-slate-100">
-              <Users className="w-32 h-32 text-blue-900" strokeWidth={1} />
+              <Users className="w-32 h-32 text-amber-800" strokeWidth={1} />
             </div>
           </div>
 
@@ -190,7 +196,7 @@ export default function HomePage() {
               const Icon = v.icon;
               return (
                 <div key={v.title} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                  <div className="bg-orange-50 text-orange-600 rounded-xl w-12 h-12 flex items-center justify-center mb-4">
+                  <div className="bg-amber-50 text-amber-700 rounded-xl w-12 h-12 flex items-center justify-center mb-4">
                     <Icon className="w-6 h-6" />
                   </div>
                   <h4 className="font-semibold text-slate-900 mb-2">{v.title}</h4>
@@ -206,7 +212,7 @@ export default function HomePage() {
       <section id="branches" className="bg-white scroll-mt-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-orange-600 font-semibold text-sm tracking-wide uppercase mb-2">Our Branches</p>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">Our Branches</p>
             <h2 className="text-3xl font-bold text-slate-900">Find Us in Aligarh</h2>
             <p className="text-slate-500 mt-3">Three branches, one team — visit whichever is closest to you.</p>
           </div>
@@ -215,12 +221,12 @@ export default function HomePage() {
             {BRANCHES.map((branch) => (
               <div key={branch.id} className="grid md:grid-cols-2 gap-6 items-stretch">
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 flex flex-col justify-center">
-                  <div className="bg-orange-50 text-orange-600 rounded-xl w-12 h-12 flex items-center justify-center mb-4">
+                  <div className="bg-amber-50 text-amber-700 rounded-xl w-12 h-12 flex items-center justify-center mb-4">
                     <MapPin className="w-6 h-6" />
                   </div>
                   <h3 className="text-xl font-bold text-slate-900 mb-2">{branch.name}</h3>
                   <p className="text-slate-600 leading-relaxed mb-3">{branch.address}</p>
-                  <p className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-amber-800">
                     <Clock className="w-4 h-4" /> {branch.hours}
                   </p>
                 </div>
@@ -246,7 +252,7 @@ export default function HomePage() {
       <section id="stations" className="bg-slate-50 scroll-mt-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-orange-600 font-semibold text-sm tracking-wide uppercase mb-2">Stations</p>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">Stations</p>
             <h2 className="text-3xl font-bold text-slate-900">Find a City, Transport & Number</h2>
             <p className="text-slate-500 mt-3">Search any city or transport we work with, and get their contact number directly.</p>
           </div>
@@ -258,7 +264,7 @@ export default function HomePage() {
       <section id="contact" className="bg-white scroll-mt-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-orange-600 font-semibold text-sm tracking-wide uppercase mb-2">Contact Us</p>
+            <p className="text-amber-700 font-semibold text-sm tracking-wide uppercase mb-2">Contact Us</p>
             <h2 className="text-3xl font-bold text-slate-900">Let&apos;s Get Your Freight Moving</h2>
             <p className="text-slate-500 mt-3">Reach out with your route and load details — our team responds the same business day.</p>
           </div>
@@ -272,12 +278,12 @@ export default function HomePage() {
               <ContactRow icon={Mail} label="Email" href={`mailto:${COMPANY_EMAIL}`} value={COMPANY_EMAIL} />
               <ContactRow icon={Clock} label="Business Hours" value="Mon – Sat, 9:00 AM – 8:00 PM" />
               <div className="flex gap-4">
-                <div className="bg-blue-50 text-blue-900 rounded-lg w-11 h-11 shrink-0 flex items-center justify-center">
+                <div className="bg-amber-50 text-amber-800 rounded-lg w-11 h-11 shrink-0 flex items-center justify-center">
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Visit a Branch</p>
-                  <Link href="#branches" className="text-sm text-blue-900 mt-0.5 inline-block hover:underline">
+                  <Link href="#branches" className="text-sm text-amber-800 mt-0.5 inline-block hover:underline">
                     See all 3 locations in Aligarh ↑
                   </Link>
                 </div>

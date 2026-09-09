@@ -45,7 +45,7 @@ export default function StationsSearch() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by city, transport, or phone number…"
-          className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900 shadow-sm"
+          className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:border-amber-700 shadow-sm"
         />
         {loading && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />}
       </div>
@@ -67,17 +67,17 @@ export default function StationsSearch() {
             {transports.map((t) => (
               <li key={t.id} className="p-4 space-y-1.5">
                 <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                  <Truck className="w-3.5 h-3.5 text-blue-900 shrink-0" />
+                  <Truck className="w-3.5 h-3.5 text-amber-800 shrink-0" />
                   <span className="truncate">{t.transport_name}</span>
                 </p>
                 <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   {t.city_name || '-'}
                 </p>
                 <p className="flex items-center gap-1.5 text-xs">
-                  <Phone className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                  <Phone className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   {t.mob_number ? (
-                    <a href={`tel:${t.mob_number}`} className="text-blue-900 font-medium">{t.mob_number}</a>
+                    <a href={`tel:${t.mob_number}`} className="text-amber-800 font-medium">{t.mob_number}</a>
                   ) : (
                     <span className="text-slate-400">Not available</span>
                   )}
@@ -100,18 +100,18 @@ export default function StationsSearch() {
                 <tr key={t.id} className="hover:bg-slate-50">
                   <td className="px-5 py-3 text-slate-700">
                     <span className="inline-flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-orange-500" /> {t.city_name || '-'}
+                      <MapPin className="w-3.5 h-3.5 text-amber-600" /> {t.city_name || '-'}
                     </span>
                   </td>
                   <td className="px-5 py-3 font-medium text-slate-900">
                     <span className="inline-flex items-center gap-1.5">
-                      <Truck className="w-3.5 h-3.5 text-blue-900" /> {t.transport_name}
+                      <Truck className="w-3.5 h-3.5 text-amber-800" /> {t.transport_name}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-slate-700">
                     {t.mob_number ? (
-                      <a href={`tel:${t.mob_number}`} className="inline-flex items-center gap-1.5 hover:text-blue-900">
-                        <Phone className="w-3.5 h-3.5 text-orange-500" /> {t.mob_number}
+                      <a href={`tel:${t.mob_number}`} className="inline-flex items-center gap-1.5 hover:text-amber-700">
+                        <Phone className="w-3.5 h-3.5 text-amber-600" /> {t.mob_number}
                       </a>
                     ) : '-'}
                   </td>

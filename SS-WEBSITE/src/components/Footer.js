@@ -1,4 +1,5 @@
-import { Truck, MapPin, Phone, Mail, Clock } from 'lucide-react';
+import Image from 'next/image';
+import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { COMPANY_NAME, COMPANY_EMAIL, CUSTOMER_CARE, OWNER_CONTACTS, formatPhone, telHref } from '@/data/company';
 
 export default function Footer() {
@@ -9,9 +10,7 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
           <div className="flex items-center gap-2 text-white font-bold text-lg mb-3 uppercase">
-            <span className="bg-orange-500 rounded-lg p-2">
-              <Truck className="w-5 h-5" />
-            </span>
+            <Image src="/logo.png" alt={COMPANY_NAME} width={1063} height={1063} className="h-11 w-11 object-contain" />
             {COMPANY_NAME}
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
@@ -45,29 +44,29 @@ export default function Footer() {
           <h3 className="text-white font-semibold mb-4">Get in Touch</h3>
           <ul className="space-y-3 text-sm text-slate-400">
             <li className="flex items-start gap-2.5">
-              <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-orange-500" />
+              <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
               Aligarh, Uttar Pradesh, India
             </li>
             <li className="flex items-center gap-2.5">
-              <Phone className="w-4 h-4 shrink-0 text-orange-500" />
+              <Phone className="w-4 h-4 shrink-0 text-amber-600" />
               <a href={telHref(CUSTOMER_CARE.phone)} className="hover:text-white transition-colors">
                 {CUSTOMER_CARE.label}: {formatPhone(CUSTOMER_CARE.phone)}
               </a>
             </li>
             {OWNER_CONTACTS.map((c) => (
               <li key={c.phone} className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 shrink-0 text-orange-500" />
+                <Phone className="w-4 h-4 shrink-0 text-amber-600" />
                 <a href={telHref(c.phone)} className="hover:text-white transition-colors">
                   {c.label}: {formatPhone(c.phone)}
                 </a>
               </li>
             ))}
             <li className="flex items-center gap-2.5">
-              <Mail className="w-4 h-4 shrink-0 text-orange-500" />
+              <Mail className="w-4 h-4 shrink-0 text-amber-600" />
               <a href={`mailto:${COMPANY_EMAIL}`} className="hover:text-white transition-colors">{COMPANY_EMAIL}</a>
             </li>
             <li className="flex items-center gap-2.5">
-              <Clock className="w-4 h-4 shrink-0 text-orange-500" />
+              <Clock className="w-4 h-4 shrink-0 text-amber-600" />
               Mon – Sat, 9:00 AM – 8:00 PM
             </li>
           </ul>

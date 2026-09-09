@@ -62,6 +62,7 @@ export default function StationsSearch() {
 
       {results.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="max-h-105 overflow-y-auto">
           {/* Mobile: stacked cards, one field per line, nothing scrolls sideways */}
           <ul className="sm:hidden divide-y divide-slate-100">
             {results.map((r) => (
@@ -101,7 +102,7 @@ export default function StationsSearch() {
 
           {/* Desktop / tablet: table */}
           <table className="hidden sm:table w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide sticky top-0 z-10">
               <tr>
                 <th className="text-left px-5 py-3 font-semibold">City</th>
                 <th className="text-left px-5 py-3 font-semibold">Transport</th>
@@ -140,6 +141,7 @@ export default function StationsSearch() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

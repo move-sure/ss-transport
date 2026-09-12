@@ -1,13 +1,20 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Printer, Download, RefreshCw, FileText } from 'lucide-react';
+import { X, Printer, Download, RefreshCw, FileText, LayoutTemplate } from 'lucide-react';
 import { generateInvoicePDF } from './invoice-pdf';
+import { generateInvoicePDFModern } from './invoice-pdf-modern';
+
+const TEMPLATES = [
+  { id: 'classic', label: 'Classic', generate: generateInvoicePDF },
+  { id: 'modern',  label: 'Modern',  generate: generateInvoicePDFModern },
+];
 
 export default function InvoicePrintModal({ isOpen, onClose, invoiceData }) {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [template, setTemplate] = useState('classic');
 
   useEffect(() => {
     const ua = navigator.userAgent || '';
@@ -19,7 +26,8 @@ export default function InvoicePrintModal({ isOpen, onClose, invoiceData }) {
     setLoading(true);
     try {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      const pdf = await generateInvoicePDF(invoiceData);
+      const gen = TEMPLATES.find((tpl) => tpl.id === template)?.generate || generateInvoicePDF;
+      const pdf = await gen(invoiceData);
       const blob = pdf.output('blob');
       setPdfUrl(URL.createObjectURL(blob));
     } catch (err) {
@@ -27,12 +35,12 @@ export default function InvoicePrintModal({ isOpen, onClose, invoiceData }) {
     } finally {
       setLoading(false);
     }
-  }, [invoiceData]);
+  }, [invoiceData, template]);
 
   useEffect(() => {
     if (isOpen && invoiceData) generate();
     if (!isOpen) { if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
-  }, [isOpen, invoiceData]);
+  }, [isOpen, invoiceData, template]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -68,7 +76,7 @@ export default function InvoicePrintModal({ isOpen, onClose, invoiceData }) {
     if (!pdfUrl) return;
     const a = document.createElement('a');
     a.href = pdfUrl;
-    a.download = `Invoice_${invoiceData?.invoice_no || 'download'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    a.download = `Invoice_${invoiceData?.invoice_no || 'download'}_${template}_${new Date().toISOString().split('T')[0]}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -91,6 +99,21 @@ export default function InvoicePrintModal({ isOpen, onClose, invoiceData }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1 bg-white/15 rounded-lg p-1 mr-1">
+            <LayoutTemplate className="h-3.5 w-3.5 ml-1.5 opacity-70" />
+            {TEMPLATES.map((tpl) => (
+              <button
+                key={tpl.id}
+                onClick={() => setTemplate(tpl.id)}
+                disabled={loading}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  template === tpl.id ? 'bg-white text-blue-700' : 'text-white/85 hover:bg-white/10'
+                }`}
+              >
+                {tpl.label}
+              </button>
+            ))}
+          </div>
           <button onClick={generate} disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -125,6 +148,19 @@ export default function InvoicePrintModal({ isOpen, onClose, invoiceData }) {
               <FileText className="h-16 w-16 mx-auto text-blue-300" />
               <p className="text-lg font-semibold">PDF Ready</p>
               <p className="text-sm opacity-70">PDF preview is not supported on mobile.<br />Use the buttons below.</p>
+              <div className="flex items-center justify-center gap-1 bg-white/10 rounded-lg p-1 mx-auto w-fit">
+                {TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => setTemplate(tpl.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      template === tpl.id ? 'bg-white text-blue-700' : 'text-white/85'
+                    }`}
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-3 justify-center mt-6">
                 <button onClick={downloadPDF}
                   className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">

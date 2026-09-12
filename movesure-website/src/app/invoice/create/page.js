@@ -44,7 +44,7 @@ const SUPPLY_TYPES = [
 ];
 
 const GST_RATES = [0, 5, 12, 18, 28];
-const UNITS = ['NOS', 'KG', 'MTR', 'LTR', 'BOX', 'SET', 'PCS', 'TON', 'BAG', 'BDL'];
+const UNITS = ['NOS', 'KG', 'MTR', 'LTR', 'BOX', 'SET', 'PCS', 'TON', 'BAG', 'BDL', 'DZ'];
 
 const today = () => new Date().toISOString().split('T')[0];
 const addDays = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };

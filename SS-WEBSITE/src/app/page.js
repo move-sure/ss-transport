@@ -87,8 +87,8 @@ export default function HomePage() {
               can&apos;t afford delays.
             </p>
             <div className="opacity-0 animate-[fade-in-up_0.8s_ease-out_2.15s_both] flex flex-wrap gap-4 mb-12">
-              <a href="#contact" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 hover:scale-105 text-white font-semibold px-6 py-3.5 rounded-lg transition-all">
-                Get a Quote <ArrowRight className="w-4 h-4" />
+              <a href="#stations" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 hover:scale-105 text-white font-semibold px-6 py-3.5 rounded-lg transition-all">
+                Get Full Station List <ArrowRight className="w-4 h-4" />
               </a>
               <a href="#about" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 hover:scale-105 border border-white/30 text-white font-semibold px-6 py-3.5 rounded-lg transition-all">
                 Learn More

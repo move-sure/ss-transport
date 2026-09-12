@@ -7,11 +7,12 @@ import { Menu, X, Phone } from 'lucide-react';
 import { COMPANY_NAME, CUSTOMER_CARE, formatPhone, telHref } from '@/data/company';
 
 const LINKS = [
-  { href: '#home', label: 'Home' },
-  { href: '#about', label: 'About Us' },
-  { href: '#branches', label: 'Branches' },
-  { href: '#stations', label: 'Stations' },
-  { href: '#contact', label: 'Contact' },
+  { href: '/#home', label: 'Home' },
+  { href: '/#about', label: 'About Us' },
+  { href: '/#branches', label: 'Branches' },
+  { href: '/#stations', label: 'Stations' },
+  { href: '/map', label: 'Map' },
+  { href: '/#contact', label: 'Contact' },
 ];
 
 function NavLink({ href, label, onClick, className = '' }) {
@@ -51,12 +52,12 @@ export default function Navbar() {
             <a href={telHref(CUSTOMER_CARE.phone)} className="flex items-center gap-2 text-sm font-bold text-amber-800 hover:text-amber-900 transition-colors">
               <Phone className="w-4 h-4" /> {formatPhone(CUSTOMER_CARE.phone)}
             </a>
-            <a
-              href="#contact"
+            <Link
+              href="/#contact"
               className="bg-amber-500 hover:bg-amber-600 hover:scale-105 text-white text-sm font-bold tracking-wide px-5 py-2.5 rounded-lg transition-all shadow-sm"
             >
               Get a Quote
-            </a>
+            </Link>
           </div>
 
           <button

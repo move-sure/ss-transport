@@ -1,0 +1,2078 @@
+{
+  "ADITYAPUR|Jharkhand": {
+    "lat": 22.7897134,
+    "lng": 86.1588085
+  },
+  "AGHUHA|Uttar Pradesh": null,
+  "AGRA|Uttar Pradesh": {
+    "lat": 27.1752554,
+    "lng": 78.0098161
+  },
+  "AHIROLA|Uttar Pradesh": null,
+  "AJAHRA|Uttar Pradesh": null,
+  "AJITMAL|Uttar Pradesh": {
+    "lat": 26.5548,
+    "lng": 79.3187
+  },
+  "AJMATGARH|Uttar Pradesh": null,
+  "AJUHA|Uttar Pradesh": {
+    "lat": 25.7026986,
+    "lng": 81.2491912
+  },
+  "AKBARPUR|Uttar Pradesh": {
+    "lat": 26.4200687,
+    "lng": 82.5382541
+  },
+  "ALIABAD|Uttar Pradesh": {
+    "lat": 29.123242,
+    "lng": 78.7247228
+  },
+  "ALIGANJ|Uttar Pradesh": {
+    "lat": 27.4856878,
+    "lng": 79.0839208
+  },
+  "ALIGARH|Uttar Pradesh": {
+    "lat": 27.8761073,
+    "lng": 78.1358153
+  },
+  "ALIPUR BALRAMPUR|Uttar Pradesh": null,
+  "AMB|Himachal Pradesh": {
+    "lat": 31.7027585,
+    "lng": 76.1168902
+  },
+  "AMBALA|Haryana": {
+    "lat": 30.3843674,
+    "lng": 76.770421
+  },
+  "AMBALA CANTT|Haryana": {
+    "lat": 30.3663493,
+    "lng": 76.8200483
+  },
+  "AMETHI|Uttar Pradesh": {
+    "lat": 26.346274,
+    "lng": 81.6252039
+  },
+  "AMRITSAR|Punjab": {
+    "lat": 31.6356659,
+    "lng": 74.8787496
+  },
+  "ANAND NAGAR|Uttar Pradesh": {
+    "lat": 27.1026549,
+    "lng": 83.2747426
+  },
+  "ANANDNAGAR|Uttar Pradesh": null,
+  "ANANDPUR|Punjab": {
+    "lat": 31.2299862,
+    "lng": 76.5005778
+  },
+  "ANANTNAG|Jammu & Kashmir": {
+    "lat": 33.74611,
+    "lng": 75.1854475
+  },
+  "ANPARA|Uttar Pradesh": {
+    "lat": 24.2055078,
+    "lng": 82.7715236
+  },
+  "ANUPUR|Madhya Pradesh": null,
+  "ARARIYA|Bihar": {
+    "lat": 26.1363617,
+    "lng": 87.4119454
+  },
+  "ARAY NAGAR|Uttar Pradesh": null,
+  "ARHOLA|Uttar Pradesh": null,
+  "ARRAH|Bihar": {
+    "lat": 25.560317,
+    "lng": 84.6632139
+  },
+  "ASHOK NAGAR|Madhya Pradesh": {
+    "lat": 24.5792434,
+    "lng": 77.7279725
+  },
+  "ATARA|Uttar Pradesh": null,
+  "ATROLIYA|Uttar Pradesh": {
+    "lat": 26.3300641,
+    "lng": 82.9470107
+  },
+  "AURANGABAD|Bihar": {
+    "lat": 24.8033201,
+    "lng": 84.4110198
+  },
+  "AVADH|Uttar Pradesh": {
+    "lat": 27.4304475,
+    "lng": 82.1840051
+  },
+  "AYABAZAR|Uttar Pradesh": null,
+  "AYODHAYA|Uttar Pradesh": {
+    "lat": 26.6382763,
+    "lng": 82.0585034
+  },
+  "AZAMGARH|Uttar Pradesh": {
+    "lat": 26.023639,
+    "lng": 83.0293105
+  },
+  "BABARPUR|Uttar Pradesh": null,
+  "BABERU|Uttar Pradesh": {
+    "lat": 25.5463728,
+    "lng": 80.7787302
+  },
+  "BABINA|Uttar Pradesh": {
+    "lat": 25.2393732,
+    "lng": 78.4698691
+  },
+  "BABNAN|Uttar Pradesh": null,
+  "BABRA|Madhya Pradesh": null,
+  "BABU SARAI|Uttar Pradesh": null,
+  "BACHRAWAN|Uttar Pradesh": null,
+  "BADDI|Himachal Pradesh": {
+    "lat": 30.9763026,
+    "lng": 76.7674001
+  },
+  "BADHOAI|Uttar Pradesh": null,
+  "BADLAPUR|Uttar Pradesh": {
+    "lat": 25.8951364,
+    "lng": 82.4398721
+  },
+  "BAGHPAT RLY STATION|Uttar Pradesh": null,
+  "BAHARAGORA|Jharkhand": {
+    "lat": 22.3162862,
+    "lng": 86.7539176
+  },
+  "BAHARAJ|Uttar Pradesh": null,
+  "BAHRAICHE|Uttar Pradesh": null,
+  "BAKEWAR|Uttar Pradesh": {
+    "lat": 26.6628814,
+    "lng": 79.1745361
+  },
+  "BAKHIRA|Uttar Pradesh": {
+    "lat": 26.9049693,
+    "lng": 83.1378869
+  },
+  "BALAMAU|Uttar Pradesh": {
+    "lat": 27.1680626,
+    "lng": 80.3518903
+  },
+  "BALESWARGANJ|Uttar Pradesh": null,
+  "BALLIYA|Uttar Pradesh": null,
+  "BALPUR BAZAR|Uttar Pradesh": null,
+  "BALRAMPUR|Uttar Pradesh": {
+    "lat": 27.4476988,
+    "lng": 82.3956245
+  },
+  "BALTHRA ROAD|Uttar Pradesh": null,
+  "BANARAS|Uttar Pradesh": {
+    "lat": 25.3356491,
+    "lng": 83.0076292
+  },
+  "BANDA|Uttar Pradesh": {
+    "lat": 25.4438537,
+    "lng": 80.5595237
+  },
+  "BANGALORE|Karnataka": {
+    "lat": 12.9767936,
+    "lng": 77.590082
+  },
+  "BANGARMAU|Uttar Pradesh": {
+    "lat": 26.8916447,
+    "lng": 80.21506
+  },
+  "banglore|Karnataka": {
+    "lat": 12.9587464,
+    "lng": 77.5573456
+  },
+  "BANSI|Uttar Pradesh": {
+    "lat": 27.1430969,
+    "lng": 82.9502211
+  },
+  "BANTRA|West Bengal": {
+    "lat": 22.2042467,
+    "lng": 88.5180423
+  },
+  "BARABANKI|Delhi": null,
+  "BARAN|Rajasthan": {
+    "lat": 24.9208165,
+    "lng": 76.6821985
+  },
+  "BARBIL|Jharkhand": {
+    "lat": 22.7107192,
+    "lng": 85.9064146
+  },
+  "BARDNI|Uttar Pradesh": null,
+  "BAREILLY|Uttar Pradesh": {
+    "lat": 28.4582345,
+    "lng": 79.4047452
+  },
+  "BARELI|Uttar Pradesh": {
+    "lat": 28.355099,
+    "lng": 79.417851
+  },
+  "BARHALGANJ|Uttar Pradesh": {
+    "lat": 26.28326,
+    "lng": 83.5066212
+  },
+  "BARI BRAHMA|Jammu & Kashmir": null,
+  "BARMER|Rajasthan": {
+    "lat": 25.5814853,
+    "lng": 71.1924922
+  },
+  "BAROTIWALA|Himachal Pradesh": {
+    "lat": 30.9058213,
+    "lng": 76.8401329
+  },
+  "BASKHARI|Uttar Pradesh": {
+    "lat": 26.4533975,
+    "lng": 82.7766748
+  },
+  "BASSI PATHANA|Punjab": {
+    "lat": 30.6896408,
+    "lng": 76.4042392
+  },
+  "BASTI|Uttar Pradesh": {
+    "lat": 26.8387083,
+    "lng": 82.5350919
+  },
+  "BAWANA|Delhi": {
+    "lat": 28.79966,
+    "lng": 77.0328847
+  },
+  "BAXAR|Bihar": null,
+  "BAYBA|Uttar Pradesh": null,
+  "BEGUSARAI|Bihar": {
+    "lat": 25.5125411,
+    "lng": 86.0883392
+  },
+  "BEHRAICH BAZAR|Uttar Pradesh": null,
+  "BEHRAMPUR|West Bengal": null,
+  "BEHRAMPUR (ODSA)|Odisha": null,
+  "BETALPUR|Uttar Pradesh": null,
+  "BETIYA|Bihar": {
+    "lat": 26.8023,
+    "lng": 84.5074
+  },
+  "BHABHUA|Bihar": null,
+  "BHALUAN|Uttar Pradesh": null,
+  "BHANPUR|Uttar Pradesh": {
+    "lat": 26.98276,
+    "lng": 82.6885872
+  },
+  "BHARATGANJ|Uttar Pradesh": null,
+  "BHARATGARH|Punjab": {
+    "lat": 31.0962263,
+    "lng": 76.6144973
+  },
+  "BHARGAWAN|Uttar Pradesh": null,
+  "BHARTHANA|Uttar Pradesh": {
+    "lat": 26.7933523,
+    "lng": 79.2309636
+  },
+  "BHARUA SUMAIRPUR|Uttar Pradesh": null,
+  "BHARWARI|Uttar Pradesh": {
+    "lat": 25.5615617,
+    "lng": 81.4899572
+  },
+  "BHATAHAT|Uttar Pradesh": null,
+  "BHATARIYA|Uttar Pradesh": null,
+  "BHATNI|Uttar Pradesh": {
+    "lat": 25.9351773,
+    "lng": 81.5327436
+  },
+  "BHATPARRANI|Uttar Pradesh": null,
+  "BHERJBAZAR|Uttar Pradesh": null,
+  "BHILWARA|Rajasthan": {
+    "lat": 25.470994,
+    "lng": 74.6961316
+  },
+  "BHINGA|Uttar Pradesh": {
+    "lat": 27.7716681,
+    "lng": 81.9013135
+  },
+  "BHITARIA|Uttar Pradesh": null,
+  "BHITAULI BAZAR [MRJ]|Uttar Pradesh": null,
+  "BHOGNIPUR|Uttar Pradesh": {
+    "lat": 26.2330047,
+    "lng": 79.8344675
+  },
+  "BHUALWAN|Uttar Pradesh": null,
+  "BIBIGANJ|Uttar Pradesh": null,
+  "BIDHUNA|Uttar Pradesh": {
+    "lat": 26.7702744,
+    "lng": 79.5367506
+  },
+  "BIHAR|Bihar": {
+    "lat": 25.1672903,
+    "lng": 85.5502398
+  },
+  "BIHAR SHARIF|Bihar": {
+    "lat": 25.193859,
+    "lng": 85.5208617
+  },
+  "BIHIYA|Bihar": {
+    "lat": 25.5586379,
+    "lng": 84.4488679
+  },
+  "BIKANER|Rajasthan": {
+    "lat": 28.0159286,
+    "lng": 73.3171367
+  },
+  "BILARIYAGANJ|Uttar Pradesh": {
+    "lat": 26.2001121,
+    "lng": 83.2270154
+  },
+  "BILASPUR|Himachal Pradesh": {
+    "lat": 31.3380959,
+    "lng": 76.7611631
+  },
+  "BINDKI|Uttar Pradesh": {
+    "lat": 26.0421896,
+    "lng": 80.5149166
+  },
+  "BINDRABAZAR|Uttar Pradesh": null,
+  "BIRDPUR|Uttar Pradesh": {
+    "lat": 27.3755353,
+    "lng": 83.1157339
+  },
+  "BISANDA|Uttar Pradesh": {
+    "lat": 25.3925883,
+    "lng": 80.6108589
+  },
+  "BISKHORE|Uttar Pradesh": null,
+  "BISUNPUR|null": null,
+  "BISWA|Uttar Pradesh": {
+    "lat": 27.4936231,
+    "lng": 80.9950519
+  },
+  "BN CHARIALI|Assam": {
+    "lat": 26.7203673,
+    "lng": 93.1428974
+  },
+  "BRIDGEMANGANJ|Uttar Pradesh": {
+    "lat": 27.195288,
+    "lng": 83.1969574
+  },
+  "BUNDI|Rajasthan": {
+    "lat": 25.4367659,
+    "lng": 75.7361471
+  },
+  "BURMAMINES|Jharkhand": null,
+  "CAMPIERGANJ|Uttar Pradesh": {
+    "lat": 26.9987251,
+    "lng": 83.2789658
+  },
+  "CHAIBASA|Jharkhand": {
+    "lat": 22.5483518,
+    "lng": 85.8188876
+  },
+  "CHAKRADHARPUR|Jharkhand": {
+    "lat": 22.6783014,
+    "lng": 85.6270604
+  },
+  "CHAKULIA|Jharkhand": {
+    "lat": 22.4728207,
+    "lng": 86.6763429
+  },
+  "CHAMBA|Himachal Pradesh": {
+    "lat": 32.6923316,
+    "lng": 76.1631552
+  },
+  "CHANDA|Uttar Pradesh": {
+    "lat": 27.2575074,
+    "lng": 83.7924357
+  },
+  "CHANDIGARH|Chandigarh": {
+    "lat": 30.7334421,
+    "lng": 76.7797143
+  },
+  "CHANDOSI|Uttar Pradesh": null,
+  "CHANDPATI|Uttar Pradesh": null,
+  "CHAPRA|Bihar": {
+    "lat": 25.7733443,
+    "lng": 84.7849772
+  },
+  "CHATRA|Jharkhand": {
+    "lat": 24.1062316,
+    "lng": 84.8623379
+  },
+  "CHENNAI|Tamil Nadu": {
+    "lat": 13.0836939,
+    "lng": 80.270186
+  },
+  "CHHATA (MATHURA)|Uttar Pradesh": {
+    "lat": 27.5815937,
+    "lng": 77.6060894
+  },
+  "CHHATARPUR|Madhya Pradesh": {
+    "lat": 24.7606089,
+    "lng": 79.6781776
+  },
+  "CHIBRAMAU|Uttar Pradesh": null,
+  "CHILBILA|Uttar Pradesh": {
+    "lat": 25.9468607,
+    "lng": 82.0040273
+  },
+  "CHINHUT|Uttar Pradesh": null,
+  "CHIRAWA|Rajasthan": {
+    "lat": 28.2234034,
+    "lng": 75.650335
+  },
+  "CHIRAYA KOOT|Uttar Pradesh": null,
+  "CHITRAKOOT|Uttar Pradesh": {
+    "lat": 25.217139,
+    "lng": 81.1045927
+  },
+  "CHOPAN|Uttar Pradesh": {
+    "lat": 24.513559,
+    "lng": 83.0263892
+  },
+  "CHORI CHORA|Uttar Pradesh": null,
+  "CHUNAR|Uttar Pradesh": {
+    "lat": 25.1281931,
+    "lng": 82.8835399
+  },
+  "COIMBATORE|Tamil Nadu": {
+    "lat": 11.0018115,
+    "lng": 76.9628425
+  },
+  "CUTTACK|Odisha": {
+    "lat": 20.4686,
+    "lng": 85.8792
+  },
+  "DAALA|Uttar Pradesh": null,
+  "DAEBHANGA|Bihar": null,
+  "DAHIYAWAH|Uttar Pradesh": null,
+  "DALBHAMGARH|Jharkhand": null,
+  "DALHOUSIE|Himachal Pradesh": {
+    "lat": 32.5435755,
+    "lng": 75.9448409
+  },
+  "DALMAU|Uttar Pradesh": {
+    "lat": 26.0940967,
+    "lng": 81.0935697
+  },
+  "DALTONGANJ|Jharkhand": {
+    "lat": 24.0397192,
+    "lng": 84.0658109
+  },
+  "DANPATGANJ|Uttar Pradesh": null,
+  "DARBANGA|Bihar": null,
+  "DARIONSON|Uttar Pradesh": null,
+  "DATIA|Madhya Pradesh": {
+    "lat": 25.9182947,
+    "lng": 78.6644962
+  },
+  "DATIYA|Uttar Pradesh": {
+    "lat": 27.506511,
+    "lng": 77.6005232
+  },
+  "DAYALA CHAK|Jammu & Kashmir": {
+    "lat": 32.479676,
+    "lng": 75.3041425
+  },
+  "DEHRADUN|Uttarakhand": {
+    "lat": 30.3255646,
+    "lng": 78.0436813
+  },
+  "DEHRI|Bihar": {
+    "lat": 24.9258862,
+    "lng": 84.1728723
+  },
+  "DEHRI ON SONE|Bihar": {
+    "lat": 24.9142734,
+    "lng": 84.1862208
+  },
+  "DELHI|Delhi": {
+    "lat": 28.6664535,
+    "lng": 77.2169781
+  },
+  "DEOGHAR|Jharkhand": {
+    "lat": 24.4898318,
+    "lng": 86.6990182
+  },
+  "DEORIA|Uttar Pradesh": {
+    "lat": 26.4239911,
+    "lng": 83.7638578
+  },
+  "DEORIA         DRO|Uttar Pradesh": null,
+  "DERA BASSI|Punjab": {
+    "lat": 30.5882408,
+    "lng": 76.8438542
+  },
+  "DERWA|Uttar Pradesh": {
+    "lat": 25.8381983,
+    "lng": 81.7343519
+  },
+  "DEVA|Uttar Pradesh": {
+    "lat": 25.8033157,
+    "lng": 83.415831
+  },
+  "DEVIGANJ|Uttar Pradesh": null,
+  "DEWASHARIF|Uttar Pradesh": null,
+  "DHAKWABAZAR|Uttar Pradesh": null,
+  "DHANBAD|Jharkhand": {
+    "lat": 23.7952809,
+    "lng": 86.4309638
+  },
+  "DHANBAD(JRK)|Jharkhand": null,
+  "DHANEPUR|Uttar Pradesh": null,
+  "DHORI GHAT|Uttar Pradesh": null,
+  "DHUDHI|Uttar Pradesh": null,
+  "DHUMARIYAGANJ|Uttar Pradesh": null,
+  "DHUTTI|Uttar Pradesh": null,
+  "DIBIYAPUR|Uttar Pradesh": {
+    "lat": 26.6307,
+    "lng": 79.5536
+  },
+  "DIBRUGARH|Assam": {
+    "lat": 27.4844597,
+    "lng": 94.9019447
+  },
+  "DIDWANA|Rajasthan": {
+    "lat": 27.4061158,
+    "lng": 74.5577959
+  },
+  "DILDARNAGAR|Uttar Pradesh": {
+    "lat": 25.4196587,
+    "lng": 83.6713697
+  },
+  "DINDIGUL|Tamil Nadu": {
+    "lat": 10.4257161,
+    "lng": 77.8154728
+  },
+  "DOSTPUR|Uttar Pradesh": {
+    "lat": 26.2732021,
+    "lng": 82.4718804
+  },
+  "DUDHI ROBATGANJ|Uttar Pradesh": null,
+  "DUGANPUR (RAMPUR)|Uttar Pradesh": {
+    "lat": 28.6565329,
+    "lng": 79.1320866
+  },
+  "DULLAHPUR|Uttar Pradesh": null,
+  "DUMRAON|Bihar": {
+    "lat": 25.5238346,
+    "lng": 84.1599531
+  },
+  "DURGAGANJ|Uttar Pradesh": {
+    "lat": 27.2333897,
+    "lng": 79.9962096
+  },
+  "DURGAPUR|West Bengal": {
+    "lat": 23.5350475,
+    "lng": 87.3380425
+  },
+  "EKONA|Uttar Pradesh": null,
+  "ERODE|Tamil Nadu": {
+    "lat": 11.4905282,
+    "lng": 77.3505274
+  },
+  "ETAH|Uttar Pradesh": {
+    "lat": 27.5550357,
+    "lng": 78.5992221
+  },
+  "ETAWA|Uttar Pradesh": null,
+  "FAFAMAU|Uttar Pradesh": null,
+  "FAIZABAD|Uttar Pradesh": {
+    "lat": 26.7807986,
+    "lng": 82.1486589
+  },
+  "FARIDABAD|Haryana": {
+    "lat": 28.4031478,
+    "lng": 77.3105561
+  },
+  "FARUKHABAD|Uttar Pradesh": null,
+  "FATEHGARH|Uttar Pradesh": {
+    "lat": 27.3700748,
+    "lng": 79.620752
+  },
+  "FATEHPUR|Uttar Pradesh": {
+    "lat": 25.8348023,
+    "lng": 80.9154547
+  },
+  "FATEHPUR[BNK]|Uttar Pradesh": null,
+  "FAZILNAGAR|Uttar Pradesh": {
+    "lat": 26.6824225,
+    "lng": 84.0543595
+  },
+  "FAZILNAGAR                 FZL|Uttar Pradesh": null,
+  "FIROJPUR ZHIRKA|Haryana": null,
+  "FIROZABAD|Uttar Pradesh": {
+    "lat": 27.1941954,
+    "lng": 78.4604956
+  },
+  "FORBESGANJ|Bihar": {
+    "lat": 26.3049106,
+    "lng": 87.2632847
+  },
+  "GAGRET|Himachal Pradesh": {
+    "lat": 31.6620976,
+    "lng": 76.0624707
+  },
+  "GANDHI MARKET|Delhi": {
+    "lat": 28.6257674,
+    "lng": 77.1112872
+  },
+  "GANGA GANJ|Uttar Pradesh": {
+    "lat": 26.5713329,
+    "lng": 80.2746445
+  },
+  "GARHWA|Uttar Pradesh": {
+    "lat": 26.0178333,
+    "lng": 80.3591202
+  },
+  "GARWA (JRK)|Uttar Pradesh": null,
+  "GASRI BAZAR|Uttar Pradesh": null,
+  "GAURA CHOKI|Uttar Pradesh": null,
+  "GAURIBAZAR|Uttar Pradesh": null,
+  "GAYA|Bihar": {
+    "lat": 24.7964355,
+    "lng": 85.0079563
+  },
+  "GAZIPUR|Uttar Pradesh": {
+    "lat": 26.0382286,
+    "lng": 83.1880965
+  },
+  "GHARAUNDA|Jharkhand": null,
+  "GHATAMPUR|Uttar Pradesh": {
+    "lat": 26.1551192,
+    "lng": 80.1674983
+  },
+  "GHATSILA|Jharkhand": {
+    "lat": 22.5859699,
+    "lng": 86.4791554
+  },
+  "GHUGHULI|Uttar Pradesh": {
+    "lat": 27.0537699,
+    "lng": 83.7138739
+  },
+  "GHUTHANI|Bihar": null,
+  "GILOLA|Uttar Pradesh": null,
+  "GIYANPUR|Uttar Pradesh": null,
+  "GOBINDGARH|Punjab": {
+    "lat": 30.8613538,
+    "lng": 75.9461613
+  },
+  "GOLA BAZAR|Uttar Pradesh": {
+    "lat": 26.3449263,
+    "lng": 83.353147
+  },
+  "GOLAGHAT|Assam": {
+    "lat": 26.5108262,
+    "lng": 93.9743686
+  },
+  "GOLA(LKM)|Uttar Pradesh": null,
+  "GONDA|Uttar Pradesh": {
+    "lat": 27.1103723,
+    "lng": 81.9238906
+  },
+  "GONDA       GOD|Uttar Pradesh": null,
+  "GOPALGANJ|Bihar": {
+    "lat": 26.4211166,
+    "lng": 84.3739133
+  },
+  "GOPIGANJ|Uttar Pradesh": {
+    "lat": 25.2844591,
+    "lng": 82.4326002
+  },
+  "GORACHOWKI|Uttar Pradesh": null,
+  "GORAKHPUR|Uttar Pradesh": {
+    "lat": 26.6677977,
+    "lng": 83.3642334
+  },
+  "GORIGANG|Uttar Pradesh": null,
+  "GOSAINGANG|Uttar Pradesh": null,
+  "GOSHI|Uttar Pradesh": null,
+  "GOUR BAZAR|Uttar Pradesh": null,
+  "GOVINDPUR (JRK)|Jharkhand": null,
+  "GULABBAGH|Bihar": null,
+  "GULARIA|Uttar Pradesh": {
+    "lat": 28.5939048,
+    "lng": 78.8184928
+  },
+  "GURGAON|Haryana": {
+    "lat": 28.4646148,
+    "lng": 77.0299194
+  },
+  "GURGAU|Uttar Pradesh": null,
+  "GURSAHAIGANJ|Uttar Pradesh": {
+    "lat": 27.1178018,
+    "lng": 79.7316338
+  },
+  "GURUSARAI|Uttar Pradesh": null,
+  "GUWAHATI|Assam": {
+    "lat": 26.1805978,
+    "lng": 91.753943
+  },
+  "GWALIOR|Madhya Pradesh": {
+    "lat": 26.2037247,
+    "lng": 78.1573628
+  },
+  "HAIDERGARH|Uttar Pradesh": {
+    "lat": 26.6887061,
+    "lng": 81.3224656
+  },
+  "HAJARIBAGH|Jharkhand": null,
+  "HAJIPUR|Bihar": {
+    "lat": 25.6905702,
+    "lng": 85.2090351
+  },
+  "HALDWANI|Uttarakhand": {
+    "lat": 29.2144809,
+    "lng": 79.5279012
+  },
+  "HAMIRPUR|Uttar Pradesh": {
+    "lat": 25.75,
+    "lng": 80
+  },
+  "HANDIA|Uttar Pradesh": {
+    "lat": 25.43533,
+    "lng": 82.1890599
+  },
+  "HANUMANGANJ|Uttar Pradesh": null,
+  "HARAIYA|Uttar Pradesh": {
+    "lat": 27.295576,
+    "lng": 82.039561
+  },
+  "HARAWALA|Uttar Pradesh": null,
+  "HARDOI|Uttar Pradesh": {
+    "lat": 27.3369978,
+    "lng": 80.0998232
+  },
+  "HARIDWAR|Uttarakhand": {
+    "lat": 29.9384473,
+    "lng": 78.1452985
+  },
+  "HAROWAL|Uttar Pradesh": null,
+  "HASWAR|Uttar Pradesh": {
+    "lat": 26.4810938,
+    "lng": 82.8074599
+  },
+  "HATA|Uttar Pradesh": {
+    "lat": 26.830711,
+    "lng": 83.667821
+  },
+  "HATA BAZAR|Uttar Pradesh": null,
+  "HATA BAZAR[GKP]|Uttar Pradesh": null,
+  "HATHGAON|Uttar Pradesh": {
+    "lat": 25.8636708,
+    "lng": 81.1275534
+  },
+  "HATHRAS|Uttar Pradesh": {
+    "lat": 27.5724324,
+    "lng": 78.1116209
+  },
+  "HATJGAON|Uttar Pradesh": null,
+  "HAZARI BAG|Jharkhand": null,
+  "HAZIPUR|Bihar": {
+    "lat": 24.9490651,
+    "lng": 85.6148287
+  },
+  "HOJAI|Assam": {
+    "lat": 25.9629402,
+    "lng": 92.981829
+  },
+  "HOLAGARH|Uttar Pradesh": {
+    "lat": 25.5348598,
+    "lng": 81.8313593
+  },
+  "HOSHILARPUR|Punjab": null,
+  "HUSAINGANJ|Uttar Pradesh": {
+    "lat": 26.8395613,
+    "lng": 80.9345816
+  },
+  "HYDERABAD|Telangana": {
+    "lat": 17.360589,
+    "lng": 78.4740613
+  },
+  "IMPHAL MANIPUR|Manipur": {
+    "lat": 24.8049259,
+    "lng": 93.9348265
+  },
+  "INDORE|Madhya Pradesh": {
+    "lat": 22.7203616,
+    "lng": 75.8681996
+  },
+  "ITIYATHOK|Uttar Pradesh": {
+    "lat": 27.2938865,
+    "lng": 82.0441765
+  },
+  "ITWA BAZAR|Uttar Pradesh": null,
+  "JABALPUR|Uttar Pradesh": null,
+  "JAGADHRI|Haryana": {
+    "lat": 30.1532045,
+    "lng": 77.3011957
+  },
+  "JAGDISHPUR|Uttar Pradesh": {
+    "lat": 26.456101,
+    "lng": 81.6198203
+  },
+  "JAHAGIRGANJ|Uttar Pradesh": null,
+  "JAHANABAD|Bihar": {
+    "lat": 25.2385347,
+    "lng": 85.0219881
+  },
+  "JAHANAGANJ|Uttar Pradesh": {
+    "lat": 25.9588013,
+    "lng": 83.2669238
+  },
+  "JAIS|Uttar Pradesh": {
+    "lat": 26.2650823,
+    "lng": 81.5484734
+  },
+  "JALALPUR|Uttar Pradesh": {
+    "lat": 26.3001288,
+    "lng": 82.7283725
+  },
+  "JALALPUR(PANWARA)|Uttar Pradesh": null,
+  "JALANDHAR|Punjab": {
+    "lat": 31.2922312,
+    "lng": 75.5678878
+  },
+  "JALON|Uttar Pradesh": null,
+  "JAMALPUR|Bihar": {
+    "lat": 25.3138767,
+    "lng": 86.4897172
+  },
+  "JAMMU|Jammu & Kashmir": {
+    "lat": 32.7185614,
+    "lng": 74.8580917
+  },
+  "JAMSHADPUR|Jharkhand": null,
+  "JAMUI|Bihar": {
+    "lat": 24.7562514,
+    "lng": 86.3011128
+  },
+  "JAMUNAPUR|Uttar Pradesh": null,
+  "JANGIPUR|Uttar Pradesh": null,
+  "JARIBAZAR|Uttar Pradesh": null,
+  "JARWALKASBA|Uttar Pradesh": null,
+  "JASRA|Jharkhand": null,
+  "JASWANT NAGAR|Uttar Pradesh": null,
+  "JAYNAGAR|Bihar": {
+    "lat": 26.5902775,
+    "lng": 86.1356516
+  },
+  "JHANSI|Uttar Pradesh": {
+    "lat": 25.529855,
+    "lng": 78.6527802
+  },
+  "JHARIA|Jharkhand": {
+    "lat": 23.7407998,
+    "lng": 86.4145678
+  },
+  "JHATWARA|Rajasthan": null,
+  "JHIJHAK|Uttar Pradesh": null,
+  "JHUMRI TALAIYA|Jharkhand": null,
+  "JHUNJHUNU|Rajasthan": {
+    "lat": 28.0798944,
+    "lng": 75.5424211
+  },
+  "JHUNSI|Uttar Pradesh": {
+    "lat": 25.4287084,
+    "lng": 81.9117152
+  },
+  "JODHPUR|Rajasthan": {
+    "lat": 26.2967719,
+    "lng": 73.0351433
+  },
+  "JORHAT|Assam": {
+    "lat": 26.7577925,
+    "lng": 94.2079645
+  },
+  "JOUNPUR|Uttar Pradesh": null,
+  "JUGSALAI|Jharkhand": {
+    "lat": 22.7666472,
+    "lng": 86.3096368
+  },
+  "JYANT|Uttar Pradesh": null,
+  "KABRAI|Uttar Pradesh": {
+    "lat": 25.4015677,
+    "lng": 80.0035135
+  },
+  "KADIPUR|Uttar Pradesh": {
+    "lat": 26.1407423,
+    "lng": 82.4102397
+  },
+  "KAIMUR|Bihar": {
+    "lat": 24.975466,
+    "lng": 83.5768379
+  },
+  "KAIPUR|Uttar Pradesh": null,
+  "KAKARHAWABAZAR|Uttar Pradesh": null,
+  "KALA AMA|Uttar Pradesh": null,
+  "KALKATA|West Bengal": {
+    "lat": 22.5726459,
+    "lng": 88.3638953
+  },
+  "KALPI|Uttar Pradesh": {
+    "lat": 26.1216714,
+    "lng": 79.7458188
+  },
+  "KALWARI|Uttar Pradesh": {
+    "lat": 26.6392464,
+    "lng": 82.6803266
+  },
+  "KAMLA MARKET|Delhi": {
+    "lat": 28.6786683,
+    "lng": 77.2072566
+  },
+  "KAMLAPUR|Uttar Pradesh": {
+    "lat": 27.3814955,
+    "lng": 80.8223749
+  },
+  "KANGRA|Himachal Pradesh": {
+    "lat": 32.0768665,
+    "lng": 76.2985872
+  },
+  "KANOJ|Uttar Pradesh": null,
+  "KANPUR|Uttar Pradesh": {
+    "lat": 26.4609135,
+    "lng": 80.3217588
+  },
+  "KANTA (SANTKABIRNAGAR)|Uttar Pradesh": null,
+  "KAPTANGANJ|Uttar Pradesh": {
+    "lat": 26.9256647,
+    "lng": 83.6992202
+  },
+  "KAPTANGANJ (AZM)|Uttar Pradesh": null,
+  "KARARI|Uttar Pradesh": {
+    "lat": 25.4549335,
+    "lng": 81.4273074
+  },
+  "KARCHNA(ALLAHABAD)|Uttar Pradesh": null,
+  "KAREHL|Haryana": null,
+  "KARIMGANJ|Assam": {
+    "lat": 24.5828196,
+    "lng": 92.3725487
+  },
+  "KARNAL|Haryana": {
+    "lat": 29.7255766,
+    "lng": 76.9106924
+  },
+  "KARNALGANG|Uttar Pradesh": null,
+  "KARVI|Uttar Pradesh": null,
+  "KASHMIR|Jammu & Kashmir": {
+    "lat": 34.1443488,
+    "lng": 74.8372681
+  },
+  "KASIYA|Uttar Pradesh": {
+    "lat": 25.5432299,
+    "lng": 81.5415944
+  },
+  "KATHORA|Madhya Pradesh": {
+    "lat": 22.1596528,
+    "lng": 75.6307307
+  },
+  "KATHUA|Jammu & Kashmir": {
+    "lat": 32.3765524,
+    "lng": 75.5243044
+  },
+  "KATNI|Uttar Pradesh": {
+    "lat": 24.4345654,
+    "lng": 82.94389
+  },
+  "KATRA BAZAR|Uttar Pradesh": {
+    "lat": 28.0263096,
+    "lng": 78.2843533
+  },
+  "KATRA GULAB SINGH|Uttar Pradesh": null,
+  "KAURIYA BAZAR [GOD]|Uttar Pradesh": null,
+  "KAYAMGANJ|Uttar Pradesh": {
+    "lat": 27.5525036,
+    "lng": 79.343542
+  },
+  "KERHEL|Uttar Pradesh": null,
+  "KESARGANJ|Uttar Pradesh": null,
+  "KHADDA|Uttar Pradesh": {
+    "lat": 27.1784019,
+    "lng": 83.8715042
+  },
+  "KHAGA(FTP)|Uttar Pradesh": null,
+  "KHAJNI|Uttar Pradesh": {
+    "lat": 26.552692,
+    "lng": 83.2270053
+  },
+  "KHAJUA|Uttar Pradesh": null,
+  "KHALILABAD|Uttar Pradesh": {
+    "lat": 26.7751208,
+    "lng": 83.05424
+  },
+  "KHANNA|Punjab": {
+    "lat": 30.700625,
+    "lng": 76.2220763
+  },
+  "KHARAILA|Uttar Pradesh": null,
+  "KHARGUPUR|Uttar Pradesh": {
+    "lat": 27.3774207,
+    "lng": 81.9869462
+  },
+  "KHARIYANI|Uttar Pradesh": null,
+  "KHARRAR|Punjab": null,
+  "KHARUPATIA|Assam": null,
+  "KHERABAD|Uttar Pradesh": null,
+  "KHETA SARAI|Uttar Pradesh": {
+    "lat": 25.9660156,
+    "lng": 82.6891591
+  },
+  "KHETRI|Rajasthan": {
+    "lat": 28.0003366,
+    "lng": 75.784133
+  },
+  "KHETRI NAGAR|Rajasthan": {
+    "lat": 28.0725105,
+    "lng": 75.8237743
+  },
+  "KHKHERU|Uttar Pradesh": null,
+  "KIRATPUR|Punjab": {
+    "lat": 31.186587,
+    "lng": 76.5675907
+  },
+  "KISHANPUR|Uttar Pradesh": {
+    "lat": 28.9563337,
+    "lng": 78.6489772
+  },
+  "KNOCH|Uttar Pradesh": null,
+  "KNP SAGIPUR TRANSPORT|null": null,
+  "KOCH|Uttar Pradesh": null,
+  "KODIHAR|Uttar Pradesh": null,
+  "KODIRAM|Uttar Pradesh": null,
+  "KODYA BAZAR (GONDA)|Uttar Pradesh": null,
+  "KOHALPUR|Uttar Pradesh": null,
+  "KOILSA BAZAR|Uttar Pradesh": null,
+  "KOIRIPUR|Uttar Pradesh": {
+    "lat": 26.0221679,
+    "lng": 82.3403675
+  },
+  "KOKHRAJ|Uttar Pradesh": {
+    "lat": 25.5738613,
+    "lng": 81.4989421
+  },
+  "KOLHUI|Uttar Pradesh": {
+    "lat": 27.2984683,
+    "lng": 83.3316094
+  },
+  "KOLKATA|West Bengal": {
+    "lat": 22.5726459,
+    "lng": 88.3638953
+  },
+  "KOPAGANJ|Uttar Pradesh": {
+    "lat": 26.0205442,
+    "lng": 83.5685545
+  },
+  "KORAHI|Uttar Pradesh": null,
+  "KORAON|Uttar Pradesh": {
+    "lat": 24.9408373,
+    "lng": 82.0701375
+  },
+  "KORN|Uttar Pradesh": null,
+  "KOSAMBI|Uttar Pradesh": null,
+  "KOTA|Rajasthan": {
+    "lat": 25.1737019,
+    "lng": 75.8574194
+  },
+  "KOTHI|Uttar Pradesh": {
+    "lat": 28.6505317,
+    "lng": 77.3528537
+  },
+  "KOTMA|Madhya Pradesh": {
+    "lat": 23.3213033,
+    "lng": 81.3836596
+  },
+  "KUCHMAN CITY|Rajasthan": null,
+  "KUDEBAR|Uttar Pradesh": null,
+  "KULLU|Himachal Pradesh": {
+    "lat": 31.9578974,
+    "lng": 77.1089232
+  },
+  "KUMARGANJ|Uttar Pradesh": null,
+  "KUNDA|Uttar Pradesh": {
+    "lat": 25.7551052,
+    "lng": 81.5810293
+  },
+  "KURALI|Punjab": {
+    "lat": 30.8314536,
+    "lng": 76.5784763
+  },
+  "KUSARA BAZAR|Uttar Pradesh": null,
+  "KUSHINAGAR|Uttar Pradesh": {
+    "lat": 26.7438272,
+    "lng": 83.9162322
+  },
+  "KUSOURA|Uttar Pradesh": null,
+  "LAAR|Uttar Pradesh": null,
+  "LAARBAZAR[SLM]|Uttar Pradesh": null,
+  "LADAKH|Jammu & Kashmir": {
+    "lat": 34.1681148,
+    "lng": 77.5841568
+  },
+  "LADANU|Rajasthan": null,
+  "LAHARPUR|Uttar Pradesh": {
+    "lat": 27.7256345,
+    "lng": 80.9869223
+  },
+  "LAHARTARA|Uttar Pradesh": {
+    "lat": 25.3165238,
+    "lng": 82.9733253
+  },
+  "LAHARTARA (BANARAS)|Uttar Pradesh": {
+    "lat": 25.3165238,
+    "lng": 82.9733253
+  },
+  "LAHORI GATE|Delhi": {
+    "lat": 28.6558401,
+    "lng": 77.2387223
+  },
+  "LAHROLI|Uttar Pradesh": null,
+  "LAKHIMPUR|Uttar Pradesh": {
+    "lat": 27.9850602,
+    "lng": 80.7538454
+  },
+  "LALGANG(AJHARA)|Uttar Pradesh": null,
+  "LALGANJ|Uttar Pradesh": {
+    "lat": 25.9929388,
+    "lng": 81.6604115
+  },
+  "LALGANJ (HAJARA)|Uttar Pradesh": null,
+  "LALGOPALGANJ|Uttar Pradesh": {
+    "lat": 25.6365281,
+    "lng": 81.626149
+  },
+  "LALITPUR|Uttar Pradesh": {
+    "lat": 24.6999688,
+    "lng": 78.51862
+  },
+  "LALRU|Punjab": {
+    "lat": 30.4797102,
+    "lng": 76.7944291
+  },
+  "LAMBUA|Uttar Pradesh": null,
+  "LARBAZAR|Uttar Pradesh": null,
+  "LEH|Ladakh": {
+    "lat": 34.1642029,
+    "lng": 77.5848133
+  },
+  "LUCKNOW|Uttar Pradesh": {
+    "lat": 26.8381,
+    "lng": 80.9346001
+  },
+  "LUDHIANA|Punjab": {
+    "lat": 30.9090157,
+    "lng": 75.851601
+  },
+  "MACHHIWARA|Punjab": {
+    "lat": 30.9154607,
+    "lng": 76.1992887
+  },
+  "MACHLI SHARE|Uttar Pradesh": null,
+  "MADHAVGARH|Uttar Pradesh": null,
+  "MADHUBAN|Uttar Pradesh": {
+    "lat": 26.1431699,
+    "lng": 83.6787753
+  },
+  "MADHUBANI|Bihar": {
+    "lat": 26.3503076,
+    "lng": 86.2296424
+  },
+  "MADHUPUR|Jharkhand": {
+    "lat": 24.2878679,
+    "lng": 86.6105095
+  },
+  "MAHARAJ GANJ|Uttar Pradesh": null,
+  "MAHARAJGANJ (AZM)|Uttar Pradesh": null,
+  "MAHARAJGANJ (RAIBARELIY)|Uttar Pradesh": null,
+  "MAHEWA|Uttar Pradesh": {
+    "lat": 25.4124276,
+    "lng": 81.8404129
+  },
+  "MAHINPURWA|Uttar Pradesh": null,
+  "MAHMUDABAD            MMUD|Uttar Pradesh": null,
+  "MAHOBA|Uttar Pradesh": {
+    "lat": 25.3615938,
+    "lng": 79.706011
+  },
+  "MAHOLI[STP]|Uttar Pradesh": null,
+  "MAINGALGANJ|Uttar Pradesh": null,
+  "MAINPURI|Uttar Pradesh": {
+    "lat": 27.2093072,
+    "lng": 79.0625369
+  },
+  "MAIRAWA|Bihar": null,
+  "MALERKOTLA|Punjab": {
+    "lat": 30.533129,
+    "lng": 75.8807604
+  },
+  "MALIHABAD|Uttar Pradesh": {
+    "lat": 26.9906207,
+    "lng": 80.6664566
+  },
+  "MALLAWAN|Uttar Pradesh": {
+    "lat": 27.4395453,
+    "lng": 80.2409736
+  },
+  "MANDA[PRYR]|Uttar Pradesh": null,
+  "MANDI|Himachal Pradesh": {
+    "lat": 31.6516617,
+    "lng": 77.0092542
+  },
+  "MANDSAUR|Madhya Pradesh": {
+    "lat": 24.2628148,
+    "lng": 75.385692
+  },
+  "MANDURAI|Tamil Nadu": {
+    "lat": 10.8756232,
+    "lng": 78.7862838
+  },
+  "MANGOLPURI|Delhi": {
+    "lat": 28.6873187,
+    "lng": 77.0960253
+  },
+  "MANIKPUR ( KARVI )|Uttar Pradesh": null,
+  "MANJANPUR|Uttar Pradesh": null,
+  "MANKAPUR|Uttar Pradesh": {
+    "lat": 27.034884,
+    "lng": 82.365076
+  },
+  "MANKAPUR ( GOD)|Uttar Pradesh": null,
+  "MANOHARPUR|Jharkhand": {
+    "lat": 22.2609004,
+    "lng": 85.21995
+  },
+  "MANORI|Uttar Pradesh": null,
+  "MANSURABAD|Telangana": null,
+  "MARIYAHU|Uttar Pradesh": null,
+  "MASKANWA|Uttar Pradesh": {
+    "lat": 27.0013792,
+    "lng": 82.3597396
+  },
+  "MATAIKHEDA|Madhya Pradesh": null,
+  "MATERA|Uttar Pradesh": {
+    "lat": 27.7828978,
+    "lng": 81.5529969
+  },
+  "MAU|Uttar Pradesh": {
+    "lat": 26.0390905,
+    "lng": 83.4985846
+  },
+  "MAUAYIMA|Uttar Pradesh": null,
+  "MAUDHA|Uttar Pradesh": null,
+  "MAU RANIPUR|Uttar Pradesh": {
+    "lat": 25.2607045,
+    "lng": 79.1371001
+  },
+  "MEHATPUR|Himachal Pradesh": {
+    "lat": 31.4089781,
+    "lng": 76.3464244
+  },
+  "MEHNAGAR|Uttar Pradesh": {
+    "lat": 25.8624096,
+    "lng": 83.1410318
+  },
+  "MEHNDAWAL|Uttar Pradesh": null,
+  "MEJA|Uttar Pradesh": {
+    "lat": 25.1429932,
+    "lng": 82.1053674
+  },
+  "MEZAROAD|Uttar Pradesh": null,
+  "MIRGANJ|Uttar Pradesh": null,
+  "MIRZAPUR|Uttar Pradesh": {
+    "lat": 24.9316896,
+    "lng": 82.6280163
+  },
+  "MISHRIK|Uttar Pradesh": null,
+  "MOHADHA (HMR)|Uttar Pradesh": null,
+  "MOHALI|Punjab": {
+    "lat": 30.6908804,
+    "lng": 76.7114879
+  },
+  "MOHAMDABAD[MAU]|Uttar Pradesh": {
+    "lat": 26.0273196,
+    "lng": 83.3912931
+  },
+  "MOHAMMADABAD[GZP]|Uttar Pradesh": null,
+  "MOHANIA|Bihar": {
+    "lat": 25.1676579,
+    "lng": 83.621622
+  },
+  "MOHAN SARAI|Uttar Pradesh": {
+    "lat": 25.8545531,
+    "lng": 82.9211234
+  },
+  "MOHMDI|Uttar Pradesh": null,
+  "MOMDABADGOHNA|Uttar Pradesh": null,
+  "MORANHAT|Assam": {
+    "lat": 27.2365065,
+    "lng": 94.8790921
+  },
+  "MORINDA|Punjab": {
+    "lat": 30.7908462,
+    "lng": 76.4984505
+  },
+  "MOTIHARI|Bihar": {
+    "lat": 26.6506888,
+    "lng": 84.9114654
+  },
+  "MUBARAKPUR|Uttar Pradesh": {
+    "lat": 26.0875514,
+    "lng": 83.2905851
+  },
+  "MUGAL SARAI|Uttar Pradesh": null,
+  "MUGRABADSHAPUR|Uttar Pradesh": null,
+  "MUKUNDGARH|Rajasthan": {
+    "lat": 27.9488334,
+    "lng": 75.2270916
+  },
+  "MUMBAI|Maharashtra": {
+    "lat": 19.054999,
+    "lng": 72.8692035
+  },
+  "MUNDARWA|Uttar Pradesh": null,
+  "MUNDARWA BAZAR|Uttar Pradesh": null,
+  "MUNDERA|Uttar Pradesh": {
+    "lat": 26.6465369,
+    "lng": 83.5920431
+  },
+  "MUNSHIGANJ|Uttar Pradesh": {
+    "lat": 26.182651,
+    "lng": 81.2496324
+  },
+  "MURADABAD|Uttar Pradesh": {
+    "lat": 26.9569,
+    "lng": 80.183
+  },
+  "MURATGANJ|Uttar Pradesh": {
+    "lat": 25.5532087,
+    "lng": 81.5437831
+  },
+  "MUSAFIRKHANA|Uttar Pradesh": {
+    "lat": 26.4957934,
+    "lng": 81.6525155
+  },
+  "MUSKARA|Uttar Pradesh": {
+    "lat": 25.3536305,
+    "lng": 79.7890439
+  },
+  "MUZAFARPUR|Bihar": null,
+  "MUZAFFARNAGAR|Uttar Pradesh": {
+    "lat": 29.4496979,
+    "lng": 77.7429333
+  },
+  "NAGAON|Assam": {
+    "lat": 26.3313646,
+    "lng": 92.7524763
+  },
+  "NAGAUR|Rajasthan": {
+    "lat": 26.9873443,
+    "lng": 73.7389011
+  },
+  "NAGINA|Assam": {
+    "lat": 26.2024115,
+    "lng": 93.1290229
+  },
+  "NAGORE|Tamil Nadu": {
+    "lat": 10.8166979,
+    "lng": 79.8403641
+  },
+  "NAGRA|Uttar Pradesh": {
+    "lat": 25.9709308,
+    "lng": 83.8730458
+  },
+  "NAIZAMBAD|Uttar Pradesh": null,
+  "NALAGARH|Himachal Pradesh": {
+    "lat": 31.1059814,
+    "lng": 76.6567018
+  },
+  "NALANDA|Bihar": {
+    "lat": 25.1364914,
+    "lng": 85.4436546
+  },
+  "NANDGANJ|Uttar Pradesh": {
+    "lat": 25.5428124,
+    "lng": 83.4037302
+  },
+  "NANDOR|Uttar Pradesh": null,
+  "NANGAL|Punjab": {
+    "lat": 31.3837484,
+    "lng": 76.3754353
+  },
+  "NANGLI POONA|Delhi": {
+    "lat": 28.7731719,
+    "lng": 77.1433187
+  },
+  "NANNI|Uttar Pradesh": null,
+  "NANPARA|Uttar Pradesh": {
+    "lat": 28.0327348,
+    "lng": 81.3787211
+  },
+  "NARELA|Delhi": {
+    "lat": 28.8464766,
+    "lng": 77.0856631
+  },
+  "NARENI|Uttar Pradesh": null,
+  "NAUGARH|Uttar Pradesh": {
+    "lat": 27.2748041,
+    "lng": 83.088518
+  },
+  "NAUTANWA|Uttar Pradesh": {
+    "lat": 27.4247284,
+    "lng": 83.420198
+  },
+  "NAVALGANJ|Uttar Pradesh": null,
+  "NAWABGANJ|Uttar Pradesh": {
+    "lat": 26.9231369,
+    "lng": 81.2082558
+  },
+  "NAWABGANJ(PRYR)|Uttar Pradesh": null,
+  "NAWADA|Bihar": {
+    "lat": 24.8173249,
+    "lng": 85.5179085
+  },
+  "NAWALGARH|Rajasthan": {
+    "lat": 27.8503,
+    "lng": 75.2741
+  },
+  "NEEMUCH|Madhya Pradesh": {
+    "lat": 24.6305517,
+    "lng": 75.1829
+  },
+  "NEPAL|null": null,
+  "NICH NOOL|Uttar Pradesh": null,
+  "NIGOHA|Uttar Pradesh": null,
+  "NILOKHERI|Haryana": {
+    "lat": 29.8321793,
+    "lng": 76.8390988
+  },
+  "NORTH LAKHIMPUR|Assam": {
+    "lat": 27.254431,
+    "lng": 94.1120339
+  },
+  "NUH|Haryana": {
+    "lat": 27.9935177,
+    "lng": 77.0419634
+  },
+  "OBRA|Uttar Pradesh": {
+    "lat": 24.4676117,
+    "lng": 82.9932634
+  },
+  "ORAI|Uttar Pradesh": {
+    "lat": 25.9359555,
+    "lng": 79.4243277
+  },
+  "ORAIYA|Uttar Pradesh": null,
+  "PACHPURWA|Uttar Pradesh": null,
+  "PADRIBAZAR|Uttar Pradesh": null,
+  "PADRONA|Uttar Pradesh": null,
+  "PALIYAKALA|Uttar Pradesh": null,
+  "PANCHKULA|Haryana": {
+    "lat": 30.6975401,
+    "lng": 76.8551066
+  },
+  "PANIPAT|Haryana": {
+    "lat": 29.3912753,
+    "lng": 76.9771675
+  },
+  "PANNA|Madhya Pradesh": {
+    "lat": 24.4498931,
+    "lng": 80.1462723
+  },
+  "PARABAZAR|Uttar Pradesh": null,
+  "PARASPUR|Uttar Pradesh": {
+    "lat": 27.0318259,
+    "lng": 81.7802686
+  },
+  "PARTAWALBAZAR|Uttar Pradesh": null,
+  "PARWANOO|Himachal Pradesh": {
+    "lat": 30.837887,
+    "lng": 76.9601747
+  },
+  "PASHCHIM SAREERA|Uttar Pradesh": null,
+  "PATIALA|Punjab": {
+    "lat": 30.2092778,
+    "lng": 76.3397231
+  },
+  "PATNA|Bihar": {
+    "lat": 25.6093239,
+    "lng": 85.1235252
+  },
+  "PATNA JAMUI|Bihar": null,
+  "PATTI|Uttar Pradesh": {
+    "lat": 25.9496326,
+    "lng": 82.1811392
+  },
+  "PHAGWAEA|Punjab": null,
+  "PHAPHUND|Uttar Pradesh": {
+    "lat": 26.6324444,
+    "lng": 79.5545165
+  },
+  "PHARINDA|Uttar Pradesh": null,
+  "PHOOLPUR (ALLAHABAD)|Uttar Pradesh": {
+    "lat": 25.5496863,
+    "lng": 82.0883966
+  },
+  "PHOOLPUR(AZAMGARH)|Uttar Pradesh": {
+    "lat": 26.0855474,
+    "lng": 82.8688176
+  },
+  "PILANI|Rajasthan": {
+    "lat": 28.3622661,
+    "lng": 75.6042342
+  },
+  "PINGWAN|Haryana": null,
+  "PINJORE|Haryana": {
+    "lat": 30.8042411,
+    "lng": 76.9149498
+  },
+  "PIPIGANJ|Uttar Pradesh": null,
+  "PIPLI|Haryana": {
+    "lat": 29.976654,
+    "lng": 76.892351
+  },
+  "PIPRAICH|Uttar Pradesh": {
+    "lat": 26.8280867,
+    "lng": 83.53576
+  },
+  "PRATAPGARH|Uttar Pradesh": {
+    "lat": 25.75,
+    "lng": 81.75
+  },
+  "PRATAWAL CHOWK|Uttar Pradesh": null,
+  "PRAYAGPUR|Uttar Pradesh": {
+    "lat": 25.3272451,
+    "lng": 83.1975835
+  },
+  "PRAYAGPUR          PRGP|Uttar Pradesh": null,
+  "PRAYAGRAJ|Uttar Pradesh": {
+    "lat": 25.4381302,
+    "lng": 81.8338005
+  },
+  "PUNE|Maharashtra": {
+    "lat": 18.5213738,
+    "lng": 73.8545071
+  },
+  "PUNHANA|Haryana": {
+    "lat": 27.8637502,
+    "lng": 77.2051612
+  },
+  "PURAMUFTI|Uttar Pradesh": null,
+  "PURANPUR|Uttar Pradesh": {
+    "lat": 28.5143487,
+    "lng": 80.1512946
+  },
+  "PURIYAWAN|Uttar Pradesh": null,
+  "purnia|Bihar": {
+    "lat": 25.7758723,
+    "lng": 87.4087667
+  },
+  "RAEBARELI|Uttar Pradesh": {
+    "lat": 26.2086769,
+    "lng": 81.2186298
+  },
+  "RAGARGANJ BAZAR|Uttar Pradesh": null,
+  "RAIPUR|Chhattisgarh": {
+    "lat": 21.2380912,
+    "lng": 81.6336993
+  },
+  "RAJAPUR|Uttar Pradesh": {
+    "lat": 25.3863662,
+    "lng": 81.1494181
+  },
+  "RAJPURA|Punjab": {
+    "lat": 30.4776857,
+    "lng": 76.5937658
+  },
+  "RAKSOL|Bihar": null,
+  "RAMGANG (PTP)|Uttar Pradesh": null,
+  "RAMGARH|Uttar Pradesh": {
+    "lat": 27.9578064,
+    "lng": 77.5488293
+  },
+  "RAMGARH [JRK]|Jharkhand": null,
+  "RAMGARH[SNB]|Uttar Pradesh": null,
+  "RAMKOLA|Uttar Pradesh": {
+    "lat": 26.9052307,
+    "lng": 83.837023
+  },
+  "RAM NAGAR|Uttarakhand": {
+    "lat": 30.1233276,
+    "lng": 78.3145179
+  },
+  "RAMNAGAR|Uttar Pradesh": {
+    "lat": 27.1645832,
+    "lng": 81.3606632
+  },
+  "RAMPUR[JNP]|Uttar Pradesh": null,
+  "RANCHI|Jharkhand": {
+    "lat": 23.3700501,
+    "lng": 85.3250387
+  },
+  "RANGAPARA|Assam": {
+    "lat": 26.8177808,
+    "lng": 92.6862372
+  },
+  "RANIGANJ|Uttar Pradesh": {
+    "lat": 25.7967065,
+    "lng": 82.0634446
+  },
+  "RANI KI SARAI (AZM)|Uttar Pradesh": null,
+  "RANI KI SARAI (BLY)|Uttar Pradesh": null,
+  "RANIPUR|Uttar Pradesh": {
+    "lat": 25.2512395,
+    "lng": 79.0630906
+  },
+  "RASOOLABAD|Uttar Pradesh": {
+    "lat": 26.3787745,
+    "lng": 81.8688217
+  },
+  "RASSRA|Uttar Pradesh": null,
+  "RASULABAD|Uttar Pradesh": {
+    "lat": 26.6818748,
+    "lng": 79.8581081
+  },
+  "RATANPUR|Uttar Pradesh": {
+    "lat": 27.9557131,
+    "lng": 77.8025817
+  },
+  "RATH|Uttar Pradesh": {
+    "lat": 25.6343196,
+    "lng": 79.5260926
+  },
+  "RATLAM|Madhya Pradesh": {
+    "lat": 23.50222,
+    "lng": 74.9551534
+  },
+  "RAUDALI FZB|Uttar Pradesh": null,
+  "RAXSOL|Bihar": null,
+  "RENUKOT|Uttar Pradesh": null,
+  "REOSA|Uttar Pradesh": null,
+  "REWA|Uttar Pradesh": {
+    "lat": 25.2867539,
+    "lng": 81.7994851
+  },
+  "RISHIKESH|Uttarakhand": {
+    "lat": 30.1086537,
+    "lng": 78.2916193
+  },
+  "RISIYA|Uttar Pradesh": null,
+  "RISIYA  *|Uttar Pradesh": null,
+  "ROBERTSGANJ|Uttar Pradesh": {
+    "lat": 24.6266156,
+    "lng": 83.2403026
+  },
+  "ROORKEE|Uttarakhand": {
+    "lat": 29.8693496,
+    "lng": 77.8902124
+  },
+  "ROPAR|Punjab": {
+    "lat": 30.9688367,
+    "lng": 76.526088
+  },
+  "RUDHOLI BAZAR|Uttar Pradesh": null,
+  "RUDHOLI [BST]|Uttar Pradesh": null,
+  "RUDHOLI [FZB]|Uttar Pradesh": null,
+  "RUDRAPUR|Uttar Pradesh": {
+    "lat": 26.4621587,
+    "lng": 83.6037155
+  },
+  "RUPADIYA|Uttar Pradesh": {
+    "lat": 28.0130436,
+    "lng": 81.5972399
+  },
+  "RURA|Uttar Pradesh": {
+    "lat": 26.489896,
+    "lng": 79.9011355
+  },
+  "SADAR BAZAR|Delhi": {
+    "lat": 28.658087,
+    "lng": 77.2170087
+  },
+  "SADAT|Uttar Pradesh": {
+    "lat": 25.6735123,
+    "lng": 83.3089591
+  },
+  "SADHOL|Uttar Pradesh": null,
+  "SADULANAGAR|Uttar Pradesh": null,
+  "SAFIPUR|Uttar Pradesh": {
+    "lat": 26.838518,
+    "lng": 80.2811331
+  },
+  "SAHRANPUR|Uttar Pradesh": null,
+  "SAHSO|Uttar Pradesh": null,
+  "SAIDPUR|Uttar Pradesh": {
+    "lat": 25.5837885,
+    "lng": 83.2637704
+  },
+  "SAINI (SIRATU)|Uttar Pradesh": null,
+  "SAKSHI|Jharkhand": {
+    "lat": 23.9766823,
+    "lng": 85.3635835
+  },
+  "SALEM|Tamil Nadu": {
+    "lat": 11.6469616,
+    "lng": 78.2106958
+  },
+  "SALEMGARH|Uttar Pradesh": null,
+  "SALEMPUR|Uttar Pradesh": {
+    "lat": 26.2967211,
+    "lng": 83.921322
+  },
+  "SALON|Uttar Pradesh": {
+    "lat": 26.088815,
+    "lng": 81.4533741
+  },
+  "SAMALKHA|Haryana": {
+    "lat": 29.230736,
+    "lng": 77.0019919
+  },
+  "SAMASTIPUR|Bihar": {
+    "lat": 25.7747885,
+    "lng": 85.8672314
+  },
+  "SAMBA|Jammu & Kashmir": {
+    "lat": 32.5759118,
+    "lng": 75.1203446
+  },
+  "SAMBHAL|Uttar Pradesh": {
+    "lat": 28.4271928,
+    "lng": 78.5564546
+  },
+  "SAMTHAR|Uttar Pradesh": {
+    "lat": 25.8438799,
+    "lng": 78.9067775
+  },
+  "SANDILA|Uttar Pradesh": {
+    "lat": 27.1254439,
+    "lng": 80.5414908
+  },
+  "SANGIPUR|Uttar Pradesh": {
+    "lat": 26.0445446,
+    "lng": 81.6663457
+  },
+  "SANGRAMGARH  (KUNDA)|Uttar Pradesh": {
+    "lat": 25.8596385,
+    "lng": 81.4980459
+  },
+  "SANOLI|Uttar Pradesh": null,
+  "SANTOKGARH|Himachal Pradesh": {
+    "lat": 31.3527424,
+    "lng": 76.3175624
+  },
+  "SARAIAKIL|Uttar Pradesh": null,
+  "SARAIMEER|Uttar Pradesh": null,
+  "SASARAM|Bihar": {
+    "lat": 24.9509656,
+    "lng": 84.0148733
+  },
+  "SATHIAON|Uttar Pradesh": {
+    "lat": 26.0344068,
+    "lng": 83.2873451
+  },
+  "SATHION SADAR|Uttar Pradesh": null,
+  "SATNA|Uttar Pradesh": null,
+  "SAURIKH[CBM]|Uttar Pradesh": null,
+  "SERABASTI|Uttar Pradesh": null,
+  "SHAGANJ|Uttar Pradesh": {
+    "lat": 27.1773608,
+    "lng": 77.9836583
+  },
+  "SHAHABAD|Haryana": {
+    "lat": 30.1658852,
+    "lng": 76.8616655
+  },
+  "SHAHBAD|Uttar Pradesh": {
+    "lat": 28.649385,
+    "lng": 78.8882491
+  },
+  "SHAHDARA|Delhi": {
+    "lat": 28.6734298,
+    "lng": 77.2898858
+  },
+  "SHAHGANJ|Uttar Pradesh": {
+    "lat": 26.0186438,
+    "lng": 82.6172019
+  },
+  "SHAHJANWA|Uttar Pradesh": null,
+  "SHAHPUR|Uttar Pradesh": {
+    "lat": 29.7577461,
+    "lng": 77.6593494
+  },
+  "SHAHRSA|Bihar": null,
+  "SHAHZADPUR|Uttar Pradesh": {
+    "lat": 27.8486197,
+    "lng": 77.5605583
+  },
+  "SHAJANPUR|Uttar Pradesh": null,
+  "SHAKTINAGAR|Uttar Pradesh": null,
+  "SHAMLI|Uttar Pradesh": {
+    "lat": 29.4811508,
+    "lng": 77.2901344
+  },
+  "SHANEWAL|Punjab": {
+    "lat": 30.8400705,
+    "lng": 75.9687052
+  },
+  "SHANKARGARH|Uttar Pradesh": {
+    "lat": 25.1836065,
+    "lng": 81.6166539
+  },
+  "SHATION|Uttar Pradesh": null,
+  "SHAZADPUR|Uttar Pradesh": null,
+  "SHEIKHPURA|Bihar": {
+    "lat": 25.1250741,
+    "lng": 85.8160771
+  },
+  "SHEOPURKALAN|Madhya Pradesh": null,
+  "SHICGARH|Uttar Pradesh": null,
+  "SHIMLA|Himachal Pradesh": {
+    "lat": 31.1040393,
+    "lng": 77.1707923
+  },
+  "SIBSAGAR|Assam": {
+    "lat": 26.9834936,
+    "lng": 94.6394226
+  },
+  "SIDDHARTHNAGAR|Uttar Pradesh": {
+    "lat": 27.2511724,
+    "lng": 82.8716528
+  },
+  "SIDDHI|Madhya Pradesh": {
+    "lat": 23.2745515,
+    "lng": 77.4244688
+  },
+  "SIDHAUR|Uttar Pradesh": null,
+  "SIKANDRA|Uttar Pradesh": {
+    "lat": 26.3757328,
+    "lng": 79.639405
+  },
+  "SIKAR|Rajasthan": {
+    "lat": 27.6624156,
+    "lng": 75.0279971
+  },
+  "SIKARIGANJ|Uttar Pradesh": {
+    "lat": 26.5059539,
+    "lng": 83.2005744
+  },
+  "SIKENDERPUR]BLY]|Uttar Pradesh": null,
+  "SIKENDERPUR [BST]|Delhi": null,
+  "SIKOHABAD|Uttar Pradesh": {
+    "lat": 27.1037645,
+    "lng": 78.5881058
+  },
+  "SILAPATHAR|Assam": {
+    "lat": 27.5893833,
+    "lng": 94.7255857
+  },
+  "SILCHAR|Assam": {
+    "lat": 24.830302,
+    "lng": 92.7875689
+  },
+  "SINDHOLI|Uttar Pradesh": null,
+  "SINGHANA|Rajasthan": {
+    "lat": 28.0980168,
+    "lng": 75.8365734
+  },
+  "SINGNAULI-MP|Uttar Pradesh": null,
+  "SINGRAMAU|Uttar Pradesh": {
+    "lat": 25.9455701,
+    "lng": 82.3988125
+  },
+  "SINGROLI|Madhya Pradesh": null,
+  "SIRATHU|Uttar Pradesh": {
+    "lat": 25.6618661,
+    "lng": 81.3252758
+  },
+  "SIRSA (ALLHABAD)|Uttar Pradesh": null,
+  "SISWABAZAR|Uttar Pradesh": null,
+  "SITAMARHI|Bihar": {
+    "lat": 26.5942841,
+    "lng": 85.500428
+  },
+  "SITAPUR|Uttar Pradesh": {
+    "lat": 27.5026748,
+    "lng": 80.8335139
+  },
+  "SIWAN|Bihar": {
+    "lat": 26.131008,
+    "lng": 84.3910745
+  },
+  "SOHARATGARH|Uttar Pradesh": null,
+  "SOHAWAL|Uttar Pradesh": {
+    "lat": 26.7330586,
+    "lng": 81.9732242
+  },
+  "SOHNA|Haryana": {
+    "lat": 28.3241636,
+    "lng": 77.0848644
+  },
+  "SOHRATGARH|Uttar Pradesh": {
+    "lat": 27.3988648,
+    "lng": 82.9579186
+  },
+  "SOLAN|Himachal Pradesh": {
+    "lat": 30.9077569,
+    "lng": 77.1023645
+  },
+  "SON BHADRA|Uttar Pradesh": null,
+  "SONIPAT|Haryana": {
+    "lat": 28.9953758,
+    "lng": 77.0233627
+  },
+  "SORAON|Uttar Pradesh": {
+    "lat": 25.6189044,
+    "lng": 81.7910413
+  },
+  "SORAVE|Uttar Pradesh": null,
+  "SRINAGAR|Jammu & Kashmir": {
+    "lat": 34.0747444,
+    "lng": 74.8204443
+  },
+  "SUBEHA|Uttar Pradesh": {
+    "lat": 26.6358767,
+    "lng": 81.5059484
+  },
+  "SUDHAMPUR|Jammu & Kashmir": null,
+  "SUJANGANJ|Uttar Pradesh": {
+    "lat": 25.7696112,
+    "lng": 82.2902825
+  },
+  "SUJANGARH|Rajasthan": {
+    "lat": 27.709355,
+    "lng": 74.4642899
+  },
+  "SULTANPUR|Uttar Pradesh": {
+    "lat": 26.2604732,
+    "lng": 82.2380532
+  },
+  "SURAPUR|Uttar Pradesh": null,
+  "SURIYAWAN|Uttar Pradesh": {
+    "lat": 25.4641655,
+    "lng": 82.4181237
+  },
+  "TAHLIWAL|Himachal Pradesh": {
+    "lat": 31.3491982,
+    "lng": 76.2691449
+  },
+  "TAKMA|Uttar Pradesh": null,
+  "TAMKAI ROAD|Uttar Pradesh": null,
+  "TAMKHUIRAJ|Uttar Pradesh": null,
+  "TANDA|Uttar Pradesh": {
+    "lat": 26.5182569,
+    "lng": 82.6946915
+  },
+  "TARABGANG|Uttar Pradesh": null,
+  "TATANAGAR|Jharkhand": {
+    "lat": 22.8015194,
+    "lng": 86.2029579
+  },
+  "TAURU|Haryana": {
+    "lat": 28.2109261,
+    "lng": 76.9506404
+  },
+  "TEKUATAR|Uttar Pradesh": {
+    "lat": 26.8347002,
+    "lng": 83.8593104
+  },
+  "TENGPORA|Jammu & Kashmir": {
+    "lat": 34.2282398,
+    "lng": 74.7802456
+  },
+  "TETRI BAZAR|Uttar Pradesh": null,
+  "TEZPUR|Assam": {
+    "lat": 26.6229928,
+    "lng": 92.7976082
+  },
+  "THANJAVUR|Tamil Nadu": {
+    "lat": 10.659037,
+    "lng": 79.2014278
+  },
+  "THARIYAO|Uttar Pradesh": null,
+  "THEKMA|Uttar Pradesh": {
+    "lat": 25.8625109,
+    "lng": 82.9268043
+  },
+  "TIKAMGARH|Madhya Pradesh": {
+    "lat": 24.8552105,
+    "lng": 79.0472546
+  },
+  "TIKARMAFI|Uttar Pradesh": null,
+  "TIKATGANJ|Uttar Pradesh": null,
+  "TIKONIYA|Uttar Pradesh": {
+    "lat": 26.2636338,
+    "lng": 82.0748664
+  },
+  "TIKUNIA KHERI (LKM)|Uttar Pradesh": null,
+  "TINSUKIA|Assam": {
+    "lat": 27.4879722,
+    "lng": 95.3601855
+  },
+  "TIRUCHIRAPPALLI|Tamil Nadu": {
+    "lat": 10.8071144,
+    "lng": 78.6880939
+  },
+  "TIRUPPUR|Tamil Nadu": {
+    "lat": 10.7915267,
+    "lng": 77.5325466
+  },
+  "TOITOLIBAZAR|Assam": null,
+  "TONK|Rajasthan": {
+    "lat": 26.1223198,
+    "lng": 75.6632235
+  },
+  "TOOTIBARI|Uttar Pradesh": null,
+  "TRIVEDI GANJ|Uttar Pradesh": null,
+  "TULSIPUR|Uttar Pradesh": {
+    "lat": 27.5318766,
+    "lng": 82.4090082
+  },
+  "UDAIPUR|Rajasthan": {
+    "lat": 24.578721,
+    "lng": 73.6862571
+  },
+  "UDHAMPUR|Jammu & Kashmir": {
+    "lat": 32.9219726,
+    "lng": 75.1331482
+  },
+  "UJJAIN|Madhya Pradesh": {
+    "lat": 23.1885131,
+    "lng": 75.7716562
+  },
+  "UNA|Himachal Pradesh": {
+    "lat": 31.5834642,
+    "lng": 76.2351452
+  },
+  "UNCHAHAR|Uttar Pradesh": {
+    "lat": 25.9600127,
+    "lng": 81.3187596
+  },
+  "UNNAO|Uttar Pradesh": {
+    "lat": 26.5673264,
+    "lng": 80.6198193
+  },
+  "UP BORDER|Delhi": null,
+  "USKABAZAR|Uttar Pradesh": null,
+  "UTCHAHAR|Uttar Pradesh": null,
+  "UTROLA|Uttar Pradesh": null,
+  "VAHRIYA|Uttar Pradesh": null,
+  "VELLORE|Tamil Nadu": {
+    "lat": 12.9021849,
+    "lng": 79.061104
+  },
+  "VIISHNUPUR BARABNKI|Uttar Pradesh": null,
+  "VIJAYPUR|Jammu & Kashmir": {
+    "lat": 32.5664955,
+    "lng": 75.0172188
+  },
+  "VIKRAMGANJ|Bihar": null,
+  "VINDHYANAGAR|Uttar Pradesh": null,
+  "VIRIYAWAN|Uttar Pradesh": null,
+  "VISESARGANJ|Uttar Pradesh": null,
+  "WAIDAN|Uttar Pradesh": null,
+  "WAIDHAN|Uttar Pradesh": null,
+  "WARISGANJ|Bihar": null,
+  "WAZIRGANG|Uttar Pradesh": null,
+  "WORLDPUR|Uttar Pradesh": null,
+  "YOUSAFPUR|Uttar Pradesh": null,
+  "ZAIDPUR|Uttar Pradesh": {
+    "lat": 26.8305827,
+    "lng": 81.3296301
+  },
+  "ZIRAKPUR|Punjab": {
+    "lat": 30.6557257,
+    "lng": 76.8200648
+  }
+}

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Image from 'next/image';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { COMPANY_NAME, COMPANY_EMAIL, CUSTOMER_CARE, OWNER_CONTACTS, formatPhone, telHref } from '@/data/company';
@@ -22,11 +23,12 @@ export default function Footer() {
         <div>
           <h3 className="text-white font-semibold mb-4">Quick Links</h3>
           <ul className="space-y-2.5 text-sm">
-            <li><a href="#home" className="hover:text-white transition-colors">Home</a></li>
-            <li><a href="#about" className="hover:text-white transition-colors">About Us</a></li>
-            <li><a href="#branches" className="hover:text-white transition-colors">Branches</a></li>
-            <li><a href="#stations" className="hover:text-white transition-colors">Stations</a></li>
-            <li><a href="#contact" className="hover:text-white transition-colors">Contact</a></li>
+            <li><Link href="/#home" className="hover:text-white transition-colors">Home</Link></li>
+            <li><Link href="/#about" className="hover:text-white transition-colors">About Us</Link></li>
+            <li><Link href="/#branches" className="hover:text-white transition-colors">Branches</Link></li>
+            <li><Link href="/#stations" className="hover:text-white transition-colors">Stations</Link></li>
+            <li><Link href="/map" className="hover:text-white transition-colors">Map</Link></li>
+            <li><Link href="/#contact" className="hover:text-white transition-colors">Contact</Link></li>
           </ul>
         </div>
 

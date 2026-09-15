@@ -12,7 +12,7 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = join(__dirname, '..', 'src', 'data', 'cityCoords.json');
-const API_URL = 'https://api.movesure.io';
+const API_URL = 'https://api.movesure.io ';
 const NOMINATIM_UA = 'ss-transport-website/1.0 (contact@ssmovesecure.com)';
 
 function loadExisting() {

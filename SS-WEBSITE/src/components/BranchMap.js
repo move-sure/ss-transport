@@ -31,7 +31,7 @@ const cityIcon = L.divIcon({
 // Center point roughly between all three Aligarh branches.
 const CENTER = [27.905, 78.096];
 
-const API_URL = 'https://api.movesure.io';
+const API_URL = 'https://api.movesure.io ';
 
 // Coordinates were geocoded once (scripts/geocode-cities.mjs) and bundled as a
 // static file so the map never has to hit a geocoding API at runtime — no

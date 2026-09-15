@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, MapPin, AlertCircle } from 'lucide-react';
 
-const API_URL = 'https://api.movesure.io';
+const API_URL = 'https://api.movesure.io ';
 
 export default function CitiesList() {
   const [query, setQuery] = useState('');

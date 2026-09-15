@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, MapPin, Truck, Phone, AlertCircle } from 'lucide-react';
 
-const API_URL = 'https://api.movesure.io';
+const API_URL = 'https://api.movesure.io ';
 
 export default function StationsSearch() {
   const [query, setQuery] = useState('');

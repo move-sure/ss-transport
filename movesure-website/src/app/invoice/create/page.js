@@ -46,6 +46,16 @@ const SUPPLY_TYPES = [
 const GST_RATES = [0, 5, 12, 18, 28];
 const UNITS = ['NOS', 'KG', 'MTR', 'LTR', 'BOX', 'SET', 'PCS', 'TON', 'BAG', 'BDL', 'DZ'];
 
+// Common items sold by the box, where each box holds a fixed piece count (sometimes a choice of box sizes).
+// Add more presets here as needed — each one drives the "Quick Add" bar below the line items table.
+const QUICK_ITEMS = [
+  { id: 'cycle_frame_locks', item_name: 'CYCLE FRAME LOCKS', hsn_sac_code: '8714', gst_rate: 5, unit: 'PCS', box_sizes: [160], default_rate: 25 },
+  { id: 'cable_locks', item_name: 'CABLE LOCKS', hsn_sac_code: '8302', gst_rate: 18, unit: 'PCS', box_sizes: [150, 200, 240, 300], default_rate: 30 },
+  { id: 'handle_locks', item_name: 'HANDLE LOCKS', hsn_sac_code: '8302', gst_rate: 18, unit: 'PCS', box_sizes: [150, 200, 240, 300], default_rate: '' },
+];
+
+const EWAY_BILL_THRESHOLD = 50000;
+
 const today = () => new Date().toISOString().split('T')[0];
 const addDays = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
@@ -265,10 +275,15 @@ export default function CreateInvoicePage() {
 
   const filteredSeries = useMemo(() => allSeries.filter(s => s.tenant_id === tenantId), [allSeries, tenantId]);
 
-  const taxType = useMemo(() => {
+  // Auto-detected from state codes (same state -> CGST+SGST, different -> IGST).
+  // `taxTypeOverride` lets the user force IGST/CGST+SGST regardless (e.g. SEZ, export).
+  const autoTaxType = useMemo(() => {
     if (!seller.seller_state_code || !buyer.buyer_state_code) return 'INTRA';
     return seller.seller_state_code === buyer.buyer_state_code ? 'INTRA' : 'INTER';
   }, [seller.seller_state_code, buyer.buyer_state_code]);
+
+  const [taxTypeOverride, setTaxTypeOverride] = useState(null); // null = follow auto-detection
+  const taxType = taxTypeOverride || autoTaxType;
 
   const applyTenant = (t) => {
     if (!t) return;
@@ -437,6 +452,38 @@ export default function CreateInvoicePage() {
   const addLine = () => setLines(ls => [...ls, { ...EMPTY_LINE }]);
   const removeLine = (i) => setLines(ls => ls.filter((_, idx) => idx !== i));
 
+  // Quick Add: pick a common box item + box size + box count, auto-fill pcs/HSN/GST/rate as a new line.
+  const [quickPresetId, setQuickPresetId] = useState(QUICK_ITEMS[0]?.id || '');
+  const [quickBoxSize, setQuickBoxSize] = useState(QUICK_ITEMS[0]?.box_sizes[0] || 0);
+  const [quickBoxes, setQuickBoxes] = useState('');
+  const quickPreset = useMemo(() => QUICK_ITEMS.find(q => q.id === quickPresetId), [quickPresetId]);
+  const quickPcs = (parseFloat(quickBoxes) || 0) * quickBoxSize;
+
+  const handleQuickPresetChange = (id) => {
+    setQuickPresetId(id);
+    const p = QUICK_ITEMS.find(q => q.id === id);
+    setQuickBoxSize(p?.box_sizes[0] || 0);
+  };
+
+  const addQuickItem = () => {
+    const boxes = parseFloat(quickBoxes) || 0;
+    if (!quickPreset || boxes <= 0 || !quickBoxSize) return;
+    const newLine = {
+      ...EMPTY_LINE,
+      item_name: quickPreset.item_name,
+      hsn_sac_code: quickPreset.hsn_sac_code,
+      quantity: boxes * quickBoxSize,
+      unit: quickPreset.unit,
+      gst_rate: quickPreset.gst_rate,
+      rate: quickPreset.default_rate || '',
+    };
+    setLines(ls => {
+      const isBlankSingleLine = ls.length === 1 && !ls[0].item_name.trim() && !ls[0].rate;
+      return isBlankSingleLine ? [newLine] : [...ls, newLine];
+    });
+    setQuickBoxes('');
+  };
+
   const totals = useMemo(() => {
     let subtotal = 0, discount = 0, taxable = 0, cgst = 0, sgst = 0, igst = 0;
     lines.forEach(l => { const c = calcLine(l, taxType); subtotal += c.gross; discount += c.discAmt; taxable += c.taxable; cgst += c.cgst; sgst += c.sgst; igst += c.igst; });
@@ -477,6 +524,29 @@ export default function CreateInvoicePage() {
     return null;
   };
 
+  // The backend computes its own CGST+SGST vs IGST split from state codes and
+  // has no idea about the manual taxType toggle above — so the print must use
+  // the frontend's own per-line calc (which already respects the toggle)
+  // instead of trusting apiResult's tax fields.
+  const buildPdfLineItems = () => lines.map((l, i) => {
+    const c = calcLine(l, taxType);
+    return {
+      line_number: i + 1,
+      item_name: l.item_name,
+      description: l.description || '',
+      hsn_sac_code: l.hsn_sac_code || '',
+      quantity: parseFloat(l.quantity) || 0,
+      unit: l.unit,
+      rate: parseFloat(l.rate) || 0,
+      taxable_amount: c.taxable,
+      gst_rate: parseFloat(l.gst_rate) || 0,
+      cgst_amount: c.cgst,
+      sgst_amount: c.sgst,
+      igst_amount: c.igst,
+      total_amount: c.total,
+    };
+  });
+
   const buildPdfResult = (apiResult) => ({
     ...apiResult,
     ...seller,
@@ -488,6 +558,14 @@ export default function CreateInvoicePage() {
     bank_ifsc:       selectedTenant?.bank_ifsc        || '',
     bank_branch:     selectedTenant?.bank_branch      || '',
     upi_id:          selectedTenant?.upi_id           || '',
+    // Override with frontend-calculated totals so the selected tax type always wins in print.
+    line_items:      buildPdfLineItems(),
+    taxable_amount:  totals.taxable,
+    total_cgst:      totals.cgst,
+    total_sgst:      totals.sgst,
+    total_igst:      totals.igst,
+    round_off:       totals.roundOff,
+    total_amount:    totals.grandTotal,
   });
 
   const handleSave = async () => {
@@ -595,9 +673,22 @@ export default function CreateInvoicePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className={`hidden sm:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${taxType === 'INTER' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                {taxType === 'INTER' ? 'IGST' : 'CGST+SGST'}
-              </span>
+              <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-full p-1">
+                <button type="button" onClick={() => setTaxTypeOverride('INTRA')}
+                  className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${taxType === 'INTRA' ? 'bg-green-600 text-white' : 'text-green-700 hover:bg-green-50'}`}>
+                  CGST+SGST
+                </button>
+                <button type="button" onClick={() => setTaxTypeOverride('INTER')}
+                  className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${taxType === 'INTER' ? 'bg-orange-600 text-white' : 'text-orange-700 hover:bg-orange-50'}`}>
+                  IGST
+                </button>
+                {taxTypeOverride && (
+                  <button type="button" onClick={() => setTaxTypeOverride(null)} title="Reset to auto-detected (based on state codes)"
+                    className="text-[10px] px-1.5 py-1 text-gray-400 hover:text-gray-600">
+                    Auto
+                  </button>
+                )}
+              </div>
               <button type="button" onClick={handleSave} disabled={saving}
                 className="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -616,6 +707,13 @@ export default function CreateInvoicePage() {
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
               <button onClick={() => setError('')} className="ml-auto"><XIcon className="h-4 w-4" /></button>
+            </div>
+          )}
+
+          {totals.grandTotal >= EWAY_BILL_THRESHOLD && (
+            <div className="mx-4 mb-2 flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-sm px-4 py-2 rounded-lg">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              Invoice total is ₹{totals.grandTotal.toLocaleString('en-IN')} — an E-Way Bill is required for invoices of ₹{EWAY_BILL_THRESHOLD.toLocaleString('en-IN')} or more.
             </div>
           )}
         </div>
@@ -828,6 +926,40 @@ export default function CreateInvoicePage() {
 
           {/* Line Items */}
           <Section title="Line Items" icon={Package} accent="gray">
+            {/* Quick Add: common box items — pick item, enter boxes, pcs/HSN/GST fill in automatically */}
+            <div className="flex flex-wrap items-end gap-2 mb-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-amber-700 text-xs font-bold uppercase tracking-wide mr-1">
+                <Package className="h-3.5 w-3.5" /> Quick Add
+              </div>
+              <div className="min-w-[180px]">
+                <select className={sel} value={quickPresetId} onChange={e => handleQuickPresetChange(e.target.value)}>
+                  {QUICK_ITEMS.map(q => <option key={q.id} value={q.id}>{q.item_name}</option>)}
+                </select>
+              </div>
+              {quickPreset?.box_sizes.length > 1 ? (
+                <div className="w-32">
+                  <select className={sel} value={quickBoxSize} onChange={e => setQuickBoxSize(parseFloat(e.target.value))}>
+                    {quickPreset.box_sizes.map(sz => <option key={sz} value={sz}>{sz} pcs/box</option>)}
+                  </select>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-500 whitespace-nowrap">{quickBoxSize} pcs/box</span>
+              )}
+              <div className="w-28">
+                <input className={inp} type="number" min={0} step="1" placeholder="Boxes"
+                  value={quickBoxes} onChange={e => setQuickBoxes(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addQuickItem(); } }} />
+              </div>
+              <span className="text-xs text-gray-500">
+                = <span className="font-semibold text-gray-800">{quickPcs || 0}</span> {quickPreset?.unit} · HSN {quickPreset?.hsn_sac_code} · GST {quickPreset?.gst_rate}%
+                {quickPreset?.default_rate ? <> · ₹{quickPreset.default_rate}/pcs</> : null}
+              </span>
+              <button type="button" onClick={addQuickItem} disabled={!quickBoxes || (parseFloat(quickBoxes) || 0) <= 0}
+                className="ml-auto flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40">
+                <Plus className="h-4 w-4" /> Add Line
+              </button>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>

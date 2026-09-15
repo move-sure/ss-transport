@@ -41,13 +41,42 @@ function fmtDateTime(d) {
   catch { return d; }
 }
 
-function StageDot({ label, done }) {
+const DELIVERY_STEPS = [
+  { key: 'out_from_branch1', label: 'Out Branch 1' },
+  { key: 'delivered_at_branch2', label: 'At Branch 2' },
+  { key: 'out_from_branch2', label: 'Out Branch 2' },
+  { key: 'delivered_at_destination', label: 'At Destination' },
+  { key: 'out_for_door_delivery', label: 'Door Delivery' },
+];
+
+// Even-width stepper (no fixed min-widths, so it never overflows/scrolls)
+// with a fill bar underneath showing overall progress reached so far.
+function DeliveryProgress({ stages }) {
+  let lastDoneIdx = -1;
+  DELIVERY_STEPS.forEach((s, i) => { if (stages[s.key]) lastDoneIdx = i; });
+  const fillPercent = lastDoneIdx >= 0 ? ((lastDoneIdx + 1) / DELIVERY_STEPS.length) * 100 : 0;
+
   return (
-    <div className="flex flex-col items-center gap-1 min-w-13.5 shrink-0">
-      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-        {done ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3 h-3" />}
+    <div className="pt-2 w-full">
+      <div className="flex items-start justify-between gap-1">
+        {DELIVERY_STEPS.map((s) => {
+          const done = !!stages[s.key];
+          return (
+            <div key={s.key} className="flex flex-col items-center gap-1 flex-1 min-w-0">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                {done ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-2.5 h-2.5" />}
+              </div>
+              <span className={`text-[8px] text-center leading-tight ${done ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>{s.label}</span>
+            </div>
+          );
+        })}
       </div>
-      <span className={`text-[9px] text-center leading-tight ${done ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>{label}</span>
+      <div className="mt-1.5 h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-emerald-500 rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${fillPercent}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -139,13 +168,7 @@ function BiltyCard({ row }) {
                 </p>
               )}
               <p className="text-xs text-slate-400">Dispatched {fmtDateTime(d.dispatch_date)}</p>
-              <div className="flex items-center gap-2 pt-2 overflow-x-auto">
-                <StageDot label="Out Branch1" done={!!stages.out_from_branch1} />
-                <StageDot label="At Branch2" done={!!stages.delivered_at_branch2} />
-                <StageDot label="Out Branch2" done={!!stages.out_from_branch2} />
-                <StageDot label="At Dest." done={!!stages.delivered_at_destination} />
-                <StageDot label="Door Del." done={!!stages.out_for_door_delivery} />
-              </div>
+              <DeliveryProgress stages={stages} />
             </>
           ) : (
             <p className="text-sm text-slate-400">Not yet added to a challan.</p>

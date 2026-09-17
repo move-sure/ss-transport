@@ -64,7 +64,7 @@ Payment management has been integrated into the bilty creation and printing work
 9. User can proceed with printing or close the modal
 
 ### API Integration
-**Endpoint**: `POST https://api.movesure.io/api/bilty/payment/save`
+**Endpoint**: `POST https://api.movesure.io /api/bilty/payment/save`
 
 **Request Body**:
 ```json

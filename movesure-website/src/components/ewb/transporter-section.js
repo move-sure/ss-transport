@@ -1,15 +1,31 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle, Clock, Shield } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import { Truck, CheckCircle, AlertTriangle, XCircle, Edit3, Filter, RefreshCw, Eye, Download, Play, Square, Loader2, Zap, AlertCircle, Clock, Shield, Printer } from 'lucide-react';
 import TransporterUpdateModal from './transporter-update-modal';
 import EWBDetailsModal from './ewb-details-modal';
 import supabase from '../../app/utils/supabase';
 import { useAuth } from '../../app/utils/auth';
 import { formatEwbNumber, validateEwbNumber } from '../../utils/ewbValidation';
 import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers, saveTransporterUpdate, markEwbAsDownloaded, saveEwbValidationsBulk } from '../../utils/ewbValidationStorage';
+import { generateQRCode, addEWBContent } from './ewb-pdf-content';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
+const EWB_BULK_API_BASE = 'https://api.movesure.io /api/ewaybill/challan-bulk';
+
+// Fetch every EWB on a challan in one call — reads from our own DB cache
+// (ewb_validations.raw_result_metadata, populated by "Validate All" on this
+// screen), not a live Masters India/NIC call. `message` comes back flat and
+// ready to feed straight into addEWBContent().
+async function fetchChallanBulkEwbs(challanNo) {
+  const res = await fetch(`${EWB_BULK_API_BASE}?challan_no=${challanNo}`);
+  const json = await res.json();
+  if (json.status !== 'success' || !json.data) {
+    throw new Error(json.message || 'Failed to fetch challan E-Way Bills');
+  }
+  return json.data;
+}
 
 // Parse "DD/MM/YYYY HH:MM:SS AM/PM" string to ISO date string
 function parseIndianDateString(str) {
@@ -125,7 +141,7 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
   };
 
   // First call — actual update
-  const res1 = await fetch('https://api.movesure.io//api/transporter-update', {
+  const res1 = await fetch('https://api.movesure.io //api/transporter-update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -152,7 +168,7 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
   // Second call — get PDF (may return 204/empty if EWB was already Part-B entered)
   let data2 = null;
   try {
-    const res2 = await fetch('https://api.movesure.io//api/transporter-update', {
+    const res2 = await fetch('https://api.movesure.io //api/transporter-update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -218,6 +234,29 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
   const [fixProgress, setFixProgress] = useState({ current: 0, total: 0, currentGr: '', currentEwb: '' });
   const [fixResults, setFixResults] = useState({}); // ewb → { success, pdfUrl, error, transporter }
   const fixCancelRef = useRef(false);
+
+  // ── Bulk print state (merge every EWB on the challan into one PDF) ──
+  const [printRunning, setPrintRunning] = useState(false);
+  const [printProgress, setPrintProgress] = useState({ current: 0, total: 0, currentEwb: '' });
+  const [printResult, setPrintResult] = useState(null); // { url, successCount, failed: [{ewb, grNo, error}] }
+  const printCancelRef = useRef(false);
+  const printUrlRef = useRef(null);
+
+  // Revoke the previous merged-PDF blob URL whenever a new one replaces it (or on unmount)
+  useEffect(() => {
+    if (printResult?.url && printResult.url !== printUrlRef.current) {
+      if (printUrlRef.current) URL.revokeObjectURL(printUrlRef.current);
+      printUrlRef.current = printResult.url;
+    }
+    if (!printResult?.url && printUrlRef.current) {
+      URL.revokeObjectURL(printUrlRef.current);
+      printUrlRef.current = null;
+    }
+  }, [printResult]);
+
+  useEffect(() => {
+    return () => { if (printUrlRef.current) URL.revokeObjectURL(printUrlRef.current); };
+  }, []);
 
   // Per-EWB PDF map (DB updates + bulk results merged)
   const ewbPdfMap = useMemo(() => {
@@ -725,6 +764,110 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
 
   const handleFixSelfCancel = () => { fixCancelRef.current = true; };
 
+  // ════════════════ BULK PRINT — merge every EWB on this challan into one PDF ════════════════
+  // Reads from our own cached ewb_validations (populated by "Validate All" below) via
+  // GET /api/ewaybill/challan-bulk — no live Masters India/NIC calls, no gstin needed.
+  const handleBulkPrint = useCallback(async () => {
+    if (!challanDetails?.challan_no) return;
+
+    printCancelRef.current = false;
+    setPrintRunning(true);
+    setPrintResult(null);
+    setPrintProgress({ current: 0, total: 0, currentEwb: '' });
+
+    let data;
+    try {
+      data = await fetchChallanBulkEwbs(challanDetails.challan_no);
+    } catch (err) {
+      setPrintResult({ url: null, successCount: 0, failed: [{ ewb: '—', grNo: '—', error: err.message || 'Failed to fetch challan E-Way Bills' }], grsWithoutEwb: [], notValidatedCount: 0 });
+      setPrintRunning(false);
+      return;
+    }
+
+    const results = data.results || [];
+    setPrintProgress({ current: 0, total: results.length, currentEwb: '' });
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    let first = true;
+    let successCount = 0;
+    const failed = [];
+
+    for (let i = 0; i < results.length; i++) {
+      if (printCancelRef.current) break;
+      const item = results[i];
+      setPrintProgress({ current: i + 1, total: results.length, currentEwb: formatEwbNumber(item.ewb_number) });
+
+      if (item.status !== 'success' || !item.message) {
+        failed.push({
+          ewb: item.ewb_number,
+          grNo: (item.gr_nos || []).join(', ') || 'N/A',
+          error: item.status === 'not_validated' ? 'Not validated yet — run Validate All below first' : (item.error || 'Unavailable'),
+        });
+        continue;
+      }
+
+      const message = item.message;
+      const qrText = `EWB:${message.eway_bill_number}\nDate:${message.eway_bill_date}\nFrom:${message.place_of_consignor}\nTo:${message.place_of_consignee}`;
+      const qrDataURL = await generateQRCode(qrText);
+
+      if (!first) pdf.addPage();
+      first = false;
+      addEWBContent(pdf, message, qrDataURL);
+      successCount++;
+    }
+
+    if (printCancelRef.current) {
+      setPrintRunning(false);
+      return;
+    }
+
+    const resultBase = {
+      failed,
+      grsWithoutEwb: data.grs_without_ewb || [],
+      notValidatedCount: data.not_validated_count || 0,
+    };
+
+    if (successCount > 0) {
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      setPrintResult({ url, successCount, ...resultBase });
+    } else {
+      setPrintResult({ url: null, successCount: 0, ...resultBase });
+    }
+
+    setPrintRunning(false);
+  }, [challanDetails]);
+
+  const handlePrintCancel = () => { printCancelRef.current = true; };
+
+  const handlePrintAllPdf = () => {
+    if (!printResult?.url) return;
+    const frame = document.createElement('iframe');
+    frame.style.display = 'none';
+    frame.src = printResult.url;
+    document.body.appendChild(frame);
+    frame.onload = () => {
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        setTimeout(() => document.body.removeChild(frame), 1000);
+      } catch {
+        window.open(printResult.url, '_blank');
+        document.body.removeChild(frame);
+      }
+    };
+  };
+
+  const handleDownloadAllPdf = () => {
+    if (!printResult?.url) return;
+    const link = document.createElement('a');
+    link.href = printResult.url;
+    link.download = `Challan_${challanDetails?.challan_no || 'EWBs'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // ── Counts ──
   const updatedCount = useMemo(() => filteredTransit.filter(t => hasSuccessfulUpdate(t) === true).length, [filteredTransit, transporterUpdatesMap, bulkResults]);
   const pendingCount = useMemo(() => filteredTransit.filter(t => hasSuccessfulUpdate(t) === false).length, [filteredTransit, transporterUpdatesMap, bulkResults]);
@@ -868,11 +1011,12 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
       </div>
 
       {/* ═══════════ QUICK ACTIONS ═══════════ */}
-      {(bulkRunning || validateRunning || fixRunning) ? (
+      {(bulkRunning || validateRunning || fixRunning || printRunning) ? (
         /* ── Active progress bar ── */
         <div className={`rounded-2xl shadow-lg p-5 text-white ${
           bulkRunning ? 'bg-gradient-to-r from-blue-600 to-indigo-600' :
           validateRunning ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
+          printRunning ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' :
           'bg-gradient-to-r from-amber-500 to-orange-500'
         }`}>
           <div className="space-y-3">
@@ -880,16 +1024,17 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
               <div>
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  {bulkRunning ? 'Updating Transporters...' : validateRunning ? 'Validating E-Way Bills...' : 'Fixing Self-Transfers...'}
+                  {bulkRunning ? 'Updating Transporters...' : validateRunning ? 'Validating E-Way Bills...' : printRunning ? 'Fetching E-Way Bills for Print...' : 'Fixing Self-Transfers...'}
                 </h3>
                 <p className="text-sm opacity-80 mt-1">
                   {bulkRunning && <>GR <span className="font-mono font-bold">{bulkProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{bulkProgress.currentEwb}</span></>}
                   {validateRunning && <>EWB <span className="font-mono font-bold">{validateProgress.currentEwb}</span></>}
+                  {printRunning && <>EWB <span className="font-mono font-bold">{printProgress.currentEwb}</span></>}
                   {fixRunning && <>GR <span className="font-mono font-bold">{fixProgress.currentGr}</span> — EWB <span className="font-mono font-bold">{fixProgress.currentEwb}</span></>}
                 </p>
               </div>
               <button
-                onClick={bulkRunning ? handleBulkCancel : validateRunning ? handleValidateCancel : handleFixSelfCancel}
+                onClick={bulkRunning ? handleBulkCancel : validateRunning ? handleValidateCancel : printRunning ? handlePrintCancel : handleFixSelfCancel}
                 className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 font-medium rounded-xl transition-all text-sm"
               >
                 <Square className="w-4 h-4" /> Stop
@@ -901,6 +1046,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 style={{ width: `${
                   bulkRunning ? (bulkProgress.total > 0 ? (bulkProgress.current / bulkProgress.total) * 100 : 0) :
                   validateRunning ? (validateProgress.total > 0 ? (validateProgress.current / validateProgress.total) * 100 : 0) :
+                  printRunning ? (printProgress.total > 0 ? (printProgress.current / printProgress.total) * 100 : 0) :
                   (fixProgress.total > 0 ? (fixProgress.current / fixProgress.total) * 100 : 0)
                 }%` }}
               />
@@ -909,6 +1055,7 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
               <span>
                 {bulkRunning && `${bulkProgress.current} / ${bulkProgress.total} EWBs`}
                 {validateRunning && `${validateProgress.current} / ${validateProgress.total} EWBs`}
+                {printRunning && `${printProgress.current} / ${printProgress.total} EWBs`}
                 {fixRunning && `${fixProgress.current} / ${fixProgress.total} EWBs`}
               </span>
               <span>
@@ -933,6 +1080,16 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
                 Fix Self-Transfer ({selfTransferEwbCount})
               </button>
             )}
+
+            <button
+              onClick={handleBulkPrint}
+              disabled={allEwbNumbers.length === 0}
+              title="Merges every validated EWB on this challan into one PDF, from cached data — run Validate All first for full coverage"
+              className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Bulk Print ({allEwbNumbers.length})
+            </button>
 
             {/* Last run summaries in the middle */}
             <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -967,6 +1124,73 @@ export default function TransporterSection({ transitDetails, challanDetails }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Bulk print result panel ── */}
+      {printResult && !printRunning && (
+        <div className={`rounded-2xl shadow-sm border p-5 ${
+          printResult.successCount > 0 ? 'bg-violet-50 border-violet-200' : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Printer className="w-5 h-5 text-violet-600" />
+                Bulk Print{printResult.successCount > 0 ? ' Ready' : ' Failed'}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {printResult.successCount} page{printResult.successCount !== 1 ? 's' : ''} merged into one PDF
+                {printResult.failed.length > 0 && <span className="text-red-600"> · {printResult.failed.length} skipped</span>}
+              </p>
+              {printResult.notValidatedCount > 0 && (
+                <p className="text-xs text-amber-700 mt-1 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {printResult.notValidatedCount} EWB{printResult.notValidatedCount !== 1 ? 's' : ''} not validated yet — run <span className="font-semibold">Validate All</span> below, then Bulk Print again.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {printResult.url && (
+                <>
+                  <button
+                    onClick={handlePrintAllPdf}
+                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-semibold hover:bg-violet-700 transition-colors"
+                  >
+                    <Printer className="w-4 h-4" /> Print All
+                  </button>
+                  <button
+                    onClick={handleDownloadAllPdf}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-violet-300 text-violet-700 rounded-lg text-sm font-semibold hover:bg-violet-100 transition-colors"
+                  >
+                    <Download className="w-4 h-4" /> Download All
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setPrintResult(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                title="Dismiss"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          {printResult.failed.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-violet-200/60 space-y-1 max-h-32 overflow-y-auto">
+              {printResult.failed.map((f, idx) => (
+                <div key={`${f.ewb}-${idx}`} className="text-xs text-red-700 flex items-start gap-2">
+                  <span className="font-mono font-medium">{f.ewb === '—' ? f.ewb : formatEwbNumber(f.ewb)}</span>
+                  <span className="text-gray-400">GR: {f.grNo}</span>
+                  <span className="text-red-500">— {f.error}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {printResult.grsWithoutEwb?.length > 0 && (
+            <p className="mt-3 pt-3 border-t border-violet-200/60 text-xs text-gray-500">
+              {printResult.grsWithoutEwb.length} GR{printResult.grsWithoutEwb.length !== 1 ? 's' : ''} on this challan have no E-Way Bill at all (nothing to print): {printResult.grsWithoutEwb.join(', ')}
+            </p>
+          )}
         </div>
       )}
 

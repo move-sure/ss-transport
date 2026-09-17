@@ -195,6 +195,92 @@ export const useConsignorBiltyProfileByName = (consignorName, destinationCityId)
 };
 
 /**
+ * Fetch consignee bilty profile by consignee name and city ID (mirrors useConsignorBiltyProfileByName)
+ * @param {string} consigneeName - Name of the consignee
+ * @param {string} destinationCityId - UUID of the destination city
+ * @returns {Object} - { profile, loading, error, consigneeId }
+ */
+export const useConsigneeBiltyProfileByName = (consigneeName, destinationCityId) => {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [consigneeId, setConsigneeId] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!consigneeName || !destinationCityId) {
+        setProfile(null);
+        setConsigneeId(null);
+        setError(null);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data: consigneeData, error: consigneeError } = await supabase
+          .from('consignees')
+          .select('id, company_name')
+          .ilike('company_name', consigneeName.trim())
+          .single();
+
+        if (consigneeError) {
+          if (consigneeError.code === 'PGRST116') {
+            setProfile(null);
+            setConsigneeId(null);
+            setLoading(false);
+            return;
+          }
+          throw consigneeError;
+        }
+
+        if (!consigneeData) {
+          setProfile(null);
+          setConsigneeId(null);
+          setLoading(false);
+          return;
+        }
+
+        setConsigneeId(consigneeData.id);
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('consignee_bilty_profile')
+          .select('*')
+          .eq('consignee_id', consigneeData.id)
+          .eq('destination_station_id', destinationCityId)
+          .eq('is_active', true)
+          .lte('effective_from', new Date().toISOString().split('T')[0])
+          .or(`effective_to.is.null,effective_to.gte.${new Date().toISOString().split('T')[0]}`)
+          .order('effective_from', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (profileError) {
+          if (profileError.code === 'PGRST116') {
+            setProfile(null);
+          } else {
+            throw profileError;
+          }
+        } else if (profileData) {
+          setProfile(profileData);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching consignee profile:', err);
+        setError(err.message);
+        setProfile(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [consigneeName, destinationCityId]);
+
+  return { profile, loading, error, consigneeId };
+};
+
+/**
  * Get effective weight with minimum weight logic
  * @param {number} actualWeight - Actual weight in kg
  * @param {number} minimumWeight - Minimum weight in kg (from profile or default)
@@ -442,19 +528,30 @@ export const applyConsignorProfile = (profile, formData, cityInfo, isDoorDeliver
 /**
  * Component to display consignor profile info
  */
-export const ConsignorProfileInfo = ({ 
-  consignorName, 
+export const ConsignorProfileInfo = ({
+  consignorName,
+  consigneeName,
   destinationCityId,
   cityName,
   cityCode,
   currentRate,
   currentLabourRate,
-  onApplyProfile 
+  onApplyProfile
 }) => {
-  const { profile, loading, error } = useConsignorBiltyProfileByName(
-    consignorName, 
+  const { profile: consignorProfile, loading: loadingConsignor, error: errorConsignor } = useConsignorBiltyProfileByName(
+    consignorName,
     destinationCityId
   );
+  const { profile: consigneeProfile, loading: loadingConsignee, error: errorConsignee } = useConsigneeBiltyProfileByName(
+    consigneeName,
+    destinationCityId
+  );
+
+  // Consignee profile wins over consignor profile when both exist
+  const profile = consigneeProfile || consignorProfile;
+  const usingConsigneeProfile = !!consigneeProfile;
+  const loading = loadingConsignor || loadingConsignee;
+  const error = errorConsignor || errorConsignee;
 
   if (loading) {
     return (
@@ -468,7 +565,7 @@ export const ConsignorProfileInfo = ({
     );
   }
 
-  if (!consignorName || !destinationCityId) {
+  if ((!consignorName && !consigneeName) || !destinationCityId) {
     return null;
   }
 
@@ -495,7 +592,7 @@ export const ConsignorProfileInfo = ({
         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
         </svg>
-        <span>✅ कंसाइनर प्रोफाइल मिला</span>
+        <span>✅ {usingConsigneeProfile ? 'कंसाइनी प्रोफाइल मिला' : 'कंसाइनर प्रोफाइल मिला'}</span>
       </div>
       <div className="flex flex-wrap gap-2 text-green-800">
         {profile.rate > 0 && (
@@ -518,6 +615,11 @@ export const ConsignorProfileInfo = ({
             बिल्टी: ₹{profile.bilty_charge}
           </span>
         )}
+        {profile.local_charge_per_nag > 0 && (
+          <span className="bg-teal-100 px-2 py-0.5 rounded text-teal-800">
+            Local: ₹{profile.local_charge_per_nag}/pkg
+          </span>
+        )}
       </div>
     </div>
   );
@@ -526,6 +628,7 @@ export const ConsignorProfileInfo = ({
 export default {
   useConsignorBiltyProfile,
   useConsignorBiltyProfileByName,
+  useConsigneeBiltyProfileByName,
   getEffectiveWeight,
   calculateFreightWithMinimum,
   calculateLabourCharge,

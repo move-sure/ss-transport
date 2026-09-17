@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import Navbar from '../../components/dashboard/navbar';
 import ConsignorBiltyProfile from '../../components/company-profile/ConsignorBiltyProfile';
 import ConsignorListTab from '../../components/company-profile/ConsignorListTab';
-import { Building2, FileText, Users, Settings } from 'lucide-react';
+import ConsigneeBiltyProfile from '../../components/company-profile/ConsigneeBiltyProfile';
+import { Building2, FileText, Users, Settings, Truck } from 'lucide-react';
 
 export default function CompanyProfilePage() {
   const { user, loading, isAuthenticated, initialized, requireAuth } = useAuth();
@@ -41,6 +42,7 @@ export default function CompanyProfilePage() {
   const tabs = [
     { id: 'rate-profiles', label: 'Rate Profiles', icon: FileText },
     { id: 'consignor-list', label: 'Consignor List', icon: Users },
+    { id: 'consignee-rate-profiles', label: 'Consignee Rate Profiles', icon: Truck },
     // Future tabs can be added here
     // { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -96,7 +98,7 @@ export default function CompanyProfilePage() {
             <ConsignorBiltyProfile user={user} />
           )}
           {activeTab === 'consignor-list' && (
-            <ConsignorListTab 
+            <ConsignorListTab
               onViewProfiles={(consignor) => {
                 // Switch to rate profiles tab and set selected consignor
                 setActiveTab('rate-profiles');
@@ -107,6 +109,9 @@ export default function CompanyProfilePage() {
                 setActiveTab('rate-profiles');
               }}
             />
+          )}
+          {activeTab === 'consignee-rate-profiles' && (
+            <ConsigneeBiltyProfile user={user} />
           )}
         </div>
       </div>

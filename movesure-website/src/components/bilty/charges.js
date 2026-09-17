@@ -26,6 +26,7 @@ const PackageChargesSection = ({
   showShortcuts = false,
   cities = [],
   consignorRatesByCity = {},
+  consigneeRatesByCity = {},
   defaultRateByCityId = {}
 }) => {  const { register, unregister, handleEnter } = useInputNavigation();
   
@@ -44,26 +45,31 @@ const PackageChargesSection = ({
   const cityName = currentCity?.city_name || '';
   const cityCode = currentCity?.city_code || '';
   
-  // Get consignor profile from backend-cached rates (replaces Supabase hook)
+  // Get consignor/consignee profiles from backend-cached rates (replaces Supabase hook)
   const consignorProfile = consignorRatesByCity[formData.to_city_id]?.[0] || null;
+  const consigneeProfile = consigneeRatesByCity[formData.to_city_id]?.[0] || null;
+  // Consignee profile takes priority over consignor profile whenever both exist for this city
+  const activeProfile = consigneeProfile || consignorProfile;
   const loadingProfile = false;
 
   // Track if profile was already applied to prevent re-applying
   const [profileApplied, setProfileApplied] = useState(false);
   const lastAppliedProfileRef = useRef(null);
   const lastConsignorRef = useRef(formData.consignor_name);
+  const lastConsigneeRef = useRef(formData.consignee_name);
 
-  // Reset rate unit override when consignor changes
+  // Reset rate unit override when consignor or consignee changes
   useEffect(() => {
-    if (formData.consignor_name !== lastConsignorRef.current) {
-      console.log('👤 Consignor changed - resetting rate unit override');
+    if (formData.consignor_name !== lastConsignorRef.current || formData.consignee_name !== lastConsigneeRef.current) {
+      console.log('👤 Consignor/consignee changed - resetting rate unit override');
       lastConsignorRef.current = formData.consignor_name;
+      lastConsigneeRef.current = formData.consignee_name;
       // Reset the override flag so profile can set the rate unit again
       if (formData._rate_unit_override) {
         setFormData(prev => ({ ...prev, _rate_unit_override: false }));
       }
     }
-  }, [formData.consignor_name]);
+  }, [formData.consignor_name, formData.consignee_name]);
 
   // Validation function to check required fields and duplicate GR numbers
   const validateBeforeSaveOrPrint = async (isDraft = false) => {
@@ -293,12 +299,12 @@ const PackageChargesSection = ({
     const actualWeight = parseFloat(formData.wt) || 0;
     const packages = parseInt(formData.no_of_pkg) || 0;
     const rate = parseFloat(formData.rate) || 0;
-    const rateUnit = formData._rate_unit || (consignorProfile?.rate_unit) || 'PER_KG';
-    
-    // Get minimum freight directly from consignorProfile (more reliable than formData._minimum_freight)
+    const rateUnit = formData._rate_unit || (activeProfile?.rate_unit) || 'PER_KG';
+
+    // Get minimum freight directly from activeProfile (more reliable than formData._minimum_freight)
     // This ensures minimum freight is applied even before profile application useEffect runs
-    const minimumFreight = consignorProfile?.freight_minimum_amount 
-      ? parseFloat(consignorProfile.freight_minimum_amount) 
+    const minimumFreight = activeProfile?.freight_minimum_amount
+      ? parseFloat(activeProfile.freight_minimum_amount)
       : (parseFloat(formData._minimum_freight) || 0);
     
     // Get minimum weight - from profile or default 50 kg
@@ -337,7 +343,7 @@ const PackageChargesSection = ({
       _effective_weight: effectiveWeight,
       _minimum_freight: minimumFreight // Keep this in sync
     }));
-  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData, isEditMode, userChangedValues, consignorProfile]);
+  }, [formData.wt, formData.no_of_pkg, formData.rate, formData._rate_unit, formData._minimum_freight, formData._minimum_weight, setFormData, isEditMode, userChangedValues, activeProfile]);
 
   useEffect(() => {
     // Calculate total - handle string values during decimal input
@@ -459,84 +465,86 @@ const PackageChargesSection = ({
     }
   };
 
-  // ====== NEW CONSIGNOR PROFILE SYSTEM ======
-  // Apply consignor profile when it loads (rate, labour rate, charges)
+  // ====== CONSIGNOR/CONSIGNEE PROFILE SYSTEM ======
+  // Apply the active rate profile when it loads (rate, labour rate, charges).
+  // Consignee profile wins over consignor profile when both exist for this city (activeProfile handles that).
   useEffect(() => {
     // Skip in edit mode or if already loading
     if (isEditMode || loadingProfile) return;
-    
+
     // Create a unique key for this profile application
-    const profileKey = `${formData.consignor_name}-${formData.to_city_id}-${consignorProfile?.id || 'none'}`;
-    
+    const profileKey = `${formData.consignor_name}-${formData.consignee_name}-${formData.to_city_id}-${activeProfile?.id || 'none'}`;
+
     // Skip if we already applied this exact profile
     if (lastAppliedProfileRef.current === profileKey) return;
-    
-    // Only apply if we have consignor and city selected
-    if (!formData.consignor_name || !formData.to_city_id) return;
-    
-    console.log('🔧 Applying consignor profile system...', { 
-      hasProfile: !!consignorProfile,
-      cityName, 
+
+    // Only apply if we have consignor/consignee and city selected
+    if ((!formData.consignor_name && !formData.consignee_name) || !formData.to_city_id) return;
+
+    console.log('🔧 Applying rate profile system...', {
+      hasProfile: !!activeProfile,
+      usingConsigneeProfile: !!consigneeProfile,
+      cityName,
       cityCode,
       profileKey,
       rateUnitOverride: formData._rate_unit_override
     });
-    
+
     const updates = {};
     const isDoorDelivery = formData.delivery_type === 'door-delivery';
-    
-    if (consignorProfile) {
+
+    if (activeProfile) {
       // ===== PROFILE EXISTS - Use profile values =====
-      console.log('✅ Using consignor bilty profile:', consignorProfile);
-      
+      console.log('✅ Using bilty profile:', activeProfile);
+
       // Rate from profile
-      if (consignorProfile.rate && consignorProfile.rate > 0) {
-        updates.rate = parseFloat(consignorProfile.rate);
+      if (activeProfile.rate && activeProfile.rate > 0) {
+        updates.rate = parseFloat(activeProfile.rate);
         // Only set rate_unit from profile if user hasn't manually overridden it
         if (!formData._rate_unit_override) {
-          updates._rate_unit = consignorProfile.rate_unit || 'PER_KG';
+          updates._rate_unit = activeProfile.rate_unit || 'PER_KG';
         }
-        updates._minimum_freight = parseFloat(consignorProfile.freight_minimum_amount) || 0;
-        console.log('💰 Rate from profile:', updates.rate, formData._rate_unit_override ? '(unit kept: user override)' : consignorProfile.rate_unit);
+        updates._minimum_freight = parseFloat(activeProfile.freight_minimum_amount) || 0;
+        console.log('💰 Rate from profile:', updates.rate, formData._rate_unit_override ? '(unit kept: user override)' : activeProfile.rate_unit);
       }
-      
+
       // Labour rate from profile
-      if (consignorProfile.labour_rate !== undefined && consignorProfile.labour_rate !== null) {
-        updates.labour_rate = parseFloat(consignorProfile.labour_rate);
-        updates._labour_unit = consignorProfile.labour_unit || 'PER_NAG';
-        console.log('👷 Labour rate from profile:', updates.labour_rate, consignorProfile.labour_unit);
+      if (activeProfile.labour_rate !== undefined && activeProfile.labour_rate !== null) {
+        updates.labour_rate = parseFloat(activeProfile.labour_rate);
+        updates._labour_unit = activeProfile.labour_unit || 'PER_NAG';
+        console.log('👷 Labour rate from profile:', updates.labour_rate, activeProfile.labour_unit);
       }
-      
+
       // Bill charge (bilty_charge from profile)
-      if (consignorProfile.bilty_charge !== undefined && consignorProfile.bilty_charge !== null) {
-        updates.bill_charge = parseFloat(consignorProfile.bilty_charge);
+      if (activeProfile.bilty_charge !== undefined && activeProfile.bilty_charge !== null) {
+        updates.bill_charge = parseFloat(activeProfile.bilty_charge);
         console.log('📄 Bill charge from profile:', updates.bill_charge);
       }
-      
+
       // Toll charge from profile
-      if (consignorProfile.is_toll_tax_applicable && consignorProfile.toll_tax_amount) {
-        updates.toll_charge = parseFloat(consignorProfile.toll_tax_amount);
+      if (activeProfile.is_toll_tax_applicable && activeProfile.toll_tax_amount) {
+        updates.toll_charge = parseFloat(activeProfile.toll_tax_amount);
         console.log('🛣️ Toll charge from profile:', updates.toll_charge);
-      } else if (consignorProfile.is_toll_tax_applicable === false) {
+      } else if (activeProfile.is_toll_tax_applicable === false) {
         updates.toll_charge = 0;
       }
-      
+
       // Transport info from profile
-      if (consignorProfile.transport_name) {
-        updates.transport_name = consignorProfile.transport_name;
+      if (activeProfile.transport_name) {
+        updates.transport_name = activeProfile.transport_name;
       }
-      if (consignorProfile.transport_gst) {
-        updates.transport_gst = consignorProfile.transport_gst;
+      if (activeProfile.transport_gst) {
+        updates.transport_gst = activeProfile.transport_gst;
       }
-      
+
       // Check is_no_charge flag
-      if (consignorProfile.is_no_charge) {
+      if (activeProfile.is_no_charge) {
         updates.bill_charge = 0;
         updates.toll_charge = 0;
         updates.other_charge = 0;
         console.log('🆓 No charge profile - zeroing charges');
       }
-      
+
     } else {
       // ===== NO PROFILE - Use default values based on city =====
       const defaultLabour = getDefaultLabourRate(cityName, cityCode);
@@ -569,73 +577,59 @@ const PackageChargesSection = ({
       ddManuallyEditedRef.current = false;
     }
     
-  }, [consignorProfile, loadingProfile, formData.consignor_name, formData.to_city_id, 
+  }, [activeProfile, consigneeProfile, loadingProfile, formData.consignor_name, formData.consignee_name, formData.to_city_id,
       formData.delivery_type, cityName, cityCode, isEditMode, rates]);
 
-  // ====== DD CHARGE CALCULATION (Door Delivery) ======
-  // dd_charge field = dd_charge_per_kg * weight OR dd_charge_per_nag * packages
-  // other_charge field = dd_print_charge_per_kg * weight OR dd_print_charge_per_nag * packages + receiving_slip_charge
+  // ====== DD CHARGE + LOCAL CHARGE CALCULATION ======
+  // dd_charge field = dd_charge_per_kg * weight OR dd_charge_per_nag * packages (door delivery only)
+  // other_charge field = [dd_print + receiving_slip, min ₹150, door delivery only] + [local_charge_per_nag * packages, always]
   useEffect(() => {
     if (isEditMode || loadingProfile) return;
     // Skip auto-calculation if user manually edited DD charge
     if (ddManuallyEditedRef.current) return;
-    
+
     const isDoorDelivery = formData.delivery_type === 'door-delivery';
-    
-    if (isDoorDelivery && consignorProfile) {
-      // Respect is_no_charge — skip DD charges entirely
-      if (consignorProfile.is_no_charge) {
-        console.log('🆓 No charge profile — skipping DD charges');
-        return;
-      }
-      
+    const packages = parseInt(formData.no_of_pkg) || 0;
+    const noCharge = !!activeProfile?.is_no_charge;
+
+    // Local charge is independent of delivery type/DD charges — applies on every bilty
+    const localCharge = activeProfile && !noCharge
+      ? Math.round(((parseFloat(activeProfile.local_charge_per_nag) || 0) * packages) * 100) / 100
+      : 0;
+
+    let ddCharge = 0;
+    let ddPrintCharge = 0;
+    let receivingSlipCharge = 0;
+
+    if (isDoorDelivery && activeProfile && !noCharge) {
       // ddCharge → dd_charge field, ddPrintCharge → part of other_charge
-      const { ddCharge, ddPrintCharge } = calculateDDCharge(
-        formData.no_of_pkg,
-        formData.wt,
-        consignorProfile
-      );
-      
-      // Receiving slip charge (one time per bilty) → added to other_charge
-      const receivingSlipCharge = parseFloat(consignorProfile.receiving_slip_charge) || 0;
-      
-      // other_charge = ddPrintCharge + receivingSlipCharge, minimum ₹150 combined
-      const DD_CHRG_RS_MINIMUM = 150;
-      const rawOtherCharge = ddPrintCharge + receivingSlipCharge;
-      const totalOtherCharge = Math.max(DD_CHRG_RS_MINIMUM, rawOtherCharge);
-      
-      console.log('🚚 DD Charges breakdown:', {
-        ddCharge, ddPrintCharge, receivingSlipCharge, rawOtherCharge, totalOtherCharge,
-        minimumApplied: rawOtherCharge < DD_CHRG_RS_MINIMUM,
-        dd_per_nag: consignorProfile.dd_charge_per_nag,
-        dd_per_kg: consignorProfile.dd_charge_per_kg,
-        dd_print_per_nag: consignorProfile.dd_print_charge_per_nag,
-        dd_print_per_kg: consignorProfile.dd_print_charge_per_kg,
-        packages: formData.no_of_pkg, weight: formData.wt
-      });
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        dd_charge: ddCharge,
-        other_charge: totalOtherCharge,
-        _dd_charge_applied: ddCharge,
-        _dd_print_applied: ddPrintCharge,
-        _rs_charge_applied: receivingSlipCharge
-      }));
-    } else if (!isDoorDelivery && (formData._dd_charge_applied || formData._rs_charge_applied)) {
-      // Remove DD and RS charges if switching away from door delivery
-      console.log('🚚 Removing DD and RS charges');
-      ddManuallyEditedRef.current = false;
-      setFormData(prev => ({ 
-        ...prev, 
-        dd_charge: 0,
-        other_charge: 0,
-        _dd_charge_applied: 0,
-        _dd_print_applied: 0,
-        _rs_charge_applied: 0
-      }));
+      const dd = calculateDDCharge(formData.no_of_pkg, formData.wt, activeProfile);
+      ddCharge = dd.ddCharge;
+      ddPrintCharge = dd.ddPrintCharge;
+      receivingSlipCharge = parseFloat(activeProfile.receiving_slip_charge) || 0;
     }
-  }, [formData.delivery_type, formData.no_of_pkg, formData.wt, consignorProfile, loadingProfile, isEditMode]);
+
+    // DD print + RS portion has its own ₹150 combined minimum; local charge sits on top, uncapped
+    const DD_CHRG_RS_MINIMUM = 150;
+    const rawDdPortion = ddPrintCharge + receivingSlipCharge;
+    const ddPortion = rawDdPortion > 0 ? Math.max(DD_CHRG_RS_MINIMUM, rawDdPortion) : 0;
+    const totalOtherCharge = ddPortion + localCharge;
+
+    console.log('🚚 DD + Local charge breakdown:', {
+      ddCharge, ddPrintCharge, receivingSlipCharge, ddPortion, localCharge, totalOtherCharge,
+      isDoorDelivery, packages, weight: formData.wt
+    });
+
+    setFormData(prev => ({
+      ...prev,
+      dd_charge: ddCharge,
+      other_charge: totalOtherCharge,
+      _dd_charge_applied: ddCharge,
+      _dd_print_applied: ddPrintCharge,
+      _rs_charge_applied: receivingSlipCharge,
+      _local_charge_applied: localCharge
+    }));
+  }, [formData.delivery_type, formData.no_of_pkg, formData.wt, activeProfile, loadingProfile, isEditMode]);
 
   // Initialize default labour rate based on city when no consignor profile
   useEffect(() => {
@@ -886,11 +880,12 @@ return (
                   </div>
                 )}
                 
-                {/* Consignor Profile Info - Shows profile status and applied rates */}
-                {formData.consignor_name && formData.to_city_id && (
+                {/* Rate Profile Info - Shows profile status and applied rates (consignee profile wins if both exist) */}
+                {(formData.consignor_name || formData.consignee_name) && formData.to_city_id && (
                   <div className="pt-1">
                     <ConsignorProfileInfo
                       consignorName={formData.consignor_name}
+                      consigneeName={formData.consignee_name}
                       destinationCityId={formData.to_city_id}
                       cityName={cityName}
                       cityCode={cityCode}
@@ -899,9 +894,9 @@ return (
                     />
                   </div>
                 )}
-                
-                {/* Default Labour Rate Info (when no consignor profile) */}
-                {formData.to_city_id && !consignorProfile && !loadingProfile && (
+
+                {/* Default Labour Rate Info (when no rate profile at all) */}
+                {formData.to_city_id && !activeProfile && !loadingProfile && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-gray-50 to-slate-50 text-gray-600 rounded border border-gray-300 text-[10px] font-medium">
                     <svg className="w-2 h-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1183,6 +1178,13 @@ return (
             {(formData._dd_print_applied > 0 || formData._rs_charge_applied > 0) && (
               <span className="bg-blue-200 px-1.5 py-0.5 rounded font-bold">Other: ₹{(formData._dd_print_applied || 0) + (formData._rs_charge_applied || 0)}</span>
             )}
+          </div>
+        )}
+
+        {/* Local Charge Indicator — independent of delivery type, shown whenever a profile has local_charge_per_nag */}
+        {formData._local_charge_applied > 0 && (
+          <div className="mt-2 mb-2 mx-1 flex items-center gap-2 px-2 py-1.5 bg-teal-50 text-teal-700 rounded border border-teal-200 text-[10px] font-semibold">
+            <span>📍 Local Charge: ₹{formData._local_charge_applied} (included in Other)</span>
           </div>
         )}
 

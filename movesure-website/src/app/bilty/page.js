@@ -79,6 +79,7 @@ export default function BiltyForm() {
   
   // ⭐ Backend rate caches — populated from /api/bilty/rates/all and /api/bilty/rates/default
   const [consignorRatesByCity, setConsignorRatesByCity] = useState({});
+  const [consigneeRatesByCity, setConsigneeRatesByCity] = useState({});
   const [defaultRateByCityId, setDefaultRateByCityId] = useState({});
   const [selectedConsignorId, setSelectedConsignorId] = useState(null);
   
@@ -328,10 +329,70 @@ export default function BiltyForm() {
     };
 
     window.addEventListener('consignorSelected', handleConsignorSelection);
-    
+
     return () => {
       if (consignorAbortController) consignorAbortController.abort();
       window.removeEventListener('consignorSelected', handleConsignorSelection);
+    };
+  }, [user?.branch_id]);
+
+  // ⭐ CONSIGNEE RATE FETCH — mirrors the consignor rate fetch above.
+  // Consignee profile rate takes priority over consignor profile rate when both exist (business decision).
+  useEffect(() => {
+    let consigneeAbortController = null;
+
+    const handleConsigneeSelection = async (event) => {
+      const { consignee, cityId } = event.detail;
+      console.log('🎯 Consignee selected:', consignee.company_name, 'ID:', consignee.id);
+
+      if (!consignee.id) {
+        setConsigneeRatesByCity({});
+        return;
+      }
+
+      if (consigneeAbortController) consigneeAbortController.abort();
+      consigneeAbortController = new AbortController();
+
+      try {
+        const res = await fetch(
+          `${BILTY_API_URL}/api/bilty/rates/all/consignee?consignee_id=${consignee.id}&branch_id=${user.branch_id}`,
+          { signal: consigneeAbortController.signal }
+        );
+        const result = await res.json();
+
+        if (result.status === 'success') {
+          const data = result.data;
+          setConsigneeRatesByCity(data.consignee_rates_by_city || {});
+          // Same shared `rates` table as consignor defaults — merge in, doesn't hurt if already cached
+          if (data.default_rate_by_city_id) {
+            setDefaultRateByCityId(prev => ({ ...prev, ...data.default_rate_by_city_id }));
+          }
+          console.log('✅ Cached consignee rates for', Object.keys(data.consignee_rates_by_city || {}).length, 'cities');
+
+          // If city is already selected, apply rate immediately — consignee profile wins over consignor's
+          if (cityId) {
+            const cityRates = (data.consignee_rates_by_city || {})[cityId];
+            if (cityRates && cityRates.length > 0) {
+              const r = cityRates[0];
+              console.log('💰 Applying consignee profile rate:', r.rate, r.rate_unit);
+              setFormData(prev => ({
+                ...prev,
+                rate: parseFloat(r.rate) || prev.rate
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('Error fetching consignee rates:', err);
+      }
+    };
+
+    window.addEventListener('consigneeSelected', handleConsigneeSelection);
+
+    return () => {
+      if (consigneeAbortController) consigneeAbortController.abort();
+      window.removeEventListener('consigneeSelected', handleConsigneeSelection);
     };
   }, [user?.branch_id]);
 
@@ -935,7 +996,8 @@ export default function BiltyForm() {
       _minimum_freight: 0,
       _is_minimum_applied: false,
       _dd_charge_applied: 0,
-      _rs_charge_applied: 0
+      _rs_charge_applied: 0,
+      _local_charge_applied: 0
     });
     
     // Always set to new mode after reset
@@ -1152,6 +1214,7 @@ export default function BiltyForm() {
             transports={transports}
             transportByCityId={transportByCityId}
             consignorRatesByCity={consignorRatesByCity}
+            consigneeRatesByCity={consigneeRatesByCity}
             defaultRateByCityId={defaultRateByCityId}
             rates={rates}
             fromCityName={fromCityName}
@@ -1182,6 +1245,7 @@ export default function BiltyForm() {
             rates={rates}
             cities={cities}
             consignorRatesByCity={consignorRatesByCity}
+            consigneeRatesByCity={consigneeRatesByCity}
             defaultRateByCityId={defaultRateByCityId}
             onSave={handleSave}
             onSaveDraft={() => handleSave(true)}

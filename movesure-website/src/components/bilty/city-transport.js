@@ -11,6 +11,7 @@ const CityTransportSection = ({
   transports, 
   transportByCityId = {},
   consignorRatesByCity = {},
+  consigneeRatesByCity = {},
   defaultRateByCityId = {},
   rates, 
   fromCityName,
@@ -100,14 +101,13 @@ const CityTransportSection = ({
     let selectedRate = null;
     let profileTransport = null;
 
-    // PRIORITY 1: Consignor bilty profile rate from backend cache
-    const consignorCityRates = consignorRatesByCity[city.id];
-    if (consignorCityRates && consignorCityRates.length > 0) {
-      const profile = consignorCityRates[0];
+    // PRIORITY 1: Consignee bilty profile rate from backend cache (consignee profile wins when both exist)
+    const consigneeCityRates = consigneeRatesByCity[city.id];
+    if (consigneeCityRates && consigneeCityRates.length > 0) {
+      const profile = consigneeCityRates[0];
       selectedRate = parseFloat(profile.rate) || null;
-      console.log('✅ Using consignor profile rate from backend:', selectedRate, profile.rate_unit);
-      
-      // Profile may also specify transport for this city
+      console.log('✅ Using consignee profile rate from backend:', selectedRate, profile.rate_unit);
+
       if (profile.transport_name) {
         profileTransport = {
           transport_name: profile.transport_name,
@@ -115,11 +115,32 @@ const CityTransportSection = ({
           mob_number: '',
           id: null
         };
-        console.log('🚛 Using transport from consignor profile:', profile.transport_name);
+        console.log('🚛 Using transport from consignee profile:', profile.transport_name);
       }
     }
 
-    // PRIORITY 2: Default rate from backend cache
+    // PRIORITY 2: Consignor bilty profile rate from backend cache
+    if (!selectedRate) {
+      const consignorCityRates = consignorRatesByCity[city.id];
+      if (consignorCityRates && consignorCityRates.length > 0) {
+        const profile = consignorCityRates[0];
+        selectedRate = parseFloat(profile.rate) || null;
+        console.log('✅ Using consignor profile rate from backend:', selectedRate, profile.rate_unit);
+
+        // Profile may also specify transport for this city
+        if (profile.transport_name) {
+          profileTransport = {
+            transport_name: profile.transport_name,
+            gst_number: profile.transport_gst || '',
+            mob_number: '',
+            id: null
+          };
+          console.log('🚛 Using transport from consignor profile:', profile.transport_name);
+        }
+      }
+    }
+
+    // PRIORITY 3: Default rate from backend cache
     if (!selectedRate) {
       const defRate = defaultRateByCityId[city.id];
       if (defRate) {
@@ -128,7 +149,7 @@ const CityTransportSection = ({
       }
     }
 
-    // PRIORITY 3: Fallback to rates array (legacy)
+    // PRIORITY 4: Fallback to rates array (legacy)
     if (!selectedRate) {
       const cityRates = rates.filter(r => r.city_id === city.id);
       const defaultRate = cityRates.find(r => r.is_default) || cityRates[0];

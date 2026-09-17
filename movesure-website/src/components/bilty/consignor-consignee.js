@@ -391,13 +391,26 @@ const ConsignorConsigneeSection = ({
         consignee_gst: consignee.gst_num || '',
         consignee_number: consignee.number || ''
       };
-      
+
       console.log('🔄 Updated consignee formData:', {
         consignee_name: updatedData.consignee_name,
         consignee_gst: updatedData.consignee_gst,
         consignee_number: updatedData.consignee_number
       });
-      
+
+      // If city is already selected, trigger a lookup of the consignee's rate profile
+      // (mirrors the consignorSelected dispatch above — parent listens and caches the rates)
+      if (prev.to_city_id && consignee.id) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('consigneeSelected', {
+            detail: {
+              consignee: consignee,
+              cityId: prev.to_city_id
+            }
+          }));
+        }
+      }
+
       return updatedData;
     });setShowConsigneeDropdown(false);
     setConsigneeSelectedIndex(-1);
@@ -542,12 +555,20 @@ const ConsignorConsigneeSection = ({
           const lastCity = await getConsigneeLastCity(existingConsignee.company_name);
           setConsigneeLastCity(lastCity);
           
-          setFormData(prev => ({
-            ...prev,
-            consignee_name: existingConsignee.company_name,
-            consignee_gst: existingConsignee.gst_num || newGST,
-            consignee_number: existingConsignee.number || prev.consignee_number
-          }));
+          setFormData(prev => {
+            // Dispatch rate lookup for the switched consignee if city is already selected
+            if (prev.to_city_id && existingConsignee.id && typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('consigneeSelected', {
+                detail: { consignee: existingConsignee, cityId: prev.to_city_id }
+              }));
+            }
+            return {
+              ...prev,
+              consignee_name: existingConsignee.company_name,
+              consignee_gst: existingConsignee.gst_num || newGST,
+              consignee_number: existingConsignee.number || prev.consignee_number
+            };
+          });
           return;
         }
         // GST doesn't belong to another consignee - update the current consignee's GST in DB

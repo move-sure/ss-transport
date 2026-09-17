@@ -11,3 +11,4 @@ export { default as ConsigneeBiltyProfile } from './ConsigneeBiltyProfile';
 export { default as ConsigneeProfileFilters } from './ConsigneeProfileFilters';
 export { default as ConsigneeProfileTable } from './ConsigneeProfileTable';
 export { default as ConsigneeProfileFormModal } from './ConsigneeProfileFormModal';
+export { default as BulkRateModal } from './BulkRateModal';

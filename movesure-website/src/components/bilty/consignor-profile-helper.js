@@ -560,7 +560,7 @@ export const ConsignorProfileInfo = ({
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span>🔍 प्रोफाइल खोज रहे हैं...</span>
+        <span>🔍 Searching for rate profile...</span>
       </div>
     );
   }
@@ -572,7 +572,7 @@ export const ConsignorProfileInfo = ({
   if (error) {
     return (
       <div className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg border border-red-200 text-xs font-medium">
-        ❌ प्रोफाइल लोड करने में त्रुटि
+        ❌ Error loading rate profile
       </div>
     );
   }
@@ -581,7 +581,7 @@ export const ConsignorProfileInfo = ({
     const defaultLabour = getDefaultLabourRate(cityName, cityCode);
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-700 rounded-lg border border-gray-200 text-xs font-medium">
-        <span>📋 कोई प्रोफाइल नहीं • डिफॉल्ट रेट: ₹{defaultLabour}/pkg • Min Wt: {DEFAULT_MINIMUM_WEIGHT} kg</span>
+        <span>📋 No rate profile • Default Labour: ₹{defaultLabour}/pkg • Min Wt: {DEFAULT_MINIMUM_WEIGHT} kg</span>
       </div>
     );
   }
@@ -592,17 +592,17 @@ export const ConsignorProfileInfo = ({
         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
         </svg>
-        <span>✅ {usingConsigneeProfile ? 'कंसाइनी प्रोफाइल मिला' : 'कंसाइनर प्रोफाइल मिला'}</span>
+        <span>✅ {usingConsigneeProfile ? 'Consignee Rate Profile Found' : 'Consignor Rate Profile Found'}</span>
       </div>
       <div className="flex flex-wrap gap-2 text-green-800">
         {profile.rate > 0 && (
           <span className="bg-green-100 px-2 py-0.5 rounded">
-            रेट: ₹{profile.rate}/{profile.rate_unit === 'PER_KG' ? 'kg' : 'nag'}
+            Rate: ₹{profile.rate}/{profile.rate_unit === 'PER_KG' ? 'kg' : 'nag'}
           </span>
         )}
         {profile.labour_rate > 0 && (
           <span className="bg-green-100 px-2 py-0.5 rounded">
-            लेबर: ₹{profile.labour_rate}/{profile.labour_unit === 'PER_KG' ? 'kg' : profile.labour_unit === 'PER_NAG' ? 'pkg' : 'bilty'}
+            Labour: ₹{profile.labour_rate}/{profile.labour_unit === 'PER_KG' ? 'kg' : profile.labour_unit === 'PER_NAG' ? 'pkg' : 'bilty'}
           </span>
         )}
         {profile.freight_minimum_amount > 0 && (
@@ -612,7 +612,7 @@ export const ConsignorProfileInfo = ({
         )}
         {profile.bilty_charge > 0 && (
           <span className="bg-blue-100 px-2 py-0.5 rounded text-blue-800">
-            बिल्टी: ₹{profile.bilty_charge}
+            Bilty: ₹{profile.bilty_charge}
           </span>
         )}
         {profile.local_charge_per_nag > 0 && (

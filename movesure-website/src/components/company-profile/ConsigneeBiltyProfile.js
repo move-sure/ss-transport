@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Loader2, Printer, ClipboardList, ChevronDown } from 'lucide-react';
+import { Plus, Loader2, Printer, ClipboardList, ChevronDown, Zap } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
 // Import sub-components
@@ -11,6 +11,7 @@ import ConsigneeProfileFormModal from './ConsigneeProfileFormModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import AlertMessages from './AlertMessages';
 import RateListPDFGenerator from './RateListPDFGenerator';
+import BulkRateModal from './BulkRateModal';
 
 const API_URL = 'https://api.movesure.io';
 
@@ -92,6 +93,7 @@ const ConsigneeBiltyProfile = ({ user }) => {
   const [editingProfile, setEditingProfile] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState(getInitialFormData());
@@ -503,6 +505,15 @@ const ConsigneeBiltyProfile = ({ user }) => {
         <div className="flex gap-3">
           {selectedConsignee && (
             <button
+              onClick={() => setShowBulkModal(true)}
+              className="inline-flex items-center px-4 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors shadow-sm"
+            >
+              <Zap className="w-5 h-5 mr-2" />
+              Bulk Set Rate
+            </button>
+          )}
+          {selectedConsignee && (
+            <button
               onClick={() => setShowPrintModal(true)}
               className="inline-flex items-center px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
             >
@@ -618,6 +629,22 @@ const ConsigneeBiltyProfile = ({ user }) => {
           consignor={consignees.find(c => c.id === selectedConsignee)}
           getCityName={getCityName}
           onClose={() => setShowPrintModal(false)}
+        />
+      )}
+
+      {/* Bulk Set Rate Modal */}
+      {showBulkModal && selectedConsignee && (
+        <BulkRateModal
+          partyType="consignee"
+          partyId={selectedConsignee}
+          partyName={getConsigneeName(selectedConsignee)}
+          userId={user?.id}
+          onClose={() => setShowBulkModal(false)}
+          onApplied={() => {
+            loadInitialData();
+            setSuccess('Rate applied in bulk successfully!');
+            setTimeout(() => setSuccess(null), 3000);
+          }}
         />
       )}
     </div>

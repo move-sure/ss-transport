@@ -12,7 +12,7 @@ import { getTransporterUpdatesByEwbNumbers, getConsolidatedEwbByIncludedNumbers,
 import { generateQRCode, addEWBContent } from './ewb-pdf-content';
 
 const DEFAULT_USER_GSTIN = '09COVPS5556J1ZT';
-const EWB_BULK_API_BASE = 'https://api.movesure.io /api/ewaybill/challan-bulk';
+const EWB_BULK_API_BASE = 'https://api.movesure.io/api/ewaybill/challan-bulk';
 
 // Fetch every EWB on a challan in one call — reads from our own DB cache
 // (ewb_validations.raw_result_metadata, populated by "Validate All" on this
@@ -141,7 +141,7 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
   };
 
   // First call — actual update
-  const res1 = await fetch('https://api.movesure.io //api/transporter-update', {
+  const res1 = await fetch('https://api.movesure.io/api/transporter-update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -168,7 +168,7 @@ async function callTransporterUpdateAPI(ewbNumber, transporterId, transporterNam
   // Second call — get PDF (may return 204/empty if EWB was already Part-B entered)
   let data2 = null;
   try {
-    const res2 = await fetch('https://api.movesure.io //api/transporter-update', {
+    const res2 = await fetch('https://api.movesure.io/api/transporter-update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

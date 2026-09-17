@@ -83,7 +83,7 @@ const PrintModal = ({
           setPaymentLoading(true);
           console.log('🔄 Fetching payment data for bilty:', biltyData.id);
 
-          const res = await fetch(`https://api.movesure.io /api/bilty/payment/${biltyData.id}`);
+          const res = await fetch(`https://api.movesure.io/api/bilty/payment/${biltyData.id}`);
           const result = await res.json();
 
           console.log('📦 Payment API response:', result);

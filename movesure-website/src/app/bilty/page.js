@@ -997,7 +997,9 @@ export default function BiltyForm() {
       _is_minimum_applied: false,
       _dd_charge_applied: 0,
       _rs_charge_applied: 0,
-      _local_charge_applied: 0
+      _local_charge_applied: 0,
+      _payment_mode_manual: false,
+      _payment_mode_from_profile: false
     });
     
     // Always set to new mode after reset

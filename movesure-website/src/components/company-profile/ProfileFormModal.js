@@ -190,7 +190,7 @@ const ProfileFormModal = ({
               <IndianRupee className="w-4 h-4" />
               Rate Configuration
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
               {/* Min Weight - Always shown, default 50 */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Min Weight (kg)</label>
@@ -260,6 +260,18 @@ const ProfileFormModal = ({
                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
+              </div>
+              {/* Default Payment Mode */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Payment Mode</label>
+                <select
+                  value={formData.default_payment_mode || 'to-pay'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, default_payment_mode: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="to-pay">To-Pay</option>
+                  <option value="paid">Paid</option>
+                </select>
               </div>
               {/* No Charge Checkbox */}
               <div className="flex items-end">
@@ -391,6 +403,22 @@ const ProfileFormModal = ({
                     value={formData.dd_charge_per_kg}
                     onChange={(e) => setFormData(prev => ({ ...prev, dd_charge_per_kg: e.target.value }))}
                     onFocus={handleFocus}
+                    className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+              {/* Local Charge /Nag */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Local Chrg /Nag</label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.local_charge_per_nag}
+                    onChange={(e) => setFormData(prev => ({ ...prev, local_charge_per_nag: e.target.value }))}
+                    onFocus={handleFocus}
+                    placeholder="0"
                     className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   />
                 </div>

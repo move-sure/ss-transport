@@ -185,7 +185,7 @@ const ConsigneeProfileFormModal = ({
               <IndianRupee className="w-4 h-4" />
               Rate Configuration
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
               {/* Min Weight - Always shown, default 50 */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Min Weight (kg)</label>
@@ -255,6 +255,18 @@ const ConsigneeProfileFormModal = ({
                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
+              </div>
+              {/* Default Payment Mode */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Payment Mode</label>
+                <select
+                  value={formData.default_payment_mode || 'to-pay'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, default_payment_mode: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="to-pay">To-Pay</option>
+                  <option value="paid">Paid</option>
+                </select>
               </div>
               {/* No Charge Checkbox */}
               <div className="flex items-end">

@@ -537,6 +537,14 @@ const PackageChargesSection = ({
         updates.transport_gst = activeProfile.transport_gst;
       }
 
+      // Default payment mode from profile — pinned choice wins over the history-based guess
+      // in invoice.js, but never overrides a manual user selection (_payment_mode_manual).
+      if (activeProfile.default_payment_mode && !formData._payment_mode_manual) {
+        updates.payment_mode = activeProfile.default_payment_mode;
+        updates._payment_mode_from_profile = true;
+        console.log('💳 Payment mode from profile:', updates.payment_mode);
+      }
+
       // Check is_no_charge flag
       if (activeProfile.is_no_charge) {
         updates.bill_charge = 0;
@@ -578,7 +586,7 @@ const PackageChargesSection = ({
     }
     
   }, [activeProfile, consigneeProfile, loadingProfile, formData.consignor_name, formData.consignee_name, formData.to_city_id,
-      formData.delivery_type, cityName, cityCode, isEditMode, rates]);
+      formData.delivery_type, formData._payment_mode_manual, cityName, cityCode, isEditMode, rates]);
 
   // ====== DD CHARGE + LOCAL CHARGE CALCULATION ======
   // dd_charge field = dd_charge_per_kg * weight OR dd_charge_per_nag * packages (door delivery only)

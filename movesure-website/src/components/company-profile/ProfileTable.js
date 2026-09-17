@@ -202,25 +202,35 @@ const ProfileTableRow = ({
           {profile.bilty_charge > 0 && (
             <p className="text-gray-600">Bilty: ₹{profile.bilty_charge}</p>
           )}
-          {!profile.receiving_slip_charge && !profile.bilty_charge && (
+          {profile.local_charge_per_nag > 0 && (
+            <p className="text-teal-600">Local: ₹{profile.local_charge_per_nag}/pkg</p>
+          )}
+          {!profile.receiving_slip_charge && !profile.bilty_charge && !profile.local_charge_per_nag && (
             <span className="text-gray-400">-</span>
           )}
         </div>
       </td>
       <td className="px-3 py-2 text-center">
-        {profile.is_no_charge ? (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
-            No Charge
+        <div className="inline-flex flex-col items-center gap-0.5">
+          {profile.is_no_charge ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
+              No Charge
+            </span>
+          ) : profile.is_active ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800">
+              Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-800">
+              Inactive
+            </span>
+          )}
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+            profile.default_payment_mode === 'paid' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+          }`}>
+            {profile.default_payment_mode === 'paid' ? 'Paid' : 'To-Pay'}
           </span>
-        ) : profile.is_active ? (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800">
-            Active
-          </span>
-        ) : (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-800">
-            Inactive
-          </span>
-        )}
+        </div>
       </td>
       <td className="px-3 py-2">
         <div className="text-[10px] space-y-1">

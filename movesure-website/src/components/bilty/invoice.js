@@ -114,7 +114,11 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
   useEffect(() => {
     // DON'T auto-populate in edit mode - respect database values
     if (isEditMode) return;
-    
+
+    // A rate profile's pinned default_payment_mode (charges.js) or a manual user edit both
+    // take priority over this history-based guess.
+    if (formData._payment_mode_from_profile || formData._payment_mode_manual) return;
+
     // Only auto-populate when consignor is selected and data is loaded
     if (formData.consignor_name && !loadingPaymentMode && oldPaymentMode) {
       // Only update if current payment_mode is default 'to-pay'
@@ -123,7 +127,8 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
         setFormData(prev => ({ ...prev, payment_mode: oldPaymentMode.mode }));
       }
     }
-  }, [formData.consignor_name, oldPaymentMode, loadingPaymentMode, isEditMode]);
+  }, [formData.consignor_name, oldPaymentMode, loadingPaymentMode, isEditMode,
+      formData._payment_mode_from_profile, formData._payment_mode_manual]);
 
   // Auto-populate delivery type from consignor's delivery history
   useEffect(() => {
@@ -463,7 +468,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             <select
               ref={paymentModeRef}
               value={formData.payment_mode}
-              onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, payment_mode: e.target.value, _payment_mode_manual: true }))}
               className="flex-1 px-2 lg:px-3 py-1.5 text-black text-sm font-semibold border border-slate-300 rounded-lg bg-white shadow-sm hover:border-amber-300 focus:border-amber-400 focus:ring-0 bilty-input-focus transition-all duration-200"
               tabIndex={12}
             >

@@ -620,6 +620,11 @@ export const ConsignorProfileInfo = ({
             Local: ₹{profile.local_charge_per_nag}/pkg
           </span>
         )}
+        {profile.default_payment_mode && (
+          <span className={`px-2 py-0.5 rounded ${profile.default_payment_mode === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
+            {profile.default_payment_mode === 'paid' ? 'Paid' : 'To-Pay'}
+          </span>
+        )}
       </div>
     </div>
   );

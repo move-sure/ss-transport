@@ -4,12 +4,13 @@ import React from 'react';
 import { format } from 'date-fns';
 import { FileText, Edit2 } from 'lucide-react';
 
-const ChallanBooksTab = ({ 
-  challanBooks, 
-  onCreateNew, 
-  onEdit, 
-  onRefresh, 
-  userBranch 
+const ChallanBooksTab = ({
+  challanBooks,
+  onCreateNew,
+  onEdit,
+  onRefresh,
+  onSetDefault,
+  userBranch
 }) => {
 
   const generateChallanNumber = (book) => {
@@ -125,6 +126,11 @@ const ChallanBooksTab = ({
                           Fixed
                         </span>
                       )}
+                      {userBranch?.default_challan_book_id === book.id && (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          ⭐ Default
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -144,6 +150,15 @@ const ChallanBooksTab = ({
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
+                      {onSetDefault && userBranch?.default_challan_book_id !== book.id && (
+                        <button
+                          onClick={() => onSetDefault(book)}
+                          className="text-yellow-700 hover:text-yellow-900 text-xs font-medium whitespace-nowrap"
+                          title="Set as default challan book for this branch"
+                        >
+                          Set Default
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

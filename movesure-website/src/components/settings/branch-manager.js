@@ -8,6 +8,8 @@ export default function BranchManager() {
   const { user } = useAuth();
   const [branches, setBranches] = useState([]);
   const [users, setUsers] = useState([]);
+  const [billBooks, setBillBooks] = useState([]);
+  const [challanBooks, setChallanBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState(null);
@@ -17,13 +19,53 @@ export default function BranchManager() {
     address: '',
     manager_id: '',
     branch_name: '',
+    default_bill_book_id: '',
+    default_challan_book_id: '',
     is_active: true
   });
 
   useEffect(() => {
     fetchBranches();
     fetchUsers();
+    fetchBillBooks();
+    fetchChallanBooks();
   }, []);
+
+  const fetchBillBooks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('bill_books')
+        .select('id, branch_id, prefix, postfix, from_number, to_number, digits')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBillBooks(data || []);
+    } catch (error) {
+      console.error('Error fetching bill books:', error);
+      setBillBooks([]);
+    }
+  };
+
+  const fetchChallanBooks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('challan_books')
+        .select('id, branch_1, prefix, postfix, from_number, to_number, digits')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setChallanBooks(data || []);
+    } catch (error) {
+      console.error('Error fetching challan books:', error);
+      setChallanBooks([]);
+    }
+  };
+
+  const formatBookRange = (book) => {
+    const from = String(book.from_number).padStart(book.digits, '0');
+    const to = String(book.to_number).padStart(book.digits, '0');
+    return `${book.prefix || ''}${from}-${to}${book.postfix || ''}`;
+  };
 
   const fetchBranches = async () => {
     try {
@@ -66,7 +108,9 @@ export default function BranchManager() {
     try {
       const submitData = {
         ...formData,
-        manager_id: formData.manager_id || null
+        manager_id: formData.manager_id || null,
+        default_bill_book_id: formData.default_bill_book_id || null,
+        default_challan_book_id: formData.default_challan_book_id || null
       };
 
       if (editingBranch) {
@@ -93,6 +137,8 @@ export default function BranchManager() {
         address: '',
         manager_id: '',
         branch_name: '',
+        default_bill_book_id: '',
+        default_challan_book_id: '',
         is_active: true
       });
     } catch (error) {
@@ -111,6 +157,8 @@ export default function BranchManager() {
       address: branch.address,
       manager_id: branch.manager_id || '',
       branch_name: branch.branch_name,
+      default_bill_book_id: branch.default_bill_book_id || '',
+      default_challan_book_id: branch.default_challan_book_id || '',
       is_active: branch.is_active
     });
     setShowForm(true);
@@ -237,6 +285,52 @@ export default function BranchManager() {
                 </select>
               </div>
 
+              {editingBranch && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Default Bill Book
+                    </label>
+                    <select
+                      value={formData.default_bill_book_id}
+                      onChange={(e) => setFormData({ ...formData, default_bill_book_id: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">None (falls back to first book)</option>
+                      {billBooks.filter(b => b.branch_id === editingBranch.id).map((book) => (
+                        <option key={book.id} value={book.id}>
+                          {formatBookRange(book)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Pre-selected automatically when this branch opens the Bilty page.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Default Challan Book
+                    </label>
+                    <select
+                      value={formData.default_challan_book_id}
+                      onChange={(e) => setFormData({ ...formData, default_challan_book_id: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">None (falls back to first book)</option>
+                      {challanBooks.filter(b => b.branch_1 === editingBranch.id).map((book) => (
+                        <option key={book.id} value={book.id}>
+                          {formatBookRange(book)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Pre-selected automatically when this branch opens the Challan page.
+                    </p>
+                  </div>
+                </>
+              )}
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Address *
@@ -281,6 +375,8 @@ export default function BranchManager() {
                       address: '',
                       manager_id: '',
                       branch_name: '',
+                      default_bill_book_id: '',
+                      default_challan_book_id: '',
                       is_active: true
                     });
                   }}
@@ -324,6 +420,14 @@ export default function BranchManager() {
                       </div>
                       <div className="text-sm text-gray-500">
                         Code: {branch.branch_code}
+                      </div>
+                      <div className="text-xs mt-1 space-x-2">
+                        <span className={branch.default_bill_book_id ? 'text-indigo-600' : 'text-gray-400'}>
+                          {branch.default_bill_book_id ? 'Default bill book set' : 'No default bill book'}
+                        </span>
+                        <span className={branch.default_challan_book_id ? 'text-indigo-600' : 'text-gray-400'}>
+                          {branch.default_challan_book_id ? '• Default challan book set' : '• No default challan book'}
+                        </span>
                       </div>
                     </div>
                   </td>

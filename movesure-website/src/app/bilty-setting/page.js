@@ -5,6 +5,7 @@ import { useAuth } from '../utils/auth';
 import supabase from '../utils/supabase';
 import Navbar from '../../components/dashboard/navbar';
 import CitiesComponent from '../../components/bilty-setting/cities-manage';
+import CompanyManageComponent from '../../components/bilty-setting/company-manage';
 import TransportersComponent from '../../components/bilty-setting/transport-manage';
 import ConsignorComponent from '../../components/bilty-setting/consignor-manage';
 import ConsigneeComponent from '../../components/bilty-setting/consignee-manage';
@@ -68,6 +69,7 @@ const BiltySettingsPage = () => {
   }
 
   const tabs = [
+    { id: 'companies', name: 'Companies', icon: '🏢', description: 'Billing entities / letterheads (for bill & challan books)' },
     { id: 'states', name: 'States', icon: '🗺️', description: 'Manage Indian states (GST codes)' },
     { id: 'cities', name: 'Cities', icon: '🏙️', description: 'Manage city locations' },
     { id: 'transporters', name: 'Transporters', icon: '🚛', description: 'Transport companies' },
@@ -194,6 +196,7 @@ const BiltySettingsPage = () => {
             </div>
             
             <div className="p-6">
+              {activeTab === 'companies' && <CompanyManageComponent />}
               {activeTab === 'states' && <StatesComponent />}
               {activeTab === 'cities' && <CitiesComponent />}
               {activeTab === 'transporters' && <TransportersComponent />}

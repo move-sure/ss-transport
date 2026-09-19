@@ -9,6 +9,7 @@ export default function BillBookManager() {
   const [billBooks, setBillBooks] = useState([]);
   const [branches, setBranches] = useState([]);
   const [users, setUsers] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBillBook, setEditingBillBook] = useState(null);
@@ -20,6 +21,7 @@ export default function BillBookManager() {
     postfix: '',
     branch_id: '',
     consignor_id: '',
+    company_id: '',
     is_fixed: false,
     auto_continue: false,
     is_active: true
@@ -29,6 +31,7 @@ export default function BillBookManager() {
     fetchBillBooks();
     fetchBranches();
     fetchUsers();
+    fetchCompanies();
   }, []);
 
   const fetchBillBooks = async () => {
@@ -56,6 +59,7 @@ export default function BillBookManager() {
       // Get related data separately
       const userIds = [...new Set(billBooksData.map(book => book.created_by).filter(Boolean))];
       const branchIds = [...new Set(billBooksData.map(book => book.branch_id).filter(Boolean))];
+      const companyIds = [...new Set(billBooksData.map(book => book.company_id).filter(Boolean))];
 
       console.log('User IDs:', userIds);
       console.log('Branch IDs:', branchIds);
@@ -90,6 +94,21 @@ export default function BillBookManager() {
         }
       }
 
+      // Fetch companies
+      let companiesData = [];
+      if (companyIds.length > 0) {
+        const { data: fetchedCompanies, error: companiesError } = await supabase
+          .from('companies')
+          .select('id, company_name, short_code')
+          .in('id', companyIds);
+
+        if (companiesError) {
+          console.error('Companies fetch error:', companiesError);
+        } else {
+          companiesData = fetchedCompanies || [];
+        }
+      }
+
       console.log('Users data:', usersData);
       console.log('Branches data:', branchesData);
 
@@ -97,7 +116,8 @@ export default function BillBookManager() {
       const enrichedBillBooks = billBooksData.map(book => ({
         ...book,
         creator: usersData.find(user => user.id === book.created_by) || null,
-        branch: branchesData.find(branch => branch.id === book.branch_id) || null
+        branch: branchesData.find(branch => branch.id === book.branch_id) || null,
+        company: companiesData.find(company => company.id === book.company_id) || null
       }));
 
       console.log('Enriched bill books:', enrichedBillBooks);
@@ -116,7 +136,7 @@ export default function BillBookManager() {
     try {
       const { data, error } = await supabase
         .from('branches')
-        .select('id, branch_name, branch_code')
+        .select('id, branch_name, branch_code, default_bill_book_id')
         .eq('is_active', true)
         .order('branch_name');
 
@@ -125,6 +145,22 @@ export default function BillBookManager() {
     } catch (error) {
       console.error('Error fetching branches:', error);
       setBranches([]);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, company_name, short_code')
+        .eq('is_active', true)
+        .order('company_name');
+
+      if (error) throw error;
+      setCompanies(data || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      setCompanies([]);
     }
   };
 
@@ -167,6 +203,7 @@ export default function BillBookManager() {
         postfix: formData.postfix || null,
         branch_id: formData.branch_id || null,
         consignor_id: formData.consignor_id || null,
+        company_id: formData.company_id || null,
         is_fixed: formData.is_fixed,
         auto_continue: formData.auto_continue,
         is_active: formData.is_active,
@@ -215,6 +252,7 @@ export default function BillBookManager() {
       postfix: '',
       branch_id: '',
       consignor_id: '',
+      company_id: '',
       is_fixed: false,
       auto_continue: false,
       is_active: true
@@ -231,6 +269,7 @@ export default function BillBookManager() {
       postfix: billBook.postfix || '',
       branch_id: billBook.branch_id || '',
       consignor_id: billBook.consignor_id || '',
+      company_id: billBook.company_id || '',
       is_fixed: billBook.is_fixed,
       auto_continue: billBook.auto_continue,
       is_active: billBook.is_active
@@ -252,6 +291,21 @@ export default function BillBookManager() {
     } catch (error) {
       console.error('Error deleting bill book:', error);
       alert('Error deleting bill book: ' + error.message);
+    }
+  };
+
+  const handleSetDefault = async (billBook) => {
+    if (!billBook.branch_id) { alert('Assign this bill book to a branch first.'); return; }
+    try {
+      const { error } = await supabase
+        .from('branches')
+        .update({ default_bill_book_id: billBook.id })
+        .eq('id', billBook.branch_id);
+      if (error) throw error;
+      await fetchBranches();
+    } catch (error) {
+      console.error('Error setting default bill book:', error);
+      alert('Error setting default: ' + error.message);
     }
   };
 
@@ -417,6 +471,24 @@ export default function BillBookManager() {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company (letterhead)
+                </label>
+                <select
+                  value={formData.company_id}
+                  onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select Company</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.company_name}{company.short_code ? ` (${company.short_code})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="md:col-span-3 flex flex-wrap gap-4">
                 <label className="flex items-center">
                   <input
@@ -484,6 +556,9 @@ export default function BillBookManager() {
                   <p className="text-sm text-gray-500">
                     {billBook.branch?.branch_name || 'No branch assigned'}
                   </p>
+                  <p className="text-sm text-indigo-600 font-medium">
+                    {billBook.company?.company_name || 'No company assigned'}
+                  </p>
                 </div>
                 <span
                   className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${
@@ -530,6 +605,9 @@ export default function BillBookManager() {
                 {billBook.is_completed && (
                   <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">Completed</span>
                 )}
+                {branches.find(b => b.id === billBook.branch_id)?.default_bill_book_id === billBook.id && (
+                  <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-semibold">⭐ Default for branch</span>
+                )}
               </div>
 
               <div className="flex justify-between items-center">
@@ -537,6 +615,15 @@ export default function BillBookManager() {
                   Created by: {billBook.creator?.name || billBook.creator?.username || 'Unknown'}
                 </div>
                 <div className="flex space-x-2">
+                  {branches.find(b => b.id === billBook.branch_id)?.default_bill_book_id !== billBook.id && (
+                    <button
+                      onClick={() => handleSetDefault(billBook)}
+                      className="text-yellow-700 hover:text-yellow-900 text-sm"
+                      title="Set as default bill book for this branch"
+                    >
+                      Set Default
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(billBook)}
                     className="text-indigo-600 hover:text-indigo-900 text-sm"

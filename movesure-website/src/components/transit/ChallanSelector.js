@@ -15,6 +15,7 @@ const ChallanSelector = ({
   saving,
   selectedBiltiesCount,
   branches = [],
+  companies = [],
   trucks,
   staff,
   transitBilties = []
@@ -115,9 +116,15 @@ const ChallanSelector = ({
   const getDestinationBranchName = (challanBookId) => {
     const book = challanBooks.find(b => b.id === challanBookId);
     if (!book) return 'Unknown';
-    
+
     const branch = branches.find(b => b.id === book.to_branch_id);
     return branch ? `${branch.branch_name} (${branch.branch_code})` : `Branch-${book.to_branch_id?.slice(0, 8)}`;
+  };
+
+  const getCompanyName = (challanBookId) => {
+    const book = challanBooks.find(b => b.id === challanBookId);
+    if (!book?.company_id) return null;
+    return companies.find(c => c.id === book.company_id)?.company_name || null;
   };
 
   const handleChallanSelect = (challan) => {
@@ -288,6 +295,9 @@ const ChallanSelector = ({
                   <>
                     <p className="truncate text-sm font-semibold text-slate-900">Next: {generateChallanNumber(selectedChallanBook)}</p>
                     <p className="truncate text-xs text-slate-500">To {getDestinationBranchName(selectedChallanBook.id)}</p>
+                    {getCompanyName(selectedChallanBook.id) && (
+                      <p className="truncate text-xs text-indigo-500 font-medium">{getCompanyName(selectedChallanBook.id)}</p>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm font-medium text-slate-400">Choose a challan book…</p>
@@ -334,6 +344,9 @@ const ChallanSelector = ({
                           <p className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500">
                             <MapPin className="h-3 w-3" /> To {getDestinationBranchName(book.id)}
                           </p>
+                          {getCompanyName(book.id) && (
+                            <p className="text-[11px] font-semibold text-emerald-600">{getCompanyName(book.id)}</p>
+                          )}
                         </button>
                       );
                     })

@@ -13,6 +13,7 @@ const PDFGenerator = ({
   onClose 
 }) => {
   const [permanentDetails, setPermanentDetails] = useState(null);
+  const [companyData, setCompanyData] = useState(null);
   const [fromCityData, setFromCityData] = useState(null);
   const [toCityData, setToCityData] = useState(null);
   const [transportData, setTransportData] = useState(null);
@@ -400,16 +401,21 @@ const PDFGenerator = ({
       setLoading(true);
       
       // Load all required data in parallel including branch details
-      const [permRes, fromCityRes, toCityRes, branchRes] = await Promise.all([
+      const [permRes, fromCityRes, toCityRes, branchRes, companyRes] = await Promise.all([
         supabase.from('permanent_details').select('*').eq('branch_id', biltyData.branch_id).single(),
-        biltyData.from_city_id ? 
-          supabase.from('cities').select('*').eq('id', biltyData.from_city_id).single() : 
+        biltyData.from_city_id ?
+          supabase.from('cities').select('*').eq('id', biltyData.from_city_id).single() :
           Promise.resolve({ data: null }),
-        biltyData.to_city_id ? 
-          supabase.from('cities').select('*').eq('id', biltyData.to_city_id).single() : 
+        biltyData.to_city_id ?
+          supabase.from('cities').select('*').eq('id', biltyData.to_city_id).single() :
           Promise.resolve({ data: null }),
-        biltyData.branch_id ? 
-          supabase.from('branches').select('branch_code, branch_name, city_code').eq('id', biltyData.branch_id).single() : 
+        biltyData.branch_id ?
+          supabase.from('branches').select('branch_code, branch_name, city_code').eq('id', biltyData.branch_id).single() :
+          Promise.resolve({ data: null }),
+        // Multi-company letterhead: only fetch if this bilty is tagged with a company.
+        // Null company_id (the default today) means "use the hardcoded/permanent_details letterhead" unchanged.
+        biltyData.company_id ?
+          supabase.from('companies').select('*').eq('id', biltyData.company_id).single() :
           Promise.resolve({ data: null })
       ]);
 
@@ -417,6 +423,7 @@ const PDFGenerator = ({
       console.log('🔍 DEBUG - City code from branch:', branchRes.data?.city_code);
 
       setPermanentDetails(permRes.data);
+      setCompanyData(companyRes.data);
       setBiltyBookBranch(branchRes.data);
       
       // Use branch data to determine from city if from_city_id is not set
@@ -448,7 +455,7 @@ const PDFGenerator = ({
       }
       setTransportData(transportRes.data);
 
-      await generatePDFPreview(permRes.data, effectiveFromCity, toCityRes.data, transportRes.data);
+      await generatePDFPreview(permRes.data, effectiveFromCity, toCityRes.data, transportRes.data, companyRes.data);
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -496,45 +503,53 @@ const PDFGenerator = ({
   // ==========================================
   // 🎯 MAIN PDF GENERATION FUNCTION WITH ENHANCED STYLING
   // ==========================================
-  const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, toCity, transport, showCharges = true) => {
+  const addBillCopy = (pdf, yStart, copyType, qrDataURL, permDetails, fromCity, toCity, transport, showCharges = true, company = null) => {
     const y = yStart; // Base Y offset for this copy
 
     // 🏢 HEADER SECTION WITH ENHANCED STYLING
+    // Multi-company letterhead: when this bilty is tagged with a company, use its name/GST/address.
+    // company_id is null on every bilty created before this feature, so the fallback below is
+    // byte-for-byte what always rendered — never rewrite these `||` defaults.
+    const companyName = company?.company_name || 'S. S. TRANSPORT CORPORATION';
+    const companyGst = company?.gst_number || permDetails?.gst || '';
+    const companyAddress = company?.address || permDetails?.transport_address || '';
+
     // GST Number (top left) - Bold label
     addStyledText(
-      pdf, 
-      `GST No: ${permDetails?.gst || ''}`, 
-      COORDINATES.HEADER.GST_NO.x, 
+      pdf,
+      `GST No: ${companyGst}`,
+      COORDINATES.HEADER.GST_NO.x,
       y + COORDINATES.HEADER.GST_NO.y,
       STYLES.FONTS.NOTICE
     );
       // Company Name (center, large and bold) - Using professional header
     addHeaderText(
-      pdf, 
-      'S. S. TRANSPORT CORPORATION', 
-      COORDINATES.HEADER.COMPANY_NAME.x, 
+      pdf,
+      companyName,
+      COORDINATES.HEADER.COMPANY_NAME.x,
       y + COORDINATES.HEADER.COMPANY_NAME.y,
       20,
       { align: 'center' }
     );
-    
-    // Bank Details (left side) - Enhanced styling
+
+    // Bank Details (left side) - Enhanced styling — always the branch's bank (permanent_details),
+    // not the company's; companies only carries one bank_account_number/ifsc, not two named banks.
     addStyledText(
-      pdf, 
-      `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || ''} IFSC CODE ${permDetails?.ifsc_code_1 || ''}`, 
-      COORDINATES.HEADER.BANK_DETAIL_1.x, 
+      pdf,
+      `PNB BANK A/C No: ${permDetails?.bank_act_no_1 || ''} IFSC CODE ${permDetails?.ifsc_code_1 || ''}`,
+      COORDINATES.HEADER.BANK_DETAIL_1.x,
       y + COORDINATES.HEADER.BANK_DETAIL_1.y,
       STYLES.FONTS.LABELS
     );
     addStyledText(
-      pdf, 
-      `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || ''} IFSC CODE ${permDetails?.ifsc_code_2 || ''}`, 
-      COORDINATES.HEADER.BANK_DETAIL_2.x, 
+      pdf,
+      `AXIS BANK A/C No: ${permDetails?.bank_act_no_2 || ''} IFSC CODE ${permDetails?.ifsc_code_2 || ''}`,
+      COORDINATES.HEADER.BANK_DETAIL_2.x,
       y + COORDINATES.HEADER.BANK_DETAIL_2.y,
       STYLES.FONTS.LABELS
     );
       // Branch Address (right side) - ENHANCED DARK & BOLD
-    const address = permDetails?.transport_address || '';
+    const address = companyAddress;
     const addressLines = address.split('\n');
     addStyledText(
       pdf, 
@@ -993,7 +1008,7 @@ const PDFGenerator = ({
     }
   };
 
-  const generatePDFPreview = async (permDetails = permanentDetails, fromCity = fromCityData, toCity = toCityData, transport = transportData) => {
+  const generatePDFPreview = async (permDetails = permanentDetails, fromCity = fromCityData, toCity = toCityData, transport = transportData, company = companyData) => {
     setIsGenerating(true);
 
     try {
@@ -1132,7 +1147,7 @@ const PDFGenerator = ({
       
       // 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING
       // First copy (Consignor) — showCharges = false when zeroConsignorCharges is toggled on
-      addBillCopy(pdf, 0, 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport, !zeroConsignorCharges);
+      addBillCopy(pdf, 0, 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport, !zeroConsignorCharges, company);
 
       // ➖ DASHED SEPARATOR LINE - Enhanced
       pdf.setLineWidth(STYLES.LINES.THICK);
@@ -1141,7 +1156,7 @@ const PDFGenerator = ({
       pdf.setLineDashPattern([], 0); // Reset to solid line
 
       // Second copy (Driver) with Y offset — showCharges = false when zeroDriverCharges is toggled on
-      addBillCopy(pdf, COORDINATES.SPACING.SECOND_COPY_OFFSET, 'DRIVER', qrDataURL, permDetails, fromCity, toCity, transport, !zeroDriverCharges);
+      addBillCopy(pdf, COORDINATES.SPACING.SECOND_COPY_OFFSET, 'DRIVER', qrDataURL, permDetails, fromCity, toCity, transport, !zeroDriverCharges, company);
       
       // Create blob URL for preview
       const pdfBlob = pdf.output('blob');

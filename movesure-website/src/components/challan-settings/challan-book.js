@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
+import supabase from '../../app/utils/supabase';
 import { X, Save, FileText } from 'lucide-react';
 
 const API_URL = 'https://api.movesure.io';
@@ -16,6 +17,7 @@ const ChallanBookForm = ({
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState([]);
   const [formData, setFormData] = useState({
     prefix: '',
     from_number: 1,
@@ -27,11 +29,31 @@ const ChallanBookForm = ({
     branch_1: '',
     branch_2: '',
     branch_3: '',
+    company_id: '',
     current_number: 1,
     is_fixed: false,
     auto_continue: false,
     is_active: true
   });
+
+  useEffect(() => {
+    // Reads directly from Supabase — the /api/bilty/master/companies REST endpoint
+    // isn't registered on the live backend yet ("Invalid entity: companies").
+    const fetchCompanies = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('is_active', true)
+          .order('company_name');
+        if (error) throw error;
+        setCompanies(data || []);
+      } catch (error) {
+        console.error('Error fetching companies:', error);
+      }
+    };
+    fetchCompanies();
+  }, []);
 
   useEffect(() => {
     if (userBranch) {
@@ -57,6 +79,7 @@ const ChallanBookForm = ({
         branch_1: editingBook.branch_1,
         branch_2: editingBook.branch_2 || '',
         branch_3: editingBook.branch_3 || '',
+        company_id: editingBook.company_id || '',
         current_number: editingBook.current_number,
         is_fixed: editingBook.is_fixed,
         auto_continue: editingBook.auto_continue,
@@ -117,6 +140,7 @@ const ChallanBookForm = ({
         branch_1: formData.branch_1,
         branch_2: formData.branch_2 || null,
         branch_3: formData.branch_3 || null,
+        company_id: formData.company_id || null,
         current_number: formData.current_number,
         is_fixed: formData.is_fixed,
         auto_continue: formData.auto_continue,
@@ -219,6 +243,24 @@ const ChallanBookForm = ({
                   {availableToBranches.map(branch => (
                     <option key={branch.id} value={branch.id}>
                       {branch.branch_name} ({branch.branch_code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Company (letterhead) *
+                </label>
+                <select
+                  value={formData.company_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, company_id: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select company</option>
+                  {companies.map(company => (
+                    <option key={company.id} value={company.id}>
+                      {company.company_name}{company.short_code ? ` (${company.short_code})` : ''}
                     </option>
                   ))}
                 </select>

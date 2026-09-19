@@ -67,6 +67,7 @@ export default function BiltyForm() {
   
   // State for dropdown data
   const [billBooks, setBillBooks] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [cities, setCities] = useState([]);
   const [transports, setTransports] = useState([]);
   const [transportByCityId, setTransportByCityId] = useState({});
@@ -526,7 +527,7 @@ export default function BiltyForm() {
         }
       };
       
-      const [refRes, defRatesRes, biltiesResult] = await Promise.all([
+      const [refRes, defRatesRes, biltiesResult, companiesResult] = await Promise.all([
         fetchWithRetry(`${BILTY_API_URL}/api/bilty/reference-data?branch_id=${user.branch_id}&user_id=${user.id}`),
         fetchWithRetry(`${BILTY_API_URL}/api/bilty/rates/default?branch_id=${user.branch_id}`),
         supabase
@@ -534,7 +535,14 @@ export default function BiltyForm() {
           .select('id, gr_no, consignor_name, consignee_name, bilty_date, total, saving_option')
           .eq('branch_id', user.branch_id)
           .eq('is_active', true)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+        // Multi-company letterhead — read directly from Supabase; the backend's reference-data
+        // endpoint doesn't include a `companies` array yet, so don't depend on data.companies.
+        supabase
+          .from('companies')
+          .select('*')
+          .eq('is_active', true)
+          .order('company_name')
       ]);
       const result = await refRes.json();
       const defRatesResult = await defRatesRes.json();
@@ -560,6 +568,7 @@ export default function BiltyForm() {
       setConsignors(data.consignors || []);
       setConsignees(data.consignees || []);
       setBillBooks(data.bill_books || []);
+      setCompanies(companiesResult.data || []);
       setExistingBilties(biltiesResult.data || []);
       
       // Set from city
@@ -777,6 +786,8 @@ export default function BiltyForm() {
         saving_option: isDraft ? 'DRAFT' : 'SAVE',
         // Bill book — backend auto-advances current_number safely
         bill_book_id: selectedBillBook?.id || null,
+        // Multi-company letterhead — send explicitly rather than relying on backend derivation from bill_book_id
+        company_id: selectedBillBook?.company_id || null,
         // Edit mode
         ...(isEditMode && currentBiltyId ? { bilty_id: currentBiltyId } : {})
       };
@@ -1097,68 +1108,61 @@ export default function BiltyForm() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
       <Navbar />
       <div className="w-full px-4 py-3">
-        {/* Bill Book Header - hidden per request */}
-        {false && (
-          <div className="bg-gradient-to-r from-slate-700 to-slate-600 rounded-2xl shadow-xl p-6 mb-6 border border-slate-300">
-            <div className="flex justify-between items-center">
-              {/* Bill Book Selector */}
-              <div className="relative">
-                <div className="flex items-center gap-3">
-                  <span className="text-white font-bold flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    BILL BOOK:
-                  </span>
-                  <button
-                    onClick={() => setShowBillBookDropdown(!showBillBookDropdown)}
-                    className="bg-white text-slate-700 px-6 py-3 rounded-xl font-semibold hover:bg-slate-50 transition-colors border border-slate-200 flex items-center gap-2 shadow-sm"
-                  >
-                    <span>
-                      {selectedBillBook ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''}` : 'Select Bill Book'}
-                    </span>
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                </div>
-                
-                {showBillBookDropdown && (
-                  <div className="absolute z-30 left-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-                    {billBooks.map((book) => (
-                      <button
-                        key={book.id}
-                        onClick={() => handleBillBookSelect(book)}
-                        className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 transition-colors first:rounded-t-xl last:rounded-b-xl last:border-b-0"
-                      >
-                        <div className="text-sm font-bold text-black">
-                          {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} - 
-                          {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          Next: {generateGRNumber(book)}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              {/* Edit Mode Indicator */}
-              {isEditMode && currentBiltyId && (
-                <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-black px-6 py-3 rounded-xl font-bold text-sm border-2 border-amber-300 shadow-lg">
-                  EDITING: {formData.gr_no}
+        {/* Bill Book / Company Selector — re-enabled so a branch with multiple
+            companies (e.g. SS TRANSPORT CORPORATION vs SS MOVESECURE LOGISTICS
+            PVT LTD) can pick which one this bilty prints/numbers under. */}
+        {billBooks.length > 1 && (
+          <div className="flex justify-between items-center mb-3">
+            {/* Bill Book Selector — compact pill, default book pre-selected on load */}
+            <div className="relative">
+              <button
+                onClick={() => setShowBillBookDropdown(!showBillBookDropdown)}
+                className="bg-slate-700 text-white pl-2.5 pr-2 py-1 rounded-md font-medium hover:bg-slate-600 transition-colors flex items-center gap-1.5 shadow-sm text-xs"
+                title="Bill Book"
+              >
+                <Settings className="w-3 h-3 opacity-70" />
+                <span>
+                  {selectedBillBook
+                    ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''} — ${companies.find(c => c.id === selectedBillBook.company_id)?.company_name || 'No company'}`
+                    : 'Select Bill Book'}
+                </span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {showBillBookDropdown && (
+                <div className="absolute z-30 left-0 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                  {billBooks.map((book) => (
+                    <button
+                      key={book.id}
+                      onClick={() => handleBillBookSelect(book)}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 transition-colors first:rounded-t-lg last:rounded-b-lg last:border-b-0"
+                    >
+                      <div className="text-xs font-bold text-black">
+                        {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} -
+                        {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                      </div>
+                      <div className="text-[11px] text-indigo-600 font-medium">
+                        {companies.find(c => c.id === book.company_id)?.company_name || 'No company assigned'}
+                      </div>
+                      <div className="text-[11px] text-gray-600">
+                        Next: {generateGRNumber(book)}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
-            {/* Keyboard Shortcuts */}
-            {showShortcuts && (
-              <div className="mt-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20">
-                <div className="text-sm text-white text-center font-medium">
-                  <span className="font-bold">Keyboard Shortcuts:</span> Ctrl+S (Save) | Ctrl+D (Draft) | Ctrl+N (New) | Ctrl+E (Edit) | Alt+N (New Bill) | Alt+C (Challan) | Enter (Next Field)
-                </div>
+
+            {/* Edit Mode Indicator */}
+            {isEditMode && currentBiltyId && (
+              <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-black px-3 py-1 rounded-md font-bold text-xs border border-amber-300 shadow-sm">
+                EDITING: {formData.gr_no}
               </div>
             )}
           </div>
         )}
 
-        {/* Keyboard Shortcuts (visible even when header hidden) */}
+        {/* Keyboard Shortcuts */}
         {showShortcuts && (
           <div className="mb-6 rounded-xl border border-slate-200 bg-white/70 p-4 shadow-sm">
             <div className="text-sm text-slate-600 text-center font-medium">

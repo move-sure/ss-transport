@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../utils/auth';
+import supabase from '../utils/supabase';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const API_URL = 'https://api.movesure.io';
@@ -33,6 +34,7 @@ export default function TransitManagement() {
   const [transitBilties, setTransitBilties] = useState([]);
   const [challans, setChallans] = useState([]);
   const [challanBooks, setChallanBooks] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [cities, setCities] = useState([]);
   const [userBranch, setUserBranch] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -120,6 +122,21 @@ export default function TransitManagement() {
     }
   }, [user]);
 
+  // Multi-company letterhead — the /api/challan/init RPC only returns `companies`/`company_id`
+  // once migration 012 has been run against Supabase; until then, read the master list directly
+  // so the company dropdown/badges work immediately either way.
+  useEffect(() => {
+    supabase
+      .from('companies')
+      .select('*')
+      .eq('is_active', true)
+      .order('company_name')
+      .then(({ data, error }) => {
+        if (error) { console.error('Error fetching companies:', error); return; }
+        if (data && data.length > 0) setCompanies(data);
+      });
+  }, []);
+
   // Track whether initial load has happened to avoid double-firing transit load
   const initialLoadDone = React.useRef(false);
 
@@ -163,6 +180,11 @@ export default function TransitManagement() {
       || null;
     setPermanentDetails(userPd);
     setChallanBooks(initData.challan_books || []);
+    // Only overwrite from the RPC once migration 012 actually returns data — otherwise keep
+    // whatever the direct Supabase fallback fetch above already loaded.
+    if (initData.companies && initData.companies.length > 0) {
+      setCompanies(initData.companies);
+    }
 
     // ALL challans — already sorted non-dispatched first by RPC
     const challansData = (initData.challans || []).map(transformChallanRow);
@@ -183,7 +205,7 @@ export default function TransitManagement() {
     setStationBilties(stnBilties);
     setTotalAvailableCount(regBilties.length + stnBilties.length);
 
-    return { challansData, challanBooksData: initData.challan_books || [] };
+    return { challansData, challanBooksData: initData.challan_books || [], userBranch: initData.user_branch || null };
   };
 
   const loadInitialData = async () => {
@@ -198,7 +220,7 @@ export default function TransitManagement() {
 
       if (initResult.status !== 'success') throw new Error(initResult.message || 'Failed to load initial data');
 
-      const { challansData, challanBooksData } = processInitData(initResult.data);
+      const { challansData, challanBooksData, userBranch } = processInitData(initResult.data);
 
       // Auto-select the most recent active (non-dispatched) challan first, fallback to dispatched
       const activeChallans = challansData.filter(c => !c.is_dispatched);
@@ -210,9 +232,14 @@ export default function TransitManagement() {
         await loadTransitBilties(autoSelectedChallan.challan_no);
       }
 
-      // Auto-select first available challan book
+      // Auto-select the branch's default challan book (set once, in branch settings)
+      // so the operator always starts on the right book/company; falls back to the
+      // first available book if no default has been configured yet.
       if (challanBooksData.length > 0) {
-        setSelectedChallanBook(challanBooksData[0]);
+        const defaultChallanBook = userBranch?.default_challan_book_id
+          ? challanBooksData.find(b => b.id === userBranch.default_challan_book_id) || challanBooksData[0]
+          : challanBooksData[0];
+        setSelectedChallanBook(defaultChallanBook);
       }
 
       initialLoadDone.current = true;
@@ -283,6 +310,7 @@ export default function TransitManagement() {
       }
 
       // For 'all', 'bilties', or 'challans' — re-call init (single request refreshes everything)
+      if (!user?.branch_id) return;
       const initRes = await fetch(`${API_URL}/api/challan/init?branch_id=${user.branch_id}`);
       const initResult = await initRes.json();
       if (initResult.status !== 'success') throw new Error(initResult.message || 'Failed to refresh data');
@@ -303,7 +331,7 @@ export default function TransitManagement() {
       console.error('❌ Error refreshing data:', error);
       setError(error.message || 'Failed to refresh data');
     }
-  }, [user.branch_id, selectedChallan]);
+  }, [user?.branch_id, selectedChallan]);
 
   const handleAddBiltyToTransit = async (biltyOrBilties) => {
     if (!selectedChallan || !selectedChallanBook) {
@@ -568,6 +596,7 @@ export default function TransitManagement() {
               saving={saving}
               selectedBiltiesCount={selectedBilties.length}
               branches={branches}
+              companies={companies}
               transitBilties={transitBilties}
             />
           </div>

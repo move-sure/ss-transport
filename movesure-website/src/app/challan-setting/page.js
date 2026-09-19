@@ -144,6 +144,20 @@ export default function ChallanManagementPage() {
     }
   };
 
+  const handleSetDefaultChallanBook = async (book) => {
+    try {
+      const { error } = await supabase
+        .from('branches')
+        .update({ default_challan_book_id: book.id })
+        .eq('id', user.branch_id);
+      if (error) throw error;
+      setBranchData(prev => ({ ...prev, default_challan_book_id: book.id }));
+    } catch (error) {
+      console.error('Error setting default challan book:', error);
+      alert('Error setting default: ' + error.message);
+    }
+  };
+
   // Form Handlers
   const handleCreateNewChallan = () => {
     setEditingChallan(null);
@@ -366,6 +380,7 @@ export default function ChallanManagementPage() {
               onCreateNew={handleCreateNewBook}
               onEdit={handleEditBook}
               onRefresh={loadChallanBooks}
+              onSetDefault={handleSetDefaultChallanBook}
               userBranch={branchData}
             />
           )}

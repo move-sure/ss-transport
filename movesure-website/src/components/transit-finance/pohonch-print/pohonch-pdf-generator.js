@@ -14,6 +14,7 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import supabase from '../../../app/utils/supabase';
 
 const ROWS_PER_HALF = 24; // max bilty rows per half (excluding challan headers)
 const HALF_HEIGHT = 148; // mm — half of A4 portrait height
@@ -72,12 +73,54 @@ function buildChunks(bilties) {
 }
 
 /**
+ * Multi-company letterhead for pohonch: bilty_wise_kaat has no company_id of its own, but
+ * each bilty's challan_no maps to a challan_details row that does. Builds a
+ * { [challan_no]: company_name } lookup for the given challan numbers, so the title on each
+ * half-page can show whichever company has the most bilties there (per user's choice — a
+ * pohonch can legitimately span 2+ companies' challans in one hub-crossing document).
+ * Returns {} (safe no-op) if none of the challans are tagged with a company yet.
+ */
+export async function buildCompanyByChallanNoMap(challanNos) {
+  const uniqueNos = [...new Set((challanNos || []).filter(Boolean))];
+  if (uniqueNos.length === 0) return {};
+  try {
+    const { data: challanRows, error: challanErr } = await supabase
+      .from('challan_details')
+      .select('challan_no, company_id')
+      .in('challan_no', uniqueNos)
+      .not('company_id', 'is', null);
+    if (challanErr || !challanRows?.length) return {};
+
+    const companyIds = [...new Set(challanRows.map(r => r.company_id).filter(Boolean))];
+    const { data: companyRows, error: companyErr } = await supabase
+      .from('companies')
+      .select('id, company_name')
+      .in('id', companyIds);
+    if (companyErr) return {};
+
+    const nameById = {};
+    (companyRows || []).forEach(c => { nameById[c.id] = c.company_name; });
+
+    const map = {};
+    challanRows.forEach(r => {
+      if (nameById[r.company_id]) map[r.challan_no] = nameById[r.company_id];
+    });
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * @param {Array} bilties  – enriched bilty objects (with destination_code field)
  * @param {Object} transport – selected transport
  * @param {boolean} preview – true → blob URL, false → download
  * @param {string} [pohonchNumber] – optional pohonch/cross challan number to display on PDF
+ * @param {Object} [companyByChallanNo] – optional { [challan_no]: company_name } map (see
+ *   buildCompanyByChallanNoMap) — when provided, each half's title shows whichever company
+ *   has the most bilties on that half; falls back to the generic title otherwise.
  */
-export function generatePohonchPDF(bilties, transport, preview = true, pohonchNumber = '', existingDoc = null, startNewPage = false) {
+export function generatePohonchPDF(bilties, transport, preview = true, pohonchNumber = '', existingDoc = null, startNewPage = false, companyByChallanNo = {}) {
   const pdf = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = 210;
   const mx = 5; // 5mm margin each side
@@ -221,10 +264,18 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
    */
   const drawHalf = (chunk, yStart, globalStartIdx, copyLabel) => {
     // ── Header Line 1: Company name ──
+    // Majority company on this half by bilty count — a pohonch can span challans from
+    // more than one company; falls back to the generic name when none are tagged.
+    const companyCounts = {};
+    chunk.groups.forEach(g => {
+      const name = companyByChallanNo[g.challan];
+      if (name) companyCounts[name] = (companyCounts[name] || 0) + g.bilties.length;
+    });
+    const topCompany = Object.entries(companyCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
-    pdf.text('SS TRANSPORT COMPANY — CROSSING CHALLAN', pageW / 2, yStart + 4.5, { align: 'center' });
+    pdf.text(`${topCompany || 'SS TRANSPORT COMPANY'} — CROSSING CHALLAN`, pageW / 2, yStart + 4.5, { align: 'center' });
 
     // Office number (left)
     pdf.setFont('helvetica', 'bold');

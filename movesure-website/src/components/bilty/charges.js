@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useInputNavigation } from './input-navigation';
 import { Save, FileText, RotateCcw } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
-import { 
+import {
   calculateFreightWithMinimum,
   calculateLabourCharge,
   calculateDDCharge,
@@ -13,6 +13,7 @@ import {
   ConsignorProfileInfo,
   DEFAULT_MINIMUM_WEIGHT
 } from './consignor-profile-helper';
+import { useHistoricalRate } from './rate-history-helper';
 
 const PackageChargesSection = ({ 
   formData, 
@@ -51,6 +52,16 @@ const PackageChargesSection = ({
   // Consignee profile takes priority over consignor profile whenever both exist for this city
   const activeProfile = consigneeProfile || consignorProfile;
   const loadingProfile = false;
+
+  // Fallback rate source when NO profile exists for this city: the party's own rate history.
+  // Consignee history wins over consignor history, mirroring the profile priority above.
+  const { historicalRate: consignorHistoricalRate } = useHistoricalRate(
+    formData.consignor_name, 'consignor_name', formData.to_city_id, formData.branch_id
+  );
+  const { historicalRate: consigneeHistoricalRate } = useHistoricalRate(
+    formData.consignee_name, 'consignee_name', formData.to_city_id, formData.branch_id
+  );
+  const activeHistoricalRate = consigneeHistoricalRate || consignorHistoricalRate;
 
   // Track if profile was already applied to prevent re-applying
   const [profileApplied, setProfileApplied] = useState(false);
@@ -472,8 +483,10 @@ const PackageChargesSection = ({
     // Skip in edit mode or if already loading
     if (isEditMode || loadingProfile) return;
 
-    // Create a unique key for this profile application
-    const profileKey = `${formData.consignor_name}-${formData.consignee_name}-${formData.to_city_id}-${activeProfile?.id || 'none'}`;
+    // Create a unique key for this profile application. Includes the historical rate so that
+    // when it resolves asynchronously (after an initial no-profile/no-history run already
+    // applied the branch default), the effect re-runs and replaces it with the real history.
+    const profileKey = `${formData.consignor_name}-${formData.consignee_name}-${formData.to_city_id}-${activeProfile?.id || 'none'}-${activeHistoricalRate?.rate ?? 'none'}`;
 
     // Skip if we already applied this exact profile
     if (lastAppliedProfileRef.current === profileKey) return;
@@ -537,10 +550,12 @@ const PackageChargesSection = ({
         updates.transport_gst = activeProfile.transport_gst;
       }
 
-      // Default payment mode from profile — pinned choice wins over the history-based guess
-      // in invoice.js, but never overrides a manual user selection (_payment_mode_manual).
-      if (activeProfile.default_payment_mode && !formData._payment_mode_manual) {
-        updates.payment_mode = activeProfile.default_payment_mode;
+      // Default payment mode from profile — only treated as a deliberate pin when it's 'paid'.
+      // 'to-pay' is the column's own DB default (NOT NULL DEFAULT 'to-pay'), so a profile sitting
+      // at 'to-pay' carries no real signal and must not block invoice.js's history-based
+      // "AI" suggestion (e.g. 90% of this party's last 10 bilties were Paid).
+      if (activeProfile.default_payment_mode === 'paid' && !formData._payment_mode_manual) {
+        updates.payment_mode = 'paid';
         updates._payment_mode_from_profile = true;
         console.log('💳 Payment mode from profile:', updates.payment_mode);
       }
@@ -554,18 +569,26 @@ const PackageChargesSection = ({
       }
 
     } else {
-      // ===== NO PROFILE - Use default values based on city =====
+      // ===== NO PROFILE =====
+      // Priority 2: this party's own rate history for this destination city.
+      // Priority 3 (only if no history either): branch-wide default rate for the city.
       const defaultLabour = getDefaultLabourRate(cityName, cityCode);
       updates.labour_rate = defaultLabour;
       console.log('📋 No profile - using default labour rate:', defaultLabour, 'for city:', cityName);
-      
-      // Try to get default city rate from rates table
-      const defaultCityRate = rates.find(r => r.city_id === formData.to_city_id && r.is_default);
-      if (defaultCityRate) {
-        updates.rate = parseFloat(defaultCityRate.rate);
-        console.log('💰 Using default city rate:', updates.rate);
+
+      if (activeHistoricalRate?.rate > 0) {
+        updates.rate = activeHistoricalRate.rate;
+        console.log('📊 No profile - using party\'s own rate history:', updates.rate,
+          `(${activeHistoricalRate.count}/${activeHistoricalRate.totalBilties} recent bilties, last: ${activeHistoricalRate.lastDate})`);
+      } else {
+        // Try to get default city rate from rates table
+        const defaultCityRate = rates.find(r => r.city_id === formData.to_city_id && r.is_default);
+        if (defaultCityRate) {
+          updates.rate = parseFloat(defaultCityRate.rate);
+          console.log('💰 No profile, no history - using branch default city rate:', updates.rate);
+        }
       }
-      
+
       // Set default minimum weight (50 kg) when no profile
       updates._minimum_weight = DEFAULT_MINIMUM_WEIGHT;
       console.log('⚖️ Using default minimum weight:', DEFAULT_MINIMUM_WEIGHT, 'kg');
@@ -585,7 +608,7 @@ const PackageChargesSection = ({
       ddManuallyEditedRef.current = false;
     }
     
-  }, [activeProfile, consigneeProfile, loadingProfile, formData.consignor_name, formData.consignee_name, formData.to_city_id,
+  }, [activeProfile, consigneeProfile, activeHistoricalRate, loadingProfile, formData.consignor_name, formData.consignee_name, formData.to_city_id,
       formData.delivery_type, formData._payment_mode_manual, cityName, cityCode, isEditMode, rates]);
 
   // ====== DD CHARGE + LOCAL CHARGE CALCULATION ======

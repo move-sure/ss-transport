@@ -337,6 +337,17 @@ export default function BiltyForm() {
     };
   }, [user?.branch_id]);
 
+  // Safety net: if the consignor/consignee name is cleared (manually, or by a form reset that
+  // this effect catches independently of resetForm), drop the cached rate profile too — otherwise
+  // it can keep silently applying to whichever party/city comes next.
+  useEffect(() => {
+    if (!formData.consignor_name) setConsignorRatesByCity({});
+  }, [formData.consignor_name]);
+
+  useEffect(() => {
+    if (!formData.consignee_name) setConsigneeRatesByCity({});
+  }, [formData.consignee_name]);
+
   // ⭐ CONSIGNEE RATE FETCH — mirrors the consignor rate fetch above.
   // Consignee profile rate takes priority over consignor profile rate when both exist (business decision).
   useEffect(() => {
@@ -1013,6 +1024,12 @@ export default function BiltyForm() {
       _payment_mode_from_profile: false
     });
     
+    // Clear cached consignor/consignee rate profiles — otherwise a stale profile from the
+    // PREVIOUS bilty (keyed by destination city) can silently reapply on the next bilty if it
+    // happens to go to the same city, overriding the correct new consignor/consignee's rate.
+    setConsignorRatesByCity({});
+    setConsigneeRatesByCity({});
+
     // Always set to new mode after reset
     setIsEditMode(false);
     setCurrentBiltyId(null);

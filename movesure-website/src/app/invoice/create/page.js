@@ -310,7 +310,8 @@ export default function CreateInvoicePage() {
     return recentInvoices.filter(inv =>
       (inv.invoice_no || '').toLowerCase().includes(q) ||
       (inv.buyer_name || '').toLowerCase().includes(q) ||
-      (inv.seller_name || '').toLowerCase().includes(q)
+      (inv.seller_name || '').toLowerCase().includes(q) ||
+      (inv.pvt_marks || '').toLowerCase().includes(q)
     );
   }, [recentInvoices, recentSearch]);
 
@@ -757,7 +758,7 @@ export default function CreateInvoicePage() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                     <input
                       className="w-full border border-gray-200 rounded-lg pl-8 pr-7 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="Search invoice no. or buyer…"
+                      placeholder="Search invoice no., buyer or pvt marks…"
                       value={recentSearch}
                       onChange={e => setRecentSearch(e.target.value)}
                     />
@@ -794,6 +795,11 @@ export default function CreateInvoicePage() {
                           )}
                           <span className="font-mono text-xs text-blue-700 font-semibold w-36 flex-shrink-0">{inv.invoice_no || '—'}</span>
                           <span className="text-sm text-gray-800 font-medium flex-1 truncate">{inv.buyer_name || '—'}</span>
+                          {inv.pvt_marks && (
+                            <span className="text-[11px] font-mono font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-full flex-shrink-0 hidden md:inline-block">
+                              {inv.pvt_marks}
+                            </span>
+                          )}
                           <span className="text-xs text-gray-400 flex-shrink-0 hidden sm:block">
                             {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('en-GB') : ''}
                           </span>

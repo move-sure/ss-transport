@@ -68,7 +68,8 @@ export default function InvoicePage() {
       (inv.invoice_no || '').toLowerCase().includes(q) ||
       (inv.seller_name || '').toLowerCase().includes(q) ||
       (inv.buyer_name || '').toLowerCase().includes(q) ||
-      (inv.gr_no || '').toLowerCase().includes(q)
+      (inv.gr_no || '').toLowerCase().includes(q) ||
+      (inv.pvt_marks || '').toLowerCase().includes(q)
     );
   });
 
@@ -82,7 +83,7 @@ export default function InvoicePage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 py-6 space-y-6">
 
         {/* Header row */}
         <div className="flex items-center justify-between">
@@ -127,7 +128,7 @@ export default function InvoicePage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
               <input
                 className="w-full border border-gray-200 rounded-lg pl-8 pr-7 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Search invoice, buyer, GR…"
+                placeholder="Search invoice, buyer, GR, pvt marks…"
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
               />
@@ -185,7 +186,7 @@ export default function InvoicePage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {['Invoice No.','Date','Seller','Buyer','GR No.','Amount (₹)','Status','Payment',''].map(h => (
+                    {['Invoice No.','Date','Seller','Buyer','Pvt Marks','GR No.','Amount (₹)','Status','Payment',''].map(h => (
                       <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -199,8 +200,17 @@ export default function InvoicePage() {
                       <tr key={inv.id} className="hover:bg-blue-50/30 transition-colors">
                         <td className="px-4 py-3 font-mono text-blue-700 font-semibold text-xs whitespace-nowrap">{inv.invoice_no || '—'}</td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">{fmtDate(inv.invoice_date)}</td>
-                        <td className="px-4 py-3 text-gray-800 font-medium max-w-[140px] truncate">{inv.seller_name || '—'}</td>
-                        <td className="px-4 py-3 text-gray-800 max-w-[140px] truncate">{inv.buyer_name || '—'}</td>
+                        <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap">{inv.seller_name || '—'}</td>
+                        <td className="px-4 py-3 text-gray-800 whitespace-nowrap">{inv.buyer_name || '—'}</td>
+                        <td className="px-4 py-3">
+                          {inv.pvt_marks ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 font-mono">
+                              {inv.pvt_marks}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-gray-500 text-xs font-mono">{inv.gr_no || '—'}</td>
                         <td className="px-4 py-3 font-semibold text-gray-900 tabular-nums whitespace-nowrap">₹{fm(inv.total_amount)}</td>
                         <td className="px-4 py-3">

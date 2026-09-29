@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../utils/auth';
 import supabase from '../../utils/supabase';
 import Navbar from '../../../components/dashboard/navbar';
-import { generatePohonchPDF } from '../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
+import { generatePohonchPDF, buildCompanyByChallanNoMap } from '../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
 import RecentPohonch from '../../../components/transit-finance/pohonch-print/recent-pohonch';
 import SearchPanel from '../../../components/transit-finance/cross-challan/SearchPanel';
 import ResultsSummaryBar from '../../../components/transit-finance/cross-challan/ResultsSummaryBar';
@@ -307,13 +307,19 @@ export default function PohonchPrintPage() {
     try {
       setGenerating(true);
       const selectedData = buildSelectedData();
-      const url = generatePohonchPDF(selectedData, selectedTransport, true);
+      const companyByChallanNo = await buildCompanyByChallanNoMap(selectedData.map(d => d.challan_no));
+      const url = generatePohonchPDF(selectedData, selectedTransport, true, '', null, false, companyByChallanNo);
       setPdfUrl(url); setShowPreview(true); setLastSelectedData(selectedData); setLastSavedPohonch(null);
     } catch (err) { alert('Failed to generate PDF: ' + err.message); } finally { setGenerating(false); }
   };
 
-  const handleDownloadPDF = () => {
-    try { generatePohonchPDF(buildSelectedData(), selectedTransport, false); alert('PDF downloaded!'); }
+  const handleDownloadPDF = async () => {
+    try {
+      const selectedData = buildSelectedData();
+      const companyByChallanNo = await buildCompanyByChallanNoMap(selectedData.map(d => d.challan_no));
+      generatePohonchPDF(selectedData, selectedTransport, false, '', null, false, companyByChallanNo);
+      alert('PDF downloaded!');
+    }
     catch (err) { alert('Failed to download PDF: ' + err.message); }
   };
 

@@ -7,9 +7,13 @@ import {
   User, TrendingUp, ChevronDown, RefreshCw
 } from 'lucide-react';
 import supabase from '../../../app/utils/supabase';
+import { useAuth } from '../../../app/utils/auth';
 import { format } from 'date-fns';
 
+const API_URL = 'https://api.movesure.io';
+
 export default function KaatRatesTable({ cities, refreshTrigger }) {
+  const { user, token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -38,13 +42,16 @@ export default function KaatRatesTable({ cities, refreshTrigger }) {
 
       console.log('🔄 Loading kaat rates with full details...');
 
-      // Fetch hub rates
-      const { data: rates, error: fetchError } = await supabase
-        .from('transport_hub_rates')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Fetch hub rates via the kaat rate master API
+      const res = await fetch(`${API_URL}/api/kaat/hub-rates`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to load kaat rates');
 
-      if (fetchError) throw fetchError;
+      const rates = (result.data || []).sort((a, b) =>
+        new Date(b.created_at) - new Date(a.created_at)
+      );
 
       // Get unique IDs for related data
       const transportIds = [...new Set(rates.map(r => r.transport_id).filter(Boolean))];
@@ -123,9 +130,7 @@ export default function KaatRatesTable({ cities, refreshTrigger }) {
       bilty_chrg: rate.bilty_chrg || '',
       ewb_chrg: rate.ewb_chrg || '',
       labour_chrg: rate.labour_chrg || '',
-      other_chrg: rate.other_chrg || '',
-      transit_days: rate.metadata?.transit_days || '',
-      notes: rate.metadata?.notes || ''
+      other_chrg: rate.other_chrg || ''
     });
   };
 
@@ -140,21 +145,6 @@ export default function KaatRatesTable({ cities, refreshTrigger }) {
       setSaving(true);
       setError(null);
 
-      // Get user session for updated_by
-      let updatedBy = null;
-      if (typeof window !== 'undefined') {
-        const userSession = localStorage.getItem('userSession');
-        if (userSession) {
-          const session = JSON.parse(userSession);
-          updatedBy = session.user?.id || null;
-        }
-      }
-
-      // Prepare metadata
-      const metadata = {};
-      if (editForm.transit_days) metadata.transit_days = parseInt(editForm.transit_days);
-      if (editForm.notes) metadata.notes = editForm.notes;
-
       // Prepare update data
       const updateData = {
         goods_type: editForm.goods_type || null,
@@ -166,17 +156,16 @@ export default function KaatRatesTable({ cities, refreshTrigger }) {
         ewb_chrg: editForm.ewb_chrg ? parseFloat(editForm.ewb_chrg) : null,
         labour_chrg: editForm.labour_chrg ? parseFloat(editForm.labour_chrg) : null,
         other_chrg: editForm.other_chrg ? parseFloat(editForm.other_chrg) : null,
-        metadata: Object.keys(metadata).length > 0 ? metadata : null,
-        updated_by: updatedBy,
-        updated_at: new Date().toISOString()
+        updated_by: user?.id || null
       };
 
-      const { error: updateError } = await supabase
-        .from('transport_hub_rates')
-        .update(updateData)
-        .eq('id', id);
-
-      if (updateError) throw updateError;
+      const res = await fetch(`${API_URL}/api/kaat/hub-rates/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(updateData),
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to update rate');
 
       console.log('✅ Kaat rate updated successfully');
       setSuccess('Rate updated successfully!');
@@ -203,12 +192,12 @@ export default function KaatRatesTable({ cities, refreshTrigger }) {
     try {
       setError(null);
 
-      const { error: deleteError } = await supabase
-        .from('transport_hub_rates')
-        .update({ is_active: false })
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
+      const res = await fetch(`${API_URL}/api/kaat/hub-rates/${id}`, {
+        method: 'DELETE',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to delete rate');
 
       console.log('✅ Kaat rate deleted successfully');
       setSuccess('Rate deleted successfully!');
@@ -583,39 +572,21 @@ export default function KaatRatesTable({ cities, refreshTrigger }) {
                               {rate.other_chrg > 0 && <span className="text-[9px] bg-gray-100 text-gray-800 px-1 rounded font-medium">O:₹{parseFloat(rate.other_chrg).toFixed(0)}</span>}
                             </div>
                           ) : null}
-                          <div>
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={editForm.transit_days}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, transit_days: e.target.value }))}
-                                className="w-20 px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-emerald-500"
-                                placeholder="Days"
-                              />
-                            ) : rate.metadata?.transit_days ? (
+                          {/* transit_days/notes (metadata) are legacy, read-only display only —
+                              the hub-rates API's PUT does not accept a metadata field */}
+                          {rate.metadata?.transit_days && (
+                            <div>
                               <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 rounded-lg text-xs font-semibold">
                                 <Calendar className="w-3 h-3" />
                                 {rate.metadata.transit_days}d
                               </span>
-                            ) : (
-                              <span className="text-gray-400 text-xs">-</span>
-                            )}
-                          </div>
-                          {(isEditing || rate.metadata?.notes) && (
+                            </div>
+                          )}
+                          {rate.metadata?.notes && (
                             <div>
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={editForm.notes}
-                                  onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                                  className="w-full px-2 py-1.5 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-                                  placeholder="Notes"
-                                />
-                              ) : (
-                                <span className="text-xs text-gray-600 truncate max-w-[150px] inline-block" title={rate.metadata?.notes}>
-                                  {rate.metadata?.notes}
-                                </span>
-                              )}
+                              <span className="text-xs text-gray-600 truncate max-w-[150px] inline-block" title={rate.metadata.notes}>
+                                {rate.metadata.notes}
+                              </span>
                             </div>
                           )}
                         </div>

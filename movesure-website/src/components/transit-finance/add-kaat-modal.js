@@ -4,9 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Plus, Truck, MapPin, Package, DollarSign, Save, Loader2, AlertCircle, Edit2, Trash2, XCircle } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
+import { useAuth } from '../../app/utils/auth';
+
+const API_URL = 'https://api.movesure.io';
 
 export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
   const router = useRouter();
+  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -36,9 +40,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     bilty_chrg: '',
     ewb_chrg: '',
     labour_chrg: '',
-    other_chrg: '',
-    transit_days: '',
-    notes: ''
+    other_chrg: ''
   });
 
   useEffect(() => {
@@ -90,23 +92,26 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     }
   };
 
-  const checkExistingRates = async (transportId, destinationCityId) => {
+  const checkExistingRates = async (transportId, destinationCityId, cityName) => {
     try {
       setShowDuplicateWarning(false);
       setExistingRates([]);
 
-      const { data, error: fetchError } = await supabase
-        .from('transport_hub_rates')
-        .select('*')
-        .eq('transport_id', transportId)
-        .eq('destination_city_id', destinationCityId)
-        .eq('is_active', true);
+      const res = await fetch(
+        `${API_URL}/api/kaat/hub-rates?station_name=${encodeURIComponent(cityName)}&is_active=true`,
+        { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
+      );
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to check existing rates');
 
-      if (fetchError) throw fetchError;
+      // station_name is a partial match, so narrow down to this exact transport+city pair
+      const matches = (result.data || []).filter(
+        r => r.transport_id === transportId && r.destination_city_id === destinationCityId
+      );
 
-      if (data && data.length > 0) {
-        console.log('⚠️ Found existing rates:', data.length);
-        setExistingRates(data);
+      if (matches.length > 0) {
+        console.log('⚠️ Found existing rates:', matches.length);
+        setExistingRates(matches);
         setShowDuplicateWarning(true);
       } else {
         setExistingRates([]);
@@ -129,9 +134,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       bilty_chrg: rate.bilty_chrg || '',
       ewb_chrg: rate.ewb_chrg || '',
       labour_chrg: rate.labour_chrg || '',
-      other_chrg: rate.other_chrg || '',
-      transit_days: rate.metadata?.transit_days || '',
-      notes: rate.metadata?.notes || ''
+      other_chrg: rate.other_chrg || ''
     });
   };
 
@@ -145,19 +148,6 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       setSaving(true);
       setError(null);
 
-      let updatedBy = null;
-      if (typeof window !== 'undefined') {
-        const userSession = localStorage.getItem('userSession');
-        if (userSession) {
-          const session = JSON.parse(userSession);
-          updatedBy = session.user?.id || null;
-        }
-      }
-
-      const metadata = {};
-      if (editExistingForm.transit_days) metadata.transit_days = parseInt(editExistingForm.transit_days);
-      if (editExistingForm.notes) metadata.notes = editExistingForm.notes;
-
       const updateData = {
         goods_type: editExistingForm.goods_type || null,
         pricing_mode: editExistingForm.pricing_mode,
@@ -168,17 +158,15 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
         ewb_chrg: editExistingForm.ewb_chrg ? parseFloat(editExistingForm.ewb_chrg) : null,
         labour_chrg: editExistingForm.labour_chrg ? parseFloat(editExistingForm.labour_chrg) : null,
         other_chrg: editExistingForm.other_chrg ? parseFloat(editExistingForm.other_chrg) : null,
-        metadata: Object.keys(metadata).length > 0 ? metadata : null,
-        updated_by: updatedBy,
-        updated_at: new Date().toISOString()
       };
 
-      const { error: updateError } = await supabase
-        .from('transport_hub_rates')
-        .update(updateData)
-        .eq('id', id);
-
-      if (updateError) throw updateError;
+      const res = await fetch(`${API_URL}/api/kaat/hub-rates/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(updateData),
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to update rate');
 
       console.log('✅ Existing rate updated successfully');
       setSuccess('Rate updated successfully!');
@@ -187,7 +175,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       
       // Reload existing rates
       if (selectedTransport && selectedCity) {
-        await checkExistingRates(selectedTransport.id, selectedCity.id);
+        await checkExistingRates(selectedTransport.id, selectedCity.id, selectedCity.city_name);
       }
       
       setTimeout(() => {
@@ -209,12 +197,12 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     try {
       setError(null);
 
-      const { error: deleteError } = await supabase
-        .from('transport_hub_rates')
-        .update({ is_active: false })
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
+      const res = await fetch(`${API_URL}/api/kaat/hub-rates/${id}`, {
+        method: 'DELETE',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to delete rate');
 
       console.log('✅ Existing rate deleted');
       setSuccess('Rate deleted successfully!');
@@ -223,7 +211,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       
       // Reload existing rates
       if (selectedTransport && selectedCity) {
-        await checkExistingRates(selectedTransport.id, selectedCity.id);
+        await checkExistingRates(selectedTransport.id, selectedCity.id, selectedCity.city_name);
       }
       
       setTimeout(() => setSuccess(null), 1500);
@@ -274,9 +262,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       bilty_chrg: '',
       ewb_chrg: '',
       labour_chrg: '',
-      other_chrg: '',
-      transit_days: '',
-      notes: ''
+      other_chrg: ''
     });
     setSelectedTransport(null);
     setSearchTransport('');
@@ -297,7 +283,7 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
     
     // Check for existing rates with same transport and destination
     if (selectedCity) {
-      await checkExistingRates(transport.id, selectedCity.id);
+      await checkExistingRates(transport.id, selectedCity.id, selectedCity.city_name);
     }
   };
 
@@ -339,25 +325,12 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
       setSaving(true);
       setError(null);
 
-      // Get user session for created_by
-      let createdBy = null;
-      if (typeof window !== 'undefined') {
-        const userSession = localStorage.getItem('userSession');
-        if (userSession) {
-          const session = JSON.parse(userSession);
-          createdBy = session.user?.id || null;
-        }
-      }
-
-      // Prepare metadata
-      const metadata = {};
-      if (formData.transit_days) metadata.transit_days = parseInt(formData.transit_days);
-      if (formData.notes) metadata.notes = formData.notes;
-
-      // Prepare insert data with transport_name and created_by
+      // Prepare create payload — destination_city_id is exact, so no station_name
+      // ambiguity (409 with `matches`) can happen here.
       const insertData = {
         transport_id: formData.transport_id,
         transport_name: selectedTransport?.transport_name || null,
+        transport_gstin: selectedTransport?.gst_number || null,
         destination_city_id: formData.destination_city_id,
         goods_type: formData.goods_type || null,
         pricing_mode: formData.pricing_mode,
@@ -368,29 +341,30 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
         ewb_chrg: formData.ewb_chrg ? parseFloat(formData.ewb_chrg) : null,
         labour_chrg: formData.labour_chrg ? parseFloat(formData.labour_chrg) : null,
         other_chrg: formData.other_chrg ? parseFloat(formData.other_chrg) : null,
-        metadata: Object.keys(metadata).length > 0 ? metadata : null,
-        created_by: createdBy,
-        is_active: true
       };
 
-      console.log('📤 Inserting kaat rate:', insertData);
+      console.log('📤 Creating kaat hub rate:', insertData);
 
-      const { data, error: insertError } = await supabase
-        .from('transport_hub_rates')
-        .insert([insertData])
-        .select()
-        .single();
+      const res = await fetch(`${API_URL}/api/kaat/hub-rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(insertData),
+      });
+      const result = await res.json();
 
-      if (insertError) throw insertError;
+      if (res.status === 409) {
+        throw new Error(result.message || 'This transport already has an active rate for this station — update it instead.');
+      }
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to add hub rate');
 
-      console.log('✅ Kaat rate added successfully:', data);
+      console.log('✅ Kaat rate added successfully:', result.data);
       setSuccess('Hub rate added successfully!');
-      
+
       // Trigger event to refresh kaat cells
       window.dispatchEvent(new CustomEvent('hubRateUpdated'));
-      
+
       setTimeout(() => {
-        if (onSuccess) onSuccess(data);
+        if (onSuccess) onSuccess(result.data);
         onClose();
       }, 1500);
 
@@ -568,16 +542,6 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
                                   className="w-full px-2 py-1 border rounded text-[11px]"
                                 />
                               </div>
-                              <div>
-                                <label className="text-[9px] font-semibold text-gray-700">Days</label>
-                                <input
-                                  type="number"
-                                  value={editExistingForm.transit_days}
-                                  onChange={(e) => setEditExistingForm(prev => ({ ...prev, transit_days: e.target.value }))}
-                                  className="w-full px-2 py-1 border rounded text-[11px]"
-                                  placeholder="-"
-                                />
-                              </div>
                             </div>
                             
                             <div className="grid grid-cols-4 gap-2">
@@ -627,17 +591,6 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
                               </div>
                             </div>
 
-                            <div>
-                              <label className="text-[9px] font-semibold text-gray-700">Notes</label>
-                              <input
-                                type="text"
-                                value={editExistingForm.notes}
-                                onChange={(e) => setEditExistingForm(prev => ({ ...prev, notes: e.target.value }))}
-                                className="w-full px-2 py-1 border rounded text-[11px]"
-                                placeholder="Optional"
-                              />
-                            </div>
-                            
                             <div className="flex gap-2 justify-end pt-1">
                               <button
                                 onClick={() => handleUpdateExisting(rate.id)}
@@ -1027,35 +980,6 @@ export default function AddKaatModal({ isOpen, onClose, cities, onSuccess }) {
                       className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500 text-xs"
                     />
                   </div>
-                </div>
-              </div>
-
-              {/* Additional Info - Compact */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-900 mb-1.5">
-                    Transit Days
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.transit_days}
-                    onChange={(e) => handleInputChange('transit_days', e.target.value)}
-                    placeholder="e.g., 3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-900 mb-1.5">
-                    Notes
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    placeholder="Additional notes"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
                 </div>
               </div>
             </form>

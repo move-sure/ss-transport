@@ -10,13 +10,17 @@ import {
   Search, AlertCircle, RefreshCw, Hash, MapPin, User, Package, Calendar,
   CheckCircle2, Clock, Truck, Phone, Edit3, Save, X, Loader2, ArrowLeft,
   CircleDot, Box, Building2, Navigation, CheckCircle, ClipboardList,
-  Tag, FileText, IndianRupee, Plus,
+  Tag, FileText, IndianRupee, Plus, Camera, Image as ImageIcon, UploadCloud,
 } from 'lucide-react';
 import AddTransportModal from '../../../components/hub-management/AddTransportModal';
 import { getHubRateForTransport } from '../../../components/hub-management/HubHelpers';
 
+const API_URL = 'https://api.movesure.io';
+const TRANSIT_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const TRANSIT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
 export default function GRWiseManagementPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const router = useRouter();
 
   // Search / dropdown states
@@ -61,6 +65,11 @@ export default function GRWiseManagementPage() {
   const [showAddTransport, setShowAddTransport] = useState(false);
   const [addTransportForm, setAddTransportForm] = useState({ transport_name: '', city_id: '', city_name: '', address: '', gst_number: '', mob_number: '', branch_owner_name: '', website: '' });
   const [savingNewTransport, setSavingNewTransport] = useState(false);
+
+  // Transit bilty image (crossing bilty photo)
+  const [transitImage, setTransitImage] = useState({ url: null, loading: false, uploading: false, error: null });
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   // Fetch branches, cities, transports, hub rates on mount
   useEffect(() => {
@@ -316,6 +325,72 @@ export default function GRWiseManagementPage() {
       setLoading(false);
     }
   }, [branches, cities]);
+
+  // Fetch the current transit bilty image whenever a new GR is loaded
+  useEffect(() => {
+    const grNo = grData?.gr_no;
+    if (!grNo) {
+      setTransitImage({ url: null, loading: false, uploading: false, error: null });
+      return;
+    }
+    let cancelled = false;
+    setTransitImage(p => ({ ...p, loading: true, error: null }));
+    fetch(`${API_URL}/api/bilty/transit-image/${encodeURIComponent(grNo)}`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+      .then(r => r.json())
+      .then(result => {
+        if (cancelled) return;
+        if (result.status !== 'success') throw new Error(result.message || 'Failed to load transit bilty image');
+        setTransitImage({ url: result.url || null, loading: false, uploading: false, error: null });
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.error('Error fetching transit bilty image:', err);
+        setTransitImage({ url: null, loading: false, uploading: false, error: null });
+      });
+    return () => { cancelled = true; };
+  }, [grData?.gr_no, token]);
+
+  // Upload (or replace) the transit bilty image for the currently loaded GR
+  const uploadTransitImage = async (file) => {
+    // Clear both inputs up front — otherwise re-picking the same rejected file
+    // (same filename) after a validation error won't fire onChange at all.
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
+
+    if (!file || !grData?.gr_no) return;
+
+    // Some mobile camera intents hand back a File with an empty type — let the
+    // server's own validation be authoritative for that case instead of blocking it here.
+    if (file.type && !TRANSIT_IMAGE_TYPES.includes(file.type)) {
+      setTransitImage(p => ({ ...p, error: 'Only JPEG, PNG or WEBP images are allowed.' }));
+      return;
+    }
+    if (file.size > TRANSIT_IMAGE_MAX_BYTES) {
+      setTransitImage(p => ({ ...p, error: 'Image must be under 10 MB.' }));
+      return;
+    }
+
+    setTransitImage(p => ({ ...p, uploading: true, error: null }));
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`${API_URL}/api/bilty/transit-image/${encodeURIComponent(grData.gr_no)}`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      });
+      const result = await res.json();
+      if (result.status !== 'success') throw new Error(result.message || 'Failed to upload transit bilty image');
+
+      setTransitImage({ url: result.url, loading: false, uploading: false, error: null });
+    } catch (err) {
+      console.error('Error uploading transit bilty image:', err);
+      setTransitImage(p => ({ ...p, uploading: false, error: err.message || 'Upload failed. Please try again.' }));
+    }
+  };
 
   // Transit status update (same pattern as challan detail page)
   const updateTransitStatus = async (field, dateField) => {
@@ -824,6 +899,76 @@ export default function GRWiseManagementPage() {
                   {grData.consignee_number && <InfoRow icon={<Phone className="h-3.5 w-3.5 text-gray-400" />} label="Consignee Phone" value={grData.consignee_number} />}
                   {grData.transport_name && <InfoRow icon={<Truck className="h-3.5 w-3.5 text-gray-400" />} label="Transport" value={grData.transport_name} />}
                   {grData.pvt_marks && <InfoRow icon={<Hash className="h-3.5 w-3.5 text-gray-400" />} label="Pvt Marks" value={grData.pvt_marks} />}
+                </div>
+              </div>
+            </div>
+
+            {/* Transit Bilty Image (crossing bilty photo) */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-rose-600" />
+                  Transit Bilty Image
+                </h3>
+                {transitImage.loading && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+              </div>
+
+              <div className="flex items-start gap-4 flex-wrap">
+                {transitImage.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={transitImage.url}
+                    alt={`Transit bilty ${grData.gr_no}`}
+                    className="w-32 h-32 rounded-xl object-cover border border-gray-200"
+                  />
+                ) : !transitImage.loading ? (
+                  <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50">
+                    <ImageIcon className="h-6 w-6 text-gray-300" />
+                  </div>
+                ) : null}
+
+                <div className="flex-1 min-w-[180px] space-y-2">
+                  <p className="text-xs text-gray-500">
+                    {transitImage.url ? 'Photo of the crossing bilty received for this GR.' : 'No transit bilty photo uploaded yet.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={transitImage.uploading}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                    >
+                      {transitImage.uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                      Take Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      disabled={transitImage.uploading}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-50 text-gray-700 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    >
+                      <UploadCloud className="h-3.5 w-3.5" />
+                      {transitImage.url ? 'Replace Photo' : 'Upload Photo'}
+                    </button>
+                  </div>
+                  {transitImage.error && (
+                    <p className="text-[11px] text-red-600 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{transitImage.error}</p>
+                  )}
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => uploadTransitImage(e.target.files?.[0])}
+                  />
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => uploadTransitImage(e.target.files?.[0])}
+                  />
                 </div>
               </div>
             </div>

@@ -11,8 +11,10 @@ import { DollarSign, TrendingUp, Package, Users, Plus, Loader2, AlertCircle, Fil
 import supabase from '../../utils/supabase';
 import AddKaatModal from '../../../components/transit-finance/add-kaat-modal';
 
+const API_URL = 'https://api.movesure.io';
+
 export default function KaatRatePage() {
-  const { user, requireAuth } = useAuth();
+  const { user, requireAuth, token } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -51,12 +53,14 @@ export default function KaatRatePage() {
 
       const [citiesRes, ratesRes, transportsRes] = await Promise.all([
         supabase.from('cities').select('*').order('city_name'),
-        supabase.from('transport_hub_rates').select('*').order('transport_name'),
+        fetch(`${API_URL}/api/kaat/hub-rates`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        }).then(r => r.json()),
         supabase.from('transports').select('*'),
       ]);
 
       if (citiesRes.error) throw citiesRes.error;
-      if (ratesRes.error) throw ratesRes.error;
+      if (ratesRes.status !== 'success') throw new Error(ratesRes.message || 'Failed to load kaat rates');
       if (transportsRes.error) throw transportsRes.error;
 
       const citiesData = citiesRes.data || [];

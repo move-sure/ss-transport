@@ -72,9 +72,17 @@ export const ledgerApi = {
 // Screen 1 — Transport PF Collection
 export const transportersApi = {
   list: (branchId) => request(`/api/ledger/transporters${qs({ branch_id: branchId })}`),
+  // Every transporter's live balance + a grand total across all of them.
+  // Pass { branch_id, bill_month, bill_year } or { branch_id, from_date, to_date }
+  // to also get billing-period totals; omit both for just live balances.
+  summary: (params) => request(`/api/ledger/transporters/summary${qs(params)}`),
   create: (body) => post('/api/ledger/transporters', body),
   get: (id) => request(`/api/ledger/transporters/${id}`),
   raiseBill: (id, body) => post(`/api/ledger/transporters/${id}/pf-bill`, body),
+  // A bill on the SAME ledger, opposite side — the transporter billed YOU
+  // (e.g. they carried freight for you). Settled via `give` below with a
+  // bill_reference_id, not a second ledger.
+  raisePayableBill: (id, body) => post(`/api/ledger/transporters/${id}/payable-bill`, body),
   collect: (id, body) => post(`/api/ledger/transporters/${id}/collect`, body),
   give: (id, body) => post(`/api/ledger/transporters/${id}/give`, body),
 };

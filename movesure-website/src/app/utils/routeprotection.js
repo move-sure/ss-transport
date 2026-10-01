@@ -145,6 +145,11 @@ export default function RouteProtection({ children }) {
       return;
     }
 
+    // Public transport ledger (/transport-ledger/[transport-gstin])
+    if (pathname.startsWith('/transport-ledger/')) {
+      return;
+    }
+
     // Check if user is authenticated for protected routes
     if (!isAuthenticated) {
       console.log('❌ Not authenticated, redirecting to login');
@@ -244,7 +249,8 @@ export default function RouteProtection({ children }) {
   const isAdminRoute = ADMIN_ONLY_ROUTES.includes(pathname);
   const isPublicOrAuthRoute = PUBLIC_ROUTES.includes(pathname) || 
                               AUTH_ONLY_ROUTES.includes(pathname) || 
-                              pathname.startsWith('/print/');
+                              pathname.startsWith('/print/') ||
+                              pathname.startsWith('/transport-ledger/');
   
   if (
     isAuthenticated && 

@@ -1,10 +1,14 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   BookUser, ScrollText, History, ArrowRight,
-  Truck, Wallet, Package, Users,
+  Truck, Wallet, Package, Users, Loader2,
 } from 'lucide-react';
+import { useBranch } from '@/components/hub-management/accounts/useBranch';
+import { transportersApi } from '@/components/hub-management/accounts/api';
+import { formatINR } from '@/components/hub-management/accounts/helpers';
 
 const DAILY_CARDS = [
   {
@@ -73,6 +77,28 @@ function Card({ card, router }) {
 
 export default function AccountsOverviewPage() {
   const router = useRouter();
+  const { branchId, isAllBranches } = useBranch();
+
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
+  const loadSummary = useCallback(async () => {
+    if (!branchId) { setSummaryLoading(false); return; }
+    try {
+      setSummaryLoading(true);
+      // The overview is exactly where "All Branches" is most useful — omit
+      // branch_id entirely (not the user's own branch) so an owner sees the
+      // real total across every branch, matching Ledger Master's pattern.
+      const res = await transportersApi.summary({ branch_id: isAllBranches ? undefined : branchId });
+      setSummary(res.data);
+    } catch (err) {
+      console.error('Failed to load transporter summary:', err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [branchId, isAllBranches]);
+
+  useEffect(() => { loadSummary(); }, [loadSummary]);
 
   return (
     <div className="px-6 py-8 max-w-6xl mx-auto">
@@ -82,6 +108,32 @@ export default function AccountsOverviewPage() {
           All your accounts and transactions in one place.
         </p>
       </div>
+
+      {/* Headline stat: how much every transporter collectively owes you, right now */}
+      <button
+        onClick={() => router.push('/hub-management/accounts/transporters')}
+        className="w-full text-left mb-8 bg-white rounded-2xl border-2 border-gray-100 hover:border-emerald-200 shadow-sm hover:shadow-md transition-all p-5 flex items-center gap-6 flex-wrap"
+      >
+        {summaryLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+        ) : summary ? (
+          <>
+            <div>
+              <p className="text-[10px] font-semibold text-black uppercase tracking-wide">Transport PF — Total Outstanding</p>
+              <p className="text-2xl font-bold text-emerald-700">₹{formatINR(summary.totals?.total_they_owe_you)}</p>
+            </div>
+            <div className="text-sm text-black">
+              You owe them: <span className="font-semibold text-rose-700">₹{formatINR(summary.totals?.total_you_owe_them)}</span>
+            </div>
+            <div className="text-sm text-black">
+              Net: <span className="font-semibold text-black">₹{formatINR(summary.totals?.net)}</span>
+            </div>
+            <span className="text-xs text-black">across {summary.totals?.transporter_count ?? 0} transporter(s)</span>
+          </>
+        ) : (
+          <span className="text-sm text-black">No transporter data yet — click to get started.</span>
+        )}
+      </button>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         {DAILY_CARDS.map((card) => <Card key={card.id} card={card} router={router} />)}

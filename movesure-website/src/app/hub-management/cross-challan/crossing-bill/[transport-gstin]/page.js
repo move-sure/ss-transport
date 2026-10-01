@@ -27,6 +27,7 @@ const pct   = (num, denom) => denom > 0 ? Math.min(100, Math.round((num / denom)
 async function buildBillPdf(bill, pohonchMap = {}) {
   const { jsPDF }  = await import('jspdf');
   const autoTable  = (await import('jspdf-autotable')).default;
+  const QRCode     = (await import('qrcode')).default;
   const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pw   = doc.internal.pageSize.getWidth();
   const ph   = doc.internal.pageSize.getHeight();
@@ -180,6 +181,28 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     doc.text(lbl, x + bw/2, y+21, { align:'center' });
   });
 
+  /* ── QR code — links straight to this bill's own PDF in storage, printed
+     at the very end of the bill copy, below the signature boxes. Skipped
+     if bill_no is missing — a QR pointing at ".../undefined.pdf" would
+     look valid and just 404 when scanned. ── */
+  if (bill.bill_no) {
+    // Same call the actual upload uses to get its public URL — guarantees this
+    // always matches the real bucket/project config, not a hand-typed copy of it.
+    const { data: qrLinkData } = supabase.storage.from('crossing-bill').getPublicUrl(`${bill.bill_no}.pdf`);
+    const qrUrl  = qrLinkData.publicUrl;
+    const qrSize = 20;
+    let qrY = signY + 4 + 24 + 7; // just below the two signature boxes
+    if (qrY + qrSize + 4 > ph - 12) { doc.addPage(); qrY = 16; }
+    try {
+      const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 160, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+      doc.addImage(qrDataUrl, 'PNG', mg, qrY, qrSize, qrSize);
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(60, 60, 60);
+      doc.text('Scan to view / download this bill', mg + qrSize + 4, qrY + 7);
+      doc.setFontSize(6); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
+      doc.text(qrUrl, mg + qrSize + 4, qrY + 13, { maxWidth: pw - mg * 2 - qrSize - 4 });
+    } catch (e) { console.error('QR code generation failed:', e); }
+  }
+
   /* ── Page numbers ── */
   const np = doc.internal.getNumberOfPages();
   for (let i = 1; i <= np; i++) {
@@ -215,8 +238,9 @@ function ConfirmBillModal({ isOpen, onClose, selectedPohonch, transportGstin, tr
   const [error,         setError]         = useState(null);
   const [createdBill,   setCreatedBill]   = useState(null);
   const [pdfUrl,        setPdfUrl]        = useState(null);
+  const [uploadError,   setUploadError]   = useState(null);
 
-  useEffect(() => { if (isOpen) { setError(null); setCreatedBill(null); setPdfUrl(null); } }, [isOpen]);
+  useEffect(() => { if (isOpen) { setError(null); setCreatedBill(null); setPdfUrl(null); setUploadError(null); } }, [isOpen]);
 
   const preview = useMemo(() => selectedPohonch.reduce(
     (a, p) => ({ kaat:a.kaat+(p.total_kaat||0), pf:a.pf+(p.total_pf||0), bilties:a.bilties+(p.total_bilties||0), amount:a.amount+(p.total_amount||0), wt:a.wt+(p.total_weight||0) }),
@@ -225,11 +249,14 @@ function ConfirmBillModal({ isOpen, onClose, selectedPohonch, transportGstin, tr
 
   const generateAndUpload = async (bill) => {
     setGeneratingPdf(true);
+    setUploadError(null);
     try {
       const pohonchMap = {};
       selectedPohonch.forEach(p => { pohonchMap[p.pohonch_number] = p; });
+      // The PDF's own QR code links to this bill's storage URL — that link only
+      // resolves once the upload below actually succeeds, so don't hand the
+      // "View / Download" link to the user until upload + save are confirmed.
       const url  = await buildBillPdf(bill, pohonchMap);
-      setPdfUrl(url);
       const blob = await fetch(url).then(r => r.blob());
       const fn   = `${bill.bill_no}.pdf`;
       await supabase.storage.from('crossing-bill').upload(fn, blob, { contentType:'application/pdf', upsert:true });
@@ -239,7 +266,11 @@ function ConfirmBillModal({ isOpen, onClose, selectedPohonch, transportGstin, tr
         headers:{ 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) },
         body: JSON.stringify({ bill_url: ud.publicUrl, updated_by: userId }),
       });
-    } catch (e) { console.error('PDF upload:', e); }
+      setPdfUrl(url);
+    } catch (e) {
+      console.error('PDF upload:', e);
+      setUploadError('PDF was created but failed to upload — its QR code link will not work until you retry (use "Print / View" on the bill row after closing this).');
+    }
     finally { setGeneratingPdf(false); }
   };
 
@@ -300,7 +331,9 @@ function ConfirmBillModal({ isOpen, onClose, selectedPohonch, transportGstin, tr
               </div>
               {generatingPdf
                 ? <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Generating &amp; uploading PDF…</div>
-                : pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800"><Printer className="h-4 w-4" /> View / Download PDF</a>
+                : pdfUrl
+                  ? <a href={pdfUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800"><Printer className="h-4 w-4" /> View / Download PDF</a>
+                  : uploadError && <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"><AlertCircle className="h-4 w-4 shrink-0 mt-0.5"/>{uploadError}</div>
               }
               <button onClick={onClose} className="w-full py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50">Close</button>
             </div>
@@ -501,6 +534,16 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
           balance_on_transport:    json.data.balance_on_transport,
           balance_on_us:           json.data.balance_on_us,
         });
+
+        // Totals just changed — the previously uploaded PDF (and its QR code)
+        // now describes stale numbers. Regenerate + re-upload it immediately
+        // instead of leaving that until someone happens to click Print/View.
+        try {
+          await handlePdf({ open: false, dataOverride: json.data });
+        } catch (e) {
+          console.error('PDF regenerate after recalculate failed:', e);
+          alert('Bill recalculated, but regenerating the PDF failed — click "Print / View" to retry.\n\n' + e.message);
+        }
       }
     } catch (e) { alert('Bill recalculate failed: ' + e.message); }
     finally { setBillRecalculating(false); }
@@ -603,32 +646,74 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
     finally { setUpdatingStatus(false); }
   };
 
-  const handlePdf = async ({ open = false } = {}) => {
+  // `pohonchMap` (prop, from the parent's `allPohonch`) only reflects whatever
+  // was last loaded — it is NOT refreshed by this bill's own Recalc Bill, which
+  // updates kaat/pf on the `pohonch` table directly. Fetching fresh rows here,
+  // scoped to just this bill's pohonch numbers, is what makes the PDF's
+  // per-row weight/pkg/PF/kaat (and the grand totals built from them) actually
+  // current — falls back to the prop if the fetch fails for any reason.
+  const fetchFreshPohonchMap = async (billData) => {
+    const numbers = (billData?.pohonch_data || []).map(p => p.pohonch_number).filter(Boolean);
+    if (!numbers.length) return pohonchMap;
+    try {
+      const { data, error } = await supabase.from('pohonch').select('*').in('pohonch_number', numbers);
+      if (error) throw error;
+      const map = {};
+      (data || []).forEach(p => { map[p.pohonch_number] = p; });
+      return map;
+    } catch (e) {
+      console.error('Failed to fetch fresh pohonch data for PDF:', e);
+      return pohonchMap;
+    }
+  };
+
+  // Actually uploads the freshly-built PDF and saves its url on the bill —
+  // pulled out of handlePdf so a silent regenerate (after Recalc) can await
+  // it directly instead of firing-and-forgetting like the manual click does.
+  const uploadPdfAndSave = async (billData, url) => {
+    const blob = await fetch(url).then(r => r.blob());
+    const fn   = `${billData.bill_no}.pdf`;
+    await supabase.storage.from('crossing-bill').upload(fn, blob, { contentType: 'application/pdf', upsert: true });
+    const { data: ud } = supabase.storage.from('crossing-bill').getPublicUrl(fn);
+    await fetch(`${API_BASE}/api/crossing-bill/${billData.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ bill_url: ud.publicUrl, updated_by: userId }),
+    });
+    onBillUpdated?.({ bill_url: ud.publicUrl });
+  };
+
+  // `dataOverride` lets a caller (Recalc Bill) hand over the just-recalculated
+  // totals directly — `fullBill` state wouldn't be updated yet in the same tick.
+  const handlePdf = async ({ open = false, dataOverride = null } = {}) => {
     setGeneratingPdf(true);
     try {
-      let data = fullBill;
+      let data = dataOverride || fullBill;
       if (!data) {
         const res  = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, { headers:token?{Authorization:`Bearer ${token}`}:{} });
         const json = await res.json(); data = json.data; setFullBill(data);
       }
-      const url = await buildBillPdf(data, pohonchMap);
+      const freshPohonchMap = await fetchFreshPohonchMap(data);
+      const url = await buildBillPdf(data, freshPohonchMap);
       setLocalPdfUrl(url);
-      if (open) window.open(url, '_blank');
-      // Upload in background — don't await so the tab opens immediately
-      (async () => {
-        try {
-          const blob = await fetch(url).then(r=>r.blob());
-          const fn   = `${bill.bill_no}.pdf`;
-          await supabase.storage.from('crossing-bill').upload(fn, blob, { contentType:'application/pdf', upsert:true });
-          const { data:ud } = supabase.storage.from('crossing-bill').getPublicUrl(fn);
-          await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, {
-            method:'PUT', headers:{'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{})},
-            body: JSON.stringify({ bill_url:ud.publicUrl, updated_by:userId }),
-          });
-          onBillUpdated?.({ bill_url:ud.publicUrl });
-        } catch (e) { console.error('PDF upload error:', e); }
-      })();
-    } catch (e) { alert('PDF error: '+e.message); }
+      if (open) {
+        window.open(url, '_blank');
+        // Upload in background — don't await so the tab opens immediately.
+        uploadPdfAndSave(data, url).catch((e) => {
+          console.error('PDF upload error:', e);
+          // The tab already opened with a PDF whose QR code points at this
+          // upload — surface the failure instead of leaving a silently dead link.
+          alert(`PDF upload failed — the QR code in the PDF you just opened won't resolve until you retry "Print / View".\n\n${e.message}`);
+        });
+      } else {
+        // Silent regenerate (e.g. right after Recalc Bill) — wait for the real
+        // upload so the storage copy is guaranteed in sync before this returns,
+        // and let the caller decide how to report a failure.
+        await uploadPdfAndSave(data, url);
+      }
+    } catch (e) {
+      if (open) alert('PDF error: ' + e.message);
+      else throw e;
+    }
     finally { setGeneratingPdf(false); }
   };
 

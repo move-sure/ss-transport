@@ -8,6 +8,8 @@ import KaatUpdateModal from '../../../../../components/hub-management/KaatUpdate
 import NilBiltyFinder from '../../../../../components/hub-management/NilBiltyFinder';
 import TransportChallanReport from '../../../../../components/hub-management/TransportChallanReport';
 import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../../../components/transit-finance/pohonch-print/CrossChallanPrintModal';
+import { generateCombinedPohonchPDF } from '../../../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
+import { fetchFreshCrossChallanData } from '../../../../../components/transit-finance/pohonch-print/cross-challan-print-utils';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import {
@@ -23,6 +25,185 @@ const Rs    = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
 const RsRaw = (n) => `Rs.${Math.round(n || 0).toLocaleString('en-IN')}`;
 const pct   = (num, denom) => denom > 0 ? Math.min(100, Math.round((num / denom) * 100)) : 0;
 
+/* ─── Crossing challan PDF (all pohonch of a bill) → storage → bill ─────────
+   Builds ONE combined PDF of every pohonch in the bill, uploads it as
+   `{bill_no}-challan.pdf` in the `crossing-bill` bucket and saves the public
+   URL on the bill as `crossing_challan_url` (never touches bill_url). */
+async function uploadCrossingChallanPdf(bill, { token, userId } = {}) {
+  const nums = [...new Set((bill.pohonch_data || []).map(p => p.pohonch_number).filter(Boolean))];
+  if (!nums.length) throw new Error('No pohonch in this bill');
+
+  const entries = [];
+  for (const num of nums) {
+    try {
+      const { bilties, transport } = await fetchFreshCrossChallanData(num);
+      entries.push({ bilties, transport, pohonchNumber: num });
+    } catch (e) {
+      // Deleted / empty pohonch — skip it rather than failing the whole bill
+      console.warn(`Challan PDF: skipped ${num} —`, e.message);
+    }
+  }
+  if (!entries.length) throw new Error('None of the pohonch in this bill could be loaded');
+
+  const blobUrl = generateCombinedPohonchPDF(entries, true);
+  const blob    = await fetch(blobUrl).then(r => r.blob());
+  URL.revokeObjectURL(blobUrl);
+
+  const fn = `${bill.bill_no}-challan.pdf`;
+  const { error: upErr } = await supabase.storage.from('crossing-bill')
+    .upload(fn, blob, { contentType: 'application/pdf', upsert: true });
+  if (upErr) throw new Error(upErr.message);
+  const { data: ud } = supabase.storage.from('crossing-bill').getPublicUrl(fn);
+
+  const res = await fetch(`${API_BASE}/api/crossing-bill/${bill.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ crossing_challan_url: ud.publicUrl, updated_by: userId }),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.message || `Saving challan URL failed (${res.status})`);
+  }
+  return { url: ud.publicUrl, included: entries.length, total: nums.length };
+}
+
+/* Logo for the bill PDF — downscaled through a canvas so the 1350px source
+   PNG doesn't bloat every uploaded bill. Cached after first load. */
+let _logoCache = null;
+async function loadBillLogo() {
+  if (_logoCache) return _logoCache;
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new window.Image();
+      i.onload = () => resolve(i); i.onerror = reject; i.src = '/ss-logo.png';
+    });
+    const w = 260, h = Math.round(w * img.naturalHeight / img.naturalWidth);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    _logoCache = { dataUrl: c.toDataURL('image/png'), ratio: h / w };
+  } catch (e) { console.warn('Bill logo load failed:', e); _logoCache = null; }
+  return _logoCache;
+}
+
+const BRAND  = [30, 41, 59];   // slate-800
+const ACCENT = [204, 163, 60]; // SS gold
+
+/* ─── Station rate list PDF ─────────────────────────────────────────────────
+   Same look as the bill: page border, logo, SS name on top, transport name +
+   GSTIN under it, then one row per station with its contracted rate. */
+async function buildStationRatesPdf({ transportName, gstin, hubRates = [] }) {
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const mg = 10;
+  const num = (v) => (v == null || v === '' ? null : Number(v));
+  const money = (v) => (num(v) > 0 ? `Rs.${(+num(v).toFixed(2)).toLocaleString('en-IN')}` : '-');
+
+  // One row per station from the contracted hub rates. A station is printed
+  // only when it has BOTH a city code and a rate > 0 — anything else is skipped.
+  const seen = new Set();
+  const rows = [];
+  hubRates.forEach(r => {
+    const city = r.cityName || '';
+    if (!city || seen.has(city) || !r.cityCode) return;
+    const mode = r.pricing_mode;
+    const rate = mode === 'per_pkg'
+      ? `${money(r.rate_per_pkg)} / pkg`
+      : mode === 'per_kg'
+        ? `${money(r.rate_per_kg)} / kg`
+        : [num(r.rate_per_kg) > 0 && `${money(r.rate_per_kg)} / kg`, num(r.rate_per_pkg) > 0 && `${money(r.rate_per_pkg)} / pkg`].filter(Boolean).join('  +  ') || '-';
+    if (rate === '-' || rate.startsWith('- ')) return; // no usable rate
+    seen.add(city);
+    rows.push([city, r.cityCode, rate]);
+  });
+  rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+  /* ── Header box ── */
+  const hy = 9, hh = 32;
+  doc.setDrawColor(...BRAND); doc.setLineWidth(0.5);
+  doc.roundedRect(mg, hy, pw - mg * 2, hh, 2, 2);
+  doc.setFillColor(...ACCENT); doc.rect(mg + 0.5, hy + hh - 2, pw - mg * 2 - 1, 1.5, 'F');
+  const logo = await loadBillLogo();
+  if (logo) {
+    const lw = 30, lh = Math.min(hh - 4, lw * logo.ratio);
+    doc.addImage(logo.dataUrl, 'PNG', mg + 2, hy + (hh - 1.5 - lh) / 2, lw, lh);
+  }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(...BRAND);
+  doc.text('SS TRANSPORT CORPORATION', pw / 2, hy + 9, { align: 'center' });
+  doc.setFontSize(8.5); doc.setTextColor(...ACCENT);
+  doc.text('STATION RATE LIST', pw / 2, hy + 15, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(40, 40, 40);
+  doc.text(transportName || '', pw / 2, hy + 22, { align: 'center', maxWidth: pw - mg * 2 - 70 });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
+  doc.text(`GSTIN: ${gstin || '—'}`, pw / 2, hy + 27, { align: 'center' });
+
+  /* ── Details strip: transport · stations · date ── */
+  const iy = hy + hh + 3, ih = 12;
+  const info = [
+    ['TRANSPORT', transportName || '—'],
+    ['STATIONS', String(rows.length)],
+    ['PRINTED', format(new Date(), 'dd MMM yyyy')],
+  ];
+  const iws = [(pw - mg * 2) * 0.56, (pw - mg * 2) * 0.18, (pw - mg * 2) * 0.26];
+  doc.setFillColor(248, 250, 252); doc.setDrawColor(200, 205, 212); doc.setLineWidth(0.3);
+  doc.rect(mg, iy, pw - mg * 2, ih, 'FD');
+  let ix = mg;
+  info.forEach(([k, v], i) => {
+    if (i) doc.line(ix, iy, ix, iy + ih);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(110, 110, 110);
+    doc.text(k, ix + 3, iy + 4.3);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BRAND);
+    doc.text(String(v), ix + 3, iy + 9.5, { maxWidth: iws[i] - 5 });
+    ix += iws[i];
+  });
+
+  /* ── Rates table ── */
+  autoTable(doc, {
+    startY: iy + ih + 5,
+    head: [['#', 'Station', 'Code', 'Rate']],
+    body: rows.length ? rows.map((r, i) => [i + 1, ...r]) : [[{ content: 'No station rates set for this transport', colSpan: 4, styles: { halign: 'center' } }]],
+    styles: { fontSize: 8.5, cellPadding: 2.4, textColor: [0, 0, 0], lineColor: [190, 190, 190], lineWidth: 0.15, valign: 'middle' },
+    headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, lineColor: BRAND, halign: 'center' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 12 },
+      1: { fontStyle: 'bold', cellWidth: 90 },
+      2: { halign: 'center', cellWidth: 30 },
+      3: { halign: 'right', fontStyle: 'bold', textColor: BRAND },
+    },
+    margin: { left: mg, right: mg, top: 12, bottom: 18 },
+  });
+
+  const ny = (doc.lastAutoTable?.finalY || 80) + 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(100, 100, 100);
+  doc.text('Rates are subject to change.', mg, ny);
+
+  /* ── Signature ── */
+  let sy = ny + 14;
+  if (sy + 22 > ph - 18) { doc.addPage(); sy = 16; }
+  const bw = 70, bx = pw - mg - bw;
+  doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.3); doc.rect(bx, sy, bw, 22);
+  doc.setDrawColor(180, 180, 180); doc.line(bx + 5, sy + 14, bx + bw - 5, sy + 14);
+  doc.setFontSize(7); doc.setTextColor(100, 100, 100);
+  doc.text('For SS TRANSPORT CORPORATION', bx + bw / 2, sy + 19, { align: 'center' });
+
+  /* ── Border + footer on every page ── */
+  const np = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= np; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(...BRAND); doc.setLineWidth(0.6); doc.rect(4, 4, pw - 8, ph - 8);
+    doc.setDrawColor(...ACCENT); doc.setLineWidth(0.2); doc.rect(5.5, 5.5, pw - 11, ph - 11);
+    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
+    doc.line(mg, ph - 14, pw - mg, ph - 14);
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
+    doc.text('SS TRANSPORT CORPORATION', mg, ph - 10);
+    doc.text(`${i}/${np}`, pw - mg, ph - 10, { align: 'right' });
+  }
+  return doc.output('bloburl');
+}
+
 /* ─── PDF builder ─────────────────────────────────────────────────────────── */
 async function buildBillPdf(bill, pohonchMap = {}) {
   const { jsPDF }  = await import('jspdf');
@@ -33,36 +214,62 @@ async function buildBillPdf(bill, pohonchMap = {}) {
   const ph   = doc.internal.pageSize.getHeight();
   const mg   = 10;
 
-  /* ── Header — light border style, no heavy black fills ── */
-  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.5);
-  doc.rect(mg, 6, pw - mg * 2, 28);
-  doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30);
-  doc.text('SS TRANSPORT CORPORATION', pw / 2, 14, { align: 'center' });
-  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60);
-  doc.text(bill.transport_name || '', pw / 2, 21, { align: 'center' });
-  doc.setFontSize(8);
-  const period = [bill.from_date && `From: ${bill.from_date}`, bill.to_date && `To: ${bill.to_date}`].filter(Boolean).join('     |     ');
-  doc.text(period, pw / 2, 27, { align: 'center' });
-  doc.setFontSize(7); doc.setTextColor(120, 120, 120);
-  doc.text(`Bill No: ${bill.bill_no}   GSTIN: ${bill.transport_gstin || '—'}   Status: ${(bill.status || '').toUpperCase()}   Printed: ${format(new Date(), 'dd MMM yyyy')}`, pw / 2, 32, { align: 'center' });
-  doc.setTextColor(0, 0, 0);
+  /* ── Header box: logo · company · transport · ledger QR ── */
+  const hy = 9, hh = 32;
+  doc.setDrawColor(...BRAND); doc.setLineWidth(0.5);
+  doc.roundedRect(mg, hy, pw - mg * 2, hh, 2, 2);
+  doc.setFillColor(...ACCENT); doc.rect(mg + 0.5, hy + hh - 2, pw - mg * 2 - 1, 1.5, 'F');
+
+  const logo = await loadBillLogo();
+  if (logo) {
+    const lw = 30, lh = Math.min(hh - 4, lw * logo.ratio);
+    doc.addImage(logo.dataUrl, 'PNG', mg + 2, hy + (hh - 1.5 - lh) / 2, lw, lh);
+  }
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(...BRAND);
+  doc.text('SS TRANSPORT CORPORATION', pw / 2, hy + 9, { align: 'center' });
+  doc.setFontSize(8.5); doc.setTextColor(...ACCENT);
+  doc.text('CROSSING BILL', pw / 2, hy + 15, { align: 'center' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(40, 40, 40);
+  doc.text(bill.transport_name || '', pw / 2, hy + 22, { align: 'center', maxWidth: pw - mg * 2 - 64 });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
+  doc.text(`GSTIN: ${bill.transport_gstin || '—'}`, pw / 2, hy + 27, { align: 'center' });
 
   /* ── Top-right QR → public transport ledger (/transport-ledger/[gstin]) ── */
   if (bill.transport_gstin) {
     const ledgerUrl = `https://console.movesure.io/transport-ledger/${encodeURIComponent(String(bill.transport_gstin).trim().toUpperCase())}`;
     const hq = 22;
-    const hx = pw - mg - hq - 1.5;
+    const hx = pw - mg - hq - 3;
     try {
       const ledgerQr = await QRCode.toDataURL(ledgerUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
-      doc.addImage(ledgerQr, 'PNG', hx, 7, hq, hq);
-      doc.setFontSize(5.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
-      doc.text('Scan for ledger', hx + hq / 2, 32.5, { align: 'center' });
-      doc.setTextColor(0, 0, 0);
+      doc.addImage(ledgerQr, 'PNG', hx, hy + 2.5, hq, hq);
+      doc.setFontSize(5.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND);
+      doc.text('SCAN FOR LEDGER', hx + hq / 2, hy + hh - 4, { align: 'center' });
     } catch (e) { console.error('Ledger QR generation failed:', e); }
   }
+  doc.setTextColor(0, 0, 0);
+
+  /* ── Bill details strip ── */
+  const iy = hy + hh + 3, ih = 12;
+  const info = [
+    ['BILL NO', bill.bill_no || '—'],
+    ['PERIOD', [bill.from_date, bill.to_date].filter(Boolean).join('  to  ') || '—'],
+    ['PRINTED', format(new Date(), 'dd MMM yyyy')],
+  ];
+  const iw = (pw - mg * 2) / info.length;
+  doc.setFillColor(248, 250, 252); doc.setDrawColor(200, 205, 212); doc.setLineWidth(0.3);
+  doc.rect(mg, iy, pw - mg * 2, ih, 'FD');
+  info.forEach(([k, v], i) => {
+    const x = mg + i * iw;
+    if (i) doc.line(x, iy, x, iy + ih);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(110, 110, 110);
+    doc.text(k, x + 3, iy + 4.3);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BRAND);
+    doc.text(String(v), x + 3, iy + 9.5, { maxWidth: iw - 5 });
+  });
 
   /* ── Summary line ── */
-  const sy = 40;
+  const sy = iy + ih + 6;
   doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);
   doc.text(`Total Pohonch: ${bill.total_pohonch || 0}   |   Total Bilties: ${bill.total_bilties || 0}   |   Total Amount: ${RsRaw(bill.total_amount)}`, mg, sy);
   doc.setTextColor(0, 0, 0);
@@ -122,9 +329,9 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     ]],
     showFoot: 'lastPage',
     styles: { fontSize: 7.5, cellPadding: 2.5, textColor: [0,0,0], lineColor: [190,190,190], lineWidth: 0.15 },
-    headStyles: { fillColor: [240,240,240], textColor: [30,30,30], fontStyle: 'bold', fontSize: 7.5, lineColor: [180,180,180], lineWidth: 0.3 },
-    footStyles: { fillColor: [245,245,245], textColor: [0,0,0], fontStyle: 'bold', lineColor: [180,180,180], lineWidth: 0.3 },
-    alternateRowStyles: { fillColor: [251,251,251] },
+    headStyles: { fillColor: BRAND, textColor: [255,255,255], fontStyle: 'bold', fontSize: 7.5, lineColor: BRAND, lineWidth: 0.3 },
+    footStyles: { fillColor: [241,245,249], textColor: BRAND, fontStyle: 'bold', lineColor: [180,180,180], lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: [248,250,252] },
     columnStyles: {
       0: { halign: 'center' },
       1: { fontStyle: 'bold' },
@@ -136,7 +343,7 @@ async function buildBillPdf(bill, pohonchMap = {}) {
       7: { halign: 'right' },
       8: { halign: 'right' },
     },
-    margin: { left: mg, right: mg },
+    margin: { left: mg, right: mg, top: 12, bottom: 18 },
   });
 
   /* ── Net PF summary + Signatures — add new page if not enough room ── */
@@ -146,7 +353,7 @@ async function buildBillPdf(bill, pohonchMap = {}) {
 
   // If less than NEEDED mm remain on the page, start a fresh page instead of overlapping the table
   let balY;
-  if (tableEndY + NEEDED > ph - 12) {
+  if (tableEndY + NEEDED > ph - 18) {
     doc.addPage();
     doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(120,120,120);
     doc.text(`${bill.bill_no}  —  ${bill.transport_name || ''}`, mg, 10);
@@ -171,15 +378,15 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     },
     didParseCell: (data) => {
       if (data.row.index === 2) {
-        data.cell.styles.fillColor = [235, 235, 235];
-        data.cell.styles.textColor = [0, 0, 0];
+        data.cell.styles.fillColor = [241, 245, 249];
+        data.cell.styles.textColor = BRAND;
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize  = 9;
         data.cell.styles.lineColor = [160, 160, 160];
       }
     },
     theme: 'plain',
-    margin: { left: mg, right: mg },
+    margin: { left: mg, right: mg, top: 12, bottom: 18 },
   });
 
   /* ── 2 Signature boxes (always after net PF table, never overlapping) ── */
@@ -195,37 +402,67 @@ async function buildBillPdf(bill, pohonchMap = {}) {
     doc.text(lbl, x + bw/2, y+21, { align:'center' });
   });
 
-  /* ── QR code — links straight to this bill's own PDF in storage, printed
-     at the very end of the bill copy, below the signature boxes. Skipped
-     if bill_no is missing — a QR pointing at ".../undefined.pdf" would
-     look valid and just 404 when scanned. ── */
+  /* ── Digital Copies — bordered box with two QR cards below the signatures:
+     left → this bill's PDF, right → the crossing challan PDF (all pohonch).
+     Same names the uploads write ({bill_no}.pdf / {bill_no}-challan.pdf),
+     resolved through getPublicUrl so they always match the real bucket.
+     Skipped if bill_no is missing — ".../undefined.pdf" would just 404. ── */
   if (bill.bill_no) {
-    // Same call the actual upload uses to get its public URL — guarantees this
-    // always matches the real bucket/project config, not a hand-typed copy of it.
-    const { data: qrLinkData } = supabase.storage.from('crossing-bill').getPublicUrl(`${bill.bill_no}.pdf`);
-    const qrUrl  = qrLinkData.publicUrl;
-    const qrSize = 20;
-    let qrY = signY + 4 + 24 + 7; // just below the two signature boxes
-    if (qrY + qrSize + 4 > ph - 12) { doc.addPage(); qrY = 16; }
-    try {
-      const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 160, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
-      doc.addImage(qrDataUrl, 'PNG', mg, qrY, qrSize, qrSize);
-      doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(60, 60, 60);
-      doc.text('Scan to view / download this bill', mg + qrSize + 4, qrY + 7);
-      doc.setFontSize(6); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 140);
-      doc.text(qrUrl, mg + qrSize + 4, qrY + 13, { maxWidth: pw - mg * 2 - qrSize - 4 });
-    } catch (e) { console.error('QR code generation failed:', e); }
+    const qrSize = 22, boxH = 36;
+    let qrBoxY = signY + 4 + 24 + 7;
+    if (qrBoxY + boxH > ph - 18) { doc.addPage(); qrBoxY = 14; }
+
+    const boxW = pw - mg * 2;
+    doc.setDrawColor(...BRAND); doc.setLineWidth(0.4);
+    doc.roundedRect(mg, qrBoxY, boxW, boxH, 2, 2);
+    // Title bar
+    doc.setFillColor(...BRAND);
+    doc.roundedRect(mg, qrBoxY, boxW, 6.5, 2, 2, 'F');
+    doc.rect(mg, qrBoxY + 3, boxW, 3.5, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255);
+    doc.text('DIGITAL COPIES', mg + 4, qrBoxY + 4.6, { charSpace: 0.8 });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
+    doc.text('Scan with any phone camera to open', mg + boxW - 4, qrBoxY + 4.6, { align: 'right' });
+
+    const cards = [
+      { file: `${bill.bill_no}.pdf`,         title: 'CROSSING BILL',     sub: 'View / download this bill' },
+      { file: `${bill.bill_no}-challan.pdf`, title: 'CROSSING CHALLANS', sub: bill.total_pohonch ? `All ${bill.total_pohonch} pohonch of this bill` : 'All pohonch of this bill' },
+    ];
+    const cw = (boxW - 12) / 2, cy = qrBoxY + 9;
+    for (let i = 0; i < cards.length; i++) {
+      const c  = cards[i];
+      const cx = mg + 4 + i * (cw + 4);
+      const { data: ud } = supabase.storage.from('crossing-bill').getPublicUrl(c.file);
+      doc.setDrawColor(200, 205, 212); doc.setLineWidth(0.3); doc.setFillColor(252, 252, 253);
+      doc.roundedRect(cx, cy, cw, boxH - 12, 1.5, 1.5, 'FD');
+      try {
+        const qr = await QRCode.toDataURL(ud.publicUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+        doc.addImage(qr, 'PNG', cx + 1.5, cy + 1, qrSize, qrSize);
+      } catch (e) { console.error('QR generation failed:', e); }
+      const tx = cx + qrSize + 5;
+      doc.setFillColor(...ACCENT); doc.rect(tx, cy + 3, 1, 9, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...BRAND);
+      doc.text(c.title, tx + 3, cy + 6.5);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(80, 80, 80);
+      doc.text(c.sub, tx + 3, cy + 11);
+      doc.setFontSize(5); doc.setTextColor(150, 150, 150);
+      doc.text(ud.publicUrl, tx, cy + 16, { maxWidth: cw - qrSize - 7 });
+    }
+    doc.setTextColor(0, 0, 0);
   }
 
   /* ── Page numbers ── */
   const np = doc.internal.getNumberOfPages();
   for (let i = 1; i <= np; i++) {
     doc.setPage(i);
+    // Page border — outer brand line + inner gold hairline
+    doc.setDrawColor(...BRAND); doc.setLineWidth(0.6); doc.rect(4, 4, pw - 8, ph - 8);
+    doc.setDrawColor(...ACCENT); doc.setLineWidth(0.2); doc.rect(5.5, 5.5, pw - 11, ph - 11);
     doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
-    doc.line(mg, ph - 8, pw - mg, ph - 8);
+    doc.line(mg, ph - 14, pw - mg, ph - 14);
     doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(140,140,140);
-    doc.text('SS TRANSPORT CORPORATION', mg, ph - 4);
-    doc.text(`Page ${i} / ${np}`, pw - mg, ph - 4, { align: 'right' });
+    doc.text('SS TRANSPORT CORPORATION', mg, ph - 10);
+    doc.text(`${i}/${np}`, pw - mg, ph - 10, { align: 'right' });
   }
   return doc.output('bloburl');
 }
@@ -281,6 +518,10 @@ function ConfirmBillModal({ isOpen, onClose, selectedPohonch, transportGstin, tr
         body: JSON.stringify({ bill_url: ud.publicUrl, updated_by: userId }),
       });
       setPdfUrl(url);
+      // Crossing challan PDF (all pohonch) — background, doesn't block the bill link
+      uploadCrossingChallanPdf(bill, { token, userId })
+        .then(() => onCreated?.())
+        .catch(e => console.error('Challan PDF upload:', e));
     } catch (e) {
       console.error('PDF upload:', e);
       setUploadError('PDF was created but failed to upload — its QR code link will not work until you retry (use "Print / View" on the bill row after closing this).');
@@ -490,6 +731,8 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [generatingPdf,  setGeneratingPdf]  = useState(false);
   const [localPdfUrl,    setLocalPdfUrl]    = useState(bill.bill_url || null);
+  const [challanUrl,     setChallanUrl]     = useState(bill.crossing_challan_url || null);
+  const [challanBusy,    setChallanBusy]    = useState(false);
   const [copied,         setCopied]         = useState(false);
 
   // Inline edit state
@@ -694,6 +937,31 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
       body: JSON.stringify({ bill_url: ud.publicUrl, updated_by: userId }),
     });
     onBillUpdated?.({ bill_url: ud.publicUrl });
+    // Keep the crossing challan PDF in sync too — background, never blocks the bill PDF
+    refreshChallanPdf(billData).catch(e => console.error('Challan PDF upload:', e));
+  };
+
+  const refreshChallanPdf = async (billData) => {
+    setChallanBusy(true);
+    try {
+      const { url } = await uploadCrossingChallanPdf(billData, { token, userId });
+      setChallanUrl(url);
+      onBillUpdated?.({ crossing_challan_url: url });
+      return url;
+    } finally { setChallanBusy(false); }
+  };
+
+  // Open the stored challan PDF; generate + upload it first if it doesn't exist yet
+  const handleChallanPdf = async ({ regenerate = false } = {}) => {
+    if (challanUrl && !regenerate) { window.open(challanUrl, '_blank'); return; }
+    const win = window.open('', '_blank'); // open now so the popup isn't blocked after the await
+    try {
+      const url = await refreshChallanPdf(fullBill || bill);
+      if (win) win.location.href = `${url}?t=${Date.now()}`; else window.open(url, '_blank');
+    } catch (e) {
+      win?.close();
+      alert('Challan PDF error: ' + e.message);
+    }
   };
 
   // `dataOverride` lets a caller (Recalc Bill) hand over the just-recalculated
@@ -831,6 +1099,18 @@ function BillRow({ bill, expanded, onToggle, onAddTx, userId, token, onBillUpdat
                 {generatingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Printer className="w-3.5 h-3.5"/>}
                 {generatingPdf ? 'Generating…' : 'Print / View'}
               </button>
+              <button onClick={()=>handleChallanPdf()} disabled={challanBusy}
+                title={challanUrl ? 'Open saved crossing challan PDF (all pohonch)' : 'Generate & upload crossing challan PDF (all pohonch)'}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200 disabled:opacity-50 transition-colors">
+                {challanBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <FileText className="w-3.5 h-3.5"/>}
+                {challanBusy ? 'Uploading…' : 'Challan PDF'}
+              </button>
+              {challanUrl && !challanBusy && (
+                <button onClick={()=>handleChallanPdf({ regenerate:true })} title="Regenerate & re-upload challan PDF with latest data"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200">
+                  <RotateCcw className="w-3.5 h-3.5"/>
+                </button>
+              )}
               {localPdfUrl && (
                 <button onClick={copyUrl} title="Copy PDF URL"
                   className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg">
@@ -1375,6 +1655,19 @@ export default function CrossingBillTransportPage() {
       .sort((a,b)=>b.count-a.count);
   }, [allPohonch, hubRatesByCity, billedPohonchMap]);
 
+  const [printingRates, setPrintingRates] = useState(false);
+  const handlePrintRates = async () => {
+    const win = window.open('', '_blank'); // open now so the popup isn't blocked after the await
+    setPrintingRates(true);
+    try {
+      const url = await buildStationRatesPdf({ transportName, gstin, hubRates });
+      if (win) win.location.href = url; else window.open(url, '_blank');
+    } catch (e) {
+      win?.close();
+      alert('Rate list PDF error: ' + e.message);
+    } finally { setPrintingRates(false); }
+  };
+
   // Fix a station's bilties to the contracted kaat rate — POST /api/kaat/bulk-update-by-grs
   const [fixingStation, setFixingStation] = useState(null); // city currently being fixed
   const [fixResult,     setFixResult]     = useState(null); // { city, data } | { city, error }
@@ -1506,6 +1799,49 @@ export default function CrossingBillTransportPage() {
 
   const handleBillCreated = () => { fetchBills(1); fetchPohonch(); setSelectedIds(new Set()); };
 
+  // Backfill: upload the crossing challan PDF for EVERY crossing bill in the
+  // system (all transports) that doesn't have crossing_challan_url yet.
+  const [challanSync, setChallanSync] = useState(null); // { done, total, failed, current }
+  const syncAllChallanPdfs = async () => {
+    if (challanSync) return;
+    const all = [];
+    try {
+      for (let pg = 1; ; pg++) {
+        const res  = await fetch(`${API_BASE}/api/crossing-bill?page=${pg}&page_size=100`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || 'Failed to load bills');
+        all.push(...(json.data?.rows || []));
+        if (!json.data?.has_more) break;
+      }
+    } catch (e) { alert('Could not load bills: ' + e.message); return; }
+
+    const missing = all.filter(b => !b.crossing_challan_url && b.status !== 'cancelled');
+    const redoAll = !missing.length
+      ? confirm(`All ${all.length} bills already have a challan PDF. Regenerate all of them with latest data?`)
+      : false;
+    const todo = redoAll ? all.filter(b => b.status !== 'cancelled') : missing;
+    if (!todo.length) return;
+    if (!redoAll && !confirm(`Upload crossing challan PDF for ${todo.length} bill(s) (all transports)? Keep this tab open until it finishes.`)) return;
+
+    const failed = [];
+    setChallanSync({ done: 0, total: todo.length, failed: 0, current: '' });
+    for (let i = 0; i < todo.length; i++) {
+      const b = todo[i];
+      setChallanSync(s => ({ ...s, current: b.bill_no }));
+      try {
+        const { url } = await uploadCrossingChallanPdf(b, { token, userId: user?.id });
+        setBills(prev => prev.map(x => x.id === b.id ? { ...x, crossing_challan_url: url } : x));
+      } catch (e) {
+        console.error(`Challan PDF ${b.bill_no}:`, e);
+        failed.push(`${b.bill_no}: ${e.message}`);
+      }
+      setChallanSync(s => ({ ...s, done: i + 1, failed: failed.length }));
+    }
+    setChallanSync(null);
+    fetchBills(1);
+    alert(`Challan PDFs uploaded: ${todo.length - failed.length}/${todo.length}` + (failed.length ? `\n\nFailed:\n${failed.join('\n')}` : ''));
+  };
+
   if (!mounted) return null;
 
   return (
@@ -1594,6 +1930,10 @@ export default function CrossingBillTransportPage() {
                 <MapPin className="w-4 h-4 text-teal-600"/>
                 <h2 className="text-sm font-bold text-gray-800">Station Rates</h2>
                 <span className="text-xs text-gray-400 ml-auto">{stationRates.length} stations</span>
+                <button onClick={handlePrintRates} disabled={printingRates} title="Print station rate list"
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 disabled:opacity-50">
+                  {printingRates ? <Loader2 className="w-3 h-3 animate-spin"/> : <Printer className="w-3 h-3"/>} Print
+                </button>
               </div>
 
               {/* Legend */}
@@ -2180,6 +2520,14 @@ export default function CrossingBillTransportPage() {
               <h2 className="text-sm font-bold text-gray-800">Crossing Bills</h2>
               <span className="text-xs text-gray-400">({bills.length})</span>
             </div>
+            <button onClick={syncAllChallanPdfs} disabled={!!challanSync}
+              title="Generate & upload the crossing challan PDF (all pohonch) for every crossing bill in the system that doesn't have one"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg border border-violet-200 disabled:opacity-60">
+              {challanSync ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <FileText className="w-3.5 h-3.5"/>}
+              {challanSync
+                ? `Uploading ${challanSync.done}/${challanSync.total}${challanSync.current ? ` · ${challanSync.current}` : ''}${challanSync.failed ? ` · ${challanSync.failed} failed` : ''}`
+                : 'Upload All Challan PDFs'}
+            </button>
           </div>
 
           {loadingBills && bills.length===0 ? (

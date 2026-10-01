@@ -140,7 +140,7 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     { header: '#',          dataKey: 'sno' },
     { header: 'GR No.',     dataKey: 'gr' },
     { header: 'P/B No.',    dataKey: 'pb' },
-    { header: 'Consignor',  dataKey: 'consignor' },
+    { header: 'Date',       dataKey: 'date' },
     { header: 'Consignee',  dataKey: 'consignee' },
     { header: 'Station',    dataKey: 'dest' },
     { header: 'Pay',        dataKey: 'pay' },
@@ -149,15 +149,24 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     { header: 'Amt',        dataKey: 'amt' },
     { header: 'TP-KAAT',    dataKey: 'topayKaat' },
     { header: 'Paid Kaat',   dataKey: 'paidKaat' },
-    { header: 'DD',         dataKey: 'dd' },
     { header: 'To-Pay PF',  dataKey: 'pf' },
   ];
 
   const tableW = pageW - mx * 2; // 200mm usable
 
   const colWidths = {
-    sno: 6, gr: 16, pb: 14, consignor: 24, consignee: 24,
-    dest: 14, pay: 17, pkg: 10, wt: 12, amt: 15, topayKaat: 12, paidKaat: 12, dd: 10, pf: 14,
+    sno: 6, gr: 16, pb: 14, date: 14, consignee: 38,
+    dest: 16, pay: 17, pkg: 10, wt: 12, amt: 15, topayKaat: 13, paidKaat: 13, pf: 16,
+  };
+
+  // Bilty date → dd/mm/yy (accepts 'YYYY-MM-DD' or a full timestamp)
+  const fmtDate = (v) => {
+    if (!v) return '-';
+    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1].slice(2)}`;
+    const d = new Date(v);
+    if (isNaN(d)) return '-';
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
   };
 
   const tableStyles = {
@@ -182,7 +191,7 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     sno:       { halign: 'center', cellWidth: colWidths.sno },
     gr:        { halign: 'left',   cellWidth: colWidths.gr, fontStyle: 'bold' },
     pb:        { halign: 'left',   cellWidth: colWidths.pb },
-    consignor: { halign: 'left',   cellWidth: colWidths.consignor },
+    date:      { halign: 'center', cellWidth: colWidths.date },
     consignee: { halign: 'left',   cellWidth: colWidths.consignee },
     dest:      { halign: 'left',   cellWidth: colWidths.dest },
     pay:       { halign: 'center', cellWidth: colWidths.pay },
@@ -191,7 +200,6 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     amt:       { halign: 'right',  cellWidth: colWidths.amt },
     topayKaat: { halign: 'right',  cellWidth: colWidths.topayKaat },
     paidKaat:  { halign: 'right',  cellWidth: colWidths.paidKaat },
-    dd:        { halign: 'right',  cellWidth: colWidths.dd },
     pf:        { halign: 'right',  cellWidth: colWidths.pf, fontStyle: 'bold' },
   };
 
@@ -215,8 +223,8 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
           sno:       String(sno),
           gr:        hasEwb ? `${grText} (E)` : grText,
           pb:        String(b.pohonch_bilty || '-'),
-          consignor: (b.consignor || '-').substring(0, 14),
-          consignee: (b.consignee || '-').substring(0, 14),
+          date:      fmtDate(b.date),
+          consignee: (b.consignee || '-').substring(0, 24),
           dest:      (b.destination_code || b.destination || '-').substring(0, 10),
           pay:       (payBase + ddSuffix).substring(0, 10),
           pkg:       String(Math.round(b.packages || 0)),
@@ -224,7 +232,6 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
           amt:       isPaid ? 'PAID' : String(Math.round(b.amount || 0)),
           topayKaat: isPaid ? '-' : String(Math.round(b.kaat || 0)),
           paidKaat:  isPaid ? String(Math.round(b.kaat || 0)) : '-',
-          dd:        b.dd > 0 ? String(Math.round(b.dd)) : '-',
           pf:        isPaid ? '-' : String(Math.round(b.pf || 0)),
           _hasEwb:   hasEwb,
         });
@@ -232,7 +239,7 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     });
 
     // Grand total row
-    let tPkg = 0, tWt = 0, tAmt = 0, tTopayKaat = 0, tPaidKaat = 0, tDD = 0, tPF = 0;
+    let tPkg = 0, tWt = 0, tAmt = 0, tTopayKaat = 0, tPaidKaat = 0, tPF = 0;
     groups.forEach(g => g.bilties.forEach(b => {
       const isPaid = isPaidBilty(b);
       tPkg       += b.packages || 0;
@@ -240,19 +247,17 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
       tAmt       += isPaid ? 0 : (b.amount || 0);
       tTopayKaat += isPaid ? 0 : (b.kaat || 0);
       tPaidKaat  += isPaid ? (b.kaat || 0) : 0;
-      tDD        += b.dd || 0;
       tPF        += isPaid ? 0 : (b.pf || 0);
     }));
     const totalIdx = body.length;
     body.push({
-      sno: '', gr: '', pb: '', consignor: '', consignee: '',
+      sno: '', gr: '', pb: '', date: '', consignee: '',
       dest: '', pay: 'TOTAL',
       pkg:       String(Math.round(tPkg)),
       wt:        tWt.toFixed(1),
       amt:       String(Math.round(tAmt)),
       topayKaat: String(Math.round(tTopayKaat)),
       paidKaat:  String(Math.round(tPaidKaat)),
-      dd:        tDD > 0 ? String(Math.round(tDD)) : '-',
       pf:        String(Math.round(tPF)),
     });
 
@@ -281,7 +286,7 @@ export function generatePohonchPDF(bilties, transport, preview = true, pohonchNu
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(7.5);
     pdf.setTextColor(0, 0, 0);
-    pdf.text('Office: 7521078294 / 9690293140', mx, yStart + 4.5);
+    pdf.text('Office: 7668291228 / 8953293140', mx, yStart + 4.5);
 
     // Copy label (right)
     pdf.setFont('helvetica', 'normal');

@@ -47,6 +47,20 @@ async function buildBillPdf(bill, pohonchMap = {}) {
   doc.text(`Bill No: ${bill.bill_no}   GSTIN: ${bill.transport_gstin || '—'}   Status: ${(bill.status || '').toUpperCase()}   Printed: ${format(new Date(), 'dd MMM yyyy')}`, pw / 2, 32, { align: 'center' });
   doc.setTextColor(0, 0, 0);
 
+  /* ── Top-right QR → public transport ledger (/transport-ledger/[gstin]) ── */
+  if (bill.transport_gstin) {
+    const ledgerUrl = `https://console.movesure.io/transport-ledger/${encodeURIComponent(String(bill.transport_gstin).trim().toUpperCase())}`;
+    const hq = 22;
+    const hx = pw - mg - hq - 1.5;
+    try {
+      const ledgerQr = await QRCode.toDataURL(ledgerUrl, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+      doc.addImage(ledgerQr, 'PNG', hx, 7, hq, hq);
+      doc.setFontSize(5.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
+      doc.text('Scan for ledger', hx + hq / 2, 32.5, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+    } catch (e) { console.error('Ledger QR generation failed:', e); }
+  }
+
   /* ── Summary line ── */
   const sy = 40;
   doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50);

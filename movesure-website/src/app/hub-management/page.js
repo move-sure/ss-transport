@@ -182,6 +182,10 @@ export default function HubManagementPage() {
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-xl text-sm font-semibold text-teal-700 hover:bg-teal-100 transition-all">
                 <Truck className="h-4 w-4" /> Crossing Summary
               </button>
+              <button onClick={() => router.push('/hub-management/knp-delivery')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-all">
+                <Truck className="h-4 w-4" /> KNP Delivery
+              </button>
               <button onClick={() => router.push('/hub-management/accounts')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl text-sm font-semibold text-purple-700 hover:bg-purple-100 transition-all">
                 <BookOpenText className="h-4 w-4" /> Accounting

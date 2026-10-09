@@ -23,6 +23,14 @@ import {
 } from '../../utils/biltyStorage';
 import { saveBillToSupabase } from '../../utils/billSaveHandler';
 
+// 'YYYY-MM-DD' → ISO timestamp of that day's 00:00 IST (+ addDays), for
+// filtering timestamp columns by whole local days.
+function istDayStart(dateStr, addDays = 0) {
+  const d = new Date(`${dateStr}T00:00:00+05:30`);
+  d.setUTCDate(d.getUTCDate() + addDays);
+  return d.toISOString();
+}
+
 export default function BillSearch() {
   const { user, requireAuth } = useAuth();
   const router = useRouter();
@@ -534,14 +542,15 @@ export default function BillSearch() {
         query = query.ilike('gr_no', `%${filters.grNumber.trim()}%`);
       }
 
-      if (filters.dateFrom && filters.dateTo) {
-        query = query
-          .gte('created_at', filters.dateFrom)
-          .lte('created_at', filters.dateTo);
-      } else if (filters.dateFrom) {
-        query = query.gte('created_at', filters.dateFrom);
-      } else if (filters.dateTo) {
-        query = query.lte('created_at', filters.dateTo);
+      // created_at is a timestamp (stored in UTC), not a plain date like
+      // bilty.bilty_date — so compare against whole IST days. A bare
+      // lte('2026-09-30') means "<= 30 Sep 00:00 UTC" and silently drops
+      // almost every manual bilty created ON the To date.
+      if (filters.dateFrom) {
+        query = query.gte('created_at', istDayStart(filters.dateFrom));
+      }
+      if (filters.dateTo) {
+        query = query.lt('created_at', istDayStart(filters.dateTo, 1));
       }
 
       if (filters.consignorName?.trim()) {

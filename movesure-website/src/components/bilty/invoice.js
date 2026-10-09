@@ -24,17 +24,24 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
   // Input navigation
   const { register, unregister, handleEnter } = useInputNavigation();
   
-  // Fetch payment mode based on consignor's history
+  // Fetch payment mode based on consignor + consignee history (falls back to consignor only)
   const { paymentMode: oldPaymentMode, loading: loadingPaymentMode } = useConsignorPaymentMode(
     formData.consignor_name, 
-    formData.branch_id
+    formData.branch_id,
+    formData.consignee_name
   );
   
-  // Fetch delivery type based on consignor's history
+  // Fetch delivery type based on consignor + consignee history (falls back to consignor only)
   const { deliveryType: oldDeliveryType, loading: loadingDeliveryType } = useConsignorDeliveryType(
     formData.consignor_name, 
-    formData.branch_id
+    formData.branch_id,
+    formData.consignee_name
   );
+
+  // Last values applied by the history suggestion, so a newer suggestion (e.g. once the
+  // consignee is entered, or the consignor changes) can replace it - but never a user's choice.
+  const aiPaymentModeRef = useRef(null);
+  const aiDeliveryTypeRef = useRef(null);
   
   // Initialize EWB list from formData whenever it changes (for edit mode)
   useEffect(() => {
@@ -119,31 +126,43 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
     // take priority over this history-based guess.
     if (formData._payment_mode_from_profile || formData._payment_mode_manual) return;
 
-    // Only auto-populate when consignor is selected and data is loaded
-    if (formData.consignor_name && !loadingPaymentMode && oldPaymentMode) {
-      // Only update if current payment_mode is default 'to-pay'
-      const currentMode = formData.payment_mode;
-      if (currentMode === 'to-pay' && oldPaymentMode.mode) {
-        setFormData(prev => ({ ...prev, payment_mode: oldPaymentMode.mode }));
-      }
+    if (!formData.consignor_name || loadingPaymentMode) return;
+
+    // Only touch the field while it holds the default 'to-pay' or our own earlier suggestion
+    const currentMode = formData.payment_mode;
+    if (currentMode !== 'to-pay' && currentMode !== aiPaymentModeRef.current) return;
+
+    // No history for this party -> back to the default
+    const suggested = oldPaymentMode?.mode || 'to-pay';
+    aiPaymentModeRef.current = suggested;
+    if (currentMode !== suggested) {
+      setFormData(prev => ({ ...prev, payment_mode: suggested }));
     }
-  }, [formData.consignor_name, oldPaymentMode, loadingPaymentMode, isEditMode,
+  }, [formData.consignor_name, formData.payment_mode, oldPaymentMode?.mode, loadingPaymentMode, isEditMode,
       formData._payment_mode_from_profile, formData._payment_mode_manual]);
 
   // Auto-populate delivery type from consignor's delivery history
   useEffect(() => {
     // DON'T auto-populate in edit mode - respect database values
     if (isEditMode) return;
-    
-    // Only auto-populate when consignor is selected and data is loaded
-    if (formData.consignor_name && !loadingDeliveryType && oldDeliveryType) {
-      // Only update if current delivery_type is default 'godown-delivery'
-      const currentType = formData.delivery_type;
-      if (currentType === 'godown-delivery' && oldDeliveryType.type) {
-        setFormData(prev => ({ ...prev, delivery_type: oldDeliveryType.type }));
-      }
+
+    // A manual user edit takes priority over this history-based guess
+    if (formData._delivery_type_manual) return;
+
+    if (!formData.consignor_name || loadingDeliveryType) return;
+
+    // Only touch the field while it holds the default 'godown-delivery' or our own earlier suggestion
+    const currentType = formData.delivery_type;
+    if (currentType !== 'godown-delivery' && currentType !== aiDeliveryTypeRef.current) return;
+
+    // No history for this party -> back to the default
+    const suggested = oldDeliveryType?.type || 'godown-delivery';
+    aiDeliveryTypeRef.current = suggested;
+    if (currentType !== suggested) {
+      setFormData(prev => ({ ...prev, delivery_type: suggested }));
     }
-  }, [formData.consignor_name, oldDeliveryType, loadingDeliveryType, isEditMode]);
+  }, [formData.consignor_name, formData.delivery_type, oldDeliveryType?.type, loadingDeliveryType, isEditMode,
+      formData._delivery_type_manual]);
 
   // Register inputs for navigation
   useEffect(() => {
@@ -398,7 +417,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             <select
               ref={deliveryTypeRef}
               value={formData.delivery_type}
-              onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, delivery_type: e.target.value, _delivery_type_manual: true }))}
               onFocus={() => {
                 setTimeout(() => {
                   const element = deliveryTypeRef.current;
@@ -455,6 +474,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             return (
               <div className="ml-[94px] lg:ml-[102px] text-[10px] text-green-600 font-medium mt-0.5">
                 ✅ AI: {formatDeliveryType(oldDeliveryType.type)} Delivery ({percentage}%)
+                {oldDeliveryType.matchedOn === 'consignee' && <span className="text-gray-500"> · same consignee</span>}
               </div>
             );
           })()}
@@ -514,6 +534,7 @@ const InvoiceDetailsSection = ({ formData, setFormData, isEditMode = false }) =>
             return (
               <div className="ml-[94px] lg:ml-[102px] text-[10px] text-green-600 font-medium mt-0.5">
                 ✅ AI: {formatPaymentMode(oldPaymentMode.mode)} ({percentage}%)
+                {oldPaymentMode.matchedOn === 'consignee' && <span className="text-gray-500"> · same consignee</span>}
               </div>
             );
           })()}

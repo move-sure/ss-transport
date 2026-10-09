@@ -1021,7 +1021,8 @@ export default function BiltyForm() {
       _rs_charge_applied: 0,
       _local_charge_applied: 0,
       _payment_mode_manual: false,
-      _payment_mode_from_profile: false
+      _payment_mode_from_profile: false,
+      _delivery_type_manual: false
     });
     
     // Clear cached consignor/consignee rate profiles — otherwise a stale profile from the

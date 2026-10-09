@@ -4,177 +4,148 @@ import { useState, useEffect } from 'react';
 import supabase from '../../app/utils/supabase';
 
 /**
- * Hook to fetch the most common payment mode for a consignor based on last 10 bilties
- * @param {string} consignorName - Name of the consignor
- * @param {string} branchId - Branch ID
- * @returns {Object} - { paymentMode, loading, error, biltyCount }
+ * Fetch the last 10 bilties for a party and tally the given column.
+ * Looks at the consignor + consignee pair first (payment mode usually depends on the
+ * receiver - one consignor can ship Paid to some consignees and To Pay to others),
+ * and falls back to the consignor's overall history when the pair has none.
+ * @returns {Promise<Object|null>} - { value, count, totalBilties, lastDate, allValues, matchedOn }
  */
-export const useConsignorPaymentMode = (consignorName, branchId) => {
-  const [paymentMode, setPaymentMode] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [biltyCount, setBiltyCount] = useState(0);
+const fetchPartyHistory = async (column, consignorName, consigneeName, branchId) => {
+  const queryHistory = async (withConsignee) => {
+    let query = supabase
+      .from('bilty')
+      .select(`${column}, bilty_date, gr_no`)
+      .eq('consignor_name', consignorName)
+      .eq('branch_id', branchId)
+      .eq('is_active', true)
+      .not(column, 'is', null);
+    if (withConsignee) query = query.eq('consignee_name', consigneeName);
+    const { data, error } = await query
+      .order('bilty_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return data || [];
+  };
 
-  useEffect(() => {
-    const fetchPaymentMode = async () => {
-      // Reset state if no consignor name
-      if (!consignorName || !branchId) {
-        setPaymentMode(null);
-        setError(null);
-        setBiltyCount(0);
-        return;
-      }
+  let matchedOn = 'consignee';
+  let data = consigneeName ? await queryHistory(true) : [];
+  if (data.length === 0) {
+    matchedOn = 'consignor';
+    data = await queryHistory(false);
+  }
+  if (data.length === 0) return null;
 
-      setLoading(true);
-      setError(null);
+  // Count occurrences and pick the most common value
+  const counts = {};
+  data.forEach(bilty => {
+    counts[bilty[column]] = (counts[bilty[column]] || 0) + 1;
+  });
+  let value = null;
+  let maxCount = 0;
+  Object.entries(counts).forEach(([v, count]) => {
+    if (count > maxCount) {
+      maxCount = count;
+      value = v;
+    }
+  });
 
-      try {
-        // Fetch the last 10 bilties for this consignor and branch
-        const { data, error: fetchError } = await supabase
-          .from('bilty')
-          .select('payment_mode, bilty_date, gr_no')
-          .eq('consignor_name', consignorName)
-          .eq('branch_id', branchId)
-          .eq('is_active', true)
-          .not('payment_mode', 'is', null)
-          .order('bilty_date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (fetchError) throw fetchError;
-
-        if (data && data.length > 0) {
-          // Count occurrences of each payment mode
-          const paymentModeCounts = {};
-          data.forEach(bilty => {
-            const mode = bilty.payment_mode;
-            paymentModeCounts[mode] = (paymentModeCounts[mode] || 0) + 1;
-          });
-
-          // Find the most common payment mode
-          let mostCommonMode = null;
-          let maxCount = 0;
-          
-          Object.entries(paymentModeCounts).forEach(([mode, count]) => {
-            if (count > maxCount) {
-              maxCount = count;
-              mostCommonMode = mode;
-            }
-          });
-
-          setPaymentMode({
-            mode: mostCommonMode,
-            count: maxCount,
-            totalBilties: data.length,
-            lastDate: data[0].bilty_date,
-            allModes: paymentModeCounts
-          });
-          setBiltyCount(data.length);
-        } else {
-          setPaymentMode(null);
-          setBiltyCount(0);
-        }
-      } catch (err) {
-        console.error('Error fetching payment mode:', err);
-        setError(err.message);
-        setPaymentMode(null);
-        setBiltyCount(0);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPaymentMode();
-  }, [consignorName, branchId]);
-
-  return { paymentMode, loading, error, biltyCount };
+  return {
+    value,
+    count: maxCount,
+    totalBilties: data.length,
+    lastDate: data[0].bilty_date,
+    allValues: counts,
+    matchedOn
+  };
 };
 
 /**
- * Hook to fetch the most common delivery type for a consignor based on last 10 bilties
- * @param {string} consignorName - Name of the consignor
- * @param {string} branchId - Branch ID
- * @returns {Object} - { deliveryType, loading, error, biltyCount }
+ * Shared hook state for consignor/consignee history lookups (debounced, ignores stale responses)
  */
-export const useConsignorDeliveryType = (consignorName, branchId) => {
-  const [deliveryType, setDeliveryType] = useState(null);
+const usePartyHistory = (column, consignorName, consigneeName, branchId) => {
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [biltyCount, setBiltyCount] = useState(0);
+
+  const consignee = consigneeName?.trim() || '';
 
   useEffect(() => {
-    const fetchDeliveryType = async () => {
-      // Reset state if no consignor name
-      if (!consignorName || !branchId) {
-        setDeliveryType(null);
-        setError(null);
-        setBiltyCount(0);
-        return;
-      }
-
-      setLoading(true);
+    // Reset state if no consignor name
+    if (!consignorName || !branchId) {
+      setResult(null);
       setError(null);
+      setLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    // Debounce so typing a consignee name doesn't fire a query per keystroke
+    const timer = setTimeout(async () => {
       try {
-        // Fetch the last 10 bilties for this consignor and branch
-        const { data, error: fetchError } = await supabase
-          .from('bilty')
-          .select('delivery_type, bilty_date, gr_no')
-          .eq('consignor_name', consignorName)
-          .eq('branch_id', branchId)
-          .eq('is_active', true)
-          .not('delivery_type', 'is', null)
-          .order('bilty_date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (fetchError) throw fetchError;
-
-        if (data && data.length > 0) {
-          // Count occurrences of each delivery type
-          const deliveryTypeCounts = {};
-          data.forEach(bilty => {
-            const type = bilty.delivery_type;
-            deliveryTypeCounts[type] = (deliveryTypeCounts[type] || 0) + 1;
-          });
-
-          // Find the most common delivery type
-          let mostCommonType = null;
-          let maxCount = 0;
-          
-          Object.entries(deliveryTypeCounts).forEach(([type, count]) => {
-            if (count > maxCount) {
-              maxCount = count;
-              mostCommonType = type;
-            }
-          });
-
-          setDeliveryType({
-            type: mostCommonType,
-            count: maxCount,
-            totalBilties: data.length,
-            lastDate: data[0].bilty_date,
-            allTypes: deliveryTypeCounts
-          });
-          setBiltyCount(data.length);
-        } else {
-          setDeliveryType(null);
-          setBiltyCount(0);
-        }
+        const history = await fetchPartyHistory(column, consignorName, consignee, branchId);
+        if (!cancelled) setResult(history);
       } catch (err) {
-        console.error('Error fetching delivery type:', err);
-        setError(err.message);
-        setDeliveryType(null);
-        setBiltyCount(0);
+        console.error(`Error fetching ${column} history:`, err);
+        if (!cancelled) {
+          setError(err.message);
+          setResult(null);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
     };
+  }, [column, consignorName, consignee, branchId]);
 
-    fetchDeliveryType();
-  }, [consignorName, branchId]);
+  return { result, loading, error };
+};
 
-  return { deliveryType, loading, error, biltyCount };
+/**
+ * Hook to fetch the most common payment mode for a consignor + consignee based on last 10 bilties
+ * @param {string} consignorName - Name of the consignor
+ * @param {string} branchId - Branch ID
+ * @param {string} consigneeName - Name of the consignee (optional; falls back to consignor-only history)
+ * @returns {Object} - { paymentMode, loading, error, biltyCount }
+ */
+export const useConsignorPaymentMode = (consignorName, branchId, consigneeName) => {
+  const { result, loading, error } = usePartyHistory('payment_mode', consignorName, consigneeName, branchId);
+  const paymentMode = result && {
+    mode: result.value,
+    count: result.count,
+    totalBilties: result.totalBilties,
+    lastDate: result.lastDate,
+    allModes: result.allValues,
+    matchedOn: result.matchedOn
+  };
+  return { paymentMode, loading, error, biltyCount: result?.totalBilties || 0 };
+};
+
+/**
+ * Hook to fetch the most common delivery type for a consignor + consignee based on last 10 bilties
+ * @param {string} consignorName - Name of the consignor
+ * @param {string} branchId - Branch ID
+ * @param {string} consigneeName - Name of the consignee (optional; falls back to consignor-only history)
+ * @returns {Object} - { deliveryType, loading, error, biltyCount }
+ */
+export const useConsignorDeliveryType = (consignorName, branchId, consigneeName) => {
+  const { result, loading, error } = usePartyHistory('delivery_type', consignorName, consigneeName, branchId);
+  const deliveryType = result && {
+    type: result.value,
+    count: result.count,
+    totalBilties: result.totalBilties,
+    lastDate: result.lastDate,
+    allTypes: result.allValues,
+    matchedOn: result.matchedOn
+  };
+  return { deliveryType, loading, error, biltyCount: result?.totalBilties || 0 };
 };
 
 /**

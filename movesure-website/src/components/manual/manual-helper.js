@@ -3,6 +3,18 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import supabase from '../../app/utils/supabase';
 
+import { stationBiltyApi, buildMetaPayload } from './station-bilty-api';
+
+// Extra manual bilty fields (saved via the station-bilty API, see station-bilty-api.js)
+const EMPTY_EXTRAS = {
+  group_id: null,
+  group_ref: '', // read-only group name, shown when the group has been deactivated
+  short_packages_count: 0,
+  is_advance_bilty: false,
+  advance_amount: '',
+  small_bilties: [] // queued small bilties for a NEW bilty, saved after insert
+};
+
 // Custom hook for Station Bilty Summary management
 export const useStationBiltySummary = () => {
   const [loading, setLoading] = useState(false);
@@ -41,7 +53,8 @@ export const useStationBiltySummary = () => {
     transport_id: null,
     transport_name: '',
     transport_gst: '',
-    city_id: null
+    city_id: null,
+    ...EMPTY_EXTRAS
   });
 
   // Load reference data (cities only)
@@ -92,6 +105,18 @@ export const useStationBiltySummary = () => {
       return 'Amount cannot be negative';
     }
     
+    const shortCount = parseInt(formData.short_packages_count) || 0;
+    if (shortCount < 0 || shortCount > (parseInt(formData.no_of_packets) || 0)) {
+      return 'Short pkgs must be between 0 and the number of bags';
+    }
+
+    if (formData.is_advance_bilty) {
+      const advance = parseFloat(formData.advance_amount) || 0;
+      if (advance < 0 || advance > (parseFloat(formData.amount) || 0)) {
+        return 'Advance must be between 0 and the freight amount';
+      }
+    }
+
     return null;
   };
 
@@ -115,7 +140,8 @@ export const useStationBiltySummary = () => {
       transport_id: null,
       transport_name: '',
       transport_gst: '',
-      city_id: null
+      city_id: null,
+      ...EMPTY_EXTRAS
     });
     setEditingId(null);
   }, []);
@@ -567,6 +593,29 @@ export const useStationBiltySummary = () => {
         result = data;
       }
 
+      // Group / short pkgs / advance and (for new bilties) queued small bilties go through
+      // the station-bilty API. The bilty row is already saved, so failures here are reported
+      // as warnings instead of failing the whole save.
+      const warnings = [];
+      try {
+        await stationBiltyApi.updateMeta(result.id, buildMetaPayload(formData, currentUserId));
+      } catch (metaError) {
+        console.error('Error saving bilty extras:', metaError);
+        warnings.push(`Group / short pkgs / advance not saved: ${metaError.message}`);
+      }
+      if (!editingId) {
+        for (const item of formData.small_bilties || []) {
+          const { id: _localId, ...payload } = item;
+          try {
+            await stationBiltyApi.addSmallBilty(result.id, { ...payload, updated_by: currentUserId });
+          } catch (itemError) {
+            console.error('Error saving small bilty:', itemError);
+            warnings.push(`Small bilty ${item.small_gr_no} not saved: ${itemError.message}`);
+          }
+        }
+      }
+      result = { ...result, _warnings: warnings };
+
       resetForm();
       await loadSummaryData();
       return result;
@@ -598,9 +647,39 @@ export const useStationBiltySummary = () => {
       transport_id: summary.transport_id || null,
       transport_name: summary.transport_name || '',
       transport_gst: summary.transport_gst || '',
-      city_id: summary.city_id || null
+      city_id: summary.city_id || null,
+      group_id: summary.group_id || null,
+      group_ref: summary.group_ref || '',
+      short_packages_count: summary.short_packages_count || 0,
+      is_advance_bilty: !!summary.is_advance_bilty,
+      advance_amount: summary.advance_amount ?? '',
+      // Saved small bilties are loaded and edited live by SmallBiltiesSection
+      small_bilties: []
     });
     setEditingId(summary.id);
+
+    // List rows come from the search_station_bilty_with_transit RPC, which doesn't return the
+    // group / short pkgs / advance columns - fetch them fresh for this bilty.
+    supabase
+      .from('station_bilty_summary')
+      .select('group_id, group_ref, short_packages_count, is_advance_bilty, advance_amount, city_id')
+      .eq('id', summary.id)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          if (error) console.error('Error loading bilty extras:', error);
+          return;
+        }
+        setFormData(prev => ({
+          ...prev,
+          group_id: data.group_id || null,
+          group_ref: data.group_ref || '',
+          short_packages_count: data.short_packages_count || 0,
+          is_advance_bilty: !!data.is_advance_bilty,
+          advance_amount: data.advance_amount ?? '',
+          city_id: prev.city_id || data.city_id || null
+        }));
+      });
   }, []);
 
   // Delete summary record

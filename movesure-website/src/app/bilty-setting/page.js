@@ -14,6 +14,7 @@ import PermanentDetailsComponent from '../../components/bilty-setting/permanent-
 import ConsignorRatesSearch from '../../components/bilty-setting/consignor-rates-search';
 import TransportAdminComponent from '../../components/bilty-setting/transport-admin-manage';
 import StatesComponent from '../../components/bilty-setting/states-manage';
+import GroupsManageComponent from '../../components/bilty-setting/groups-manage';
 
 const BiltySettingsPage = () => {
   const { user, requireAuth, loading: authLoading } = useAuth();
@@ -76,6 +77,7 @@ const BiltySettingsPage = () => {
     { id: 'transport-admin', name: 'Transport Admin', icon: '🏭', description: 'Parent transport companies' },
     { id: 'consignors', name: 'Consignors', icon: '📦', description: 'Shipping parties' },
     { id: 'consignees', name: 'Consignees', icon: '🏢', description: 'Receiving parties' },
+    { id: 'groups', name: 'Groups', icon: '🏷️', description: 'Party groups for manual bilties (e.g. MRM, RONKEY METAL)' },
     { id: 'rates', name: 'Rates', icon: '💰', description: 'Pricing management' },
     { id: 'company-rates', name: 'Company Rates', icon: '🔍', description: 'Search rates by company' },
     { id: 'permanent-details', name: 'Permanent Details', icon: '📋', description: 'Branch configurations' }
@@ -203,6 +205,7 @@ const BiltySettingsPage = () => {
               {activeTab === 'transport-admin' && <TransportAdminComponent />}
               {activeTab === 'consignors' && <ConsignorComponent />}
               {activeTab === 'consignees' && <ConsigneeComponent />}
+              {activeTab === 'groups' && <GroupsManageComponent userId={user?.id} />}
               {activeTab === 'rates' && <RatesComponent />}
               {activeTab === 'company-rates' && <ConsignorRatesSearch />}
               {activeTab === 'permanent-details' && <PermanentDetailsComponent />}

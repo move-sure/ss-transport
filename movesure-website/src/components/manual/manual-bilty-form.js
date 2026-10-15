@@ -5,6 +5,7 @@ import {
   FileText, Package, Weight, DollarSign, X, Save, Building2,
   CheckCircle, XCircle, Plus, AlertTriangle, Truck, ChevronDown
 } from 'lucide-react';
+import BiltyExtrasSection from './bilty-extras-section';
 
 // Combined Payment and Delivery options
 const COMBINED_OPTIONS = [
@@ -403,8 +404,55 @@ const ManualBiltyForm = ({
   onBranchChange,
   cities,
   transports = [],
-  loadingReferenceData
+  loadingReferenceData,
+  currentUserId
 }) => {
+  const groupInputRef = useRef(null);
+  const formRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  // Keep the focused field in view while moving through the form (Tab / Enter / auto-focus).
+  // The browser only scrolls the minimum, leaving the field at the bottom edge under the sticky
+  // summary bar - so when focus lands outside the middle band of the modal, centre it.
+  useEffect(() => {
+    if (!showForm) return;
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const onFocusIn = (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement) || !el.matches('input, select, textarea, button')) return;
+
+      // Wait a frame so a just-opened section (e.g. More options) has laid out
+      requestAnimationFrame(() => {
+        const box = container.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
+        const topLimit = box.top + box.height * 0.2;
+        const bottomLimit = box.top + box.height * 0.7; // keeps it clear of the sticky summary bar
+        if (rect.top >= topLimit && rect.bottom <= bottomLimit) return;
+
+        const target = container.scrollTop + (rect.top - box.top) - (box.height / 2 - rect.height / 2);
+        container.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      });
+    };
+
+    container.addEventListener('focusin', onFocusIn);
+    return () => container.removeEventListener('focusin', onFocusIn);
+  }, [showForm]);
+
+  // Rare options stay collapsed; open automatically when editing a bilty that uses them
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const hasExtras = !!(
+    formData.group_id || (parseInt(formData.short_packages_count) || 0) > 0 || formData.is_advance_bilty
+  );
+  // Collapse whenever the form opens / switches bilty...
+  useEffect(() => {
+    if (showForm) setShowMoreOptions(false);
+  }, [showForm, editingId]);
+  // ...and open when an edited bilty's saved extras arrive (they're fetched after the form opens)
+  useEffect(() => {
+    if (showForm && editingId && hasExtras) setShowMoreOptions(true);
+  }, [showForm, editingId, hasExtras]);
   // Multi-EWB state
   const [ewbList, setEwbList] = useState([]);
 
@@ -894,12 +942,25 @@ const ManualBiltyForm = ({
     setShowForm(false);
   };
 
+  // Ctrl+S saves the form
+  useEffect(() => {
+    if (!showForm) return;
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (!saving) formRef.current?.requestSubmit();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showForm, saving]);
+
   if (!showForm) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-xl bg-white">
+      <div ref={scrollRef} className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="relative top-10 mx-auto p-5 border w-full max-w-5xl shadow-lg rounded-xl bg-white">
           <div className="mt-3">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -949,7 +1010,7 @@ const ManualBiltyForm = ({
               </div>
             )}
 
-            <form onSubmit={handleFormSubmit} className="space-y-8">
+            <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-8">
               {loadingReferenceData && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-center gap-2 text-blue-700">
@@ -1260,9 +1321,11 @@ const ManualBiltyForm = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Tab' && !e.shiftKey) {
                           e.preventDefault();
-                          const saveButton = document.querySelector('[data-tab-target="save"]');
-                          if (saveButton) {
-                            saveButton.focus();
+                          // More options open -> into it; otherwise straight to Save as before
+                          if (showMoreOptions) {
+                            groupInputRef.current?.focus();
+                          } else {
+                            document.querySelector('[data-tab-target="save"]')?.focus();
                           }
                         }
                       }}
@@ -1274,8 +1337,64 @@ const ManualBiltyForm = ({
                 </div>
               </div>
 
+              {/* More options (collapsed): Group / Short Pkgs / Advance / Small Bilties */}
+              <BiltyExtrasSection
+                formData={formData}
+                setFormData={setFormData}
+                groupInputRef={groupInputRef}
+                open={showMoreOptions}
+                onToggle={() => setShowMoreOptions(prev => !prev)}
+                editingId={editingId}
+                currentUserId={currentUserId}
+              />
+
+              {/* Live Summary */}
+              <div className="sticky bottom-0 -mx-5 px-5 py-3 bg-white/95 backdrop-blur border-t border-gray-200 grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+                <div>
+                  <div className="text-gray-500 font-medium">GR / Station</div>
+                  <div className="font-bold text-gray-900 truncate">{formData.gr_no || '-'} · {formData.station || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-medium">Bags</div>
+                  <div className="font-bold text-gray-900">
+                    {formData.no_of_packets || 0}
+                    {(parseInt(formData.short_packages_count) || 0) > 0 && (
+                      <span className="text-red-600"> ({formData.short_packages_count} short)</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-medium">Weight</div>
+                  <div className="font-bold text-gray-900">{formData.weight || 0} kg</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-medium">Freight</div>
+                  <div className="font-bold text-gray-900">
+                    ₹{(parseFloat(formData.amount) || 0).toLocaleString('en-IN')}
+                    <span className="ml-1 text-purple-700">
+                      {COMBINED_OPTIONS.find(o => o.value === getCombinedValue(formData.payment_status, formData.delivery_type))?.label}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-medium">Advance / Remaining</div>
+                  <div className="font-bold text-gray-900">
+                    {formData.is_advance_bilty
+                      ? `₹${(parseFloat(formData.advance_amount) || 0).toLocaleString('en-IN')} / ₹${((parseFloat(formData.amount) || 0) - (parseFloat(formData.advance_amount) || 0)).toLocaleString('en-IN')}`
+                      : '-'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-medium">Group</div>
+                  <div className="font-bold text-indigo-700 truncate">{formData.group_ref?.trim() || '-'}</div>
+                </div>
+              </div>
+
               {/* Form Actions */}
               <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
+                <span className="mr-auto text-xs text-gray-500">
+                  <kbd className="bg-gray-100 border px-1 rounded">Ctrl</kbd>+<kbd className="bg-gray-100 border px-1 rounded">S</kbd> to save
+                </span>
                 <button
                   type="button"
                   onClick={handleFormClose}

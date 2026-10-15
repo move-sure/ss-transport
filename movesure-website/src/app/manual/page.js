@@ -255,9 +255,11 @@ export default function StationBiltySummaryPage() {
     e.preventDefault();
     try {
       // Pass user data to saveSummary for proper staff_id and branch_id handling
-      await saveSummary(user);
+      const saved = await saveSummary(user);
       setShowForm(false);
-      alert(editingId ? 'Record updated successfully!' : 'Record added successfully!');
+      const message = editingId ? 'Record updated successfully!' : 'Record added successfully!';
+      const warnings = saved?._warnings || [];
+      alert(warnings.length ? `${message}\n\n⚠️ But:\n- ${warnings.join('\n- ')}` : message);
     } catch (error) {
       console.error('Error saving:', error);
       alert(`Error saving record: ${error.message}`);
@@ -450,6 +452,7 @@ export default function StationBiltySummaryPage() {
         cities={cities}
         transports={transports}
         loadingReferenceData={loadingReferenceData}
+        currentUserId={user?.id}
       />
 
       {/* Delete Confirmation Modal */}

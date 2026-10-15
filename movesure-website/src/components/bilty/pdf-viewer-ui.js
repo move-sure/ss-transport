@@ -20,6 +20,8 @@ const PDFViewerUI = ({
   onToggleConsignorCharges,
   onToggleDriverCharges,
   onToggleBothCharges,
+  consigneeCopy = false,
+  onToggleConsigneeCopy,
 }) => {
   const printButtonRef = useRef(null);
 
@@ -88,6 +90,19 @@ const PDFViewerUI = ({
               Download
             </button>
           </div>
+
+          {/* Mobile — Consignee Copy Toggle */}
+          {onToggleConsigneeCopy && (
+            <button
+              onClick={onToggleConsigneeCopy}
+              className={`mt-3 w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                consigneeCopy ? 'bg-blue-500 text-white' : 'bg-white/20 text-white'
+              }`}
+            >
+              <span>Consignee Copy (top copy tag)</span>
+              <span className={`w-3 h-3 rounded-full border-2 border-white flex-shrink-0 ml-1 ${consigneeCopy ? 'bg-white' : ''}`} />
+            </button>
+          )}
 
           {/* Mobile — Zero Charges Toggles */}
           <div className="mt-3 bg-white/10 rounded-xl p-3 flex gap-2">
@@ -259,6 +274,31 @@ const PDFViewerUI = ({
                   </div>
                 </div>
               </div>
+
+              {/* Copy Tag Toggle */}
+              {onToggleConsigneeCopy && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-gray-800">Consignee Copy</div>
+                      <div className="text-xs text-gray-500">
+                        Top copy prints as {consigneeCopy ? 'CONSIGNEE COPY' : 'CONSIGNOR COPY'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={onToggleConsigneeCopy}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                        consigneeCopy ? 'bg-blue-500' : 'bg-gray-300'
+                      }`}
+                      title="Print the top copy tagged as Consignee Copy"
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                        consigneeCopy ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Charge Visibility Toggles */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">

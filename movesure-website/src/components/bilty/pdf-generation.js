@@ -26,6 +26,8 @@ const PDFGenerator = ({
   const [signatureReady, setSignatureReady] = useState(false);
   const [zeroConsignorCharges, setZeroConsignorCharges] = useState(false);
   const [zeroDriverCharges, setZeroDriverCharges] = useState(false);
+  // Print the top copy tagged "CONSIGNEE COPY" instead of "CONSIGNOR COPY"
+  const [consigneeCopy, setConsigneeCopy] = useState(false);
 
   // Mobile detection
   useEffect(() => {
@@ -369,7 +371,7 @@ const PDFGenerator = ({
     if (permanentDetails && !loading) {
       generatePDFPreview();
     }
-  }, [zeroConsignorCharges, zeroDriverCharges]);
+  }, [zeroConsignorCharges, zeroDriverCharges, consigneeCopy]);
 
   // NEW: Add keyboard event listener for Enter key to print PDF
   useEffect(() => {
@@ -1147,7 +1149,7 @@ const PDFGenerator = ({
       
       // 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING
       // First copy (Consignor) — showCharges = false when zeroConsignorCharges is toggled on
-      addBillCopy(pdf, 0, 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport, !zeroConsignorCharges, company);
+      addBillCopy(pdf, 0, consigneeCopy ? 'CONSIGNEE' : 'CONSIGNOR', qrDataURL, permDetails, fromCity, toCity, transport, !zeroConsignorCharges, company);
 
       // ➖ DASHED SEPARATOR LINE - Enhanced
       pdf.setLineWidth(STYLES.LINES.THICK);
@@ -1256,6 +1258,8 @@ const PDFGenerator = ({
       zeroDriverCharges={zeroDriverCharges}
       onToggleConsignorCharges={() => setZeroConsignorCharges(prev => !prev)}
       onToggleDriverCharges={() => setZeroDriverCharges(prev => !prev)}
+      consigneeCopy={consigneeCopy}
+      onToggleConsigneeCopy={() => setConsigneeCopy(prev => !prev)}
       onToggleBothCharges={() => {
         const newVal = !(zeroConsignorCharges && zeroDriverCharges);
         setZeroConsignorCharges(newVal);

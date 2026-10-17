@@ -1,645 +1,342 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../app/utils/auth';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Pencil, Trash2, X, Save, RefreshCw, Search, AlertTriangle, Building2 } from 'lucide-react';
 import supabase from '../../app/utils/supabase';
 
-const PermanentDetailsComponent = () => {
-  const { user } = useAuth();
-  const [permanentDetails, setPermanentDetails] = useState([]);
-  const [filteredDetails, setFilteredDetails] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    branch_id: '',
-    transport_name: '',
-    gst: '',
-    mobile_number: '',
-    bank_act_no_1: '',
-    ifsc_code_1: '',
-    bank_act_no_2: '',
-    ifsc_code_2: '',
-    transport_address: '',
-    website: ''
+const API_BASE = 'https://api.movesure.io/api/bilty';
+
+const EMPTY_FORM = {
+  branch_id: '',
+  company_id: '', // '' = branch default (no company)
+  transport_name: '',
+  gst: '',
+  mobile_number: '',
+  transport_address: '',
+  website: '',
+  bank_act_no_1: '',
+  ifsc_code_1: '',
+  bank_act_no_2: '',
+  ifsc_code_2: ''
+};
+
+const TEXT_FIELDS = [
+  { key: 'transport_name', label: 'Transport / Company Name', required: true, span: 2 },
+  { key: 'gst', label: 'GST No' },
+  { key: 'mobile_number', label: 'Mobile' },
+  { key: 'transport_address', label: 'Address', span: 2, textarea: true },
+  { key: 'website', label: 'Website', span: 2 },
+  { key: 'bank_act_no_1', label: 'Bank 1 A/C No' },
+  { key: 'ifsc_code_1', label: 'IFSC 1' },
+  { key: 'bank_act_no_2', label: 'Bank 2 A/C No' },
+  { key: 'ifsc_code_2', label: 'IFSC 2' }
+];
+
+const api = async (path, { method = 'GET', body } = {}) => {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
   });
-  const [editingId, setEditingId] = useState(null);
+  let json = null;
+  try { json = await res.json(); } catch { /* non-JSON */ }
+  if (!res.ok || json?.status === 'error') {
+    const err = new Error(json?.message || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return json;
+};
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+// Settings -> Permanent Details: one print header per branch (default) plus one row per company.
+// The print layout is chosen per series in Settings -> Bill Books (bill_books.print_template).
+const PermanentDetailsComponent = () => {
+  const [rows, setRows] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    filterDetails();
-  }, [permanentDetails, searchTerm]);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null); // row being edited, or null for create
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
 
-  const filterDetails = () => {
-    if (!searchTerm.trim()) {
-      setFilteredDetails(permanentDetails);
-      return;
-    }
-
-    const filtered = permanentDetails.filter(detail => {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        detail.transport_name?.toLowerCase().includes(searchLower) ||
-        detail.gst?.toLowerCase().includes(searchLower) ||
-        detail.mobile_number?.toLowerCase().includes(searchLower) ||
-        detail.transport_address?.toLowerCase().includes(searchLower) ||
-        detail.branches?.branch_name?.toLowerCase().includes(searchLower) ||
-        detail.branches?.branch_code?.toLowerCase().includes(searchLower)
-      );
-    });
-
-    setFilteredDetails(filtered);
-  };
-
-  const fetchAllData = async () => {
+  const loadRows = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      await fetchBranches();
-      await fetchPermanentDetails();
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      alert('Error loading data. Please check your database connection.');
+      const json = await api(`/permanent-details${branchFilter ? `?branch_id=${branchFilter}` : ''}`);
+      setRows(json.data || []);
+    } catch (err) {
+      setError(`Could not load permanent details: ${err.message}`);
     } finally {
       setLoading(false);
     }
+  }, [branchFilter]);
+
+  // Reference data: branches + companies
+  useEffect(() => {
+    (async () => {
+      const [branchRes, companyRes] = await Promise.all([
+        supabase.from('branches').select('id, branch_name, branch_code').eq('is_active', true).order('branch_name'),
+        supabase.from('companies').select('id, company_name').eq('is_active', true).order('company_name')
+      ]);
+      setBranches(branchRes.data || []);
+      setCompanies(companyRes.data || []);
+    })();
+  }, []);
+
+  useEffect(() => { loadRows(); }, [loadRows]);
+
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ ...EMPTY_FORM, branch_id: branchFilter || '' });
+    setFormError('');
+    setShowForm(true);
   };
 
-  const fetchBranches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('is_active', true)
-        .order('branch_name');
-
-      if (error) {
-        console.error('Error fetching branches:', error);
-        throw error;
-      }
-      setBranches(data || []);
-    } catch (error) {
-      console.error('Branch fetch error:', error);
-      setBranches([]);
-    }
+  const openEdit = (row) => {
+    setEditing(row);
+    setForm({
+      ...EMPTY_FORM,
+      ...Object.fromEntries(Object.keys(EMPTY_FORM).map(k => [k, row[k] ?? '']))
+    });
+    setFormError('');
+    setShowForm(true);
   };
 
-  const fetchPermanentDetails = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('permanent_details')
-        .select(`
-          id,
-          branch_id,
-          transport_name,
-          gst,
-          mobile_number,
-          bank_act_no_1,
-          ifsc_code_1,
-          bank_act_no_2,
-          ifsc_code_2,
-          transport_address,
-          website,
-          branches (
-            branch_name,
-            branch_code
-          )
-        `)
-        .order('transport_name');
-
-      if (error) {
-        console.error('Error fetching permanent details:', error);
-        throw error;
-      }
-      
-      console.log('Fetched permanent details:', data);
-      setPermanentDetails(data || []);
-    } catch (error) {
-      console.error('Permanent details fetch error:', error);
-      setPermanentDetails([]);
-    }
+  const closeForm = () => {
+    if (saving) return;
+    setShowForm(false);
+    setEditing(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.branch_id || !formData.transport_name.trim()) {
-      alert('Please fill all required fields');
-      return;
-    }
+    setFormError('');
+    if (!form.branch_id) { setFormError('Select a branch'); return; }
+    if (!form.transport_name.trim()) { setFormError('Transport / company name is required'); return; }
 
+    const clean = (v) => (typeof v === 'string' ? v.trim() || null : v);
+    setSaving(true);
     try {
-      setLoading(true);
-
-      const detailData = {
-        branch_id: formData.branch_id,
-        transport_name: formData.transport_name.trim(),
-        gst: formData.gst.trim().toUpperCase() || null,
-        mobile_number: formData.mobile_number.trim() || null,
-        bank_act_no_1: formData.bank_act_no_1.trim() || null,
-        ifsc_code_1: formData.ifsc_code_1.trim().toUpperCase() || null,
-        bank_act_no_2: formData.bank_act_no_2.trim() || null,
-        ifsc_code_2: formData.ifsc_code_2.trim().toUpperCase() || null,
-        transport_address: formData.transport_address.trim() || null,
-        website: formData.website.trim() || null
-      };
-
-      if (editingId) {
-        const { error } = await supabase
-          .from('permanent_details')
-          .update(detailData)
-          .eq('id', editingId);
-
-        if (error) throw error;
-        alert('Permanent details updated successfully!');
+      if (editing) {
+        // branch_id / company_id can't change - send only changed fields
+        const changes = {};
+        TEXT_FIELDS.map(f => f.key).forEach(k => {
+          const next = clean(form[k]);
+          if ((next ?? null) !== (editing[k] ?? null)) changes[k] = next;
+        });
+        if (Object.keys(changes).length === 0) { setShowForm(false); return; }
+        await api(`/permanent-details/${editing.id}`, { method: 'PUT', body: changes });
       } else {
-        const { error } = await supabase
-          .from('permanent_details')
-          .insert([detailData]);
-
-        if (error) throw error;
-        alert('Permanent details added successfully!');
+        const body = {
+          branch_id: form.branch_id,
+          company_id: form.company_id || null,
+          ...Object.fromEntries(TEXT_FIELDS.map(f => [f.key, clean(form[f.key])]))
+        };
+        await api('/permanent-details', { method: 'POST', body });
       }
-
-      setFormData({
-        branch_id: '',
-        transport_name: '',
-        gst: '',
-        mobile_number: '',
-        bank_act_no_1: '',
-        ifsc_code_1: '',
-        bank_act_no_2: '',
-        ifsc_code_2: '',
-        transport_address: '',
-        website: ''
-      });
-      setEditingId(null);
-      fetchPermanentDetails();
-    } catch (error) {
-      console.error('Error saving permanent details:', error);
-      alert('Error saving permanent details: ' + error.message);
+      setShowForm(false);
+      setEditing(null);
+      await loadRows();
+    } catch (err) {
+      setFormError(
+        err.status === 409
+          ? (form.company_id ? 'This branch already has a header for that company.' : 'This branch already has a default header.')
+          : err.message
+      );
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleEdit = (detail) => {
-    setFormData({
-      branch_id: detail.branch_id,
-      transport_name: detail.transport_name || '',
-      gst: detail.gst || '',
-      mobile_number: detail.mobile_number || '',
-      bank_act_no_1: detail.bank_act_no_1 || '',
-      ifsc_code_1: detail.ifsc_code_1 || '',
-      bank_act_no_2: detail.bank_act_no_2 || '',
-      ifsc_code_2: detail.ifsc_code_2 || '',
-      transport_address: detail.transport_address || '',
-      website: detail.website || ''
-    });
-    setEditingId(detail.id);
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this permanent detail?')) return;
-
+  const handleDelete = async (row) => {
+    if (row.is_default) return;
+    if (!confirm(`Delete the ${row.company_name || 'company'} header for ${row.branch_name}?\n\nBilties of this company will print with the branch default header.`)) return;
+    setDeletingId(row.id);
+    setError('');
     try {
-      setLoading(true);
-      const { error } = await supabase
-        .from('permanent_details')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      alert('Permanent details deleted successfully!');
-      fetchPermanentDetails();
-    } catch (error) {
-      console.error('Error deleting permanent details:', error);
-      alert('Error deleting permanent details: ' + error.message);
+      await api(`/permanent-details/${row.id}`, { method: 'DELETE' });
+      await loadRows();
+    } catch (err) {
+      setError(err.message);
     } finally {
-      setLoading(false);
+      setDeletingId(null);
     }
   };
 
-  const cancelEdit = () => {
-    setFormData({
-      branch_id: '',
-      transport_name: '',
-      gst: '',
-      mobile_number: '',
-      bank_act_no_1: '',
-      ifsc_code_1: '',
-      bank_act_no_2: '',
-      ifsc_code_2: '',
-      transport_address: '',
-      website: ''
-    });
-    setEditingId(null);
-  };
+  const q = search.trim().toLowerCase();
+  const visible = rows
+    .filter(r => !q || [r.branch_name, r.company_name, r.transport_name, r.gst, r.mobile_number]
+      .some(v => v?.toLowerCase().includes(q)))
+    .sort((a, b) =>
+      (a.branch_name || '').localeCompare(b.branch_name || '') ||
+      (a.is_default === b.is_default ? 0 : a.is_default ? -1 : 1) ||
+      (a.company_name || '').localeCompare(b.company_name || ''));
 
-  const downloadCSV = () => {
-    const dataToExport = searchTerm && filteredDetails.length > 0 ? filteredDetails : permanentDetails;
-    
-    if (dataToExport.length === 0) {
-      alert('No data to export');
-      return;
-    }
-
-    const headers = ['Branch Name', 'Branch Code', 'Transport Name', 'GST', 'Mobile', 'Bank A/C 1', 'IFSC 1', 'Bank A/C 2', 'IFSC 2', 'Address', 'Website'];
-    const csvContent = [
-      headers.join(','),
-      ...dataToExport.map(detail => [
-        `"${detail.branches?.branch_name || ''}"`,
-        `"${detail.branches?.branch_code || ''}"`,
-        `"${detail.transport_name || ''}"`,
-        `"${detail.gst || ''}"`,
-        `"${detail.mobile_number || ''}"`,
-        `"${detail.bank_act_no_1 || ''}"`,
-        `"${detail.ifsc_code_1 || ''}"`,
-        `"${detail.bank_act_no_2 || ''}"`,
-        `"${detail.ifsc_code_2 || ''}"`,
-        `"${(detail.transport_address || '').replace(/"/g, '""')}"`,
-        `"${detail.website || ''}"`
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `permanent_details_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert(`Exported ${dataToExport.length} permanent details to CSV`);
-  };
-
-  const clearSearch = () => {
-    setSearchTerm('');
-  };
+  const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-black bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500';
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-black">Manage Permanent Details</h2>
-        <button
-          onClick={downloadCSV}
-          disabled={permanentDetails.length === 0}
-          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          📥 Export CSV
+    <div className="space-y-5">
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className={`${inputCls} md:w-64`}>
+          <option value="">All branches</option>
+          {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name}</option>)}
+        </select>
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, GST, mobile..."
+            className={`${inputCls} pl-9`} />
+        </div>
+        <button onClick={loadRows} disabled={loading} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+        <button onClick={openCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Add Header
         </button>
       </div>
 
-      {branches.length === 0 && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg mb-6 flex items-center">
-          <span className="mr-2">⚠️</span>
-          <span className="font-medium">Please add branches first before adding permanent details.</span>
+      <p className="text-xs text-gray-500">
+        Each branch has one <b>Default</b> header (old bilties and bilties with no company). Add a header per company
+        so that company&apos;s bills print its own name, GST and banks. The print layout is set per series in Bill Books.
+      </p>
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black pl-10"
-            placeholder="🔍 Search by transport name, branch, GST, mobile, or address..."
-          />
-          {searchTerm && (
-            <button
-              onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              ✖
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Add/Edit Form */}
-      <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 p-6 rounded-lg">
-        <h3 className="text-lg font-semibold text-black mb-4">
-          {editingId ? '✏️ Edit Permanent Details' : '➕ Add New Permanent Details'}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Branch *
-            </label>
-            <select
-              value={formData.branch_id}
-              onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              disabled={loading || branches.length === 0}
-              required
-            >
-              <option value="">Select Branch</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.branch_name} ({branch.branch_code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Transport Name *
-            </label>
-            <input
-              type="text"
-              value={formData.transport_name}
-              onChange={(e) => setFormData({ ...formData, transport_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter transport name"
-              disabled={loading}
-              required
-              maxLength={100}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              GST Number
-            </label>
-            <input
-              type="text"
-              value={formData.gst}
-              onChange={(e) => setFormData({ ...formData, gst: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter GST number"
-              disabled={loading}
-              maxLength={15}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Mobile Number
-            </label>
-            <input
-              type="tel"
-              value={formData.mobile_number}
-              onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter mobile number"
-              disabled={loading}
-              maxLength={15}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Bank Account 1
-            </label>
-            <input
-              type="text"
-              value={formData.bank_act_no_1}
-              onChange={(e) => setFormData({ ...formData, bank_act_no_1: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter bank account number"
-              disabled={loading}
-              maxLength={50}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              IFSC Code 1
-            </label>
-            <input
-              type="text"
-              value={formData.ifsc_code_1}
-              onChange={(e) => setFormData({ ...formData, ifsc_code_1: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter IFSC code"
-              disabled={loading}
-              maxLength={11}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Bank Account 2
-            </label>
-            <input
-              type="text"
-              value={formData.bank_act_no_2}
-              onChange={(e) => setFormData({ ...formData, bank_act_no_2: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter bank account number"
-              disabled={loading}
-              maxLength={50}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              IFSC Code 2
-            </label>
-            <input
-              type="text"
-              value={formData.ifsc_code_2}
-              onChange={(e) => setFormData({ ...formData, ifsc_code_2: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter IFSC code"
-              disabled={loading}
-              maxLength={11}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Website
-            </label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="https://example.com"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="md:col-span-2 lg:col-span-3">
-            <label className="block text-sm font-medium text-black mb-2">
-              Transport Address
-            </label>
-            <textarea
-              value={formData.transport_address}
-              onChange={(e) => setFormData({ ...formData, transport_address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter transport address"
-              rows="3"
-              disabled={loading}
-              maxLength={500}
-            />
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={loading || branches.length === 0}
-            className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? '⏳ Saving...' : editingId ? '✏️ Update Details' : '➕ Add Details'}
-          </button>
-          
-          {editingId && (
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600 font-medium"
-            >
-              ❌ Cancel
-            </button>
-          )}
-        </div>
-      </form>
-
-      {/* Statistics */}
-      <div className="mb-4 flex justify-between items-center">
-        <div className="text-sm text-black">
-          <span className="font-medium">Total Details: {permanentDetails.length}</span>
-          {searchTerm && (
-            <span className="ml-4 text-blue-600">
-              Filtered: {filteredDetails.length} of {permanentDetails.length}
-            </span>
-          )}
-        </div>
-        {searchTerm && (
-          <button
-            onClick={clearSearch}
-            className="text-blue-600 hover:text-blue-800 text-sm underline"
-          >
-            Clear Search
-          </button>
-        )}
-      </div>
-
-      {/* Details List */}
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full table-auto border-collapse text-sm">
-          <thead>
-            <tr className="bg-gray-100 border-b">
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Branch</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Transport Name</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">GST</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Mobile</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Bank 1</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Bank 2</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Address</th>
-              <th className="border-r px-3 py-2 text-left font-bold text-black">Website</th>
-              <th className="px-3 py-2 text-left font-bold text-black">Actions</th>
+      {/* List */}
+      <div className="overflow-x-auto border border-gray-200 rounded-xl">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+            <tr>
+              <th className="p-3 text-left">Branch</th>
+              <th className="p-3 text-left">Header For</th>
+              <th className="p-3 text-left">Name / GST</th>
+              <th className="p-3 text-left">Mobile</th>
+              <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredDetails.length > 0 ? filteredDetails.map((detail, index) => (
-              <tr key={detail.id} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                <td className="border-r px-3 py-2 text-black">
-                  <div className="font-medium">{detail.branches?.branch_name || 'N/A'}</div>
-                  <div className="text-xs text-gray-600">{detail.branches?.branch_code || ''}</div>
-                </td>
-                <td className="border-r px-3 py-2 text-black font-medium">{detail.transport_name || '-'}</td>
-                <td className="border-r px-3 py-2 text-black">{detail.gst || '-'}</td>
-                <td className="border-r px-3 py-2 text-black">{detail.mobile_number || '-'}</td>
-                <td className="border-r px-3 py-2 text-black">
-                  {detail.bank_act_no_1 ? (
-                    <div>
-                      <div className="font-medium">{detail.bank_act_no_1}</div>
-                      <div className="text-xs text-gray-600">{detail.ifsc_code_1 || ''}</div>
-                    </div>
-                  ) : '-'}
-                </td>
-                <td className="border-r px-3 py-2 text-black">
-                  {detail.bank_act_no_2 ? (
-                    <div>
-                      <div className="font-medium">{detail.bank_act_no_2}</div>
-                      <div className="text-xs text-gray-600">{detail.ifsc_code_2 || ''}</div>
-                    </div>
-                  ) : '-'}
-                </td>
-                <td className="border-r px-3 py-2 text-black">
-                  <div className="max-w-xs truncate" title={detail.transport_address}>
-                    {detail.transport_address || '-'}
-                  </div>
-                </td>
-                <td className="border-r px-3 py-2 text-black">
-                  {detail.website ? (
-                    <a 
-                      href={detail.website} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 underline"
-                    >
-                      🔗 Link
-                    </a>
-                  ) : '-'}
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEdit(detail)}
-                      className="text-blue-600 hover:text-blue-800 text-xs px-2 py-1"
-                      disabled={loading}
-                      title="Edit"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDelete(detail.id)}
-                      className="text-red-600 hover:text-red-800 text-xs px-2 py-1"
-                      disabled={loading}
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                      Loading permanent details...
-                    </div>
-                  ) : searchTerm ? (
-                    <div>
-                      <p className="text-lg mb-2">🔍 No details found matching {searchTerm}</p>
-                      <button
-                        onClick={clearSearch}
-                        className="text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Clear search to see all details
-                      </button>
-                    </div>
-                  ) : branches.length === 0 ? (
-                    <div>
-                      <p className="text-lg mb-2">🏢 No branches available</p>
-                      <p className="text-sm">Please add branches first before adding permanent details</p>
-                    </div>
+            {loading && rows.length === 0 && (
+              <tr><td colSpan={5} className="p-6 text-center text-gray-500">Loading...</td></tr>
+            )}
+            {!loading && visible.length === 0 && (
+              <tr><td colSpan={5} className="p-6 text-center text-gray-500">No permanent details found.</td></tr>
+            )}
+            {visible.map(row => (
+              <tr key={row.id} className="border-t border-gray-100 align-top">
+                <td className="p-3 font-semibold text-gray-900">{row.branch_name || '-'}</td>
+                <td className="p-3">
+                  {row.is_default ? (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Default</span>
                   ) : (
-                    <div>
-                      <p className="text-lg mb-2">📋 No permanent details found</p>
-                      <p className="text-sm">Add your first permanent details using the form above</p>
-                    </div>
+                    <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold text-xs">
+                      <Building2 className="w-3.5 h-3.5" /> {row.company_name || 'Company'}
+                    </span>
                   )}
                 </td>
+                <td className="p-3">
+                  <div className="font-semibold text-gray-900">{row.transport_name || '-'}</div>
+                  <div className="text-xs text-gray-500">{row.gst || 'No GST'}</div>
+                </td>
+                <td className="p-3 text-gray-700">{row.mobile_number || '-'}</td>
+                <td className="p-3">
+                  <div className="flex justify-end gap-1">
+                    <button onClick={() => openEdit(row)} title="Edit"
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Pencil className="w-4 h-4" /></button>
+                    {!row.is_default && (
+                      <button onClick={() => handleDelete(row)} disabled={deletingId === row.id} title="Delete company header"
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded disabled:opacity-50">
+                        {deletingId === row.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>
+
+      {/* Create / Edit form */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={closeForm}>
+          <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl my-8">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-bold text-gray-900">
+                {editing ? `Edit Header — ${editing.branch_name}${editing.is_default ? ' (Default)' : ` · ${editing.company_name}`}` : 'Add Print Header'}
+              </h3>
+              <button type="button" onClick={closeForm} className="p-1.5 hover:bg-gray-100 rounded"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {formError && (
+                <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {formError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Branch *</label>
+                  <select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
+                    disabled={!!editing} className={inputCls} required>
+                    <option value="">Select branch...</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Company</label>
+                  <select value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}
+                    disabled={!!editing} className={inputCls}>
+                    <option value="">Default (no company)</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {editing && (
+                <p className="text-xs text-gray-500 -mt-2">Branch and company can&apos;t be changed — add a new header instead.</p>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {TEXT_FIELDS.map(f => (
+                  <div key={f.key} className={f.span === 2 ? 'md:col-span-2' : ''}>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">{f.label}{f.required && ' *'}</label>
+                    {f.textarea ? (
+                      <textarea rows={2} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        className={inputCls} />
+                    ) : (
+                      <input value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        className={inputCls} required={f.required} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-4 border-t bg-gray-50 rounded-b-xl">
+              <button type="button" onClick={closeForm} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white">Cancel</button>
+              <button type="submit" disabled={saving}
+                className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {editing ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

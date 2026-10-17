@@ -10,6 +10,8 @@ export default function BillBookManager() {
   const [branches, setBranches] = useState([]);
   const [users, setUsers] = useState([]);
   const [companies, setCompanies] = useState([]);
+  // Print layouts (templates/templateN.js) from /api/bilty/print-templates
+  const [printTemplates, setPrintTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBillBook, setEditingBillBook] = useState(null);
@@ -22,6 +24,7 @@ export default function BillBookManager() {
     branch_id: '',
     consignor_id: '',
     company_id: '',
+    print_template: 'template1',
     is_fixed: false,
     auto_continue: false,
     is_active: true
@@ -32,6 +35,7 @@ export default function BillBookManager() {
     fetchBranches();
     fetchUsers();
     fetchCompanies();
+    fetchPrintTemplates();
   }, []);
 
   const fetchBillBooks = async () => {
@@ -164,6 +168,21 @@ export default function BillBookManager() {
     }
   };
 
+  const fetchPrintTemplates = async () => {
+    try {
+      const res = await fetch('https://api.movesure.io/api/bilty/print-templates');
+      const json = await res.json();
+      if (json.status === 'success') {
+        setPrintTemplates((json.data || []).filter(t => t.is_active !== false));
+      }
+    } catch (error) {
+      console.error('Error fetching print templates:', error);
+    }
+  };
+
+  const templateName = (code) =>
+    printTemplates.find(t => t.code === code)?.name || code || 'template1';
+
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
@@ -204,6 +223,8 @@ export default function BillBookManager() {
         branch_id: formData.branch_id || null,
         consignor_id: formData.consignor_id || null,
         company_id: formData.company_id || null,
+        // Layout used to print this series (DB rejects codes not in print_templates)
+        print_template: formData.print_template || 'template1',
         is_fixed: formData.is_fixed,
         auto_continue: formData.auto_continue,
         is_active: formData.is_active,
@@ -253,6 +274,7 @@ export default function BillBookManager() {
       branch_id: '',
       consignor_id: '',
       company_id: '',
+      print_template: 'template1',
       is_fixed: false,
       auto_continue: false,
       is_active: true
@@ -270,6 +292,7 @@ export default function BillBookManager() {
       branch_id: billBook.branch_id || '',
       consignor_id: billBook.consignor_id || '',
       company_id: billBook.company_id || '',
+      print_template: billBook.print_template || 'template1',
       is_fixed: billBook.is_fixed,
       auto_continue: billBook.auto_continue,
       is_active: billBook.is_active
@@ -489,6 +512,35 @@ export default function BillBookManager() {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Print Template
+                </label>
+                <select
+                  value={formData.print_template}
+                  onChange={(e) => setFormData({ ...formData, print_template: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {printTemplates.length === 0 && <option value="template1">Template 1 (Classic)</option>}
+                  {printTemplates.map((t) => (
+                    <option key={t.code} value={t.code}>{t.name}</option>
+                  ))}
+                </select>
+                {printTemplates.find(t => t.code === formData.print_template)?.description && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    {printTemplates.find(t => t.code === formData.print_template).description}
+                  </p>
+                )}
+                {printTemplates.find(t => t.code === formData.print_template)?.preview_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={printTemplates.find(t => t.code === formData.print_template).preview_url}
+                    alt="Template preview"
+                    className="mt-2 h-24 rounded border border-gray-200 object-contain bg-gray-50"
+                  />
+                )}
+              </div>
+
               <div className="md:col-span-3 flex flex-wrap gap-4">
                 <label className="flex items-center">
                   <input
@@ -558,6 +610,9 @@ export default function BillBookManager() {
                   </p>
                   <p className="text-sm text-indigo-600 font-medium">
                     {billBook.company?.company_name || 'No company assigned'}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    🖨️ {templateName(billBook.print_template)}
                   </p>
                 </div>
                 <span

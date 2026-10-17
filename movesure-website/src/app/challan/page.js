@@ -51,6 +51,28 @@ export default function TransitManagement() {
   // PDF Preview states
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewType, setPdfPreviewType] = useState(null); // 'loading' or 'challan'
+
+  // Does this challan belong to this challan book? Prefers the real
+  // challan_details.challan_book_id (migration 014, stamped on every challan
+  // created since); for challans created before that migration
+  // (challan_book_id null) falls back to inferring from challan_no's
+  // prefix + digit-width + postfix + range. Kept in sync with the identical
+  // helper in components/transit/ChallanSelector.js.
+  const challanBelongsToBook = (challan, book) => {
+    if (!book || !challan) return false;
+    if (challan.challan_book_id) return challan.challan_book_id === book.id;
+    if (!challan.challan_no) return false;
+    const no = String(challan.challan_no);
+    const prefix = book.prefix || '';
+    const postfix = book.postfix || '';
+    if (prefix && !no.startsWith(prefix)) return false;
+    if (postfix && !no.endsWith(postfix)) return false;
+    const middle = no.slice(prefix.length, no.length - postfix.length);
+    if (middle.length !== book.digits || !/^\d+$/.test(middle)) return false;
+    const num = parseInt(middle, 10);
+    return num >= book.from_number && num <= book.to_number;
+  };
+
   // Sort function for GR numbers to handle alphanumeric sorting properly
   const sortByGRNumber = (a, b) => {
     const grA = a.gr_no || '';
@@ -222,24 +244,31 @@ export default function TransitManagement() {
 
       const { challansData, challanBooksData, userBranch } = processInitData(initResult.data);
 
-      // Auto-select the most recent active (non-dispatched) challan first, fallback to dispatched
-      const activeChallans = challansData.filter(c => !c.is_dispatched);
-      let autoSelectedChallan = activeChallans[0] || challansData.find(c => c.is_dispatched) || null;
+      // Auto-select the branch's default challan book FIRST (set once, in branch
+      // settings) — the initial challan selection below must be scoped to it,
+      // otherwise the page can open showing/selecting a challan from a
+      // different book/company than the one this branch defaults to.
+      let defaultChallanBook = null;
+      if (challanBooksData.length > 0) {
+        defaultChallanBook = userBranch?.default_challan_book_id
+          ? challanBooksData.find(b => b.id === userBranch.default_challan_book_id) || challanBooksData[0]
+          : challanBooksData[0];
+        setSelectedChallanBook(defaultChallanBook);
+      }
+
+      // Auto-select the most recent active (non-dispatched) challan that
+      // belongs to the default book, fallback to a dispatched one from that
+      // same book — never from a different book.
+      const challansInDefaultBook = defaultChallanBook
+        ? challansData.filter(c => challanBelongsToBook(c, defaultChallanBook))
+        : challansData;
+      const activeChallans = challansInDefaultBook.filter(c => !c.is_dispatched);
+      let autoSelectedChallan = activeChallans[0] || challansInDefaultBook.find(c => c.is_dispatched) || null;
 
       // Load transit bilties for auto-selected challan
       if (autoSelectedChallan) {
         setSelectedChallan(autoSelectedChallan);
         await loadTransitBilties(autoSelectedChallan.challan_no);
-      }
-
-      // Auto-select the branch's default challan book (set once, in branch settings)
-      // so the operator always starts on the right book/company; falls back to the
-      // first available book if no default has been configured yet.
-      if (challanBooksData.length > 0) {
-        const defaultChallanBook = userBranch?.default_challan_book_id
-          ? challanBooksData.find(b => b.id === userBranch.default_challan_book_id) || challanBooksData[0]
-          : challanBooksData[0];
-        setSelectedChallanBook(defaultChallanBook);
       }
 
       initialLoadDone.current = true;
@@ -574,6 +603,8 @@ export default function TransitManagement() {
           transitBilties={transitBilties}
           selectedBilties={selectedBilties}
           selectedChallan={selectedChallan}
+          selectedChallanBook={selectedChallanBook}
+          companies={companies}
           totalAvailableCount={totalAvailableCount}
           availableCount={filteredAvailableCount}
           onRefresh={() => refreshData('all')}

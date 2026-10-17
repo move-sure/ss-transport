@@ -22,7 +22,8 @@ const PrintModal = ({
   showPaymentForm: propShowPaymentForm,
   setShowPaymentForm: propSetShowPaymentForm,
   paymentStatus: propPaymentStatus,
-  setPaymentStatus: propSetPaymentStatus
+  setPaymentStatus: propSetPaymentStatus,
+  billBookId = null // selected bill book (series) - used for template/header before the bilty has an id
 }) => {
   const [showPDFGenerator, setShowPDFGenerator] = useState(false);
   const [whatsappSending, setWhatsappSending] = useState(false);
@@ -332,6 +333,7 @@ const PrintModal = ({
         branchData={branchData}
         fromCityName={fromCityName}
         toCityName={toCityName}
+        billBookId={billBookId}
         onClose={closePDFGenerator}
       />
     );

@@ -623,6 +623,27 @@ export default function BiltyForm() {
     }
   };
 
+  // Does this GR number belong to the bill book? Bilties don't store their bill book
+  // (company_id is empty on saved rows), so match on the book's prefix / postfix / number range.
+  const grBelongsToBook = (grNo, book) => {
+    if (!book || !grNo) return true;
+    const gr = String(grNo).trim().toUpperCase();
+    const prefix = (book.prefix || '').toUpperCase();
+    const postfix = (book.postfix || '').toUpperCase();
+    if (!gr.startsWith(prefix) || !gr.endsWith(postfix)) return false;
+    const middle = gr.slice(prefix.length, gr.length - postfix.length);
+    if (!/^\d+$/.test(middle)) return false;
+    const num = parseInt(middle, 10);
+    const from = book.from_number ?? -Infinity;
+    const to = book.to_number ?? Infinity;
+    return num >= from && num <= to;
+  };
+
+  // Edit list shows only the selected bill book's bilties
+  const bookBilties = selectedBillBook
+    ? existingBilties.filter(b => grBelongsToBook(b.gr_no, selectedBillBook))
+    : existingBilties;
+
   const generateGRNumber = (billBook) => {
     if (!billBook) return '';
     const { prefix, current_number, digits, postfix } = billBook;
@@ -929,7 +950,7 @@ export default function BiltyForm() {
       // ⭐ BACKGROUND PDF UPLOAD — lazy-load jsPDF only when needed
       if (savedData && savedData.id) {
         import('../../utils/biltyPdfUpload').then(({ uploadBiltyPdf }) => {
-          uploadBiltyPdf(savedData, null)
+          uploadBiltyPdf(savedData, null, savedData.bill_book_id || selectedBillBook?.id || null)
             .then((url) => {
               if (url) console.log('📄 [Background] PDF uploaded:', url);
             })
@@ -1144,20 +1165,35 @@ export default function BiltyForm() {
                     ? `${selectedBillBook.prefix || ''}...${selectedBillBook.postfix || ''} — ${companies.find(c => c.id === selectedBillBook.company_id)?.company_name || 'No company'}`
                     : 'Select Bill Book'}
                 </span>
+                {selectedBillBook && selectedBillBook.id === branchData?.default_bill_book_id && (
+                  <span className="px-1 rounded bg-emerald-500 text-white text-[9px] font-bold uppercase">Default</span>
+                )}
                 <ChevronDown className="w-3 h-3" />
               </button>
 
               {showBillBookDropdown && (
                 <div className="absolute z-30 left-0 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                  {billBooks.map((book) => (
+                  {billBooks.map((book) => {
+                    const isBranchDefault = book.id === branchData?.default_bill_book_id;
+                    const isSelected = book.id === selectedBillBook?.id;
+                    return (
                     <button
                       key={book.id}
                       onClick={() => handleBillBookSelect(book)}
-                      className="w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 transition-colors first:rounded-t-lg last:rounded-b-lg last:border-b-0"
+                      className={`w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-100 transition-colors first:rounded-t-lg last:rounded-b-lg last:border-b-0 ${
+                        isSelected ? 'bg-slate-100' : ''
+                      }`}
                     >
-                      <div className="text-xs font-bold text-black">
-                        {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} -
-                        {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                      <div className="text-xs font-bold text-black flex items-center gap-1.5">
+                        <span>
+                          {book.prefix || ''}{String(book.from_number).padStart(book.digits, '0')} -
+                          {book.prefix || ''}{String(book.to_number).padStart(book.digits, '0')}{book.postfix || ''}
+                        </span>
+                        {isBranchDefault && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase tracking-wide">
+                            Default
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-indigo-600 font-medium">
                         {companies.find(c => c.id === book.company_id)?.company_name || 'No company assigned'}
@@ -1166,7 +1202,8 @@ export default function BiltyForm() {
                         Next: {generateGRNumber(book)}
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1203,7 +1240,7 @@ export default function BiltyForm() {
             setIsEditMode={setIsEditMode}
             toggleEditMode={toggleEditMode}
             resetForm={resetForm}
-            existingBilties={existingBilties}
+            existingBilties={bookBilties}
             showShortcuts={showShortcuts}
             cities={cities}
             grSequenceError={grSequenceError}
@@ -1298,6 +1335,7 @@ export default function BiltyForm() {
         setShowPaymentForm={setShowPaymentForm}
         paymentStatus={paymentStatus}
         setPaymentStatus={setPaymentStatus}
+        billBookId={savedBiltyData?.bill_book_id || selectedBillBook?.id || null}
       />      {/* Print Component */}
       {showPrintBilty && savedBiltyData && (
         <PrintBilty

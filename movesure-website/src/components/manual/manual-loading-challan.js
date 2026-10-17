@@ -69,7 +69,7 @@ const ManualLoadingChallan = ({ userBranch, branches = [] }) => {
         supabase
           .from('permanent_details')
           .select('*')
-          .eq('branch_id', userBranch.id)
+          .eq('branch_id', userBranch.id).is('company_id', null)
           .single()
       ]);
 

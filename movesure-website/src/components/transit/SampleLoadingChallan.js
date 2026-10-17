@@ -2,7 +2,7 @@
 import jsPDF from 'jspdf';
 import { Download } from 'lucide-react';
 
-const SampleLoadingChallan = ({ userBranch, permanentDetails }) => {
+const SampleLoadingChallan = ({ userBranch, permanentDetails, company }) => {
   
   const generateSamplePDF = () => {
     const doc = new jsPDF('portrait', 'mm', 'a4');
@@ -19,9 +19,12 @@ const SampleLoadingChallan = ({ userBranch, permanentDetails }) => {
     doc.text('LOADING CHALLAN', pageWidth / 2, 15, { align: 'center' });
     
     // Company Name only - no address or contact
+    // Multi-company letterhead: use the currently selected challan book's
+    // company if one is tagged; falls back to the original hardcoded name
+    // when no company is set (old/untagged books).
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('SS TRANSPORT', pageWidth / 2, 23, { align: 'center' });
+    doc.text(company?.company_name || 'SS TRANSPORT', pageWidth / 2, 23, { align: 'center' });
 
     // Date and Details Section - reduced spacing
     let yPos = 32; // Much closer to header

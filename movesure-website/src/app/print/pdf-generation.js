@@ -305,7 +305,7 @@ const PDFGenerator = ({
       
       // Load all required data in parallel
       const [permRes, fromCityRes, toCityRes] = await Promise.all([
-        supabase.from('permanent_details').select('*').eq('branch_id', biltyData.branch_id).single(),
+        supabase.from('permanent_details').select('*').eq('branch_id', biltyData.branch_id).is('company_id', null).single(),
         biltyData.from_city_id ? 
           supabase.from('cities').select('*').eq('id', biltyData.from_city_id).single() : 
           Promise.resolve({ data: null }),

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { Download, X, RefreshCw, Printer, FileText, Eye, Package, DollarSign, TruckIcon } from 'lucide-react';
+import { Download, X, RefreshCw, Printer, FileText, Eye, Package, DollarSign, TruckIcon, AlertTriangle } from 'lucide-react';
 
 const PDFViewerUI = ({
   biltyData,
@@ -21,6 +21,7 @@ const PDFViewerUI = ({
   onToggleDriverCharges,
   onToggleBothCharges,
   consigneeCopy = false,
+  warning = '',
   onToggleConsigneeCopy,
 }) => {
   const printButtonRef = useRef(null);
@@ -90,6 +91,13 @@ const PDFViewerUI = ({
               Download
             </button>
           </div>
+
+          {/* Mobile — header warning */}
+          {warning && (
+            <div className="mt-3 flex items-center gap-2 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg px-3 py-2 text-xs font-semibold">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {warning}
+            </div>
+          )}
 
           {/* Mobile — Consignee Copy Toggle */}
           {onToggleConsigneeCopy && (
@@ -274,6 +282,13 @@ const PDFViewerUI = ({
                   </div>
                 </div>
               </div>
+
+              {/* Header warning (e.g. company header not set) */}
+              {warning && (
+                <div className="flex items-center gap-2 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg px-3 py-2 text-xs font-semibold">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {warning}
+                </div>
+              )}
 
               {/* Copy Tag Toggle */}
               {onToggleConsigneeCopy && (

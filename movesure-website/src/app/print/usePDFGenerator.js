@@ -506,7 +506,7 @@ export const usePDFGenerator = (biltyData, branchData) => {
       const { data: permDetailsData, error: permError } = await supabase
         .from('permanent_details')
         .select('*')
-        .eq('branch_id', biltyData.branch_id)
+        .eq('branch_id', biltyData.branch_id).is('company_id', null)
         .single();
 
       if (permError) throw permError;

@@ -1,0 +1,922 @@
+// Template 1 (Classic) - the original bilty print layout.
+// Two copies on one A4 sheet: top copy (CONSIGNOR / CONSIGNEE) + DRIVER copy.
+// Header (name, GST, banks, address, website, mobile) comes from the permanent_details row.
+
+import { jsPDF } from 'jspdf';
+
+// ==========================================
+// �📐 COORDINATE CONFIGURATION SECTION
+// ==========================================
+// All coordinates are in millimeters (mm) for A4 paper (210 x 297 mm)
+// You can easily modify these coordinates to adjust the layout
+
+const COORDINATES = {
+  // 🏢 HEADER SECTION
+  HEADER: {
+    GST_NO: { x: 8, y: 8 },                    // Top left GST number
+    COMPANY_NAME: { x: 105, y: 18 },             // Center company name
+    BANK_DETAIL_1: { x: 12, y: 25 },             // First bank detail line
+    BANK_DETAIL_2: { x: 12, y: 28 },             // Second bank detail line
+    BRANCH_ADDRESS_1: { x:120, y: 43 },         // Right side address line 1
+    BRANCH_ADDRESS_2: { x: 120, y: 43 },         // Right side address line 2
+  },    // 📱 QR CODE AND GR NUMBER SECTION
+  QR_SECTION: {                
+    QR_CODE: { x: 180, y: 10, width: 25, height: 25 },  // QR code position and size
+    GR_BOX: { x: 140, y: 45, width: 65, height: 12 },   // GR number box - made bigger (width: 60→65, height: 10→12)
+    GR_LABEL: { x: 143, y: 52.5 },                      // "GR NO" text - centered in left half of box
+    GR_NUMBER: { x: 158.5, y: 52.5 },                     // Actual GR number - centered in right half of box
+    CAUTION_BOX: { x: 140, y: 57, width: 65, height: 22 }, // Caution box - matched GR box width and made taller
+    CAUTION_LABEL: { x: 172, y: 61 },                 // "CAUTION" text - centered horizontally
+    CAUTION_TEXT_START: { x: 142, y: 64 },              // Caution description start - with proper margins
+  },
+
+  // 🎯 COPY TYPE AND DATE SECTION
+  COPY_SECTION: {
+    COPY_TYPE: { x: 105, y: 10 },               // "CONSIGNEE COPY" / "DRIVER COPY"
+    COPY_UNDERLINE: { x1: 85, y: 10, x2: 125 }, // Underline for copy type
+    DATE: { x: 12, y: 35 },                     // Date field
+    ROUTE: { x: 55, y: 37 },                    // Route (FROM TO CITY)
+  },
+
+  // 🚚 DELIVERY AND CONTACT SECTION
+  DELIVERY_SECTION: {
+    DELIVERY_AT: { x: 12, y: 45 },              // Delivery at transport (without delivery type)
+    GSTIN: { x: 12, y: 50 },                    // GSTIN number
+    MOBILE: { x: 60, y: 50 },                  // Mobile number
+    DELIVERY_TYPE: { x: 175, y: 95 },          // NEW: Delivery type near payment mode (moved closer)
+  },
+
+  // 👥 CONSIGNOR AND CONSIGNEE SECTION
+  PEOPLE_SECTION: {
+    CONSIGNOR_NAME: { x: 12, y: 60 },           // Consignor name
+    CONSIGNOR_GST: { x: 12, y: 65 },            // Consignor GST
+    CONSIGNOR_MOBILE: { x: 60, y: 65 },        // Consignor mobile
+    
+    CONSIGNEE_NAME: { x: 12, y: 75 },           // Consignee name
+    CONSIGNEE_GST: { x: 12, y: 80 },           // Consignee GST/Aadhar/PAN
+    CONSIGNEE_MOBILE: { x: 60, y: 80 },       // Consignee mobile
+    
+    EWAY_BILL: { x: 12, y: 90 },               // E-way bill
+  },    // 📋 MAIN TABLE SECTION
+  TABLE_SECTION: {
+    TOP_LINE: { x1: 0, y: 136, x2: 250 },      // Top horizontal line
+    
+    // Left section - Invoice details
+    INVOICE_DATE: { x: 12, y: 100 },
+    INVOICE_DATE_VALUE: { x: 45, y: 100},
+    INVOICE_NO: { x: 12, y: 105 },
+    INVOICE_NO_VALUE: { x: 45, y: 105 },
+    INVOICE_VALUE: { x: 12, y: 110 },
+    INVOICE_VALUE_VALUE: { x: 45, y: 110 },      CONTENT: { x: 80, y: 115 },                         // Content positioned a little down
+    CONTENT_VALUE: { x: 100, y: 115 },                  // Content value positioned a little down
+      // Middle section - Package details with box
+    PVT_BOX: { x: 70, y: 91, width: 80, height: 14 },    // Box around PVT MARKS and CITY CODE (moved down a little)
+    PVT_BOX_DIVIDER: { x: 110, y1: 91, y2: 105 },       // Vertical divider in middle of box
+      // PVT MARKS section (left side of box) - Centered
+    PVT_LABEL: { x: 90, y: 96 },                      // "PVT MARKS:" label
+    PVT_VALUE: { x: 90, y: 101 },                      // PVT MARKS value
+      // CITY CODE section (right side of box) - Centered
+    CITY_LABEL: { x: 130, y: 96 },                    // "CITY CODE:" label
+    CITY_VALUE: { x: 130, y: 101 },                    // City code value
+    
+    WEIGHT: { x: 80, y: 111 },                          // Weight positioned a little down
+    
+    // Right section - Charges (vertical line separates this)
+    VERTICAL_LINE: { x: 150, y1: 95, y2: 136 }, // Vertical separator line
+    
+    AMOUNT: { x: 155, y: 100 },
+    LABOUR_CHARGE: { x: 155, y: 104 },
+    BILTY_CHARGE: { x: 155, y: 108 },
+    TOLL_TAX: { x: 155, y: 112 },
+    PF: { x: 155, y: 116 },
+    OTHER_CHARGE: { x: 155, y: 120 },
+    
+    // Total section
+    TOTAL_LINE: { x1: 150, y: 125, x2: 250 },    // Line above total
+    TOTAL: { x: 155, y: 132 },                    // Total amount
+    
+    PAYMENT_STATUS: { x: 168, y: 90 },           // PAID/TO PAY status - below caution box
+  },
+
+  // 📢 NOTICE SECTION
+  NOTICE_SECTION: {
+    NOTICE_LABEL: { x: 67, y: 122 },             // "NOTICE" text
+    NOTICE_BOX: { x: 10, y: 150, width: 30, height: 15 }, // Box around notice (optional)
+  },
+
+  // 📄 FOOTER SECTION
+  FOOTER_SECTION: {
+    FOOTER_LINE: { x1: 0, y: 118, x2: 150 },    // Bottom horizontal line
+    WEBSITE: { x: 12, y: 141 },                   // Website
+    BOOKED_RISK: { x: 80, y: 140 },              // "BOOKED AT OWNER'S RISK"
+    CUSTOMER_CARE: { x: 12, y: 145 },            // Customer care
+    SIGNATURE: { x: 150, y: 146 },               // Signature line
+  },    // 📏 NEW: EXTRA VERTICAL LINES SECTION
+  EXTRA_LINES: {
+    VERTICAL_LINE_1: { x: 70, y1: 95, y2: 118 },   // First extra vertical line
+    VERTICAL_LINE_2: { x: 156, y1: 45, y2: 57 }, // Second extra vertical line - centered in GR box divider
+  },
+
+  // 📏 SPACING AND OFFSETS
+  SPACING: {
+    SECOND_COPY_OFFSET: 148,                      // Y offset for driver copy
+    DASHED_LINE_Y: 148,                           // Y position of dashed separator
+    LINE_HEIGHT: 5,                               // Standard line height
+    SECTION_SPACING: 10,                          // Space between sections
+  }
+};
+// ==========================================
+// 🎨 ENHANCED STYLING CONFIGURATION
+// ==========================================
+const STYLES = {
+  FONTS: {
+    // Professional fonts for better print quality
+    HEADER: { size: 18, weight: 'bold', family: 'times' },        // Times for professional headers
+    NORMAL: { size: 10, weight: 'normal', family: 'times' },      // Times for readability
+    SMALL: { size: 9, weight: 'normal', family: 'times' },        // Times for small text
+    TINY: { size: 7, weight: 'normal', family: 'times' },         // Times for fine print
+    LARGE_STATUS: { size: 14, weight: 'bold', family: 'helvetica' },  // Helvetica for status/emphasis
+    NOTICE: { size: 12, weight: 'bold', family: 'times' },        // Times for notices
+    COMPANY_NAME: { size: 20, weight: 'bold', family: 'helvetica' },  // Helvetica for company name
+    GR_NUMBER: { size: 1, weight: 'bold', family: 'times' },     // Courier for tracking numbers
+    GR_LABEL: { size: 10, weight: 'bold', family: 'helvetica' },    // Enhanced GR NO label - bigger and bolder      LABELS: { size: 9.5, weight: 'bold', family: 'times' },         // Times for labels
+    VALUES: { size: 9.5, weight: 'normal', family: 'times' },       // Times for values
+    ENHANCED_LABELS: { size: 10.5, weight: 'bold', family: 'times' }, // Enhanced bold labels for delivery/consignor/consignee
+    ENHANCED_VALUES: { size: 10, weight: 'bold', family: 'times' },   // Enhanced bold values for delivery/consignor/consignee
+    TOTAL: { size: 14, weight: 'bold', family: 'helvetica' },       // Helvetica for totals
+    ENHANCED_CHARGES: { size: 11, weight: 'bold', family: 'times' }, // Enhanced charges section
+    MONOSPACE: { size: 9, weight: 'normal', family: 'courier' },    // Courier for codes/numbers
+  },
+  LINES: {
+    NORMAL: 0.5,      // Normal line width
+    THICK: 1.0,       // Thick line width
+    EXTRA_THICK: 1.5, // NEW: Extra thick lines
+    DASHED: [3, 3],   // Dashed line pattern [dash, gap]
+  }
+};
+
+// ==========================================
+// 🎨 ENHANCED TEXT STYLING HELPER FUNCTIONS
+// ==========================================
+const setStyle = (pdf, style) => {
+  pdf.setFontSize(style.size);
+  // Use the specified font family or default to helvetica
+  const fontFamily = style.family || 'helvetica';
+  pdf.setFont(fontFamily, style.weight);
+};
+
+const addStyledText = (pdf, text, x, y, style = STYLES.FONTS.NORMAL, options = {}) => {
+  setStyle(pdf, style);
+  pdf.text(text, x, y, options);
+};
+
+// Helper function to add monospace text (for numbers, codes, etc.)
+const addMonospaceText = (pdf, text, x, y, size = 9, weight = 'normal', options = {}) => {
+  pdf.setFontSize(size);
+  pdf.setFont('courier', weight); // Courier is ideal for numbers and codes
+  pdf.text(text, x, y, options);
+};
+// Helper function to add professional header text
+const addHeaderText = (pdf, text, x, y, size = 16, options = {}) => {
+  pdf.setFontSize(size);
+  pdf.setFont('times', 'bold'); // Times Roman for professional headers
+  pdf.text(text, x, y, options);
+};
+
+// Helper function to add justified text
+const addJustifiedText = (pdf, text, x, y, maxWidth, lineHeight = 3) => {
+  const words = text.split(' ');
+  let currentLine = '';
+  let currentY = y;
+  
+  for (let i = 0; i < words.length; i++) {
+    const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+    const testWidth = pdf.getTextWidth(testLine);
+    
+    if (testWidth > maxWidth && currentLine) {
+      // Justify current line (except if it's the last line)
+      const lineWords = currentLine.split(' ');
+      if (lineWords.length > 1) {
+        const totalTextWidth = lineWords.reduce((sum, word) => sum + pdf.getTextWidth(word), 0);
+        const totalSpaceWidth = maxWidth - totalTextWidth;
+        const spaceWidth = totalSpaceWidth / (lineWords.length - 1);
+        
+        let currentX = x;
+        for (let j = 0; j < lineWords.length; j++) {
+          pdf.text(lineWords[j], currentX, currentY);
+          if (j < lineWords.length - 1) {
+            currentX += pdf.getTextWidth(lineWords[j]) + spaceWidth;
+          }
+        }
+      } else {
+        pdf.text(currentLine, x, currentY);
+      }
+      
+      currentLine = words[i];
+      currentY += lineHeight;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  
+  // Add the last line (centered if it contains "All Subject To Aligarh Jurisdiction")
+  if (currentLine) {
+    if (currentLine.includes('All Subject To Aligarh Jurisdiction')) {
+      const centerX = x + (maxWidth / 2);
+      pdf.text(currentLine, centerX, currentY, { align: 'center' });
+    } else {
+      pdf.text(currentLine, x, currentY);
+    }
+  }
+};
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-GB');
+};
+
+const formatDeliveryType = (deliveryType) => {
+  if (deliveryType === 'door-delivery') return '/ DD';
+  if (deliveryType === 'godown-delivery') return '';
+  return '';
+};
+
+const formatPaymentMode = (paymentMode) => {
+  switch(paymentMode.toLowerCase()) {
+    case 'to-pay': return 'TO PAY';
+    case 'paid': return 'PAID';
+    case 'freeofcost': return 'FOC';
+    default: return paymentMode.toUpperCase();
+  }
+};
+
+// ==========================================
+// 🎯 MAIN PDF GENERATION FUNCTION WITH ENHANCED STYLING
+// ==========================================
+const addBillCopy = (pdf, yStart, copyType, { biltyData, permDetails, fromCity, toCity, transport, signature }, showCharges = true) => {
+  const y = yStart; // Base Y offset for this copy
+
+  // 🏢 HEADER SECTION WITH ENHANCED STYLING
+  // Header comes from the permanent_details row picked for this bilty (branch + company).
+  // The branch default row (company_id null) keeps the exact name printed before, so old
+  // bilties look the same; company rows print their own transport_name.
+  const isCompanyHeader = !!permDetails?.company_id;
+  const companyName = isCompanyHeader
+    ? (permDetails?.transport_name || '').toUpperCase()
+    : 'S. S. TRANSPORT CORPORATION';
+  const companyGst = permDetails?.gst || '';
+  const companyAddress = permDetails?.transport_address || '';
+
+  // GST Number (top left) - Bold label
+  addStyledText(
+    pdf,
+    `GST No: ${companyGst}`,
+    COORDINATES.HEADER.GST_NO.x,
+    y + COORDINATES.HEADER.GST_NO.y,
+    STYLES.FONTS.NOTICE
+  );
+    // Company Name (center, large and bold) - Using professional header
+  addHeaderText(
+    pdf,
+    companyName,
+    COORDINATES.HEADER.COMPANY_NAME.x,
+    y + COORDINATES.HEADER.COMPANY_NAME.y,
+    20,
+    { align: 'center' }
+  );
+
+  // Bank Details (left side) - Enhanced styling — taken
+  // from the same permanent_details row (bank 2 is skipped on company headers that don't have one).
+  addStyledText(
+    pdf,
+    `${isCompanyHeader ? 'BANK' : 'PNB BANK'} A/C No: ${permDetails?.bank_act_no_1 || ''} IFSC CODE ${permDetails?.ifsc_code_1 || ''}`,
+    COORDINATES.HEADER.BANK_DETAIL_1.x,
+    y + COORDINATES.HEADER.BANK_DETAIL_1.y,
+    STYLES.FONTS.LABELS
+  );
+  addStyledText(
+    pdf,
+    isCompanyHeader && !permDetails?.bank_act_no_2 ? '' : `${isCompanyHeader ? 'BANK' : 'AXIS BANK'} A/C No: ${permDetails?.bank_act_no_2 || ''} IFSC CODE ${permDetails?.ifsc_code_2 || ''}`,
+    COORDINATES.HEADER.BANK_DETAIL_2.x,
+    y + COORDINATES.HEADER.BANK_DETAIL_2.y,
+    STYLES.FONTS.LABELS
+  );
+    // Branch Address (right side) - ENHANCED DARK & BOLD
+  const address = companyAddress;
+  const addressLines = address.split('\n');
+  addStyledText(
+    pdf, 
+    addressLines[0], 
+    COORDINATES.HEADER.BRANCH_ADDRESS_1.x, 
+    y + COORDINATES.HEADER.BRANCH_ADDRESS_1.y,
+    STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold for address section
+  );
+  if (addressLines[1]) {
+    addStyledText(
+      pdf, 
+      addressLines[1], 
+      COORDINATES.HEADER.BRANCH_ADDRESS_2.x, 
+      y + COORDINATES.HEADER.BRANCH_ADDRESS_2.y,
+      STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold for address section
+    );
+  }
+  
+  // 🎯 COPY TYPE SECTION - Enhanced
+  addStyledText(
+    pdf, 
+    `${copyType.toUpperCase()} COPY`, 
+    COORDINATES.COPY_SECTION.COPY_TYPE.x, 
+    y + COORDINATES.COPY_SECTION.COPY_TYPE.y,
+    STYLES.FONTS.NOTICE,
+    { align: 'center' }
+  );
+  
+  // Underline for copy type - Thicker line
+  pdf.setLineWidth(STYLES.LINES.NORMAL);
+  pdf.line(
+    COORDINATES.COPY_SECTION.COPY_UNDERLINE.x1, 
+    y + COORDINATES.COPY_SECTION.COPY_UNDERLINE.y,
+    COORDINATES.COPY_SECTION.COPY_UNDERLINE.x2, 
+    y + COORDINATES.COPY_SECTION.COPY_UNDERLINE.y
+  );
+  
+  // 📅 DATE AND ROUTE SECTION - Enhanced
+  // Date - Bold label
+  addStyledText(
+    pdf, 
+    `Date: ${formatDate(biltyData.bilty_date)}`, 
+    COORDINATES.COPY_SECTION.DATE.x, 
+    y + COORDINATES.COPY_SECTION.DATE.y,
+    STYLES.FONTS.LABELS
+  );
+  
+  // Route with city names - Bold
+  const fromCityName = fromCity?.city_name || '';
+  const toCityName = toCity?.city_name || '';
+  const toCityCode = toCity?.city_code || '';
+  addStyledText(
+    pdf, 
+    `${fromCityName} TO ${toCityName} (${toCityCode})`, 
+    COORDINATES.COPY_SECTION.ROUTE.x, 
+    y + COORDINATES.COPY_SECTION.ROUTE.y,
+    STYLES.FONTS.NOTICE
+  );
+    // 🚚 DELIVERY SECTION - Transport name only (delivery type moved) - ENHANCED DARK & BOLD
+  const deliveryText = transport?.transport_name || biltyData.transport_name || '';
+  
+  addStyledText(
+    pdf, 
+    `DELIVERY AT: ${deliveryText}`, 
+    COORDINATES.DELIVERY_SECTION.DELIVERY_AT.x, 
+    y + COORDINATES.DELIVERY_SECTION.DELIVERY_AT.y,
+    STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
+  );
+  
+  // GSTIN - Bold label - ENHANCED DARK & BOLD
+  addStyledText(
+    pdf, 
+    `GSTIN: ${transport?.gst_number || biltyData.transport_gst || ''}`, 
+    COORDINATES.DELIVERY_SECTION.GSTIN.x, 
+    y + COORDINATES.DELIVERY_SECTION.GSTIN.y,
+    STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
+  );
+  
+  // Mobile number - Bold label - ENHANCED DARK & BOLD
+  const mobileNumber = transport?.mob_number || biltyData.transport_number || permDetails?.mobile_number || '';
+  addStyledText(
+    pdf, 
+    `MOB: ${mobileNumber}`, 
+    COORDINATES.DELIVERY_SECTION.MOBILE.x, 
+    y + COORDINATES.DELIVERY_SECTION.MOBILE.y,
+    STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
+  );
+      // 👥 PEOPLE SECTION - Enhanced styling - ENHANCED DARK & BOLD
+  // Consignor
+  addStyledText(
+    pdf, 
+    `CONSIGNOR: ${(biltyData.consignor_name || '').toUpperCase()}`, 
+    COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.x, 
+    y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_NAME.y,
+    STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
+  );
+  addStyledText(
+    pdf, 
+    `GSTIN: ${biltyData.consignor_gst || ''}`, 
+    COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.x, 
+    y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_GST.y,
+    STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
+  );
+  if (biltyData.consignor_number) {
+    addStyledText(
+      pdf, 
+      `MOB: ${biltyData.consignor_number}`, 
+      COORDINATES.PEOPLE_SECTION.CONSIGNOR_MOBILE.x, 
+      y + COORDINATES.PEOPLE_SECTION.CONSIGNOR_MOBILE.y,
+      STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
+    );
+  }
+    // Consignee
+  addStyledText(
+    pdf, 
+    `CONSIGNEE: ${(biltyData.consignee_name || '').toUpperCase()}`, 
+    COORDINATES.PEOPLE_SECTION.CONSIGNEE_NAME.x, 
+    y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_NAME.y,
+    STYLES.FONTS.ENHANCED_LABELS  // Changed to enhanced bold
+  );
+    // Handle different GST formats (GST/Aadhar/PAN) - ENHANCED DARK & BOLD
+  let gstText = biltyData.consignee_gst || '';
+  if (gstText.startsWith('AD-')) {
+      addStyledText(
+        pdf, 
+        `AADHAR NO: ${gstText.replace('AD-', '')}`, 
+        COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
+        y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
+        STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
+      );
+  } else if (gstText.toLowerCase().startsWith('pan')) {
+      addStyledText(
+        pdf, 
+        `PAN NO: ${gstText.substring(3)}`, 
+        COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
+        y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
+        STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
+      );
+  } else {
+      addStyledText(
+        pdf, 
+        `GSTIN: ${gstText || ''}`, 
+        COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.x, 
+        y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_GST.y,
+        STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
+      );
+  }
+  
+  if (biltyData.consignee_number) {
+    addStyledText(
+      pdf, 
+      `MOB: ${biltyData.consignee_number}`, 
+      COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.x, 
+      y + COORDINATES.PEOPLE_SECTION.CONSIGNEE_MOBILE.y,
+      STYLES.FONTS.ENHANCED_VALUES  // Changed to enhanced bold
+    );
+  }      // E-WAY BILL    // E-WAY BILL with enhanced styling - label and value separately for better visibility
+  addStyledText(
+    pdf, 
+    `E-WAY BILL: `, 
+    COORDINATES.PEOPLE_SECTION.EWAY_BILL.x, 
+    y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
+    STYLES.FONTS.LABELS
+  );
+  addStyledText(
+    pdf, 
+    `${biltyData.e_way_bill || ''}`, 
+    COORDINATES.PEOPLE_SECTION.EWAY_BILL.x + 25, // Offset for the value
+    y + COORDINATES.PEOPLE_SECTION.EWAY_BILL.y,
+    STYLES.FONTS.ENHANCED_VALUES // Using enhanced bold style for the eway bill value
+  );
+  // DD CHARGE — centered on page, just below caution box, driver copy only
+  if (copyType.toUpperCase() === 'DRIVER' && biltyData.dd_charge > 0 && showCharges) {
+    const ddY = COORDINATES.QR_SECTION.CAUTION_BOX.y + COORDINATES.QR_SECTION.CAUTION_BOX.height - 20; // y=71
+    addStyledText(pdf, `D/D - ${biltyData.dd_charge}`, 115, y + ddY, STYLES.FONTS.COMPANY_NAME, { align: 'center' });
+  }
+
+    // 📋 TABLE SECTION WITH ENHANCED STYLING
+  // Top horizontal line - Thicker
+  pdf.setLineWidth(STYLES.LINES.THICK);
+  pdf.line(
+    COORDINATES.TABLE_SECTION.TOP_LINE.x1, 
+    y + COORDINATES.TABLE_SECTION.TOP_LINE.y,
+    COORDINATES.TABLE_SECTION.TOP_LINE.x2, 
+    y + COORDINATES.TABLE_SECTION.TOP_LINE.y
+  );    // LEFT SECTION - Invoice details with enhanced styling
+  addStyledText(pdf, `INVOICE DATE:`, COORDINATES.TABLE_SECTION.INVOICE_DATE.x, y + COORDINATES.TABLE_SECTION.INVOICE_DATE.y, STYLES.FONTS.LABELS);
+  addStyledText(
+    pdf, 
+    `${biltyData.invoice_date ? formatDate(biltyData.invoice_date) : ''}`, 
+    COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.x, 
+    y + COORDINATES.TABLE_SECTION.INVOICE_DATE_VALUE.y,
+    STYLES.FONTS.VALUES
+  );
+  
+  addStyledText(pdf, `INVOICE NO:`, COORDINATES.TABLE_SECTION.INVOICE_NO.x, y + COORDINATES.TABLE_SECTION.INVOICE_NO.y, STYLES.FONTS.LABELS);
+  addStyledText(
+    pdf, 
+    `${biltyData.invoice_no || ''}`, 
+    COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.x, 
+    y + COORDINATES.TABLE_SECTION.INVOICE_NO_VALUE.y,
+    STYLES.FONTS.VALUES
+  );
+  
+  addStyledText(pdf, `INVOICE VALUE:`, COORDINATES.TABLE_SECTION.INVOICE_VALUE.x, y + COORDINATES.TABLE_SECTION.INVOICE_VALUE.y, STYLES.FONTS.LABELS);
+  addStyledText(
+    pdf, 
+    `${biltyData.invoice_value || ''}`, 
+    COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.x, 
+    y + COORDINATES.TABLE_SECTION.INVOICE_VALUE_VALUE.y,
+    STYLES.FONTS.VALUES
+  );
+  
+  addStyledText(pdf, `CONTENT:`, COORDINATES.TABLE_SECTION.CONTENT.x, y + COORDINATES.TABLE_SECTION.CONTENT.y, STYLES.FONTS.LABELS);
+  addStyledText(
+    pdf, 
+    `${biltyData.contain || ''}`, 
+    COORDINATES.TABLE_SECTION.CONTENT_VALUE.x, 
+    y + COORDINATES.TABLE_SECTION.CONTENT_VALUE.y,
+    STYLES.FONTS.VALUES
+  );
+  
+  // MIDDLE SECTION - Package details with enhanced styling and box
+  // Draw PVT MARKS and CITY CODE box (similar to GR box design)
+  pdf.setLineWidth(STYLES.LINES.THICK);
+  pdf.rect(
+    COORDINATES.TABLE_SECTION.PVT_BOX.x, 
+    y + COORDINATES.TABLE_SECTION.PVT_BOX.y, 
+    COORDINATES.TABLE_SECTION.PVT_BOX.width, 
+    COORDINATES.TABLE_SECTION.PVT_BOX.height
+  );
+  
+  // Vertical divider line in the middle of the box
+  pdf.setLineWidth(STYLES.LINES.NORMAL);
+  pdf.line(
+    COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.x, 
+    y + COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.y1,
+    COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.x, 
+    y + COORDINATES.TABLE_SECTION.PVT_BOX_DIVIDER.y2
+  );    // PVT MARKS label and value (left side of box)
+  addStyledText(pdf, 'PVT MARKS:', COORDINATES.TABLE_SECTION.PVT_LABEL.x, y + COORDINATES.TABLE_SECTION.PVT_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
+  addStyledText(
+    pdf, 
+    `${biltyData.pvt_marks || ''} / ${biltyData.no_of_pkg}`, 
+    COORDINATES.TABLE_SECTION.PVT_VALUE.x, 
+    y + COORDINATES.TABLE_SECTION.PVT_VALUE.y,
+    STYLES.FONTS.LARGE_STATUS,
+    { align: 'center' }
+  );
+    // CITY CODE label and value (right side of box)
+  addStyledText(pdf, 'CITY CODE:', COORDINATES.TABLE_SECTION.CITY_LABEL.x, y + COORDINATES.TABLE_SECTION.CITY_LABEL.y, STYLES.FONTS.LABELS, { align: 'center' });
+  addStyledText(
+    pdf, 
+    `${toCityCode}`, 
+    COORDINATES.TABLE_SECTION.CITY_VALUE.x,
+    y + COORDINATES.TABLE_SECTION.CITY_VALUE.y,
+    STYLES.FONTS.LARGE_STATUS,
+    { align: 'center' }
+  );
+  
+  addStyledText(
+    pdf, 
+    `WEIGHT: ${biltyData.wt} KG`, 
+    COORDINATES.TABLE_SECTION.WEIGHT.x, 
+    y + COORDINATES.TABLE_SECTION.WEIGHT.y,
+    STYLES.FONTS.NOTICE
+  );
+  
+  // Main vertical divider line - Thicker
+  pdf.setLineWidth(STYLES.LINES.NORMAL);
+  pdf.line(
+    COORDINATES.TABLE_SECTION.VERTICAL_LINE.x, 
+    y + COORDINATES.TABLE_SECTION.VERTICAL_LINE.y1,
+    COORDINATES.TABLE_SECTION.VERTICAL_LINE.x, 
+    y + COORDINATES.TABLE_SECTION.VERTICAL_LINE.y2
+  );
+  
+  // NEW: Add Extra Vertical Lines
+  pdf.setLineWidth(STYLES.LINES.NORMAL);
+  
+  // Extra vertical line 1
+  pdf.line(
+    COORDINATES.EXTRA_LINES.VERTICAL_LINE_1.x, 
+    y + COORDINATES.EXTRA_LINES.VERTICAL_LINE_1.y1,
+    COORDINATES.EXTRA_LINES.VERTICAL_LINE_1.x, 
+    y + COORDINATES.EXTRA_LINES.VERTICAL_LINE_1.y2
+  );
+  
+  // Extra vertical line 2
+  pdf.line(
+    COORDINATES.EXTRA_LINES.VERTICAL_LINE_2.x, 
+    y + COORDINATES.EXTRA_LINES.VERTICAL_LINE_2.y1,
+    COORDINATES.EXTRA_LINES.VERTICAL_LINE_2.x, 
+    y + COORDINATES.EXTRA_LINES.VERTICAL_LINE_2.y2
+  );
+  
+    // RIGHT SECTION - Charges with enhanced styling and proper alignment - BIGGER & ALL BOLD
+  // Use freight_amount directly from biltyData (already calculated with minimum weight logic)
+  // When showCharges is false, render zero for all charge values
+  const amount = showCharges ? (biltyData.freight_amount || Math.round(parseFloat(biltyData.wt) * parseFloat(biltyData.rate))) : 0;
+  const labourCharge = showCharges ? biltyData.labour_charge : 0;
+  const billCharge = showCharges ? biltyData.bill_charge : 0;
+  const tollCharge = showCharges ? biltyData.toll_charge : 0;
+  const pfCharge = showCharges ? biltyData.pf_charge : 0;
+  const otherCharge = showCharges ? biltyData.other_charge : 0;
+  const totalAmount = showCharges ? biltyData.total : 0;
+
+  // Define column positions for proper alignment
+  const labelX = COORDINATES.TABLE_SECTION.AMOUNT.x;     // Label column at x=155
+  const valueX = labelX + 45;                            // Value column at x=200 (45mm offset)
+
+  // Charges section with aligned columns - ENHANCED BIGGER FONTS AND ALL BOLD VALUES
+  addStyledText(pdf, `AMOUNT:`, labelX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${amount}`, valueX, y + COORDINATES.TABLE_SECTION.AMOUNT.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
+  addStyledText(pdf, `LABOUR CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${labourCharge}`, valueX, y + COORDINATES.TABLE_SECTION.LABOUR_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
+  addStyledText(pdf, `BILTY CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${billCharge}`, valueX, y + COORDINATES.TABLE_SECTION.BILTY_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
+  addStyledText(pdf, `TOLL TAX:`, labelX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${tollCharge}`, valueX, y + COORDINATES.TABLE_SECTION.TOLL_TAX.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
+  addStyledText(pdf, `PF:`, labelX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${pfCharge}`, valueX, y + COORDINATES.TABLE_SECTION.PF.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
+  addStyledText(pdf, `OTHER CHARGE:`, labelX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${otherCharge}`, valueX, y + COORDINATES.TABLE_SECTION.OTHER_CHARGE.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });
+
+  // Total section
+  pdf.setLineWidth(STYLES.LINES.NORMAL);
+  pdf.line(
+    COORDINATES.TABLE_SECTION.TOTAL_LINE.x1,
+    y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y,
+    COORDINATES.TABLE_SECTION.TOTAL_LINE.x2,
+    y + COORDINATES.TABLE_SECTION.TOTAL_LINE.y
+  );
+  // Total amount - Aligned with charges section using same column structure - ENHANCED
+  addStyledText(pdf, `TOTAL:`, labelX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES);
+  addStyledText(pdf, `${totalAmount}`, valueX, y + COORDINATES.TABLE_SECTION.TOTAL.y, STYLES.FONTS.ENHANCED_CHARGES, { align: 'right' });    // Payment Status with Delivery Type - Large and bold, combined for proper alignment - POSITIONED BELOW CAUTION BOX
+  const paymentText = formatPaymentMode(biltyData.payment_mode);
+  const deliveryTypeText = formatDeliveryType(biltyData.delivery_type);
+  const combinedText = paymentText + (deliveryTypeText ? ` ${deliveryTypeText}` : '');
+  
+  addStyledText(
+    pdf, 
+    combinedText, 
+    COORDINATES.TABLE_SECTION.PAYMENT_STATUS.x, 
+    y + COORDINATES.TABLE_SECTION.PAYMENT_STATUS.y,
+    STYLES.FONTS.LARGE_STATUS  // Keep original styling for payment status
+  );
+  
+  // 📢 NOTICE SECTION - Enhanced with additional important notices
+  addStyledText(
+    pdf, 
+    'NOTICE', 
+    COORDINATES.NOTICE_SECTION.NOTICE_LABEL.x, 
+    y + COORDINATES.NOTICE_SECTION.NOTICE_LABEL.y,
+    STYLES.FONTS.NOTICE
+  );
+  
+  // NEW: Important notices section with proper spacing
+  let noticeY = COORDINATES.NOTICE_SECTION.NOTICE_LABEL.y + 3; // Start below "NOTICE" label
+  
+  // Notice 1: Bank authorization notice
+  setStyle(pdf, STYLES.FONTS.TINY);
+  const notice1Text = "The Consignment covered by this set of special Lorry Receipt from shall be stored at the destination under the cannot of the Transport Operator & shall be delivered to of the order of the Consignee Bank whose name is mentioned in the Lorry Receipt. It will under no circumstance be delivered to anyone without the written authority from the consignee bank or it's order endored of the consignee copy or on a seperate letter of authority. We are not responsible for leakage n illegal goods. The Consignee Copy is only for BILL CLEARING not for Bank Advance.";
+  const notice1Lines = pdf.splitTextToSize(notice1Text, 130); // Fit within available width
+  notice1Lines.forEach(line => {
+    pdf.text(line, 12, y + noticeY);
+    noticeY += 2.5;
+  });
+  
+  // Add spacing between notices
+  noticeY += 2;
+  
+  // Notice 2: Responsibility disclaimer
+  const notice2Text = "";
+  const notice2Lines = pdf.splitTextToSize(notice2Text, 130);
+  notice2Lines.forEach(line => {
+    pdf.text(line, 12, y + noticeY);
+    noticeY += 2.5;
+  });
+  
+  // Add spacing between notices
+  noticeY += 2;
+  
+  // Notice 3: Consignee copy purpose (only for consignee copy)
+  if (copyType.toLowerCase() === 'consignee') {
+    const notice3Text = "";
+    const notice3Lines = pdf.splitTextToSize(notice3Text, 130);
+    notice3Lines.forEach(line => {
+      pdf.text(line, 12, y + noticeY);
+      noticeY += 2.5;
+    });
+  }
+  
+  // Notice 3: Driver copy notice (only for driver copy)
+  if (copyType.toLowerCase() === 'driver') {
+    const notice3Text = "";
+    const notice3Lines = pdf.splitTextToSize(notice3Text, 130);
+    notice3Lines.forEach(line => {
+      pdf.text(line, 12, y + noticeY);
+      noticeY += 2.5;
+    });
+  }
+  
+  // 📄 FOOTER SECTION - Enhanced styling
+  // Bottom horizontal line - Thick
+  pdf.setLineWidth(STYLES.LINES.NORMAL);
+  pdf.line(
+    COORDINATES.FOOTER_SECTION.FOOTER_LINE.x1, 
+    y + COORDINATES.FOOTER_SECTION.FOOTER_LINE.y,
+    COORDINATES.FOOTER_SECTION.FOOTER_LINE.x2, 
+    y + COORDINATES.FOOTER_SECTION.FOOTER_LINE.y
+  );
+  
+  // Footer text with enhanced styling
+  addStyledText(
+    pdf, 
+    `OUR WEBSITE: ${permDetails?.website || ''}`, 
+    COORDINATES.FOOTER_SECTION.WEBSITE.x, 
+    y + COORDINATES.FOOTER_SECTION.WEBSITE.y,
+    STYLES.FONTS.LABELS
+  );
+  addStyledText(
+    pdf, 
+    "BOOKED AT OWNER'S RISK", 
+    COORDINATES.FOOTER_SECTION.BOOKED_RISK.x, 
+    y + COORDINATES.FOOTER_SECTION.BOOKED_RISK.y,
+    STYLES.FONTS.LABELS
+  );
+  addStyledText(
+    pdf, 
+    `CUSTOMER CARE: ${permDetails?.mobile_number || ''}`, 
+    COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.x, 
+    y + COORDINATES.FOOTER_SECTION.CUSTOMER_CARE.y,
+    STYLES.FONTS.LABELS
+  );
+  addStyledText(
+    pdf, 
+    'SIGNATURE OF BOOKING CLERK', 
+    COORDINATES.FOOTER_SECTION.SIGNATURE.x, 
+    y + COORDINATES.FOOTER_SECTION.SIGNATURE.y,
+    STYLES.FONTS.LABELS
+  );
+  
+  // Add biller signature image (pre-processed darker version)
+  if (signature) {
+    try {
+      pdf.addImage(signature, 'PNG', 155, y + 115, 50, 50); // x, y, width, height
+    } catch (error) {
+      console.log('Failed to add signature to PDF:', error);
+    }
+  }
+};
+
+/**
+ * Build the bilty PDF.
+ * @param {object} input
+ * @param {object} input.bilty      - bilty row
+ * @param {object} input.header     - permanent_details row (transport_name, gst, mobile_number, transport_address, website, banks)
+ * @param {object} input.fromCity   - { city_name, city_code }
+ * @param {object} input.toCity     - { city_name, city_code }
+ * @param {object} [input.transport] - delivery transport row
+ * @param {string} [input.qrDataURL] - QR image (data URL)
+ * @param {string} [input.signature] - biller signature image (data URL)
+ * @param {object} [input.options]   - { topCopyType: 'CONSIGNOR'|'CONSIGNEE', zeroTopCharges, zeroDriverCharges }
+ * @returns {jsPDF}
+ */
+export default function template1({ bilty, header, fromCity, toCity, transport = null, qrDataURL = null, signature = null, options = {} }) {
+  const { topCopyType = 'CONSIGNOR', zeroTopCharges = false, zeroDriverCharges = false } = options;
+  const biltyData = bilty;
+  const ctx = { biltyData, permDetails: header, fromCity, toCity, transport, signature };
+
+const pdf = new jsPDF('p', 'mm', 'a4');
+
+// 🟡 ADD LEMON/YELLOW BACKGROUND COLOR TO A4 SHEET
+pdf.setFillColor(255, 255, 210); // Light lemon color (RGB: 255, 255, 224)
+
+// Fill the entire A4 page (210mm x 297mm) with the background color
+pdf.rect(0, 0, 210, 297, 'F'); // 'F' means fill the rectangle
+
+// Reset fill color to white for other elements that need white background
+pdf.setFillColor(255, 255, 255);
+
+// 📱 QR CODES AND BOXES
+// First copy QR code
+if (qrDataURL) {
+  pdf.addImage(
+    qrDataURL, 
+    'PNG', 
+    COORDINATES.QR_SECTION.QR_CODE.x, 
+    COORDINATES.QR_SECTION.QR_CODE.y, 
+    COORDINATES.QR_SECTION.QR_CODE.width, 
+    COORDINATES.QR_SECTION.QR_CODE.height
+  );
+  
+  // Second copy QR code (with Y offset)
+  pdf.addImage(
+    qrDataURL, 
+    'PNG', 
+    COORDINATES.QR_SECTION.QR_CODE.x, 
+    COORDINATES.QR_SECTION.QR_CODE.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, 
+    COORDINATES.QR_SECTION.QR_CODE.width, 
+    COORDINATES.QR_SECTION.QR_CODE.height
+  );
+}
+
+// 📦 GR NUMBER BOXES WITH ENHANCED STYLING
+// First copy GR box
+pdf.setLineWidth(STYLES.LINES.THICK);
+pdf.rect(
+  COORDINATES.QR_SECTION.GR_BOX.x, 
+  COORDINATES.QR_SECTION.GR_BOX.y, 
+  COORDINATES.QR_SECTION.GR_BOX.width, 
+  COORDINATES.QR_SECTION.GR_BOX.height
+);      // GR number with enhanced styling for better visibility
+addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y, STYLES.FONTS.GR_LABEL);
+// Use Times font for GR number
+pdf.setFontSize(12);
+pdf.setFont('times', 'bold');
+pdf.text(`SSTC-2026-27-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y);
+
+// Second copy GR box (with Y offset)
+pdf.rect(
+  COORDINATES.QR_SECTION.GR_BOX.x, 
+  COORDINATES.QR_SECTION.GR_BOX.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, 
+  COORDINATES.QR_SECTION.GR_BOX.width, 
+  COORDINATES.QR_SECTION.GR_BOX.height
+);      // Second copy GR number with enhanced styling
+addStyledText(pdf, 'GR NO', COORDINATES.QR_SECTION.GR_LABEL.x, COORDINATES.QR_SECTION.GR_LABEL.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, STYLES.FONTS.GR_LABEL);
+// Use Times font for GR number
+pdf.setFontSize(12);
+pdf.setFont('times', 'bold');
+pdf.text(`SSTC-2026-27-${biltyData.gr_no}`, COORDINATES.QR_SECTION.GR_NUMBER.x, COORDINATES.QR_SECTION.GR_NUMBER.y + COORDINATES.SPACING.SECOND_COPY_OFFSET);
+
+// ⚠️ CAUTION BOXES WITH ENHANCED STYLING
+// First copy caution box
+pdf.setLineWidth(STYLES.LINES.NORMAL);
+pdf.rect(
+  COORDINATES.QR_SECTION.CAUTION_BOX.x, 
+  COORDINATES.QR_SECTION.CAUTION_BOX.y, 
+  COORDINATES.QR_SECTION.CAUTION_BOX.width, 
+  COORDINATES.QR_SECTION.CAUTION_BOX.height
+);
+
+addStyledText(
+  pdf, 
+  'CAUTION', 
+  COORDINATES.QR_SECTION.CAUTION_LABEL.x, 
+  COORDINATES.QR_SECTION.CAUTION_LABEL.y,
+  STYLES.FONTS.LABELS,
+  { align: 'center' }
+);        // Caution description text
+setStyle(pdf, STYLES.FONTS.SMALL);
+const cautionText ="The Consignment Will Not Be Diverted, Re-Routed or Re-Booked Without Consignee's Written Permission and Will Not Be Delivered Without Original Consignment Note.\nAll Subject To Aligarh Jurisdiction.";
+
+// Split text into main text and jurisdiction line
+const textParts = cautionText.split('\n');
+const mainText = textParts[0];
+const jurisdictionText = textParts[1];
+
+// Render main text as justified
+addJustifiedText(pdf, mainText, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, COORDINATES.QR_SECTION.CAUTION_TEXT_START.y, 62, 3);
+
+// Calculate Y position for jurisdiction text (after main text)
+const mainTextLines = pdf.splitTextToSize(mainText, 62);
+const jurisdictionY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + (mainTextLines.length * 3) + 1.8;
+
+// Render jurisdiction text centered
+const centerX = COORDINATES.QR_SECTION.CAUTION_TEXT_START.x + (62 / 2);
+pdf.text(jurisdictionText, centerX, jurisdictionY, { align: 'center' });
+
+// Second copy caution box (with Y offset)
+pdf.rect(
+  COORDINATES.QR_SECTION.CAUTION_BOX.x, 
+  COORDINATES.QR_SECTION.CAUTION_BOX.y + COORDINATES.SPACING.SECOND_COPY_OFFSET, 
+  COORDINATES.QR_SECTION.CAUTION_BOX.width, 
+  COORDINATES.QR_SECTION.CAUTION_BOX.height
+);
+
+addStyledText(
+  pdf, 
+  'CAUTION', 
+  COORDINATES.QR_SECTION.CAUTION_LABEL.x, 
+  COORDINATES.QR_SECTION.CAUTION_LABEL.y + COORDINATES.SPACING.SECOND_COPY_OFFSET,
+  STYLES.FONTS.LABELS,
+  { align: 'center' }
+);
+  // Second copy caution text
+setStyle(pdf, STYLES.FONTS.SMALL);
+const offsetY = COORDINATES.SPACING.SECOND_COPY_OFFSET;
+
+// Render main text as justified for second copy
+addJustifiedText(pdf, mainText, COORDINATES.QR_SECTION.CAUTION_TEXT_START.x, COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + offsetY, 62, 3);
+
+// Render jurisdiction text centered for second copy
+const secondCopyJurisdictionY = COORDINATES.QR_SECTION.CAUTION_TEXT_START.y + offsetY + (mainTextLines.length * 3) + 2;
+pdf.text(jurisdictionText, centerX, secondCopyJurisdictionY, { align: 'center' });
+
+// 📋 ADD BOTH BILL COPIES WITH ENHANCED STYLING
+// First copy (Consignor) — showCharges = false when zeroConsignorCharges is toggled on
+addBillCopy(pdf, 0, topCopyType, ctx, !zeroTopCharges);
+
+// ➖ DASHED SEPARATOR LINE - Enhanced
+pdf.setLineWidth(STYLES.LINES.THICK);
+pdf.setLineDashPattern(STYLES.LINES.DASHED, 0);
+pdf.line(10, COORDINATES.SPACING.DASHED_LINE_Y, 200, COORDINATES.SPACING.DASHED_LINE_Y);
+pdf.setLineDashPattern([], 0); // Reset to solid line
+
+// Second copy (Driver) with Y offset — showCharges = false when zeroDriverCharges is toggled on
+addBillCopy(pdf, COORDINATES.SPACING.SECOND_COPY_OFFSET, 'DRIVER', ctx, !zeroDriverCharges);
+
+  return pdf;
+}

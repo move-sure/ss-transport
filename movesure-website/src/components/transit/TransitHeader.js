@@ -12,12 +12,19 @@ const TransitHeader = ({
   transitBilties, 
   selectedBilties, 
   selectedChallan,
+  selectedChallanBook,
+  companies = [],
   onRefresh,
   onPreviewLoadingChallan,
   onPreviewChallanBilties,
   availableCount, // filtered count from BiltyList
   permanentDetails
 }) => {
+  // Multi-company letterhead: resolve the currently selected book's company
+  // so the sample loading-challan download shows the right name too.
+  const selectedCompany = selectedChallanBook?.company_id
+    ? companies.find(c => c.id === selectedChallanBook.company_id) || null
+    : null;
   // Calculate total weight of bilties in challan
   const totalWeightRaw = transitBilties.reduce(
     (total, bilty) => total + (parseFloat(bilty.wt) || 0),
@@ -259,7 +266,7 @@ const TransitHeader = ({
 
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="w-full md:w-auto">
-          <SampleLoadingChallan userBranch={userBranch} permanentDetails={permanentDetails} />
+          <SampleLoadingChallan userBranch={userBranch} permanentDetails={permanentDetails} company={selectedCompany} />
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:flex-row">

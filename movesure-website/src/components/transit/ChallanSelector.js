@@ -58,11 +58,30 @@ const ChallanSelector = ({
     }
   }, [showChallanDropdown]);
 
+  // challan_details.challan_book_id (migration 014) is the real, authoritative link —
+  // every challan created since then carries it. Older challans created before that
+  // migration have challan_book_id = null, so for those (only) we fall back to
+  // inferring the book from challan_no's prefix + digit-width + postfix + range.
+  const challanBelongsToBook = (challan, book) => {
+    if (!book || !challan) return false;
+    if (challan.challan_book_id) return challan.challan_book_id === book.id;
+    if (!challan.challan_no) return false;
+    const no = String(challan.challan_no);
+    const prefix = book.prefix || '';
+    const postfix = book.postfix || '';
+    if (prefix && !no.startsWith(prefix)) return false;
+    if (postfix && !no.endsWith(postfix)) return false;
+    const middle = no.slice(prefix.length, no.length - postfix.length);
+    if (middle.length !== book.digits || !/^\d+$/.test(middle)) return false;
+    const num = parseInt(middle, 10);
+    return num >= book.from_number && num <= book.to_number;
+  };
+
   // Separate dispatched and non-dispatched challans with search filter
   const filterChallans = (challanList) => {
     if (!challanSearchQuery.trim()) return challanList;
     const query = challanSearchQuery.toLowerCase();
-    return challanList.filter(c => 
+    return challanList.filter(c =>
       c.challan_no?.toLowerCase().includes(query) ||
       c.truck?.truck_number?.toLowerCase().includes(query) ||
       c.driver?.name?.toLowerCase().includes(query) ||
@@ -70,8 +89,12 @@ const ChallanSelector = ({
     );
   };
 
-  const activeChallans = filterChallans(challans.filter(c => !c.is_dispatched));
-  const dispatchedChallans = filterChallans(challans.filter(c => c.is_dispatched));
+  const challansForSelectedBook = selectedChallanBook
+    ? challans.filter(c => challanBelongsToBook(c, selectedChallanBook))
+    : challans;
+
+  const activeChallans = filterChallans(challansForSelectedBook.filter(c => !c.is_dispatched));
+  const dispatchedChallans = filterChallans(challansForSelectedBook.filter(c => c.is_dispatched));
 
   // Filter challan books
   const filteredChallanBooks = challanBooks.filter(book => {
@@ -135,6 +158,11 @@ const ChallanSelector = ({
 
   const handleChallanBookSelect = (book) => {
     setSelectedChallanBook(book);
+    // Deselect the current challan if it doesn't belong to the newly picked book —
+    // otherwise you could be adding bilties to a challan from a different book/series.
+    if (selectedChallan && !challanBelongsToBook(selectedChallan, book)) {
+      setSelectedChallan(null);
+    }
     setShowChallanBookDropdown(false);
     setChallanBookSearchQuery('');
   };

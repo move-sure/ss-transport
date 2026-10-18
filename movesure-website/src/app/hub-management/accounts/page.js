@@ -123,7 +123,7 @@ export default function AccountsOverviewPage() {
               <p className="text-2xl font-bold text-emerald-700">₹{formatINR(summary.totals?.total_they_owe_you)}</p>
             </div>
             <div className="text-sm text-black">
-              You owe them: <span className="font-semibold text-rose-700">₹{formatINR(summary.totals?.total_you_owe_them)}</span>
+              Payable (Cr): <span className="font-semibold text-rose-700">₹{formatINR(summary.totals?.total_you_owe_them)}</span>
             </div>
             <div className="text-sm text-black">
               Net: <span className="font-semibold text-black">₹{formatINR(summary.totals?.net)}</span>

@@ -16,7 +16,7 @@ const PAGE_SIZE = 50;
 export default function LedgerMasterPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { branchId, isAllBranches } = useBranch();
+  const { branchId, isAllBranches, branches } = useBranch();
   const [mounted, setMounted] = useState(false);
 
   const [rows, setRows] = useState([]);
@@ -86,6 +86,16 @@ export default function LedgerMasterPage() {
   useEffect(() => {
     if (mounted && branchId) load();
   }, [mounted, branchId, load]);
+
+  // ?edit=<ledger id> (e.g. from a Party Ledger's Settings tab) opens that ledger's edit form
+  useEffect(() => {
+    if (!mounted) return;
+    const editId = new URLSearchParams(window.location.search).get('edit');
+    if (!editId) return;
+    ledgerApi.ledgers.get(editId)
+      .then((res) => { if (res.data) { setEditingLedger(res.data); setModalOpen(true); } })
+      .catch(() => {});
+  }, [mounted]);
 
   const openAdd = () => { setEditingLedger(null); setModalOpen(true); };
   const openEdit = (ledger) => { setEditingLedger(ledger); setModalOpen(true); };
@@ -242,6 +252,7 @@ export default function LedgerMasterPage() {
         flatGroups={flatGroups}
         cities={cities}
         branchId={isAllBranches ? user?.branch_id : branchId}
+        branches={branches}
         onSubmit={handleSubmit}
       />
     </div>

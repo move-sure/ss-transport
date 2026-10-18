@@ -119,22 +119,39 @@ balance, a **Statement** tab (`StatementView.js` — date-filterable running
 balance, same table shape as the party screens' History) and, if the ledger
 is bill-wise, a **Bills** tab (Outstanding / All).
 
-**There is currently no way to add a transaction to a Ledger Master account
-directly** (e.g., "Bank Account received ₹5,000 in interest") — only an
-opening balance at creation time. Anything that happens after that has to
-flow in from one of the 5 business screens (a payment recorded there
-touches Cash/Bank too) or, for Cash specifically, the Cash Manager's own
-**Cash Expense** button.
+**Add Entry (Dr/Cr)** on the ledger page posts a transaction straight to that
+ledger (e.g. "Bank Account Dr ₹5,000, Interest Income Cr ₹5,000"): pick Dr or
+Cr for this ledger, the amount, the other ledger, date, voucher type and
+narration (`LedgerEntryModal.js`, uses `POST /vouchers`). New Ledger also asks
+for the **Branch** now, so a ledger can be created while "All Branches" is
+selected.
 
 ## Day Book and Audit Log
 
 - **Day Book** (`/accounts/vouchers`) — every voucher ever created, from
   every screen, filterable by type/date/branch, with a **"Show cancelled
   too"** checkbox. Click a row for the full voucher detail
-  (`vouchers/[id]`, not read in this pass). This is also where you **cancel**
-  a voucher — the app has no "edit" for a saved voucher on purpose (matches
-  standard accounting practice: correct mistakes with a reversing entry /
-  cancellation, don't rewrite history).
+  (`vouchers/[id]`), which has **Edit** and **Cancel**.
+
+## Fixing a wrong transaction
+
+Every party History row (Transport PF, Truck Bhada, Labour), every ledger
+Statement row and the voucher page have **Edit / Cancel**
+(`EditVoucherModal.js`):
+- **Correct**: change the amount, date or narration, then Save. A corrected
+  copy is posted and the wrong voucher is cancelled with the reason
+  "Corrected - replaced by <new no>". Both stay in the Day Book.
+- **Cancel**: cancel the voucher with a reason.
+- **Bills** can only be cancelled (then raise the bill again).
+
+The backend has no one-step edit yet. The changes it needs are listed in
+[ACCOUNTS_BACKEND_README.md](ACCOUNTS_BACKEND_README.md).
+
+## Dr / Cr
+
+All screens show **Dr / Cr** instead of "Money In / Money Out" and "They owe /
+You owe". **Dr** balance = receivable / asset / expense; **Cr** balance =
+payable / liability / income.
 - **Audit Log** (`/accounts/audit-log`) — every create/update/deactivate/
   cancel, filterable by entity type, with old/new JSON side-by-side. A
   ledger's own **History** button deep-links here with `entity_id`
@@ -174,31 +191,23 @@ Roughly in order of how much day-to-day friction they cause:
    **Collect Payment**/**Pay** and re-pick the bill from a dropdown instead
    of clicking straight from the row you're already looking at. This looks
    like a near-free win since the plumbing already exists.
-3. **No way to record a one-off transaction on a Ledger Master account**
-   after creation (see above) — something the size of a simple "Journal
-   Entry" or "Adjust Balance" action on the ledger detail page would close
-   this gap without bringing back the old full Voucher Entry grid.
-4. **No split payment in one entry** — paying ₹30,000 by bank and ₹10,000
+3. **No split payment in one entry** — paying ₹30,000 by bank and ₹10,000
    cash against the same bill takes two separate Collect Payment/Pay
    actions today (as in the example above). A payment form that accepts
    more than one cash/bank row at once would match how the money often
    actually arrives.
-5. **Bill Reference is free-typed, not auto-numbered** — nothing stops two
+4. **Bill Reference is free-typed, not auto-numbered** — nothing stops two
    different bills from accidentally getting the same reference, or a typo
    creating an orphaned reference nobody can find later. Worth at least a
    duplicate check against that party's existing bills before saving.
-6. **Audit Log's entity filter is text-only (`entity_id`), no name search**
+5. **Audit Log's entity filter is text-only (`entity_id`), no name search**
    — you can only jump straight to a ledger's history via its own "History"
    button; there's no "search audit log by name" from the Audit Log screen
    itself.
-7. **Stale label**: `LedgerFormModal`'s bill-wise checkbox still says
-   *"enables bill selection in Voucher Entry"* — that screen doesn't exist
-   any more. Should read something like *"enables bill selection when
-   raising bills / collecting payments"*.
-8. **No CSV/PDF export** anywhere in Accounting — Day Book, a ledger's
+6. **No CSV/PDF export** anywhere in Accounting — Day Book, a ledger's
    Statement, and the Bills tables are all screen-only right now. Even a
    basic "export this table" button on the Statement view would cover the
    most common ask (sending a party their outstanding-bills list).
-9. **`PartyMasterDetail`'s fixed two-column layout** (`w-80` list +
+7. **`PartyMasterDetail`'s fixed two-column layout** (`w-80` list +
    flexible detail) doesn't reflow for small/tablet screens — it's built
    list-left/detail-right and stays that way regardless of viewport width.

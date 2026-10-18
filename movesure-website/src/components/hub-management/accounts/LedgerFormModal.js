@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { X, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
-import { todayLocalDate, OWES_LABEL } from './helpers';
+import { todayLocalDate } from './helpers';
 
 function ancestorNames(groupId, flatGroups) {
   const byId = new Map((flatGroups || []).map((g) => [g.id, g]));
@@ -27,17 +27,19 @@ const emptyForm = {
   city_id: '', credit_period_days: '', credit_limit: '', is_bill_wise: false,
 };
 
-export default function LedgerFormModal({ isOpen, onClose, initialData, flatGroups, cities, branchId, onSubmit }) {
+export default function LedgerFormModal({ isOpen, onClose, initialData, flatGroups, cities, branchId, branches = [], onSubmit }) {
   const isEdit = !!initialData?.id;
   const [form, setForm] = useState(emptyForm);
   const [billWiseTouched, setBillWiseTouched] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [formBranchId, setFormBranchId] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    setFormBranchId(branchId && branchId !== 'all' ? branchId : '');
     setBillWiseTouched(false);
     if (initialData) {
       setForm({
@@ -74,6 +76,7 @@ export default function LedgerFormModal({ isOpen, onClose, initialData, flatGrou
     e.preventDefault();
     if (!form.name.trim()) { setError('Name is required'); return; }
     if (!form.group_id) { setError('Group is required'); return; }
+    if (!isEdit && !formBranchId) { setError('Branch is required'); return; }
 
     setSaving(true);
     setError(null);
@@ -85,7 +88,7 @@ export default function LedgerFormModal({ isOpen, onClose, initialData, flatGrou
       opening_balance_date: form.opening_balance_date || todayLocalDate(),
       is_bill_wise: form.is_bill_wise,
     };
-    if (!isEdit) payload.branch_id = branchId;
+    if (!isEdit) payload.branch_id = formBranchId;
     if (form.gstin.trim()) payload.gstin = form.gstin.trim();
     if (form.pan.trim()) payload.pan = form.pan.trim();
     if (form.address.trim()) payload.address = form.address.trim();
@@ -127,6 +130,16 @@ export default function LedgerFormModal({ isOpen, onClose, initialData, flatGrou
             <input type="text" value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} placeholder="e.g. Ramesh Transport" />
           </div>
 
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-black mb-1">Branch</label>
+              <select value={formBranchId} onChange={(e) => setFormBranchId(e.target.value)} className={inputCls}>
+                <option value="">— Select branch —</option>
+                {branches.map((b) => <option key={b.id} value={b.id}>{b.branch_name || b.name}</option>)}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-black mb-1">Group</label>
             <select value={form.group_id} onChange={(e) => handleGroupChange(e.target.value)} className={inputCls}>
@@ -143,12 +156,12 @@ export default function LedgerFormModal({ isOpen, onClose, initialData, flatGrou
               <input type="number" step="0.01" value={form.opening_balance} onChange={(e) => set('opening_balance', e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-black mb-1">Who owes?</label>
+              <label className="block text-sm font-medium text-black mb-1">Dr / Cr</label>
               <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-                <button type="button" onClick={() => set('opening_balance_type', 'dr')} title={OWES_LABEL.dr}
-                  className={`flex-1 py-2 text-xs font-semibold ${form.opening_balance_type === 'dr' ? 'bg-emerald-600 text-white' : 'bg-white text-black'}`}>They Owe</button>
-                <button type="button" onClick={() => set('opening_balance_type', 'cr')} title={OWES_LABEL.cr}
-                  className={`flex-1 py-2 text-xs font-semibold ${form.opening_balance_type === 'cr' ? 'bg-rose-600 text-white' : 'bg-white text-black'}`}>You Owe</button>
+                <button type="button" onClick={() => set('opening_balance_type', 'dr')} title="Debit balance (receivable / asset / expense)"
+                  className={`flex-1 py-2 text-xs font-semibold ${form.opening_balance_type === 'dr' ? 'bg-emerald-600 text-white' : 'bg-white text-black'}`}>Dr</button>
+                <button type="button" onClick={() => set('opening_balance_type', 'cr')} title="Credit balance (payable / liability / income)"
+                  className={`flex-1 py-2 text-xs font-semibold ${form.opening_balance_type === 'cr' ? 'bg-rose-600 text-white' : 'bg-white text-black'}`}>Cr</button>
               </div>
             </div>
           </div>
@@ -162,7 +175,7 @@ export default function LedgerFormModal({ isOpen, onClose, initialData, flatGrou
             <input type="checkbox" checked={form.is_bill_wise}
               onChange={(e) => { setBillWiseTouched(true); set('is_bill_wise', e.target.checked); }}
               className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-            Maintain bill-by-bill (enables bill selection in Voucher Entry)
+            Maintain bill-by-bill (enables bill selection when raising bills / collecting payments)
           </label>
 
           <button type="button" onClick={() => setShowDetails((s) => !s)}

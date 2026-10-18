@@ -26,11 +26,11 @@ export function isOverdue(dueDate, isSettled) {
   return dueDate < todayLocalDate();
 }
 
-// Plain-English stand-ins for accounting Dr/Cr — the API still sends/receives
-// 'dr'/'cr', only these labels are user-facing.
-export const FLOW_LABEL = { dr: 'Money In', cr: 'Money Out' };
-export const OWES_LABEL = { dr: 'they owe you', cr: 'you owe them' };
-export const OWES_SHORT = { dr: 'owes you', cr: 'you owe' };
+// Accounting Dr/Cr labels (the API sends/receives 'dr'/'cr').
+// FLOW_LABEL = column / entry side, OWES_* = which side a balance is on.
+export const FLOW_LABEL = { dr: 'Debit (Dr)', cr: 'Credit (Cr)' };
+export const OWES_LABEL = { dr: 'Dr', cr: 'Cr' };
+export const OWES_SHORT = { dr: 'Dr', cr: 'Cr' };
 
 export const NATURE_BADGE = {
   asset: 'bg-blue-50 text-blue-700 border-blue-200',

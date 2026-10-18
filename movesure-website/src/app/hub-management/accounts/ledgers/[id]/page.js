@@ -2,15 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Loader2, AlertCircle, ArrowLeft, History, Pencil } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, History, Plus } from 'lucide-react';
+import { useAuth } from '@/app/utils/auth';
+import { customAlert } from '@/components/common/alert-system';
 import { ledgerApi } from '@/components/hub-management/accounts/api';
 import { formatINR, OWES_LABEL } from '@/components/hub-management/accounts/helpers';
 import StatementView from '@/components/hub-management/accounts/StatementView';
 import BillsTable from '@/components/hub-management/accounts/BillsTable';
+import LedgerEntryModal from '@/components/hub-management/accounts/LedgerEntryModal';
 
 export default function LedgerDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const [showEntry, setShowEntry] = useState(false);
+  const [statementKey, setStatementKey] = useState(0); // bump to reload the statement
 
   const [ledger, setLedger] = useState(null);
   const [balance, setBalance] = useState(null);
@@ -90,6 +96,12 @@ export default function LedgerDetailPage() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => setShowEntry(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Add Entry (Dr/Cr)
+          </button>
+          <button
             onClick={() => router.push(`/hub-management/accounts/audit-log?entity_type=ledger&entity_id=${id}`)}
             className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-black hover:bg-gray-50"
           >
@@ -105,8 +117,8 @@ export default function LedgerDetailPage() {
           ₹{formatINR(balance?.balance)} — {OWES_LABEL[balance?.balance_type] || ''}
         </p>
         <div className="flex gap-6 mt-3 text-sm text-black">
-          <span>Total Money In: <span className="font-medium text-black">₹{formatINR(balance?.total_dr)}</span></span>
-          <span>Total Money Out: <span className="font-medium text-black">₹{formatINR(balance?.total_cr)}</span></span>
+          <span>Total Dr: <span className="font-medium text-black">₹{formatINR(balance?.total_dr)}</span></span>
+          <span>Total Cr: <span className="font-medium text-black">₹{formatINR(balance?.total_cr)}</span></span>
         </div>
       </div>
 
@@ -128,7 +140,7 @@ export default function LedgerDetailPage() {
         )}
       </div>
 
-      {tab === 'statement' && <StatementView ledgerId={id} />}
+      {tab === 'statement' && <StatementView key={statementKey} ledgerId={id} userId={user?.id} onChanged={() => { load(); setStatementKey((k) => k + 1); }} />}
 
       {tab === 'bills' && ledger.is_bill_wise && (
         <div>
@@ -151,6 +163,19 @@ export default function LedgerDetailPage() {
           </div>
         </div>
       )}
+
+      <LedgerEntryModal
+        isOpen={showEntry}
+        ledger={ledger}
+        userId={user?.id}
+        onClose={() => setShowEntry(false)}
+        onDone={() => {
+          setShowEntry(false);
+          customAlert('Entry saved', 'success');
+          load();
+          setStatementKey((k) => k + 1);
+        }}
+      />
     </div>
   );
 }

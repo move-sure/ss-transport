@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, AlertCircle, Plus, Search } from 'lucide-react';
-import { formatINR, formatDate, OWES_LABEL, FLOW_LABEL } from './helpers';
+import { formatINR, formatDate, OWES_LABEL } from './helpers';
 import { customAlert } from '@/components/common/alert-system';
 import BillsTable from './BillsTable';
 import AddPartyModal from './AddPartyModal';
+import EditVoucherModal from './EditVoucherModal';
 
 /**
  * Shared list-left / detail-right layout for the three "who owes what"
@@ -30,6 +31,7 @@ export default function PartyMasterDetail({
   const [detailError, setDetailError] = useState(null);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [editVoucherId, setEditVoucherId] = useState(null);
 
   const loadList = useCallback(async () => {
     if (!branchId) return;
@@ -105,7 +107,7 @@ export default function PartyMasterDetail({
             >
               <p className="text-sm font-medium text-black truncate">{t.name}</p>
               <p className={`text-xs font-semibold ${t.balance_type === 'dr' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                {t.balance > 0 ? `₹${formatINR(t.balance)} ${OWES_LABEL[t.balance_type] || ''}` : 'Settled'}
+                {t.balance > 0 ? `₹${formatINR(t.balance)} ${OWES_LABEL[t.balance_type] || ''}` : 'Settled (Nil)'}
               </p>
             </button>
           ))}
@@ -129,8 +131,8 @@ export default function PartyMasterDetail({
                 <h2 className="text-xl font-bold text-black">{detail.ledger?.name}</h2>
                 <p className={`text-2xl font-bold mt-1 ${detail.balance?.balance_type === 'dr' ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {detail.balance?.balance > 0
-                    ? `${detail.balance?.balance_type === 'cr' ? 'You owe them' : 'Owes you'}: ₹${formatINR(detail.balance?.balance)}`
-                    : 'Settled: ₹0'}
+                    ? `Balance: ₹${formatINR(detail.balance?.balance)} ${OWES_LABEL[detail.balance?.balance_type] || ''}`
+                    : 'Settled: ₹0 (Nil)'}
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -151,9 +153,10 @@ export default function PartyMasterDetail({
                     <th className="text-left px-4 py-2.5 font-semibold">Date</th>
                     <th className="text-left px-4 py-2.5 font-semibold">Voucher No</th>
                     <th className="text-left px-4 py-2.5 font-semibold">Narration</th>
-                    <th className="text-left px-4 py-2.5 font-semibold">Type</th>
-                    <th className="text-right px-4 py-2.5 font-semibold">Amount</th>
+                    <th className="text-right px-4 py-2.5 font-semibold">Dr</th>
+                    <th className="text-right px-4 py-2.5 font-semibold">Cr</th>
                     <th className="text-right px-4 py-2.5 font-semibold">Running Balance</th>
+                    <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 text-black">
@@ -165,13 +168,21 @@ export default function PartyMasterDetail({
                       </td>
                       <td className="px-4 py-2.5 font-medium">{s.voucher_no}</td>
                       <td className="px-4 py-2.5 text-black">{s.narration || '-'}</td>
-                      <td className="px-4 py-2.5">{s.entry_type === 'dr' ? FLOW_LABEL.dr : FLOW_LABEL.cr}</td>
-                      <td className="px-4 py-2.5 text-right">₹{formatINR(s.amount)}</td>
-                      <td className="px-4 py-2.5 text-right font-medium">₹{formatINR(s.running_balance)}</td>
+                      <td className="px-4 py-2.5 text-right">{s.entry_type === 'dr' ? `₹${formatINR(s.amount)}` : ''}</td>
+                      <td className="px-4 py-2.5 text-right">{s.entry_type === 'cr' ? `₹${formatINR(s.amount)}` : ''}</td>
+                      <td className="px-4 py-2.5 text-right font-medium">
+                        ₹{formatINR(s.running_balance)}{s.running_balance_type ? ` ${OWES_LABEL[s.running_balance_type] || ''}` : ''}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {s.voucher_id && (
+                          <button onClick={() => setEditVoucherId(s.voucher_id)}
+                            className="text-xs font-semibold text-blue-700 hover:underline whitespace-nowrap">Edit / Cancel</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {!detail.statement?.length && (
-                    <tr><td colSpan={6} className="text-center py-8 text-black">No history yet</td></tr>
+                    <tr><td colSpan={7} className="text-center py-8 text-black">No history yet</td></tr>
                   )}
                 </tbody>
               </table>
@@ -179,6 +190,15 @@ export default function PartyMasterDetail({
           </>
         ) : null}
       </div>
+
+      {editVoucherId && (
+        <EditVoucherModal
+          voucherId={editVoucherId}
+          userId={userId}
+          onClose={() => setEditVoucherId(null)}
+          onDone={() => { setEditVoucherId(null); refreshDetail(); loadList(); }}
+        />
+      )}
 
       <AddPartyModal
         isOpen={showAdd}

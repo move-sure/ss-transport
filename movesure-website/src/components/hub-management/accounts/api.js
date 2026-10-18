@@ -32,6 +32,7 @@ async function request(path, options = {}) {
 
 const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body || {}) });
 const put = (path, body) => request(path, { method: 'PUT', body: JSON.stringify(body || {}) });
+const del = (path) => request(path, { method: 'DELETE' });
 
 export const ledgerApi = {
   groups: {
@@ -62,11 +63,59 @@ export const ledgerApi = {
     list: (params) => request(`/api/ledger/vouchers${qs(params)}`),
     get: (id) => request(`/api/ledger/vouchers/${id}`),
     create: (body) => post('/api/ledger/vouchers', body),
+    // Edit in place - same voucher_no; bills are recalculated server-side
+    update: (id, body) => put(`/api/ledger/vouchers/${id}`, body),
     cancel: (id, body) => post(`/api/ledger/vouchers/${id}/cancel`, body),
   },
   auditLog: {
     list: (params) => request(`/api/ledger/audit-log${qs(params)}`),
   },
+};
+
+// Party ledgers (consignor / consignee, built from their bilties) + custom bilty ledgers.
+// Each bilty in a ledger = one Sales voucher (Dr party as a bill ref = GR no / Cr Freight Income).
+const PL = '/api/ledger/party-ledgers';
+export const partyLedgersApi = {
+  list: (params) => request(`${PL}${qs(params)}`),                       // { branch_id, kind: party|custom }
+  parties: (params) => request(`${PL}/parties${qs(params)}`),            // { type: consignor|consignee, q }
+  nameVariants: (params) => request(`${PL}/name-variants${qs(params)}`), // { type, q }
+  create: (body) => post(PL, body),
+  get: (id) => request(`${PL}/${id}`),
+  bilties: (id, params) => request(`${PL}/${id}/bilties${qs(params)}`),  // { status: open|settled, q, page, page_size }
+  addBilties: (id, body) => post(`${PL}/${id}/bilties`, body),           // { items: [{ bilty_type, bilty_id }], added_by }
+  removeBilty: (id, linkId, params) => del(`${PL}/${id}/bilties/${linkId}${qs(params)}`), // { user_id, reason }
+  biltySearch: (params) => request(`${PL}/bilty-search${qs(params)}`),
+  sync: (id, body) => post(`${PL}/${id}/sync`, body),                    // { dry_run, from_date, to_date, user_id, limit }
+  autoAdd: (body) => post(`${PL}/auto-add`, body),                       // { bilty_type, bilty_id, user_id }
+  collect: (id, body) => post(`${PL}/${id}/collect`, body),
+  updateCollect: (id, voucherId, body) => put(`${PL}/${id}/collect/${voucherId}`, body),
+  updateProfile: (id, body) => put(`${PL}/${id}/profile`, body),
+};
+
+// Transport ledgers: bilties on challans received at the hub, posted per bilty into the
+// delivery transport's ledger (to-pay -> Dr pf = total - kaat - dd, paid -> Cr kaat).
+const TL = '/api/ledger/transport-ledgers';
+const enc = encodeURIComponent;
+export const transportLedgersApi = {
+  challans: (params) => request(`${TL}/challans${qs(params)}`),            // { from_date, to_date, branch_id, page, page_size }
+  challan: (no) => request(`${TL}/challans/${enc(no)}`),
+  autoAssign: (no, body) => post(`${TL}/challans/${enc(no)}/auto-assign`, body), // { dry_run, updated_by }
+  assign: (body) => post(`${TL}/assign`, body),                             // { items: [{ gr_no, transport_id?, ledger_id? }], updated_by, include_settled }
+  unassigned: (params) => request(`${TL}/unassigned${qs(params)}`),         // { from_date, to_date, only_undetected, include_settled }
+  // One row per transport company (grouped by PAN). Always send the bilty's station_city_id.
+  transportOptions: (params) => request(`${TL}/transport-options${qs(params)}`), // { station_city_id, q, all_stations, grouped }
+  list: (params) => request(`${TL}${qs(params)}`),
+  create: (body) => post(TL, body),
+  get: (id) => request(`${TL}/${id}`),
+  update: (id, body) => put(`${TL}/${id}`, body),                           // { add_transport_ids, remove_transport_ids, allow_zero_kaat, updated_by }
+  bilties: (id, params) => request(`${TL}/${id}/bilties${qs(params)}`),     // { challan_no, payment_mode, status, q, page, page_size }
+  unassign: (id, linkId, params) => del(`${TL}/${id}/bilties/${linkId}${qs(params)}`),
+  refresh: (id, body) => post(`${TL}/${id}/refresh`, body),                 // { dry_run, updated_by }
+  merge: (id, body) => post(`${TL}/${id}/merge`, body),                     // { into_ledger_id, updated_by }
+  // Set kaat (rate x weight / packages) for bilties without one; optionally save station rate + assign
+  addKaat: (body) => post(`${TL}/kaat`, body),                              // { gr_nos, transport_id, pricing_mode, rate, dd, save_station_rate, assign, updated_by }
+  // Manual (station) bilty edited outside the API -> re-sync its transport ledger entry
+  biltyChanged: (body) => post(`${TL}/bilty-changed`, body),                // { gr_no | gr_nos, user_id }
 };
 
 // Screen 1 — Transport PF Collection

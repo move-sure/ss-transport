@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/utils/auth';
-import { Loader2, AlertCircle, ArrowLeft, History, Ban, X } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, History, Ban, X, Pencil } from 'lucide-react';
 import { ledgerApi } from '@/components/hub-management/accounts/api';
 import { formatDate, formatINR, FLOW_LABEL } from '@/components/hub-management/accounts/helpers';
 import { customAlert } from '@/components/common/alert-system';
+import EditVoucherModal from '@/components/hub-management/accounts/EditVoucherModal';
 
 function CancelDialog({ open, onClose, onConfirm }) {
   const [reason, setReason] = useState('');
@@ -65,6 +66,7 @@ export default function VoucherDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -134,6 +136,14 @@ export default function VoucherDetailPage() {
           </button>
           {voucher.is_active && (
             <button
+              onClick={() => setEditOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              <Pencil className="w-4 h-4" /> Edit
+            </button>
+          )}
+          {voucher.is_active && (
+            <button
               onClick={() => setCancelOpen(true)}
               className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-semibold text-red-700 hover:bg-red-100"
             >
@@ -184,6 +194,14 @@ export default function VoucherDetailPage() {
       </div>
 
       <CancelDialog open={cancelOpen} onClose={() => setCancelOpen(false)} onConfirm={handleCancel} />
+      {editOpen && (
+        <EditVoucherModal
+          voucherId={id}
+          userId={user?.id}
+          onClose={() => setEditOpen(false)}
+          onDone={() => { setEditOpen(false); router.push('/hub-management/accounts/vouchers'); }}
+        />
+      )}
     </div>
   );
 }

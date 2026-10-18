@@ -75,11 +75,11 @@ export default function TransportPfCollectionPage() {
         ) : summary ? (
           <>
             <div>
-              <p className="text-[10px] font-semibold text-black uppercase tracking-wide">Total They Owe You</p>
+              <p className="text-[10px] font-semibold text-black uppercase tracking-wide">Total Receivable (Dr)</p>
               <p className="text-lg font-bold text-emerald-700">₹{formatINR(summary.totals?.total_they_owe_you)}</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-black uppercase tracking-wide">Total You Owe Them</p>
+              <p className="text-[10px] font-semibold text-black uppercase tracking-wide">Total Payable (Cr)</p>
               <p className="text-lg font-bold text-rose-700">₹{formatINR(summary.totals?.total_you_owe_them)}</p>
             </div>
             <div>

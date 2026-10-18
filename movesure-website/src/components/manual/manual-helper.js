@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import supabase from '../../app/utils/supabase';
 
 import { stationBiltyApi, buildMetaPayload } from './station-bilty-api';
+import { partyLedgersApi, transportLedgersApi } from '../hub-management/accounts/api';
 
 // Extra manual bilty fields (saved via the station-bilty API, see station-bilty-api.js)
 const EMPTY_EXTRAS = {
@@ -615,6 +616,16 @@ export const useStationBiltySummary = () => {
         }
       }
       result = { ...result, _warnings: warnings };
+
+      // Manual bilties aren't added to party ledgers on booking (this form saves straight to
+      // Supabase) - ask the ledger API to post it into a matching party ledger. Background only.
+      partyLedgersApi.autoAdd({ bilty_type: 'manual', bilty_id: result.id, user_id: currentUserId })
+        .catch((err) => console.warn('Party ledger auto-add skipped:', err.message));
+      // An edited manual bilty may already sit in a transport ledger (station / amount changed) - re-sync it
+      if (editingId) {
+        transportLedgersApi.biltyChanged({ gr_no: result.gr_no, user_id: currentUserId })
+          .catch((err) => console.warn('Transport ledger sync skipped:', err.message));
+      }
 
       resetForm();
       await loadSummaryData();

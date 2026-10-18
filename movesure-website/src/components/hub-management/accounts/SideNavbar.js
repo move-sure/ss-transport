@@ -9,6 +9,10 @@ import {
   Wallet,
   Package,
   Users,
+  BookOpen,
+  ClipboardCheck,
+  AlertTriangle,
+  Building2,
 } from 'lucide-react';
 
 const DAILY_OPTIONS = [
@@ -16,7 +20,14 @@ const DAILY_OPTIONS = [
   { id: 'delivery', name: 'Kanpur Delivery', icon: Package, description: 'Income & expense by GR no.', path: '/hub-management/accounts/delivery' },
   { id: 'cash-register', name: 'Cash Manager (Galla)', icon: Wallet, description: 'Day-by-day view of everything that touched your cash box', path: '/hub-management/accounts/cash-register' },
   { id: 'drivers', name: 'Truck Bhada', icon: Truck, description: 'What you owe each driver, per trip', path: '/hub-management/accounts/drivers' },
+  { id: 'party-ledgers', name: 'Party Ledgers', icon: BookOpen, description: 'Consignor / consignee bilty ledgers, payments', path: '/hub-management/accounts/party-ledgers' },
   { id: 'labour', name: 'Labour Kharcha', icon: Users, description: 'What you owe your loading labour, itemized', path: '/hub-management/accounts/labour' },
+];
+
+const HUB_OPTIONS = [
+  { id: 'transport-challans', name: 'Hub Challans', icon: ClipboardCheck, description: 'Received challans → assign bilties to transports', path: '/hub-management/accounts/transport-challans' },
+  { id: 'transport-unassigned', name: 'Unassigned Bilties', icon: AlertTriangle, description: 'Received bilties in no transport ledger', path: '/hub-management/accounts/transport-unassigned' },
+  { id: 'transport-ledgers', name: 'Transport Ledgers', icon: Building2, description: 'Per-bilty pf / kaat by delivery transport', path: '/hub-management/accounts/transport-ledgers' },
 ];
 
 const ADVANCED_OPTIONS = [
@@ -25,7 +36,7 @@ const ADVANCED_OPTIONS = [
   { id: 'audit-log', name: 'Audit Log', icon: History, description: 'Who changed what, when', path: '/hub-management/accounts/audit-log' },
 ];
 
-const MENU_OPTIONS = [...DAILY_OPTIONS, ...ADVANCED_OPTIONS];
+const MENU_OPTIONS = [...DAILY_OPTIONS, ...HUB_OPTIONS, ...ADVANCED_OPTIONS];
 
 export default function AccountsSideNavbar() {
   const pathname = usePathname();
@@ -84,6 +95,9 @@ export default function AccountsSideNavbar() {
 
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {DAILY_OPTIONS.map(renderOption)}
+
+        <p className="px-3 pt-4 pb-1 text-[10px] font-semibold text-black uppercase tracking-wide">Hub → Transport</p>
+        {HUB_OPTIONS.map(renderOption)}
 
         <p className="px-3 pt-4 pb-1 text-[10px] font-semibold text-black uppercase tracking-wide">Advanced</p>
         {ADVANCED_OPTIONS.map(renderOption)}

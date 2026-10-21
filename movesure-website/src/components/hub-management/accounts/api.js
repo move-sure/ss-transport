@@ -100,8 +100,8 @@ export const transportLedgersApi = {
   challans: (params) => request(`${TL}/challans${qs(params)}`),            // { from_date, to_date, branch_id, page, page_size }
   challan: (no) => request(`${TL}/challans/${enc(no)}`),
   autoAssign: (no, body) => post(`${TL}/challans/${enc(no)}/auto-assign`, body), // { dry_run, updated_by }
-  assign: (body) => post(`${TL}/assign`, body),                             // { items: [{ gr_no, transport_id?, ledger_id? }], updated_by, include_settled }
-  unassigned: (params) => request(`${TL}/unassigned${qs(params)}`),         // { from_date, to_date, only_undetected, include_settled }
+  assign: (body) => post(`${TL}/assign`, body),                             // { items: [{ gr_no, transport_id?, ledger_id? }], updated_by }
+  unassigned: (params) => request(`${TL}/unassigned${qs(params)}`),         // { from_date, to_date, only_undetected }
   // One row per transport company (grouped by PAN). Always send the bilty's station_city_id.
   transportOptions: (params) => request(`${TL}/transport-options${qs(params)}`), // { station_city_id, q, all_stations, grouped }
   list: (params) => request(`${TL}${qs(params)}`),

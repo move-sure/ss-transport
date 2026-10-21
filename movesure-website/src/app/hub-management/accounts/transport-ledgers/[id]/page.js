@@ -123,7 +123,7 @@ export default function TransportLedgerPage() {
       {tab === 'bilties' && <TransportBiltiesTab ledgerId={id} userId={user?.id} reloadKey={reloadKey} onChanged={load} />}
       {tab === 'statement' && (
         <StatementView key={reloadKey} ledgerId={id} userId={user?.id} onChanged={load} defaultCurrentMonth
-          exportMeta={{ name: ledger?.name, gstin: profile?.transport_gstin, subtitle: 'Transport ledger', landscape: true }} />
+          exportMeta={{ name: ledger?.name, gstin: profile?.transport_gstin, subtitle: 'Transport ledger', landscape: true, biltyColumns: true }} />
       )}
       {tab === 'settings' && <TransportLedgerSettings ledger={ledger} profile={profile} transports={transports} userId={user?.id} onSaved={load} />}
 

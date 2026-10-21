@@ -6,7 +6,7 @@ import { Loader2, AlertCircle, FileSpreadsheet, FileText, Download, Eye, X, Prin
 import { ledgerApi } from './api';
 import { formatDate, formatINR, todayLocalDate, FLOW_LABEL, OWES_LABEL } from './helpers';
 import EditVoucherModal from './EditVoucherModal';
-import { entryDr, entryCr, statementTotals, exportStatementCSV, buildStatementPDF, statementPdfFileName } from './statementExport';
+import { entryDr, entryCr, statementTotals, exportStatementCSV, buildStatementPDF, statementPdfFileName, parseBiltyNarration } from './statementExport';
 
 const monthStart = () => `${todayLocalDate().slice(0, 8)}01`;
 
@@ -54,6 +54,10 @@ export default function StatementView({
   useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
 
   const meta = exportMeta || { name: data?.name };
+  // Transport ledgers: split the bilty narration into GR / challan / station / mode / freight / kaat / rate / dd columns
+  const bc = !!meta?.biltyColumns;
+  const preCols = bc ? 10 : 3; // columns before Dr
+  const totalCols = preCols + 3 + (userId ? 1 : 0);
   const totals = statementTotals(data);
   const balSuffix = (type) => (!plain && type ? ` ${OWES_LABEL[type] || ''}` : '');
 
@@ -117,7 +121,20 @@ export default function StatementView({
               <tr>
                 <th className="text-left px-4 py-2.5 font-semibold w-28">Date</th>
                 <th className="text-left px-4 py-2.5 font-semibold w-28">Voucher No</th>
-                <th className="text-left px-4 py-2.5 font-semibold">Narration</th>
+                {bc ? (
+                  <>
+                    <th className="text-left px-3 py-2.5 font-semibold">GR</th>
+                    <th className="text-left px-3 py-2.5 font-semibold">Challan</th>
+                    <th className="text-left px-3 py-2.5 font-semibold">Station</th>
+                    <th className="text-left px-3 py-2.5 font-semibold">Mode</th>
+                    <th className="text-right px-3 py-2.5 font-semibold">Freight</th>
+                    <th className="text-right px-3 py-2.5 font-semibold">Kaat</th>
+                    <th className="text-left px-3 py-2.5 font-semibold">Rate</th>
+                    <th className="text-right px-3 py-2.5 font-semibold">DD</th>
+                  </>
+                ) : (
+                  <th className="text-left px-4 py-2.5 font-semibold">Narration</th>
+                )}
                 <th className="text-right px-4 py-2.5 font-semibold w-36">{FLOW_LABEL.dr}</th>
                 <th className="text-right px-4 py-2.5 font-semibold w-36">{FLOW_LABEL.cr}</th>
                 <th className="text-right px-4 py-2.5 font-semibold w-40">Running Balance</th>
@@ -126,13 +143,14 @@ export default function StatementView({
             </thead>
             <tbody className="divide-y divide-gray-50 text-black">
               <tr className="bg-gray-50/60 font-medium text-black">
-                <td className="px-4 py-2.5" colSpan={5}>Opening Balance</td>
+                <td className="px-4 py-2.5" colSpan={preCols + 2}>Opening Balance</td>
                 <td className="px-4 py-2.5 text-right">₹{formatINR(data.opening_balance)}{balSuffix(data.opening_balance_type)}</td>
                 {userId && <td />}
               </tr>
               {(data.entries || []).map((e, i) => {
                 const dr = entryDr(e);
                 const cr = entryCr(e);
+                const b = bc ? parseBiltyNarration(e.narration) : null;
                 return (
                   <tr key={`${e.voucher_id || ''}-${i}`} className="hover:bg-gray-50 text-black">
                     <td className="px-4 py-2.5 whitespace-nowrap">{formatDate(e.date || e.voucher_date)}</td>
@@ -142,7 +160,20 @@ export default function StatementView({
                           className="text-emerald-700 font-medium hover:underline">{e.voucher_no}</button>
                       ) : (e.voucher_no || '-')}
                     </td>
-                    <td className="px-4 py-2.5 text-black">{e.narration || '-'}</td>
+                    {bc && b ? (
+                      <>
+                        <td className="px-3 py-2.5 font-semibold">{b.gr}</td>
+                        <td className="px-3 py-2.5">{b.challan || '-'}</td>
+                        <td className="px-3 py-2.5">{b.station || '-'}</td>
+                        <td className="px-3 py-2.5 text-xs uppercase">{b.mode}</td>
+                        <td className="px-3 py-2.5 text-right">{b.freight != null ? `₹${formatINR(b.freight)}` : ''}</td>
+                        <td className="px-3 py-2.5 text-right">{b.kaat != null ? `₹${formatINR(b.kaat)}` : ''}</td>
+                        <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">{b.rate}</td>
+                        <td className="px-3 py-2.5 text-right">{b.dd ? `₹${formatINR(b.dd)}` : ''}</td>
+                      </>
+                    ) : (
+                      <td className="px-4 py-2.5 text-black" colSpan={bc ? 8 : 1}>{e.narration || '-'}</td>
+                    )}
                     <td className="px-4 py-2.5 text-right font-medium text-emerald-700">{dr ? `₹${formatINR(dr)}` : ''}</td>
                     <td className="px-4 py-2.5 text-right font-medium text-rose-700">{cr ? `₹${formatINR(cr)}` : ''}</td>
                     <td className="px-4 py-2.5 text-right font-medium whitespace-nowrap">₹{formatINR(e.running_balance)}{balSuffix(e.running_balance_type)}</td>
@@ -158,16 +189,16 @@ export default function StatementView({
                 );
               })}
               {!data.entries?.length && (
-                <tr><td colSpan={userId ? 7 : 6} className="text-center py-8 text-black">No entries in this range</td></tr>
+                <tr><td colSpan={totalCols} className="text-center py-8 text-black">No entries in this range</td></tr>
               )}
               <tr className="bg-gray-50 font-semibold text-black border-t border-gray-200">
-                <td className="px-4 py-2.5" colSpan={3}>Total</td>
+                <td className="px-4 py-2.5" colSpan={preCols}>Total</td>
                 <td className="px-4 py-2.5 text-right text-emerald-700">₹{formatINR(totals.totalDr)}</td>
                 <td className="px-4 py-2.5 text-right text-rose-700">₹{formatINR(totals.totalCr)}</td>
                 <td colSpan={userId ? 2 : 1} />
               </tr>
               <tr className="bg-gray-50/60 font-semibold text-black">
-                <td className="px-4 py-2.5" colSpan={5}>Closing Balance</td>
+                <td className="px-4 py-2.5" colSpan={preCols + 2}>Closing Balance</td>
                 <td className="px-4 py-2.5 text-right">₹{formatINR(data.closing_balance)}{balSuffix(data.closing_balance_type)}</td>
                 {userId && <td />}
               </tr>

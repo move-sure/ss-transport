@@ -48,11 +48,11 @@ Bilties on challans **received at the hub** are posted, one by one, into the del
 | Screen | Path | What you can do |
 |---|---|---|
 | **Hub Challans** | `/transport-challans` | Received challans, with an assigned/total progress bar. Open one to see its bilties: suggested transport (with a source tag), kaat, pf and status. Change a transport inline, **Assign selected**, or **Auto-assign** the whole challan (preview first). |
-| **Unassigned Bilties** | `/transport-unassigned` | Every received bilty in no transport ledger, for a date range. Filters: no transport found, no kaat, blocked, settled via pohonch / crossing. Same assign table. |
+| **Unassigned Bilties** | `/transport-unassigned` | Every received bilty in no transport ledger, for a date range. Filters: no transport found, no kaat, blocked, with pohonch / bilty no. Same assign table. |
 | **Transport Ledgers** | `/transport-ledgers` | Each transport's net balance, bilties, to-pay, kaat and pf totals. **+ Transport Ledger** (optional; assign creates ledgers). |
 | **Transport ledger page** | `/transport-ledgers/[id]` | **Collect** (receivable bilty bills), **Give** (payable kaat bills), **Refresh kaat** (preview, then apply). Tabs: **Bilties** (kaat / dd / pf, outstanding, unassign), **Statement** (Dr/Cr, CSV/PDF), **Settings** (transport rows, allow zero kaat). |
 
-Bilties already settled through pohonch / crossing challans are greyed out and skipped unless "Allow settled-elsewhere" is ticked, so nothing is counted twice.
+A pohonch no, crossing challan no or transport bilty no is **proof** the transport received the bilty (a blue badge, e.g. "Pohonch 217"), not a settlement: those bilties are assigned like any other. Blocked: to-pay bilties already owed in a party ledger, and GRs booked as Kanpur Delivery income.
 
 - **Transport picker:** one row per transport company (grouped by PAN), showing only transports at the bilty's station. Tags: at station, has ledger, no GST, "looks like X".
 - **Add kaat rate:** for bilties with no kaat (one station at a time): rate per kg or per pkg, an optional DD, "save as station rate" and "assign now". Opens from the status badge, the bottom bar, or the skipped list after an assign.

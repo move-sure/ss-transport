@@ -6,7 +6,7 @@ import { transportLedgersApi } from '../api';
 import { formatINR, formatDate } from '../helpers';
 import TransportPicker from './TransportPicker';
 import AddKaatModal from './AddKaatModal';
-import { SOURCE_TAG, rowStatus, pfOf } from './shared';
+import { SOURCE_TAG, rowStatus, pfOf, proofBadges } from './shared';
 
 const FILTERS = [
   ['todo', 'To assign'],
@@ -15,7 +15,7 @@ const FILTERS = [
   ['nokaat', 'No kaat'],
   ['assigned', 'Assigned'],
   ['blocked', 'Blocked'],
-  ['settled', 'Settled elsewhere']
+  ['proof', 'With pohonch / bilty no']
 ];
 
 /**
@@ -27,7 +27,6 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
   const [q, setQ] = useState('');
   const [overrides, setOverrides] = useState({}); // gr_no -> option
   const [selected, setSelected] = useState({});   // gr_no -> true
-  const [includeSettled, setIncludeSettled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -44,19 +43,21 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
       c[s.key] = (c[s.key] || 0) + 1;
       if (['ready', 'nokaat', 'undetected'].includes(s.key)) c.todo += 1;
     });
+    c.proof = rows.filter((r) => proofBadges(r).length).length;
     return c;
-  }, [withStatus]);
+  }, [withStatus, rows]);
 
   const needle = q.trim().toUpperCase();
   const visible = withStatus.filter(({ r, s }) => {
     if (filter === 'todo' && !['ready', 'nokaat', 'undetected'].includes(s.key)) return false;
-    if (!['all', 'todo'].includes(filter) && s.key !== filter) return false;
+    if (filter === 'proof') { if (!proofBadges(r).length) return false; }
+    else if (!['all', 'todo'].includes(filter) && s.key !== filter) return false;
     if (!needle) return true;
     return [r.gr_no, r.station, r.consignor, r.consignee, r.challan_no, overrides[r.gr_no]?.transport_name, r.suggested?.transport_name]
       .some((v) => String(v || '').toUpperCase().includes(needle));
   });
 
-  const canSelect = (s) => !['assigned', 'blocked'].includes(s.key) && (s.key !== 'settled' || includeSettled);
+  const canSelect = (s) => !['assigned', 'blocked'].includes(s.key);
   const selectable = visible.filter(({ s }) => canSelect(s));
   const allTicked = selectable.length > 0 && selectable.every(({ r }) => selected[r.gr_no]);
   const toggleAll = () => {
@@ -79,8 +80,7 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
     try {
       const res = await transportLedgersApi.assign({
         items: pickedRows.map((r) => (overrides[r.gr_no] ? { gr_no: r.gr_no, transport_id: overrides[r.gr_no].transport_id || overrides[r.gr_no].id } : { gr_no: r.gr_no })),
-        updated_by: userId,
-        include_settled: includeSettled
+        updated_by: userId
       });
       const d = res.data || res;
       setResult({
@@ -136,10 +136,6 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="GR, station, party, transport"
             className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-black w-64" />
         </div>
-        <label className="flex items-center gap-1.5 text-xs text-black">
-          <input type="checkbox" className="accent-emerald-600" checked={includeSettled} onChange={(e) => setIncludeSettled(e.target.checked)} />
-          Allow settled-elsewhere
-        </label>
         {toolbar}
       </div>
 
@@ -215,15 +211,17 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
               const locked = ['assigned', 'blocked'].includes(s.key);
               const src = ov ? SOURCE_TAG.manual : SOURCE_TAG[r.suggested?.source];
               const pf = pfOf(r);
-              const dim = s.key === 'settled' && !includeSettled;
               return (
-                <tr key={`${r.bilty_type || ''}-${r.gr_no}`} className={`${dim ? 'opacity-50' : ''} ${selected[r.gr_no] ? 'bg-emerald-50/50' : 'hover:bg-gray-50'}`}>
+                <tr key={`${r.bilty_type || ''}-${r.gr_no}`} className={selected[r.gr_no] ? 'bg-emerald-50/50' : 'hover:bg-gray-50'}>
                   <td className="px-3 py-2">
                     <input type="checkbox" className="accent-emerald-600" disabled={!canSelect(s)} checked={!!selected[r.gr_no] && canSelect(s)}
                       onChange={(e) => setSelected((sel) => ({ ...sel, [r.gr_no]: e.target.checked }))} />
                   </td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap">
                     {r.gr_no}{r.bilty_type === 'manual' && <span className="ml-1 text-[9px] text-amber-700">M</span>}
+                    {proofBadges(r).map((p) => (
+                      <span key={p} className="block w-fit mt-0.5 px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-sky-800 text-[9px] font-semibold" title="Proof the transport received this bilty (not a settlement)">{p}</span>
+                    ))}
                   </td>
                   {showChallan && <td className="px-3 py-2">{r.challan_no}</td>}
                   <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.bilty_date)}</td>

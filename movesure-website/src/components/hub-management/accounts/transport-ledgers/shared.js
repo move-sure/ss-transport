@@ -19,15 +19,25 @@ const text = (v) => (typeof v === 'string' ? v : v?.reason || v?.message || '');
 
 /**
  * Status of a received bilty row. `override` = transport the user picked in the table.
- * key: assigned | blocked | settled | undetected | nokaat | ready
+ * key: assigned | blocked | undetected | nokaat | ready
  */
 export function rowStatus(r, override) {
   if (r.assigned) return { key: 'assigned', label: `In ${r.assigned.ledger_name || 'ledger'}`, cls: 'bg-emerald-50 text-emerald-700' };
   if (r.blocked) return { key: 'blocked', label: text(r.blocked) || 'Blocked', cls: 'bg-red-50 text-red-700' };
-  if (r.already_settled_via) return { key: 'settled', label: `Settled via ${r.already_settled_via}`, cls: 'bg-gray-100 text-gray-600' };
   if (!override && !r.suggested?.transport_id) return { key: 'undetected', label: text(r.suggested?.reason || r.reason) || 'No transport found — pick one', cls: 'bg-amber-50 text-amber-800' };
   if (!override && !Number(r.estimate?.kaat)) return { key: 'nokaat', label: 'No kaat', cls: 'bg-amber-50 text-amber-800' };
   return { key: 'ready', label: override ? 'Ready (chosen)' : 'Ready', cls: 'bg-blue-50 text-blue-700' };
+}
+
+// Pohonch / crossing challan / transport bilty no = proof the transport received the bilty
+// (information only - the bilty is still assigned and posted normally).
+export function proofBadges(r) {
+  const p = r.proof || {};
+  return [
+    p.pohonch_no && `Pohonch ${p.pohonch_no}`,
+    p.crossing_challan_no && `Crossing ${p.crossing_challan_no}`,
+    p.bilty_number && `Bilty no ${p.bilty_number}`
+  ].filter(Boolean);
 }
 
 // Signed pf: to-pay -> + (transport owes us, Dr), paid -> - (we owe kaat, Cr)

@@ -14,7 +14,6 @@ export default function UnassignedBiltiesPage() {
   const [fromDate, setFromDate] = useState(daysAgo(30));
   const [toDate, setToDate] = useState(todayLocalDate());
   const [onlyUndetected, setOnlyUndetected] = useState(false);
-  const [includeSettled, setIncludeSettled] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,7 +24,7 @@ export default function UnassignedBiltiesPage() {
       setError(null);
       const res = await transportLedgersApi.unassigned({
         from_date: fromDate || undefined, to_date: toDate || undefined,
-        only_undetected: onlyUndetected, include_settled: includeSettled
+        only_undetected: onlyUndetected
       });
       setData(res.data || res);
     } catch (err) {
@@ -33,7 +32,7 @@ export default function UnassignedBiltiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, onlyUndetected, includeSettled]);
+  }, [fromDate, toDate, onlyUndetected]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -51,7 +50,7 @@ export default function UnassignedBiltiesPage() {
           <div className="flex items-center gap-4 bg-white border border-gray-100 rounded-xl px-4 py-2 shadow-sm text-sm text-black">
             <span><b>{data.count ?? (data.rows || []).length}</b> unassigned</span>
             <span className="text-amber-700"><b>{data.undetected_count ?? 0}</b> no transport found</span>
-            <span className="text-gray-600"><b>{data.settled_elsewhere_count ?? 0}</b> settled via pohonch / crossing{includeSettled ? '' : ' (hidden)'}</span>
+            <span className="text-sky-800"><b>{data.with_proof_count ?? 0}</b> with pohonch / bilty no (proof)</span>
           </div>
         )}
       </div>
@@ -64,10 +63,6 @@ export default function UnassignedBiltiesPage() {
         <label className="flex items-center gap-2 text-sm text-black ml-2">
           <input type="checkbox" className="accent-emerald-600" checked={onlyUndetected} onChange={(e) => setOnlyUndetected(e.target.checked)} />
           Only &quot;no transport found&quot;
-        </label>
-        <label className="flex items-center gap-2 text-sm text-black">
-          <input type="checkbox" className="accent-emerald-600" checked={includeSettled} onChange={(e) => setIncludeSettled(e.target.checked)} />
-          Show settled via pohonch / crossing
         </label>
         <button onClick={load} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

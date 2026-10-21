@@ -17,7 +17,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  ArrowRight
+  ArrowRight,
+  Printer,
 } from 'lucide-react';
 import Navbar from '../../components/dashboard/navbar';
 import { useAuth } from '../utils/auth';
@@ -127,8 +128,8 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Party Analytics Navigation Card */}
-        <div className="mb-6">
+        {/* Analytics tools: Party Analytics + Station Catalog Print */}
+        <div className="mb-6 flex flex-col sm:flex-row flex-wrap gap-3">
           <button
             onClick={() => router.push('/analytics/consignor-consignee-analytics')}
             className="flex items-center justify-between w-full sm:w-auto gap-6 px-6 py-4 rounded-2xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-violet-50 hover:border-blue-400 hover:shadow-md hover:shadow-blue-100 transition-all group text-left"
@@ -143,6 +144,22 @@ export default function AnalyticsPage() {
               </div>
             </div>
             <ArrowRight className="h-5 w-5 text-blue-500 group-hover:translate-x-1 transition-transform shrink-0" />
+          </button>
+
+          <button
+            onClick={() => router.push('/analytics/station-catalog')}
+            className="flex items-center justify-between w-full sm:w-auto gap-6 px-6 py-4 rounded-2xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-100 transition-all group text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md group-hover:scale-105 transition-transform">
+                <Printer className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 text-sm">Station Catalog Print</p>
+                <p className="text-xs text-gray-500 mt-0.5">Branded station-list PDF · customer logo · states &amp; major cities</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-emerald-500 group-hover:translate-x-1 transition-transform shrink-0" />
           </button>
         </div>
 

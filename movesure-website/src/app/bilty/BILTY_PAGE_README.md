@@ -135,7 +135,7 @@ After saving (non-draft):
 1. **WhatsApp** is sent by the **backend** automatically when a new bilty is saved (`POST /api/bilty/save`), to the consignor and consignee numbers ("first booking" template). The frontend never calls the WhatsApp provider directly.
 2. **Print Modal** appears with options:
    - **Print Only** (Enter key) – opens the PDF viewer
-   - **Print + Resend WhatsApp** – `POST https://api.movesure.io/api/bilty/whatsapp/{gr_no}`, then opens the PDF. Use it after an edit (edits don't auto-send). The result shows as a toast, e.g. "consignee: missing".
+   - **Print + Resend WhatsApp** (Tab key) – opens the PDF **first**, then fires `POST https://api.movesure.io/api/bilty/whatsapp/{gr_no}` without waiting. The backend answers at once (202, queued) and sends in the background. Use it after an edit (edits don't auto-send). No popup; the result is only logged to the console.
    - **Save Only** (Tab key) – skips printing, resets form
 3. **Print Component** renders the bilty in a printable format
 4. After printing, form **always resets** to new bilty mode

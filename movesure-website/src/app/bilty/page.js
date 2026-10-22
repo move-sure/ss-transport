@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import { ChevronDown, ArrowLeft, Building2, User, MapPin, Calendar, FileText, Settings } from 'lucide-react';
 import { navigationManager, useInputNavigation } from '../../components/bilty/input-navigation';
 import Navbar from '../../components/dashboard/navbar';
-import AlertSystem from '../../components/common/alert-system';
 
 // Import all components
 import GRNumberSection from '../../components/bilty/grnumber-manager';
@@ -1147,7 +1146,6 @@ export default function BiltyForm() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
       <Navbar />
-      <AlertSystem />
       <div className="w-full px-4 py-3">
         {/* Bill Book / Company Selector — re-enabled so a branch with multiple
             companies (e.g. SS TRANSPORT CORPORATION vs SS MOVESECURE LOGISTICS

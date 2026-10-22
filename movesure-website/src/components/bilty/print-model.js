@@ -6,7 +6,6 @@ import { format } from 'date-fns';
 import PDFGenerator from './pdf-generation';
 import PaymentForm from './payment-form';
 import PaymentStatus from './payment-status';
-import { customAlert } from '../common/alert-system';
 
 const PrintModal = ({
   isOpen,
@@ -36,25 +35,32 @@ const PrintModal = ({
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      const handleKeyDown = (e) => {
-        // WhatsApp is sent by the backend when the bilty is saved - shortcuts never send it again
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handlePrint();
-        } else if (e.key === 'Tab') {
-          e.preventDefault();
-          onSaveOnly();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          onClose();
-        }
-      };
+    // Shortcuts only while the modal itself is showing (not once the PDF view is open)
+    if (!isOpen || showPDFGenerator) return;
 
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isOpen, onSaveOnly, onClose, biltyData]);
+    const handleKeyDown = (e) => {
+      if (!['Enter', 'Tab', 'Escape'].includes(e.key)) return;
+      // Own the key: stop the bilty form's Tab/Enter navigation from moving focus back to the page
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.repeat || whatsappSending) return;
+
+      if (e.key === 'Enter') {
+        handlePrint();
+      } else if (e.key === 'Tab') {
+        // Tab = Print + Resend WhatsApp (as before); no bilty yet -> save only
+        if (biltyData?.gr_no) handlePrintAndSendWhatsApp();
+        else onSaveOnly();
+      } else {
+        onClose();
+      }
+    };
+
+    // capture phase so this runs before any other keydown listener on the page
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, showPDFGenerator, whatsappSending, onSaveOnly, onClose, biltyData]);
 
   // Reset states and fetch payment data when modal opens
   useEffect(() => {
@@ -115,53 +121,38 @@ const PrintModal = ({
   }, [isOpen, biltyData?.id]);
 
   // Resend the bilty WhatsApp through the backend (POST /api/bilty/whatsapp/{gr_no}).
-  // The backend already sends it automatically when a NEW bilty is saved, so this is only a
-  // manual resend (e.g. after an edit). The provider's template key stays on the server.
-  const resendWhatsApp = async () => {
-    if (!biltyData?.gr_no) return false;
+  // The backend answers at once (202, queued) and sends in the background, so this is
+  // fire-and-forget: never awaited, never blocks printing, no popup. The backend also
+  // sends automatically when a NEW bilty is saved; this is the manual resend (e.g. after an edit).
+  const resendWhatsApp = () => {
+    if (!biltyData?.gr_no) return;
 
     // Rate limiting - 5 seconds
     const currentTime = Date.now();
     if (lastSendTime > 0 && currentTime - lastSendTime < 5000) {
-      customAlert('Please wait a few seconds before resending WhatsApp', 'warning');
-      return false;
+      console.log('WhatsApp resend rate limited - wait 5 seconds');
+      return;
     }
+    setLastSendTime(currentTime);
+    setWhatsappSent(true);
 
-    try {
-      setWhatsappSending(true);
-      setLastSendTime(currentTime);
-
-      const res = await fetch(`https://api.movesure.io/api/bilty/whatsapp/${encodeURIComponent(biltyData.gr_no)}`, { method: 'POST' });
-      let json = {};
-      try { json = await res.json(); } catch { /* non-JSON error body */ }
-
-      if (res.ok && json.status === 'success') {
-        const to = (json.receivers || []).join(', ');
-        customAlert(`WhatsApp sent${to ? ` to ${to}` : ''}`, 'success');
-        (json.skipped || []).forEach((sk) => customAlert(`WhatsApp ${sk.party || 'number'}: ${sk.reason}${sk.number ? ` (${sk.number})` : ''}`, 'warning'));
-        setWhatsappSent(true);
-        return true;
-      }
-
-      customAlert(`WhatsApp not sent: ${json.message || `error ${res.status}`}`, 'error');
-      return false;
-    } catch (error) {
-      console.error('WhatsApp resend error:', error);
-      customAlert('WhatsApp not sent: network error', 'error');
-      return false;
-    } finally {
-      setWhatsappSending(false);
-    }
+    fetch(`https://api.movesure.io/api/bilty/whatsapp/${encodeURIComponent(biltyData.gr_no)}`, { method: 'POST' })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.status === 'success') console.log('WhatsApp:', json.message || 'queued');
+        else console.error(`WhatsApp not sent: ${json.message || `error ${res.status}`}`);
+      })
+      .catch((error) => console.error('WhatsApp not sent: network error', error));
   };
 
   const handlePrint = () => {
     setShowPDFGenerator(true);
   };
 
-  // Resend WhatsApp, then open the PDF (it opens either way)
-  const handlePrintAndSendWhatsApp = async () => {
-    await resendWhatsApp();
+  // Print first - never wait for WhatsApp - then fire the resend in the background
+  const handlePrintAndSendWhatsApp = () => {
     setShowPDFGenerator(true);
+    resendWhatsApp();
   };
 
   const closePDFGenerator = () => {
@@ -491,7 +482,7 @@ const PrintModal = ({
                         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         Sending...
                       </div>
-                    ) : whatsappSent ? 'WhatsApp resent ✓' : 'Print + Resend WhatsApp'}
+                    ) : whatsappSent ? 'WhatsApp resent ✓' : <>Print + WhatsApp {showShortcuts && '(Tab)'}</>}
                   </div>
                   <div className="text-xs opacity-80">
                     {whatsappSending ? 'Please wait...' : whatsappSent ? 'Sent again' : 'Already sent on save'}

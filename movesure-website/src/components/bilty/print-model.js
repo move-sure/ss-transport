@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import PDFGenerator from './pdf-generation';
 import PaymentForm from './payment-form';
 import PaymentStatus from './payment-status';
-import supabase from '../../app/utils/supabase';
+import { customAlert } from '../common/alert-system';
 
 const PrintModal = ({
   isOpen,
@@ -38,22 +38,13 @@ const PrintModal = ({
   useEffect(() => {
     if (isOpen) {
       const handleKeyDown = (e) => {
+        // WhatsApp is sent by the backend when the bilty is saved - shortcuts never send it again
         if (e.key === 'Enter') {
           e.preventDefault();
-          // Prioritize WhatsApp + Print if mobile number exists
-          if (biltyData?.consignor_number) {
-            handlePrintAndSendWhatsApp();
-          } else {
-            handlePrint();
-          }
+          handlePrint();
         } else if (e.key === 'Tab') {
           e.preventDefault();
-          // Tab also triggers WhatsApp + Print if mobile number exists
-          if (biltyData?.consignor_number) {
-            handlePrintAndSendWhatsApp();
-          } else {
-            onSaveOnly();
-          }
+          onSaveOnly();
         } else if (e.key === 'Escape') {
           e.preventDefault();
           onClose();
@@ -123,18 +114,16 @@ const PrintModal = ({
     }
   }, [isOpen, biltyData?.id]);
 
-  // Send WhatsApp message function - NEW 9-variable template
-  const sendWhatsAppMessage = async () => {
-    if (!biltyData?.consignor_number || !biltyData?.gr_no || !biltyData?.consignor_name) {
-      console.error('❌ Missing required data for WhatsApp');
-      return false;
-    }
+  // Resend the bilty WhatsApp through the backend (POST /api/bilty/whatsapp/{gr_no}).
+  // The backend already sends it automatically when a NEW bilty is saved, so this is only a
+  // manual resend (e.g. after an edit). The provider's template key stays on the server.
+  const resendWhatsApp = async () => {
+    if (!biltyData?.gr_no) return false;
 
     // Rate limiting - 5 seconds
     const currentTime = Date.now();
-    const timeSinceLastSend = currentTime - lastSendTime;
-    if (timeSinceLastSend < 5000 && lastSendTime > 0) {
-      console.log('🚫 Rate limited - wait 5 seconds');
+    if (lastSendTime > 0 && currentTime - lastSendTime < 5000) {
+      customAlert('Please wait a few seconds before resending WhatsApp', 'warning');
       return false;
     }
 
@@ -142,160 +131,23 @@ const PrintModal = ({
       setWhatsappSending(true);
       setLastSendTime(currentTime);
 
-      // Fetch pdf_bucket from DB (background upload may have completed)
-      let pdfBucketLink = biltyData.pdf_bucket || '';
-      if (!pdfBucketLink && biltyData.id) {
-        const { data: freshBilty } = await supabase
-          .from('bilty')
-          .select('pdf_bucket')
-          .eq('id', biltyData.id)
-          .single();
-        pdfBucketLink = freshBilty?.pdf_bucket || '';
-      }
-      // Fallback to print URL if PDF not yet uploaded
-      if (!pdfBucketLink) {
-        pdfBucketLink = `https://console.movesure.io/print/${biltyData.gr_no}`;
-      }
+      const res = await fetch(`https://api.movesure.io/api/bilty/whatsapp/${encodeURIComponent(biltyData.gr_no)}`, { method: 'POST' });
+      let json = {};
+      try { json = await res.json(); } catch { /* non-JSON error body */ }
 
-      // Get destination city name
-      let destinationCityName = toCityName || '';
-      if (!destinationCityName && biltyData.to_city_id) {
-        const toCity = cities.find(c => c.id === biltyData.to_city_id);
-        destinationCityName = toCity?.city_name || '';
-        if (!destinationCityName) {
-          const { data: cityRow } = await supabase
-            .from('cities')
-            .select('city_name')
-            .eq('id', biltyData.to_city_id)
-            .single();
-          destinationCityName = cityRow?.city_name || 'N/A';
-        }
-      }
-
-      // Format date
-      const biltyDate = biltyData.bilty_date
-        ? format(new Date(biltyData.bilty_date), 'dd/MM/yyyy')
-        : 'N/A';
-
-      // Format delivery type
-      const deliveryType = biltyData.delivery_type
-        ? biltyData.delivery_type.replace(/-/g, ' ').toUpperCase()
-        : 'N/A';
-
-      // Format payment mode
-      const paymentMode = biltyData.payment_mode
-        ? biltyData.payment_mode.replace(/-/g, ' ').toUpperCase()
-        : 'N/A';
-
-      // Clean consignor mobile number
-      let consignorMobile = biltyData.consignor_number.toString().replace(/\D/g, '');
-      if (consignorMobile.length === 10) {
-        consignorMobile = '91' + consignorMobile;
-      }
-
-      // Build 9-variable payload for new template
-      const consignorPayload = {
-        receiver: consignorMobile,
-        values: {
-          "1": biltyData.gr_no || 'N/A',
-          "2": biltyData.consignor_name || 'N/A',
-          "3": pdfBucketLink,
-          "4": biltyDate,
-          "5": destinationCityName || 'N/A',
-          "6": deliveryType,
-          "7": paymentMode,
-          "8": biltyData.consignee_name || 'N/A',
-          "9": biltyData.gr_no || 'N/A'
-        }
-      };
-
-      console.log('📱 Sending WhatsApp (new template) to consignor:', consignorPayload);
-
-      const promises = [];
-
-      promises.push(
-        fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/j2s96opcd7/process', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(consignorPayload)
-        }).then(response => {
-          if (response.ok) {
-            console.log('✅ WhatsApp sent successfully to consignor (new template)');
-            return { success: true, type: 'consignor' };
-          } else {
-            console.error('❌ WhatsApp failed for consignor:', response.status);
-            return { success: false, type: 'consignor' };
-          }
-        }).catch(error => {
-          console.error('❌ WhatsApp error for consignor:', error);
-          return { success: false, type: 'consignor' };
-        })
-      );
-
-      // Send to consignee (only if consignee has mobile number) - same new template
-      if (biltyData?.consignee_number && biltyData?.consignee_name) {
-        let consigneeMobile = biltyData.consignee_number.toString().replace(/\D/g, '');
-        if (consigneeMobile.length === 10) {
-          consigneeMobile = '91' + consigneeMobile;
-        }
-        if (consigneeMobile.length >= 10) {
-          const consigneePayload = {
-            receiver: consigneeMobile,
-            values: {
-              "1": biltyData.gr_no || 'N/A',
-              "2": biltyData.consignor_name || 'N/A',
-              "3": pdfBucketLink,
-              "4": biltyDate,
-              "5": destinationCityName || 'N/A',
-              "6": deliveryType,
-              "7": paymentMode,
-              "8": biltyData.consignee_name || 'N/A',
-              "9": biltyData.gr_no || 'N/A'
-            }
-          };
-
-          console.log('📱 Sending WhatsApp (new template) to consignee:', consigneePayload);
-
-          promises.push(
-            fetch('https://adminapis.backendprod.com/lms_campaign/api/whatsapp/template/j2s96opcd7/process', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(consigneePayload)
-            }).then(response => {
-              if (response.ok) {
-                console.log('✅ WhatsApp sent successfully to consignee (new template)');
-                return { success: true, type: 'consignee' };
-              } else {
-                console.error('❌ WhatsApp failed for consignee:', response.status);
-                return { success: false, type: 'consignee' };
-              }
-            }).catch(error => {
-              console.error('❌ WhatsApp error for consignee:', error);
-              return { success: false, type: 'consignee' };
-            })
-          );
-        }
-      }
-
-      // Send WhatsApp to all recipients
-      const results = await Promise.all(promises);
-      const allSuccess = results.every(result => result.success);
-      const consignorSent = results.find(r => r.type === 'consignor')?.success;
-
-      if (allSuccess) {
-        console.log('✅ All WhatsApp messages sent successfully (new template)');
+      if (res.ok && json.status === 'success') {
+        const to = (json.receivers || []).join(', ');
+        customAlert(`WhatsApp sent${to ? ` to ${to}` : ''}`, 'success');
+        (json.skipped || []).forEach((sk) => customAlert(`WhatsApp ${sk.party || 'number'}: ${sk.reason}${sk.number ? ` (${sk.number})` : ''}`, 'warning'));
         setWhatsappSent(true);
         return true;
-      } else if (consignorSent) {
-        console.log('⚠️ Consignor message sent, but consignee failed');
-        setWhatsappSent(true);
-        return true;
-      } else {
-        console.log('❌ Failed to send WhatsApp to consignor');
-        return false;
       }
+
+      customAlert(`WhatsApp not sent: ${json.message || `error ${res.status}`}`, 'error');
+      return false;
     } catch (error) {
-      console.error('❌ WhatsApp error:', error);
+      console.error('WhatsApp resend error:', error);
+      customAlert('WhatsApp not sent: network error', 'error');
       return false;
     } finally {
       setWhatsappSending(false);
@@ -306,11 +158,9 @@ const PrintModal = ({
     setShowPDFGenerator(true);
   };
 
+  // Resend WhatsApp, then open the PDF (it opens either way)
   const handlePrintAndSendWhatsApp = async () => {
-    const whatsappSuccess = await sendWhatsAppMessage();
-    if (whatsappSuccess) {
-      console.log('📱 WhatsApp sent, now generating PDF...');
-    }
+    await resendWhatsApp();
     setShowPDFGenerator(true);
   };
 
@@ -615,13 +465,13 @@ const PrintModal = ({
             >
               <Printer className="w-5 h-5" />
               <div className="text-left">
-                <div className="text-sm">Print Only {showShortcuts && !biltyData?.consignor_number && '(Enter)'}</div>
+                <div className="text-sm">Print Only {showShortcuts && '(Enter)'}</div>
                 <div className="text-xs opacity-80">Download PDF</div>
               </div>
             </button>
 
-            {/* Print & Send WhatsApp Button */}
-            {biltyData?.consignor_number && (
+            {/* Print + Resend WhatsApp (sent automatically on save; this is a manual resend) */}
+            {biltyData?.gr_no && (
               <button
                 onClick={handlePrintAndSendWhatsApp}
                 disabled={whatsappSending}
@@ -641,12 +491,10 @@ const PrintModal = ({
                         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         Sending...
                       </div>
-                    ) : whatsappSent ? 'WhatsApp ✓' : (
-                      <>Print + WhatsApp {showShortcuts && '(Enter/Tab)'}</>
-                    )}
+                    ) : whatsappSent ? 'WhatsApp resent ✓' : 'Print + Resend WhatsApp'}
                   </div>
                   <div className="text-xs opacity-80">
-                    {whatsappSending ? 'Please wait...' : whatsappSent ? 'Sent!' : 'PDF + Message'}
+                    {whatsappSending ? 'Please wait...' : whatsappSent ? 'Sent again' : 'Already sent on save'}
                   </div>
                 </div>
               </button>

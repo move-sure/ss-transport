@@ -132,11 +132,12 @@ After a successful save:
 
 ### 10. Print & WhatsApp Flow
 After saving (non-draft):
-1. **Print Modal** appears with options:
-   - **Print + WhatsApp** (Enter key) – opens PDF viewer and sends WhatsApp notification
+1. **WhatsApp** is sent by the **backend** automatically when a new bilty is saved (`POST /api/bilty/save`), to the consignor and consignee numbers ("first booking" template). The frontend never calls the WhatsApp provider directly.
+2. **Print Modal** appears with options:
+   - **Print Only** (Enter key) – opens the PDF viewer
+   - **Print + Resend WhatsApp** – `POST https://api.movesure.io/api/bilty/whatsapp/{gr_no}`, then opens the PDF. Use it after an edit (edits don't auto-send). The result shows as a toast, e.g. "consignee: missing".
    - **Save Only** (Tab key) – skips printing, resets form
-2. **Print Component** renders the bilty in a printable format
-3. **WhatsApp Notification** sends a 9-variable template message with bilty details
+3. **Print Component** renders the bilty in a printable format
 4. After printing, form **always resets** to new bilty mode
 
 ### 11. Edit Mode
@@ -203,7 +204,7 @@ In edit mode:
 
 | File | Component | Purpose |
 |------|-----------|---------|
-| `print-model.js` | `PrintModal` | Post-save modal with Print+WhatsApp / Save Only options |
+| `print-model.js` | `PrintModal` | Post-save modal: Print / Print + Resend WhatsApp (via backend) / Save Only |
 | `print-bilty.js` | `PrintBilty` | Printable bilty document renderer |
 | `pdf-generation.js` | `PDFGenerator` | jsPDF-based PDF generation with QR codes, signatures, city data |
 | `pdf-viewer-ui.js` | `PDFViewerUI` | Responsive PDF viewer with download/print/refresh actions |
@@ -223,7 +224,6 @@ In edit mode:
 | File | Component | Purpose |
 |------|-----------|---------|
 | `gr-live-status.js` | `GRLiveStatus` | Live panel showing all GR reservations in the branch |
-| `whatsapp-notification.js` | `WhatsAppNotification` | Sends bilty confirmation via WhatsApp API with 9-variable template |
 | `action.js` | `ActionButtonsSection` | Draft and reset buttons with shortcut hints |
 
 ---
@@ -414,7 +414,7 @@ These are **not saved to the database** but control UI behavior:
 │  ┌──────────────────────────────────────────┐   │
 │  │           POST-SAVE FLOW                  │   │
 │  │  PrintModal → PrintBilty/PDFGenerator     │   │
-│  │            → WhatsAppNotification         │   │
+│  │            → resend WhatsApp (backend)    │   │
 │  │            → uploadBiltyPdf (background)  │   │
 │  └──────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────┘

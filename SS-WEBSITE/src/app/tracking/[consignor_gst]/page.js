@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ChevronLeft, ChevronRight, Search, Loader2, AlertCircle, FileText, Clock, Package, Weight, IndianRupee,
   MapPin, Truck, Building2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Download, MessageSquareWarning,
-  X, Ticket, Receipt, Tag, MessagesSquare
+  X, Ticket, Receipt, Tag, MessagesSquare, Send
 } from 'lucide-react';
 
 const API_BASE = 'https://api.movesure.io';
@@ -110,7 +110,7 @@ function EwbChip({ ewb }) {
 
 const Label = ({ children }) => <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{children}</p>;
 
-function BiltyCard({ row, onComplain }) {
+function BiltyCard({ row, onComplain, onWhatsApp }) {
   const t = row.tracking || {};
   const c = row.complaints || {};
   const inv = row.invoice || {};
@@ -215,12 +215,111 @@ function BiltyCard({ row, onComplain }) {
                 <Download className="w-3.5 h-3.5" /> Download Bilty
               </a>
             )}
+            <button onClick={() => onWhatsApp(row)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">
+              <Send className="w-3.5 h-3.5" /> Send on WhatsApp
+            </button>
             <button onClick={() => onComplain(row)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-700 bg-red-50 text-xs font-semibold hover:bg-red-100">
               <MessageSquareWarning className="w-3.5 h-3.5" /> Raise complaint
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const WA_COOLDOWN_MS = 60 * 1000; // one send per bilty per minute from this page
+const lastWaSend = {};
+
+// Send the bilty on WhatsApp via the backend (POST /api/bilty/whatsapp/{gr_no}).
+// Default: the consignor / consignee numbers on the bilty. Optionally one other 10-digit mobile.
+function WhatsAppModal({ row, onClose }) {
+  const [mode, setMode] = useState('bilty'); // 'bilty' | 'other'
+  const [number, setNumber] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  const send = async (e) => {
+    e.preventDefault();
+    if (mode === 'other' && !/^[6-9]\d{9}$/.test(number)) { setError('Enter a valid 10-digit mobile number.'); return; }
+    const wait = (lastWaSend[row.gr_no] || 0) + WA_COOLDOWN_MS - Date.now();
+    if (wait > 0) { setError(`Already sent. Please wait ${Math.ceil(wait / 1000)} seconds before sending again.`); return; }
+    setSending(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/bilty/whatsapp/${encodeURIComponent(row.gr_no)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: mode === 'other' ? JSON.stringify({ numbers: [number] }) : undefined
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.status !== 'success') throw new Error(json.message || `Could not send (${res.status})`);
+      lastWaSend[row.gr_no] = Date.now();
+      setResult(json);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const mask = (n) => (String(n).length >= 10 ? `${String(n).slice(0, 2)}******${String(n).slice(-2)}` : n);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h3 className="font-bold text-slate-900 flex items-center gap-2"><Send className="w-5 h-5 text-emerald-600" /> Send GR {row.gr_no} on WhatsApp</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-5 h-5 text-slate-600" /></button>
+        </div>
+        {result ? (
+          <div className="p-6 text-center space-y-3">
+            <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto" />
+            <p className="font-semibold text-slate-900">{result.message || 'Sent on WhatsApp'}</p>
+            {(result.receivers || []).length > 0 && (
+              <p className="text-sm text-slate-500">Sent to {(result.receivers || []).map(mask).join(', ')}</p>
+            )}
+            {(result.skipped || []).length > 0 && (
+              <ul className="text-xs text-amber-700 space-y-0.5">
+                {result.skipped.map((sk, i) => <li key={i}>{sk.party ? `${sk.party}: ` : ''}{sk.reason}</li>)}
+              </ul>
+            )}
+            <button onClick={onClose} className="mt-2 px-5 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold">Close</button>
+          </div>
+        ) : (
+          <form onSubmit={send} className="p-5 space-y-3">
+            {error && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> {error}
+              </div>
+            )}
+            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer ${mode === 'bilty' ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200'}`}>
+              <input type="radio" name="wa-mode" className="mt-1 accent-emerald-600" checked={mode === 'bilty'} onChange={() => setMode('bilty')} />
+              <span>
+                <span className="block text-sm font-semibold text-slate-900">Numbers on the bilty</span>
+                <span className="block text-xs text-slate-500">Consignor and consignee mobiles saved at booking</span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer ${mode === 'other' ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200'}`}>
+              <input type="radio" name="wa-mode" className="mt-1 accent-emerald-600" checked={mode === 'other'} onChange={() => setMode('other')} />
+              <span className="flex-1">
+                <span className="block text-sm font-semibold text-slate-900">Another number</span>
+                {mode === 'other' && (
+                  <input autoFocus value={number} onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric"
+                    placeholder="10-digit mobile"
+                    className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono text-slate-900 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600" />
+                )}
+              </span>
+            </label>
+            <button type="submit" disabled={sending}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send on WhatsApp
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -377,6 +476,7 @@ export default function ConsignorBiltyPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [complainRow, setComplainRow] = useState(null);
+  const [waRow, setWaRow] = useState(null);
   const [showComplaints, setShowComplaints] = useState(false);
   const [complaintsKey, setComplaintsKey] = useState(0);
 
@@ -521,7 +621,7 @@ export default function ConsignorBiltyPage() {
         ) : (
           <>
             <div className="space-y-4">
-              {rows.map((row) => <BiltyCard key={row.gr_no} row={row} onComplain={setComplainRow} />)}
+              {rows.map((row) => <BiltyCard key={row.gr_no} row={row} onComplain={setComplainRow} onWhatsApp={setWaRow} />)}
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
@@ -536,6 +636,8 @@ export default function ConsignorBiltyPage() {
           </>
         )}
       </div>
+
+      {waRow && <WhatsAppModal row={waRow} onClose={() => setWaRow(null)} />}
 
       {complainRow && (
         <ComplaintModal

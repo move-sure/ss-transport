@@ -40,6 +40,29 @@ export function proofBadges(r) {
   ].filter(Boolean);
 }
 
+// City code per city id (loaded once, shared) - used to order bilties like the printed challan
+let cityCodeCache = null;
+export async function loadCityCodes() {
+  if (cityCodeCache) return cityCodeCache;
+  const { default: supabase } = await import('@/app/utils/supabase');
+  const { data } = await supabase.from('cities').select('id, city_code, city_name');
+  cityCodeCache = Object.fromEntries((data || []).map((c) => [c.id, (c.city_code || c.city_name || '').toUpperCase()]));
+  return cityCodeCache;
+}
+
+// Same order as the challan print (ChallanPDFPreview): destination city code A-Z,
+// then GR no in natural order (A15702 before A15710) within each city.
+export function challanOrder(cityCodes = {}) {
+  const code = (r) => (cityCodes[r.station_city_id] || r.to_city_code || r.station || '').toUpperCase();
+  return (a, b) => {
+    const ca = code(a);
+    const cb = code(b);
+    if (ca !== cb) return ca.localeCompare(cb);
+    return String(a.gr_no || '').toUpperCase()
+      .localeCompare(String(b.gr_no || '').toUpperCase(), undefined, { numeric: true, sensitivity: 'base' });
+  };
+}
+
 // Signed pf: to-pay -> + (transport owes us, Dr), paid -> - (we owe kaat, Cr)
 export const pfOf = (r) => Number(r.estimate?.pf) || 0;
 

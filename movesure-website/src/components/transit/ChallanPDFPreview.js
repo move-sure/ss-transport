@@ -24,6 +24,16 @@ const ChallanPDFPreview = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const pdfViewerRef = useRef(null);
+  // Show today's (print) date on the challan instead of the challan's creation date. Remembered per browser.
+  const [usePrintDate, setUsePrintDate] = useState(() => {
+    try { return localStorage.getItem('challan.usePrintDate') !== 'false'; } catch { return true; }
+  });
+  const toggleUsePrintDate = () => {
+    setUsePrintDate((v) => {
+      try { localStorage.setItem('challan.usePrintDate', String(!v)); } catch { /* ignore */ }
+      return !v;
+    });
+  };
 
   // Resolve city code for a bilty — handles both regular (to_city_id) and station (station/city_id) bilties
   const getCityCode = (bilty) => {
@@ -112,7 +122,7 @@ const ChallanPDFPreview = ({
     } finally {
       setLoading(false);
     }
-  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, permanentDetailsByBranchId, branches, cities]);
+  }, [type, bilties, transitBilties, selectedChallan, selectedChallanBook, userBranch, permanentDetails, permanentDetailsByBranchId, branches, cities, usePrintDate]);
 
   // Resolve permanent details for the current challan's branch
   // Uses challan's branch_id to pick the correct company name/address
@@ -562,7 +572,7 @@ const ChallanPDFPreview = ({
         doc.setFont('helvetica', 'bold');
         doc.text(`Challan No: ${selectedChallan.challan_no}`, pageWidth - margin, 15, { align: 'right' });
         doc.setFontSize(9);
-        doc.text(`Date: ${format(new Date(selectedChallan.date), 'dd-MM-yyyy')}`, pageWidth - margin, 22, { align: 'right' });
+        doc.text(`Date: ${format(usePrintDate || !selectedChallan.date ? new Date() : new Date(selectedChallan.date), 'dd-MM-yyyy')}`, pageWidth - margin, 22, { align: 'right' });
         
         // Transport Details - Top Left
         doc.setFontSize(10);
@@ -903,8 +913,20 @@ const ChallanPDFPreview = ({
               
               <div>
                 <span className="text-purple-200">Date:</span>
-                <span className="ml-1 font-bold">{format(new Date(), 'dd/MM/yyyy')}</span>
+                <span className="ml-1 font-bold">
+                  {format(type === 'challan' && !usePrintDate && selectedChallan?.date ? new Date(selectedChallan.date) : new Date(), 'dd/MM/yyyy')}
+                </span>
               </div>
+
+              {type === 'challan' && (
+                <label className="flex items-center gap-2 cursor-pointer select-none" title="Print today's date on the challan instead of the challan creation date">
+                  <input type="checkbox" checked={usePrintDate} onChange={toggleUsePrintDate} className="w-4 h-4 accent-purple-600" />
+                  <span className="text-purple-100 font-semibold">Print date</span>
+                  <span className="text-purple-300 text-xs">
+                    {usePrintDate ? '(today)' : selectedChallan?.date ? `(created ${format(new Date(selectedChallan.date), 'dd/MM/yyyy')})` : ''}
+                  </span>
+                </label>
+              )}
               
               <div>
                 <span className="text-purple-200">Total Bilties:</span>

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Search, CheckCircle2, AlertTriangle, X, Send, Calculator } from 'lucide-react';
 import { transportLedgersApi } from '../api';
 import { formatINR, formatDate } from '../helpers';
 import TransportPicker from './TransportPicker';
 import AddKaatModal from './AddKaatModal';
-import { SOURCE_TAG, rowStatus, pfOf, proofBadges } from './shared';
+import { SOURCE_TAG, rowStatus, pfOf, proofBadges, loadCityCodes, challanOrder } from './shared';
 
 const FILTERS = [
   ['todo', 'To assign'],
@@ -32,9 +32,14 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
   const [error, setError] = useState(null);
   const [kaatRows, setKaatRows] = useState(null); // rows for the Add kaat modal
 
+  // Order rows like the printed challan: city code A-Z, then GR no (applies to every category tab)
+  const [cityCodes, setCityCodes] = useState({});
+  useEffect(() => { loadCityCodes().then(setCityCodes).catch(() => {}); }, []);
+  const ordered = useMemo(() => [...rows].sort(challanOrder(cityCodes)), [rows, cityCodes]);
+
   const withStatus = useMemo(
-    () => rows.map((r) => ({ r, s: rowStatus(r, overrides[r.gr_no]) })),
-    [rows, overrides]
+    () => ordered.map((r) => ({ r, s: rowStatus(r, overrides[r.gr_no]) })),
+    [ordered, overrides]
   );
 
   const counts = useMemo(() => {
@@ -225,7 +230,12 @@ export default function BiltyAssignTable({ rows = [], loading, userId, onAssigne
                   </td>
                   {showChallan && <td className="px-3 py-2">{r.challan_no}</td>}
                   <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.bilty_date)}</td>
-                  <td className="px-3 py-2 font-medium">{r.station || '-'}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {r.station || '-'}
+                    {cityCodes[r.station_city_id] && cityCodes[r.station_city_id] !== String(r.station || '').toUpperCase() && (
+                      <span className="ml-1 text-[10px] font-semibold text-gray-500">({cityCodes[r.station_city_id]})</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 max-w-[160px] truncate" title={r.consignor}>{r.consignor || '-'}</td>
                   <td className="px-3 py-2 max-w-[160px] truncate" title={r.consignee}>{r.consignee || '-'}</td>
                   <td className="px-3 py-2 text-right">{Number(r.to_pay_amount) ? formatINR(r.to_pay_amount) : ''}</td>

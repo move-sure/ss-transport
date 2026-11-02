@@ -5,16 +5,18 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronLeft, ChevronRight, Search, Loader2, AlertCircle, FileText, Clock, Package, Weight, IndianRupee,
-  MapPin, Truck, Building2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Download, MessageSquareWarning,
-  X, Ticket, Receipt, Tag, MessagesSquare, Send
+  MapPin, Truck, Building2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Eye, MessageSquareWarning,
+  X, Ticket, Receipt, Tag, MessagesSquare, Send, Navigation
 } from 'lucide-react';
 
 const API_BASE = 'https://api.movesure.io';
+// Full live tracking for one consignment
+const trackUrl = (grNo) => `https://console.movesure.io/print/${encodeURIComponent(grNo)}`;
 const PAGE_SIZE = 20;
 
 // Public tracking API: only customer-facing fields (no kaat / pf / driver details)
-async function fetchConsignorBilties({ gst, grNo, fromDate, toDate, page }) {
-  const params = new URLSearchParams({ consignor_gst: gst, page: String(page), page_size: String(PAGE_SIZE) });
+async function fetchConsignorBilties({ gst, grNo, fromDate, toDate, page, pageSize = PAGE_SIZE }) {
+  const params = new URLSearchParams({ consignor_gst: gst, page: String(page), page_size: String(pageSize) });
   if (grNo) params.set('gr_no', grNo);
   if (fromDate) params.set('from_date', fromDate);
   if (toDate) params.set('to_date', toDate);
@@ -25,6 +27,50 @@ async function fetchConsignorBilties({ gst, grNo, fromDate, toDate, page }) {
     throw new Error(json.message || `Failed to load bilties (${res.status})`);
   }
   return json.data;
+}
+
+// The API only matches an exact GR no, so searching loads every bilty in the date range
+// (50 per call, the API max) and filters in the browser.
+const SEARCH_PAGE_SIZE = 50;
+const SEARCH_MAX_PAGES = 60; // up to 3,000 bilties per search
+async function fetchAllConsignorBilties({ gst, fromDate, toDate }) {
+  let all = [];
+  let meta = null;
+  for (let page = 1; page <= SEARCH_MAX_PAGES; page++) {
+    const d = await fetchConsignorBilties({ gst, fromDate, toDate, page, pageSize: SEARCH_PAGE_SIZE });
+    meta = meta || d;
+    all = all.concat(d.rows || []);
+    if (!d.has_more) return { meta, rows: all, truncated: false };
+  }
+  return { meta, rows: all, truncated: true };
+}
+
+const SEARCH_FIELDS = [
+  { value: 'all', label: 'All fields' },
+  { value: 'gr', label: 'GR No' },
+  { value: 'pvt', label: 'Pvt marks' },
+  { value: 'consignee', label: 'Consignee' },
+  { value: 'invoice', label: 'Invoice no' },
+  { value: 'city', label: 'Destination' }
+];
+
+const norm = (v) => String(v ?? '').toUpperCase();
+const digits = (v) => String(v ?? '').replace(/\D/g, '');
+
+// Partial, case-insensitive match. For GR, typing only some digits (e.g. "1578") also matches "A15784".
+function matchesSearch(row, field, query) {
+  const q = norm(query).trim();
+  if (!q) return true;
+  const gr = () => norm(row.gr_no).includes(q) || (digits(q) && digits(q) === q.replace(/\s/g, '') && digits(row.gr_no).includes(digits(q)));
+  const checks = {
+    gr,
+    pvt: () => norm(row.pvt_marks).includes(q),
+    consignee: () => norm(row.consignee_name).includes(q),
+    invoice: () => norm(row.invoice?.invoice_no).includes(q),
+    city: () => norm(row.to_city?.city_name).includes(q)
+  };
+  if (field !== 'all') return checks[field] ? checks[field]() : true;
+  return Object.values(checks).some((fn) => fn()) || norm(row.contents).includes(q);
 }
 
 async function fetchComplaints(gst, grNo) {
@@ -51,49 +97,6 @@ const inr = (n) => Number(n || 0).toLocaleString('en-IN');
 const PAYMENT_LABEL = { 'to-pay': 'To Pay', paid: 'Paid', freeofcost: 'FOC' };
 const DELIVERY_LABEL = { 'godown-delivery': 'Godown delivery', 'door-delivery': 'Door delivery' };
 
-// Status badge colour by tracking code
-const STATUS_TONE = {
-  booked: 'bg-slate-200 text-slate-700',
-  dispatched: 'bg-blue-100 text-blue-700',
-  at_hub: 'bg-indigo-100 text-indigo-700',
-  out_for_delivery: 'bg-amber-100 text-amber-800',
-  at_destination: 'bg-emerald-100 text-emerald-700',
-  out_for_door_delivery: 'bg-emerald-600 text-white',
-  delivered: 'bg-emerald-600 text-white'
-};
-
-// Even-width stepper driven by tracking.steps / tracking.step (0-based current step)
-function TrackingStepper({ tracking }) {
-  const steps = tracking?.steps || [];
-  const current = Number.isInteger(tracking?.step) ? tracking.step : -1;
-  if (!steps.length) return null;
-  const fill = current >= 0 ? ((current + 1) / steps.length) * 100 : 0;
-
-  return (
-    <div className="pt-1 w-full">
-      <div className="flex items-start justify-between gap-1">
-        {steps.map((label, i) => {
-          const done = i <= current;
-          const isNow = i === current;
-          return (
-            <div key={label} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                isNow ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'
-              }`}>
-                {done ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-2.5 h-2.5" />}
-              </div>
-              <span className={`text-[9px] text-center leading-tight ${isNow ? 'text-emerald-800 font-bold' : done ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>{label}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-1.5 h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-        <div className="h-full bg-emerald-500 rounded-full transition-all duration-700 ease-out" style={{ width: `${fill}%` }} />
-      </div>
-    </div>
-  );
-}
-
 function EwbChip({ ewb }) {
   return (
     <span
@@ -112,6 +115,8 @@ const Label = ({ children }) => <p className="text-[10px] font-semibold text-sla
 
 function BiltyCard({ row, onComplain, onWhatsApp }) {
   const t = row.tracking || {};
+  // dispatched once it has a dispatch date / vehicle, or has moved past "Booked"
+  const dispatched = !!(t.dispatch_date || t.vehicle_number || (Number.isInteger(t.step) && t.step >= 1));
   const c = row.complaints || {};
   const inv = row.invoice || {};
 
@@ -122,9 +127,6 @@ function BiltyCard({ row, onComplain, onWhatsApp }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <span className="font-mono font-bold text-amber-700 text-base">{row.gr_no}</span>
           <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {fmtDate(row.bilty_date)}</span>
-          {t.label && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${STATUS_TONE[t.code] || 'bg-slate-200 text-slate-700'}`}>{t.label}</span>
-          )}
           {c.open > 0 && c.latest && (
             <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700 flex items-center gap-1">
               <Ticket className="w-3 h-3" /> Complaint open: {c.latest.ticket_no} ({c.latest.status_label})
@@ -163,18 +165,26 @@ function BiltyCard({ row, onComplain, onWhatsApp }) {
           {row.delivery_type && <p className="text-xs text-slate-500">{DELIVERY_LABEL[row.delivery_type] || row.delivery_type}</p>}
         </div>
 
-        {/* Tracking */}
-        <div className="space-y-2">
-          <Label>Tracking</Label>
-          <TrackingStepper tracking={t} />
-          <div className="pt-1 space-y-1">
-            {t.vehicle_number && (
-              <p className="text-sm text-slate-700 flex items-center gap-1.5"><Truck className="w-3.5 h-3.5 text-slate-400" /> {t.vehicle_number}</p>
-            )}
-            {t.dispatch_date
-              ? <p className="text-xs text-slate-400">Dispatched {fmtDateTime(t.dispatch_date)}</p>
-              : <p className="text-xs text-slate-400">Not dispatched yet</p>}
-          </div>
+        {/* Dispatch + track */}
+        <div className="space-y-3">
+          <Label>Dispatch</Label>
+          {dispatched ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4" /> Dispatched
+              </p>
+              {t.dispatch_date && <p className="text-xs text-emerald-700 mt-0.5">{fmtDateTime(t.dispatch_date)}</p>}
+              {t.vehicle_number && (
+                <p className="text-xs text-emerald-800 font-medium flex items-center gap-1 mt-0.5"><Truck className="w-3.5 h-3.5" /> {t.vehicle_number}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 flex items-center gap-1.5"><Clock className="w-4 h-4" /> Not dispatched yet</p>
+          )}
+          <a href={trackUrl(row.gr_no)} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 shadow-sm">
+            <Navigation className="w-3.5 h-3.5" /> Track Consignment
+          </a>
         </div>
 
         {/* Goods, invoice, EWB, actions */}
@@ -212,7 +222,7 @@ function BiltyCard({ row, onComplain, onWhatsApp }) {
             {row.bilty_pdf_url && (
               <a href={row.bilty_pdf_url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-black">
-                <Download className="w-3.5 h-3.5" /> Download Bilty
+                <Eye className="w-3.5 h-3.5" /> View Bilty
               </a>
             )}
             <button onClick={() => onWhatsApp(row)}
@@ -464,8 +474,11 @@ export default function ConsignorBiltyPage() {
   const params = useParams();
   const consignorGst = decodeURIComponent(params.consignor_gst || '').toUpperCase();
 
-  const [grInput, setGrInput] = useState('');
-  const [grNo, setGrNo] = useState('');   // applied server-side GR search
+  const [searchInput, setSearchInput] = useState('');
+  const [searchField, setSearchField] = useState('all');
+  const [query, setQuery] = useState('');          // applied search (filtered in the browser)
+  const [searchRows, setSearchRows] = useState(null); // every bilty in the date range, loaded for searching
+  const [searchTruncated, setSearchTruncated] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
@@ -487,8 +500,14 @@ export default function ConsignorBiltyPage() {
       setLoading(true);
       setError('');
       try {
-        const result = await fetchConsignorBilties({ gst: consignorGst, grNo, fromDate, toDate, page });
-        if (!ignore) setData(result);
+        if (query) {
+          // search: load every bilty in the range once, then filter / page in the browser
+          const { meta, rows: all, truncated } = await fetchAllConsignorBilties({ gst: consignorGst, fromDate, toDate });
+          if (!ignore) { setData(meta); setSearchRows(all); setSearchTruncated(truncated); }
+        } else {
+          const result = await fetchConsignorBilties({ gst: consignorGst, fromDate, toDate, page });
+          if (!ignore) { setData(result); setSearchRows(null); setSearchTruncated(false); }
+        }
       } catch (e) {
         if (!ignore) { setError(e.message); setData(null); }
       } finally {
@@ -496,16 +515,28 @@ export default function ConsignorBiltyPage() {
       }
     })();
     return () => { ignore = true; };
-  }, [consignorGst, grNo, fromDate, toDate, page, reloadKey]);
+    // page changes while searching are handled locally - no refetch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consignorGst, !!query, fromDate, toDate, query ? 0 : page, reloadKey]);
 
   const load = () => setReloadKey((k) => k + 1);
-  const searchGr = (e) => { e?.preventDefault(); setGrNo(grInput.trim().toUpperCase()); setPage(1); };
-  const clearGr = () => { setGrInput(''); setGrNo(''); setPage(1); };
+  const runSearch = (e) => { e?.preventDefault(); setQuery(searchInput.trim()); setPage(1); };
+  const clearSearch = () => { setSearchInput(''); setQuery(''); setPage(1); };
 
-  const rows = useMemo(() => data?.rows || [], [data]);
-  const totalPackages = useMemo(() => rows.reduce((sum, row) => sum + (Number(row.no_of_pkg) || 0), 0), [rows]);
+  // Search results (all matches) or the current server page
+  const matches = useMemo(
+    () => (query && searchRows ? searchRows.filter((r) => matchesSearch(r, searchField, query)) : null),
+    [query, searchRows, searchField]
+  );
+  const rows = useMemo(
+    () => (matches ? matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : data?.rows || []),
+    [matches, data, page]
+  );
+  const totalCount = matches ? matches.length : data?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const hasMore = matches ? page < totalPages : !!data?.has_more;
   const openComplaints = useMemo(() => rows.reduce((sum, row) => sum + (row.complaints?.open || 0), 0), [rows]);
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
+  const activeFieldLabel = SEARCH_FIELDS.find((f) => f.value === searchField)?.label || 'All fields';
   const categories = data?.complaint_categories || [];
 
   const onComplaintDone = useCallback(() => { setComplaintsKey((k) => k + 1); load(); }, []);
@@ -542,18 +573,25 @@ export default function ConsignorBiltyPage() {
 
         {/* GR No search + filters */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5">
-          <form onSubmit={searchGr} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
-            <div className="sm:flex-1 sm:min-w-55">
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Search GR No</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" value={grInput} onChange={(e) => setGrInput(e.target.value)} placeholder="e.g. A14450"
-                  className="w-full pl-9 pr-9 py-2 border border-slate-300 rounded-lg text-sm font-mono text-slate-900 focus:ring-2 focus:ring-amber-600 focus:border-amber-600" />
-                {grNo && (
-                  <button type="button" onClick={clearGr} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-100" title="Clear">
-                    <X className="w-4 h-4 text-slate-500" />
-                  </button>
-                )}
+          <form onSubmit={runSearch} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+            <div className="sm:flex-1 sm:min-w-64">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Search</label>
+              <div className="flex rounded-lg border border-slate-300 focus-within:ring-2 focus-within:ring-amber-600 focus-within:border-amber-600 overflow-hidden bg-white">
+                <select value={searchField} onChange={(e) => { setSearchField(e.target.value); setPage(1); }}
+                  className="px-2 py-2 bg-slate-50 border-r border-slate-300 text-xs font-semibold text-slate-700 focus:outline-none" aria-label="Search in">
+                  {SEARCH_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder={searchField === 'pvt' ? 'e.g. ASK' : searchField === 'gr' ? 'e.g. 1578 or A15784' : 'GR no, pvt marks, consignee, invoice…'}
+                    className="w-full pl-9 pr-9 py-2 text-sm text-slate-900 focus:outline-none" />
+                  {query && (
+                    <button type="button" onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-100" title="Clear">
+                      <X className="w-4 h-4 text-slate-500" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-3">
@@ -578,22 +616,17 @@ export default function ConsignorBiltyPage() {
           </form>
         </div>
 
-        {/* Summary */}
-        {data && (
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-3 mb-5">
-            <div className="text-center px-4 py-2 bg-amber-50 rounded-lg">
-              <p className="text-xl sm:text-2xl font-bold text-amber-700">{data.total}</p>
-              <p className="text-xs text-amber-700/70">{grNo ? `Matching ${grNo}` : 'Total Bilties'}</p>
-            </div>
-            <div className="text-center px-4 py-2 bg-blue-50 rounded-lg">
-              <p className="text-xl sm:text-2xl font-bold text-blue-700">{totalPackages}</p>
-              <p className="text-xs text-blue-700/70">Packages (this page)</p>
-            </div>
+        {/* Search result / open complaints */}
+        {data && (query || openComplaints > 0) && (
+          <div className="flex flex-wrap items-center gap-2 mb-4 text-sm">
+            {query && (
+              <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800">
+                <b>{totalCount}</b> result{totalCount === 1 ? '' : 's'} for &quot;{query}&quot; in {activeFieldLabel}
+                {searchTruncated ? ' (first 3,000 bilties searched — narrow the dates for more)' : ''}
+              </span>
+            )}
             {openComplaints > 0 && (
-              <div className="text-center px-4 py-2 bg-red-50 rounded-lg">
-                <p className="text-xl sm:text-2xl font-bold text-red-700">{openComplaints}</p>
-                <p className="text-xs text-red-700/70">Open complaints</p>
-              </div>
+              <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700"><b>{openComplaints}</b> open complaint{openComplaints === 1 ? '' : 's'}</span>
             )}
           </div>
         )}
@@ -614,9 +647,9 @@ export default function ConsignorBiltyPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center">
-            {grNo ? <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" /> : <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />}
-            <p className="text-slate-500 font-semibold">{grNo ? `No bilty found with GR No "${grNo}"` : 'No bilties found for this GSTIN'}</p>
-            {grNo && <button onClick={clearGr} className="mt-3 text-sm font-semibold text-amber-700 hover:underline">Show all bilties</button>}
+            {query ? <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" /> : <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />}
+            <p className="text-slate-500 font-semibold">{query ? `No bilty matches "${query}" in ${activeFieldLabel}` : 'No bilties found for this GSTIN'}</p>
+            {query && <button onClick={clearSearch} className="mt-3 text-sm font-semibold text-amber-700 hover:underline">Show all bilties</button>}
           </div>
         ) : (
           <>
@@ -625,11 +658,11 @@ export default function ConsignorBiltyPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
-              <p className="text-xs text-slate-500">Page {data.page} of {totalPages} · {data.total} bilties total</p>
+              <p className="text-xs text-slate-500">Page {page} of {totalPages} · {totalCount} {query ? 'matching' : 'bilties total'}</p>
               <div className="flex items-center gap-2 ml-auto">
                 <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
                   className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition">Prev</button>
-                <button onClick={() => setPage((p) => p + 1)} disabled={!data.has_more}
+                <button onClick={() => setPage((p) => p + 1)} disabled={!hasMore}
                   className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition">Next</button>
               </div>
             </div>

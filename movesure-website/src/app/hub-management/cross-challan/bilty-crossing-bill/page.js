@@ -39,6 +39,7 @@ export default function BiltyCrossingBillPage() {
   const [kaatItem, setKaatItem] = useState(null); // draft row being edited in the kaat modal
   const [editBill, setEditBill] = useState(null);  // saved bill opened for row edits
   const [billPdfStatus, setBillPdfStatus] = useState(null); // 'uploading' | 'done' | 'error'
+  const [rebuilding, setRebuilding] = useState(false);
   const grRef = useRef(null);
   // GR type-ahead (GET /api/bilty-crossing-bill/search-gr)
   const [sugs, setSugs] = useState([]);
@@ -275,6 +276,70 @@ export default function BiltyCrossingBillPage() {
     }
   };
 
+  // Add / remove bilties on a saved bill. The API has no add/remove endpoint, so: delete the bill
+  // (soft delete, frees the transporter+month slot) and create it again with the new GR list.
+  // Kaat edits live on each bilty's kaat record, so they carry over. If the create fails, the old
+  // GR list is created again so the transporter+month never ends up without a bill.
+  const rebuildBill = async (oldBill, grNos) => {
+    setRebuilding(true);
+    const createWith = async (list) => {
+      const res = await fetch(`${API}/api/bilty-crossing-bill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          transport_name: oldBill.transport_name,
+          transport_gstin: oldBill.transport_gstin,
+          bill_month: Number(oldBill.bill_month), bill_year: Number(oldBill.bill_year),
+          gr_nos: list,
+          created_by: user.id,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.status === 'error') throw new Error(j.message || `Create failed (${res.status})`);
+      return j;
+    };
+    try {
+      const del = await fetch(`${API}/api/bilty-crossing-bill/${oldBill.id}?updated_by=${user?.id || ''}`, { method: 'DELETE', headers });
+      const dj = await del.json().catch(() => ({}));
+      if (!del.ok || dj.status === 'error') throw new Error(dj.message || `Could not replace the bill (${del.status})`);
+
+      let created;
+      try {
+        created = await createWith(grNos);
+      } catch (e) {
+        // put the old bill's bilties back on a bill so the period isn't left empty
+        const oldGrs = (oldBill.metadata || []).map((m) => m.gr_no);
+        try { await createWith(oldGrs); } catch (_) { /* reported below */ }
+        throw new Error(`New bill not created (${e.message}). The original bilties were billed again — check the Bills list.`);
+      }
+
+      const nb = created.data;
+      const w = created.warnings || nb?.warnings;
+      if (w?.no_kaat_data_gr_nos?.length) toast(`No kaat data (kaat/pf = 0): ${w.no_kaat_data_gr_nos.join(', ')}`, 'info');
+      if (w?.unmatched_gr_nos?.length) toast(`Not found in bilty tables: ${w.unmatched_gr_nos.join(', ')}`, 'error');
+      toast(`${oldBill.bill_no} replaced by ${nb.bill_no} (${nb.total_bilties} bilties)`);
+      await loadBills();
+
+      // reopen the new bill and print / upload its PDF
+      setBillPdfStatus('uploading');
+      const full = await fetch(`${API}/api/bilty-crossing-bill/${nb.id}`, { headers }).then((r) => r.json()).then((j) => j.data || nb).catch(() => nb);
+      setEditBill(full);
+      try {
+        const { publicUrl } = await printAndUploadBill(full, { apiBase: API, token, userId: user?.id });
+        setBills((prev) => prev.map((b) => (b.id === full.id ? { ...b, pdf_url: publicUrl } : b)));
+        setBillPdfStatus('done');
+      } catch (e) {
+        setBillPdfStatus('error');
+        toast(`PDF not updated: ${e.message}`, 'error');
+      }
+    } catch (e) {
+      toast(e.message, 'error');
+      loadBills();
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
   const deleteBill = async (bill) => {
     if (!confirm(`Delete bill ${bill.bill_no}? This frees ${bill.transport_name} · ${MONTHS[bill.bill_month - 1]} ${bill.bill_year} for a new bill.`)) return;
     setBusyBill(bill.id);
@@ -309,6 +374,10 @@ export default function BiltyCrossingBillPage() {
               <p className="text-sm text-slate-500">Bill a transporter directly from bilties — no pohonch needed</p>
             </div>
           </div>
+          <button onClick={() => router.push('/hub-management/cross-challan/bilty-crossing-bill/transports')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 shadow-sm">
+            <Truck className="w-4 h-4" /> Transport-wise ledger
+          </button>
         </header>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -612,12 +681,15 @@ export default function BiltyCrossingBillPage() {
       </div>
       {editBill && (
         <BillEditModal
+          key={editBill.id}
           bill={editBill}
           token={token}
           userId={user?.id}
           pdfStatus={billPdfStatus}
+          rebuilding={rebuilding}
           onClose={() => setEditBill(null)}
           onBillUpdated={onBillUpdated}
+          onRebuild={rebuildBill}
         />
       )}
 

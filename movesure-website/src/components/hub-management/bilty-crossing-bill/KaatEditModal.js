@@ -11,8 +11,10 @@ const str = (v) => (v == null ? '' : String(v));
 /**
  * Edit everything that makes up one bilty's kaat:
  *   base = weight x rate_per_kg  (per_kg)  |  packages x rate_per_pkg  (per_pkg)
- *   kaat = base + bilty + labour + ewb + other          (a typed kaat replaces this)
- *   pf   = total - kaat - dd (to-pay / foc)  |  -kaat (paid)   (a typed pf replaces this)
+ *   kaat = base + bilty + labour + ewb + other + dd     (a typed kaat replaces this)
+ *   pf   = total - kaat (to-pay / foc)  |  -kaat (paid)  (a typed pf replaces this)
+ * Labour and DD are counted inside the kaat. The server's own formula keeps DD out of kaat, so
+ * every save also sends the final kaat and pf - what is saved is exactly what the preview shows.
  *
  * - Draft row (no billId): PATCH /api/kaat/gr/{gr}
  * - Row on a saved bill:   PUT /api/bilty-crossing-bill/{billId}/gr/{gr}  (also re-totals the bill)
@@ -75,21 +77,22 @@ export default function KaatEditModal({ grNo, seed, billId, token, userId, onClo
     const qty = f.rate_type === 'per_pkg' ? packages : weight;
     const baseKaat = qty * num(f.rate);
     const labour = f.labour_mode === 'pkg' ? packages * num(f.labour_per_pkg) : num(f.labour_chrg);
-    const formulaKaat = baseKaat + num(f.bilty_chrg) + labour + num(f.ewb_chrg) + num(f.other_chrg);
+    const formulaKaat = baseKaat + num(f.bilty_chrg) + labour + num(f.ewb_chrg) + num(f.other_chrg) + num(f.dd);
     const kaat = f.kaat_override !== '' ? num(f.kaat_override) : formulaKaat;
-    const formulaPf = paid ? -kaat : total - kaat - num(f.dd);
+    const formulaPf = paid ? -kaat : total - kaat;
     const pf = f.pf_override !== '' ? num(f.pf_override) : formulaPf;
     const parts = [
       `${f.rate_type === 'per_pkg' ? `${packages} pkg` : `${weight} kg`} × ${num(f.rate)}`,
       num(f.bilty_chrg) ? `${num(f.bilty_chrg)} bilty` : null,
       labour ? `${Math.round(labour * 100) / 100} labour` : null,
       num(f.ewb_chrg) ? `${num(f.ewb_chrg)} ewb` : null,
-      num(f.other_chrg) ? `${num(f.other_chrg)} other` : null
+      num(f.other_chrg) ? `${num(f.other_chrg)} other` : null,
+      num(f.dd) ? `${num(f.dd)} dd` : null
     ].filter(Boolean);
     return {
       labour, formulaKaat, kaat, formulaPf, pf,
       kaatText: parts.join(' + '),
-      pfText: paid ? 'paid bilty: −kaat' : `${total} − ${Math.round(kaat * 100) / 100}${num(f.dd) ? ` − ${num(f.dd)} dd` : ''}`
+      pfText: paid ? 'paid bilty: −kaat' : `${total} − ${Math.round(kaat * 100) / 100} kaat`
     };
   }, [f, weight, packages, total, paid]);
 
@@ -111,8 +114,12 @@ export default function KaatEditModal({ grNo, seed, billId, token, userId, onClo
     if (changed('ewb_chrg', f.ewb_chrg)) body.ewb_chrg = num(f.ewb_chrg);
     if (changed('other_chrg', f.other_chrg)) body.other_chrg = num(f.other_chrg);
     if (changed('dd_chrg', f.dd)) body.kaat_dd = num(f.dd);
-    if (f.kaat_override !== '') body.kaat = num(f.kaat_override);
-    if (f.pf_override !== '') body.pf = num(f.pf_override);
+    // Labour and DD are part of kaat here: send the final kaat / pf so the server stores the same numbers
+    if (Object.keys(body).length || f.kaat_override !== '' || f.pf_override !== '') {
+      const round2 = (n) => Math.round(n * 100) / 100;
+      body.kaat = round2(calc.kaat);
+      body.pf = round2(calc.pf);
+    }
     return body;
   };
 
@@ -207,7 +214,7 @@ export default function KaatEditModal({ grNo, seed, billId, token, userId, onClo
               </div>
               <div className="col-span-2">
                 <div className="flex items-center justify-between">
-                  <span className={lbl}>Labour</span>
+                  <span className={lbl}>Labour (in kaat)</span>
                   <div className="flex text-[10px] font-semibold rounded border border-slate-300 overflow-hidden mb-1">
                     {[['flat', 'Rs flat'], ['pkg', 'per pkg']].map(([v, l]) => (
                       <button key={v} type="button" onClick={() => set('labour_mode', v)}
@@ -233,7 +240,7 @@ export default function KaatEditModal({ grNo, seed, billId, token, userId, onClo
                 <input type="number" step="0.01" min="0" value={f.other_chrg} onChange={(e) => set('other_chrg', e.target.value)} className={input} />
               </div>
               <div>
-                <label className={lbl}>DD</label>
+                <label className={lbl}>DD (in kaat)</label>
                 <input type="number" step="0.01" min="0" value={f.dd} onChange={(e) => set('dd', e.target.value)} className={input} />
               </div>
             </div>

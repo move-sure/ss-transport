@@ -40,6 +40,12 @@ export default function BiltyCrossingBillPage() {
   const [editBill, setEditBill] = useState(null);  // saved bill opened for row edits
   const [billPdfStatus, setBillPdfStatus] = useState(null); // 'uploading' | 'done' | 'error'
   const grRef = useRef(null);
+  // GR type-ahead (GET /api/bilty-crossing-bill/search-gr)
+  const [sugs, setSugs] = useState([]);
+  const [sugLoading, setSugLoading] = useState(false);
+  const [sugOpen, setSugOpen] = useState(false);
+  const [sugIndex, setSugIndex] = useState(-1);
+  const sugBoxRef = useRef(null);
 
   const [creating, setCreating] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -86,8 +92,11 @@ export default function BiltyCrossingBillPage() {
   };
 
   /* 2. Add GR(s) — accepts one or many (comma / space / newline separated) */
-  const addGrs = async () => {
-    const grs = [...new Set(grInput.split(/[\s,]+/).map(g => g.trim().toUpperCase()).filter(Boolean))];
+  const addGrs = async (override) => {
+    const source = typeof override === 'string' ? override : grInput;
+    setSugOpen(false);
+    setSugs([]);
+    const grs = [...new Set(source.split(/[\s,]+/).map(g => g.trim().toUpperCase()).filter(Boolean))];
     if (!grs.length) return;
     setAdding(true);
     const failed = [];
@@ -106,6 +115,57 @@ export default function BiltyCrossingBillPage() {
     if (dup.length) toast(`Already added: ${dup.join(', ')}`, 'info');
     if (failed.length) toast(`Could not add: ${failed.join(', ')}`, 'error');
     grRef.current?.focus();
+  };
+
+  // Suggestions while typing a single GR (not when several are pasted)
+  useEffect(() => {
+    const q = grInput.trim();
+    if (!q || /[\s,]/.test(q) || q.length < 2) { setSugs([]); setSugLoading(false); return; }
+    let stale = false;
+    setSugLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q, limit: '20' });
+        if (transporter?.transport_gstin) params.set('transport_gstin', transporter.transport_gstin);
+        const res = await fetch(`${API}/api/bilty-crossing-bill/search-gr?${params}`, { headers });
+        const j = await res.json().catch(() => ({}));
+        if (stale) return;
+        setSugs(res.ok && j.status !== 'error' ? (j.data || []) : []);
+        setSugIndex(-1);
+        setSugOpen(true);
+      } catch (_) { if (!stale) setSugs([]); }
+      finally { if (!stale) setSugLoading(false); }
+    }, 250);
+    return () => { stale = true; clearTimeout(timer); };
+  }, [grInput, transporter?.transport_gstin, headers]);
+
+  // close the dropdown on outside click
+  useEffect(() => {
+    const onDown = (e) => {
+      if (sugBoxRef.current?.contains(e.target) || grRef.current?.contains(e.target)) return;
+      setSugOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  const sugDisabled = (sg) => !!sg.already_billed || items.some((i) => i.gr_no.toUpperCase() === String(sg.gr_no).toUpperCase());
+  const pickSuggestion = (sg) => {
+    if (!sg || sugDisabled(sg)) return;
+    setGrInput('');
+    addGrs(sg.gr_no);
+  };
+
+  const onGrKeyDown = (e) => {
+    const open = sugOpen && sugs.length > 0;
+    if (e.key === 'ArrowDown' && open) { e.preventDefault(); setSugIndex((i) => Math.min(i + 1, sugs.length - 1)); }
+    else if (e.key === 'ArrowUp' && open) { e.preventDefault(); setSugIndex((i) => Math.max(i - 1, -1)); }
+    else if (e.key === 'Escape') { setSugOpen(false); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (open && sugIndex >= 0) pickSuggestion(sugs[sugIndex]);
+      else addGrs(); // exact GR(s) typed -> straight to gr-preview
+    }
   };
 
   useEffect(() => {
@@ -312,15 +372,53 @@ export default function BiltyCrossingBillPage() {
 
             {/* GR adder */}
             <div className="p-5 border-b border-slate-100">
-              <span className="block text-xs font-medium text-slate-500 mb-1">3. Add bilties (GR no — paste several separated by space or comma)</span>
+              <span className="block text-xs font-medium text-slate-500 mb-1">3. Add bilties — type part of a GR for suggestions (↑ ↓ Enter), or paste several separated by space / comma</span>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input ref={grRef} value={grInput} onChange={e => setGrInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGrs(); } }}
-                    placeholder="e.g. A14336  A14337" className={`${inputCls} pl-9 font-mono`} />
+                    onKeyDown={onGrKeyDown} onFocus={() => sugs.length && setSugOpen(true)}
+                    placeholder="Type part of a GR (e.g. 5241) or paste several" className={`${inputCls} pl-9 pr-9 font-mono`} autoComplete="off" />
+                  {sugLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />}
+
+                  {sugOpen && grInput.trim() && !/[\s,]/.test(grInput.trim()) && !sugLoading && (
+                    <div ref={sugBoxRef} className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-80 overflow-y-auto">
+                      {sugs.length === 0 && (
+                        <div className="px-3 py-3 text-xs text-slate-500">No matching GR — press Enter to look up &quot;{grInput.trim().toUpperCase()}&quot; exactly</div>
+                      )}
+                      {sugs.map((sg, idx) => {
+                        const added = items.some((i) => i.gr_no.toUpperCase() === String(sg.gr_no).toUpperCase());
+                        const disabled = sugDisabled(sg);
+                        return (
+                          <button key={`${sg.source_table}-${sg.gr_no}`} type="button" disabled={disabled}
+                            onMouseDown={(e) => { e.preventDefault(); pickSuggestion(sg); }}
+                            onMouseEnter={() => setSugIndex(idx)}
+                            className={`w-full text-left px-3 py-2 border-b border-slate-50 ${disabled ? 'opacity-60 cursor-not-allowed' : idx === sugIndex ? 'bg-teal-50' : 'hover:bg-slate-50'}`}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-semibold text-slate-900">{sg.gr_no}</span>
+                              {sg.date && <span className="text-[11px] text-slate-400">{fmtBiltyDate(sg.date)}</span>}
+                              {sg.payment_mode && (
+                                <span className={`text-[10px] font-bold px-1.5 rounded ${sg.payment_mode === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}`}>{sg.payment_mode.toUpperCase()}</span>
+                              )}
+                              {sg.source_table === 'station_bilty_summary' && <span className="text-[10px] font-bold px-1.5 rounded bg-amber-50 text-amber-700">MANUAL</span>}
+                              {sg.same_transport && <span className="text-[10px] font-bold px-1.5 rounded bg-teal-50 text-teal-700">this transporter</span>}
+                              {sg.has_kaat_row === false && <span className="text-[10px] font-bold px-1.5 rounded bg-slate-100 text-slate-600">no kaat</span>}
+                              {sg.already_billed && <span className="text-[10px] font-bold px-1.5 rounded bg-red-50 text-red-700" title={sg.already_billed.transport_name}>on {sg.already_billed.bill_no}</span>}
+                              {added && <span className="text-[10px] font-bold px-1.5 rounded bg-slate-200 text-slate-700">added</span>}
+                              {sg.amount != null && <span className="ml-auto text-xs font-semibold text-slate-700">{Rs(sg.amount)}</span>}
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                              {sg.label || `${sg.consignor_name || ''} → ${sg.destination || ''}`}
+                              {sg.transport_name && !sg.same_transport ? ` · ${sg.transport_name}` : ''}
+                              {sg.weight ? ` · ${sg.weight} kg` : ''}{sg.packages ? ` · ${sg.packages} pkg` : ''}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <button onClick={addGrs} disabled={adding || !grInput.trim()}
+                <button onClick={() => addGrs()} disabled={adding || !grInput.trim()}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-40">
                   {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add
                 </button>

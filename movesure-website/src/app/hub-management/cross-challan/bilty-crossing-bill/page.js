@@ -4,10 +4,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../utils/auth';
 import Navbar from '../../../../components/dashboard/navbar';
-import { MONTHS, printAndUploadBill } from '../../../../components/hub-management/bilty-crossing-bill/billPdf';
+import { MONTHS, printAndUploadBill, loadBiltyDetails, fmtBiltyDate } from '../../../../components/hub-management/bilty-crossing-bill/billPdf';
+import KaatEditModal from '../../../../components/hub-management/bilty-crossing-bill/KaatEditModal';
+import BillEditModal from '../../../../components/hub-management/bilty-crossing-bill/BillEditModal';
 import {
   ArrowLeft, Loader2, Search, Truck, X, Plus, Trash2, FileText, Printer, AlertCircle,
-  CheckCircle2, Image as ImageIcon, RefreshCw, ExternalLink, Receipt,
+  CheckCircle2, Image as ImageIcon, RefreshCw, ExternalLink, Receipt, Pencil,
 } from 'lucide-react';
 
 const API = 'https://api.movesure.io';
@@ -33,6 +35,10 @@ export default function BiltyCrossingBillPage() {
   const [grInput, setGrInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [items, setItems] = useState([]); // gr-preview rows
+  const [details, setDetails] = useState({}); // gr_no -> { date, pdf } (kaat comes from each row's kaat_detail)
+  const [kaatItem, setKaatItem] = useState(null); // draft row being edited in the kaat modal
+  const [editBill, setEditBill] = useState(null);  // saved bill opened for row edits
+  const [billPdfStatus, setBillPdfStatus] = useState(null); // 'uploading' | 'done' | 'error'
   const grRef = useRef(null);
 
   const [creating, setCreating] = useState(false);
@@ -102,6 +108,22 @@ export default function BiltyCrossingBillPage() {
     grRef.current?.focus();
   };
 
+  useEffect(() => {
+    const missing = items.filter((m) => !details[m.gr_no]);
+    if (!missing.length) return;
+    loadBiltyDetails(missing).then((d) => setDetails((prev) => ({ ...prev, ...d }))).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  // After a kaat edit: re-read that GR (preview + details) so kaat / PF update in the draft
+  const refreshItem = async (gr) => {
+    try {
+      const res = await fetch(`${API}/api/bilty-crossing-bill/gr-preview/${encodeURIComponent(gr)}`, { headers });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.data) setItems((prev) => prev.map((x) => (x.gr_no === gr ? j.data : x)));
+    } catch (_) { /* keep old row */ }
+  };
+
   const totals = useMemo(() => items.reduce((a, m) => ({
     kaat: a.kaat + (Number(m.kaat) || 0), pf: a.pf + (Number(m.pf) || 0), amount: a.amount + (Number(m.amount) || 0),
   }), { kaat: 0, pf: 0, amount: 0 }), [items]);
@@ -163,6 +185,34 @@ export default function BiltyCrossingBillPage() {
       await printBill(bill);
     } catch (e) { toast(e.message, 'error'); }
     finally { setCreating(false); }
+  };
+
+  // Saved bill -> edit its rows (kaat / rate / charges / pf)
+  const openBillEdit = async (bill) => {
+    setBusyBill(bill.id);
+    try {
+      const res = await fetch(`${API}/api/bilty-crossing-bill/${bill.id}`, { headers });
+      const j = await res.json();
+      if (!res.ok || j.status === 'error') throw new Error(j.message || 'Failed to load bill');
+      setBillPdfStatus(null);
+      setEditBill(j.data);
+    } catch (e) { toast(e.message, 'error'); }
+    finally { setBusyBill(null); }
+  };
+
+  // A row changed: totals changed, so refresh the list entry and re-print / re-upload the PDF
+  const onBillUpdated = async (updated, gr) => {
+    toast(`GR ${gr?.gr_no || ''} updated on ${updated.bill_no}`);
+    setBills((prev) => prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)));
+    setBillPdfStatus('uploading');
+    try {
+      const { publicUrl } = await printAndUploadBill(updated, { apiBase: API, token, userId: user?.id });
+      setBills((prev) => prev.map((b) => (b.id === updated.id ? { ...b, pdf_url: publicUrl } : b)));
+      setBillPdfStatus('done');
+    } catch (e) {
+      setBillPdfStatus('error');
+      toast(`PDF not updated: ${e.message}`, 'error');
+    }
   };
 
   const deleteBill = async (bill) => {
@@ -283,9 +333,9 @@ export default function BiltyCrossingBillPage() {
                 <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-4 py-2.5 text-left">#</th>
+                    <th className="px-4 py-2.5 text-left">Date</th>
                     <th className="px-4 py-2.5 text-left">GR No</th>
                     <th className="px-4 py-2.5 text-left">Bilty No</th>
-                    <th className="px-4 py-2.5 text-left">Consignor</th>
                     <th className="px-4 py-2.5 text-left">Consignee</th>
                     <th className="px-4 py-2.5 text-left">Dest</th>
                     <th className="px-4 py-2.5 text-right">Kaat</th>
@@ -298,6 +348,7 @@ export default function BiltyCrossingBillPage() {
                   {items.map((m, i) => (
                     <tr key={m.gr_no} className={i % 2 ? 'bg-slate-50/50' : 'bg-white'}>
                       <td className="px-4 py-2.5 text-slate-400">{i + 1}</td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">{details[m.gr_no] ? fmtBiltyDate(details[m.gr_no].date) : '…'}</td>
                       <td className="px-4 py-2.5 font-mono font-semibold text-slate-900">{m.gr_no}</td>
                       <td className="px-4 py-2.5">
                         <span className="inline-flex items-center gap-1.5">
@@ -310,13 +361,27 @@ export default function BiltyCrossingBillPage() {
                           )}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 max-w-[180px] truncate" title={m.consignor_name}>{m.consignor_name || '—'}</td>
                       <td className="px-4 py-2.5 max-w-[180px] truncate font-medium text-slate-900" title={m.consignee_name}>{m.consignee_name || '—'}</td>
                       <td className="px-4 py-2.5">{m.destination || '—'}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{Rs(m.kaat)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        <button onClick={() => setKaatItem(m)} title="Edit kaat / kaat rate"
+                          className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-teal-50 hover:text-teal-700">
+                          {Rs(m.kaat)}
+                          <Pencil className="w-3 h-3 text-slate-400" />
+                        </button>
+                        {m.kaat_detail?.rate ? (
+                          <span className="block text-[10px] text-slate-400">
+                            @{m.kaat_detail.rate}/{m.kaat_detail.rate_type === 'per_pkg' ? 'pkg' : 'kg'}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{Rs(m.pf)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-slate-900">{Rs(m.amount)}</td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        <button onClick={() => setKaatItem(m)}
+                          className="p-1 rounded text-slate-400 hover:text-teal-700 hover:bg-teal-50" aria-label={`Edit kaat of ${m.gr_no}`} title="Edit kaat">
+                          <Pencil className="w-4 h-4" />
+                        </button>
                         <button onClick={() => setItems(prev => prev.filter(x => x.gr_no !== m.gr_no))}
                           className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${m.gr_no}`}>
                           <X className="w-4 h-4" />
@@ -386,6 +451,10 @@ export default function BiltyCrossingBillPage() {
                     <p className="text-sm font-semibold text-slate-900 whitespace-nowrap">{Rs(b.total_amount)}</p>
                   </div>
                   <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    <button onClick={() => openBillEdit(b)} disabled={busyBill === b.id}
+                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200 bg-amber-50 hover:bg-amber-100 disabled:opacity-50">
+                      <Pencil className="w-3.5 h-3.5" /> Edit bilties
+                    </button>
                     <button onClick={() => printBill(b)} disabled={busyBill === b.id}
                       className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-teal-700 ring-1 ring-teal-200 bg-teal-50 hover:bg-teal-100 disabled:opacity-50">
                       {busyBill === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />} Print
@@ -443,6 +512,27 @@ export default function BiltyCrossingBillPage() {
           </div>
         ))}
       </div>
+      {editBill && (
+        <BillEditModal
+          bill={editBill}
+          token={token}
+          userId={user?.id}
+          pdfStatus={billPdfStatus}
+          onClose={() => setEditBill(null)}
+          onBillUpdated={onBillUpdated}
+        />
+      )}
+
+      {kaatItem && (
+        <KaatEditModal
+          grNo={kaatItem.gr_no}
+          seed={kaatItem.kaat_detail}
+          token={token}
+          userId={user?.id}
+          onClose={() => setKaatItem(null)}
+          onSaved={() => { const gr = kaatItem.gr_no; setKaatItem(null); toast(`Kaat updated for ${gr}`); refreshItem(gr); }}
+        />
+      )}
     </div>
   );
 }

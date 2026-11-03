@@ -27,6 +27,39 @@ async function loadLogo() {
 
 export const pdfFileName = (bill) => `${bill.bill_no}.pdf`;
 
+/* Per-GR details the bill rows don't carry: bilty date and the bilty's own PDF (kaat / weight come
+   from the API's kaat_detail). Regular bilties come from `bilty`, manual ones from `station_bilty_summary`. */
+const chunk = (arr, n = 200) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
+export async function loadBiltyDetails(items) {
+  const isManual = (m) => m.source_table === 'station_bilty_summary';
+  const reg = [...new Set(items.filter((m) => !isManual(m)).map((m) => m.gr_no).filter(Boolean))];
+  const man = [...new Set(items.filter(isManual).map((m) => m.gr_no).filter(Boolean))];
+  const out = {};
+  const put = (gr, v) => { out[gr] = { ...(out[gr] || {}), ...v }; };
+
+  await Promise.all([
+    ...chunk(reg).map(async (grs) => {
+      const { data } = await supabase.from('bilty').select('gr_no, bilty_date, pdf_bucket, wt, no_of_pkg').in('gr_no', grs).eq('is_active', true);
+      (data || []).forEach((b) => put(b.gr_no, { date: b.bilty_date, pdf: b.pdf_bucket, weight: b.wt, packages: b.no_of_pkg }));
+    }),
+    ...chunk(man).map(async (grs) => {
+      const { data } = await supabase.from('station_bilty_summary').select('gr_no, created_at, weight, no_of_packets').in('gr_no', grs);
+      (data || []).forEach((b) => put(b.gr_no, { date: b.created_at, weight: b.weight, packages: b.no_of_packets }));
+    }),
+  ]);
+  return out;
+}
+
+/* Proof link per bilty row: the bilty's own uploaded PDF, else the transport's crossing-proof
+   photo, else the bilty print page. */
+function proofLink(m, d) {
+  if (m.source_table !== 'station_bilty_summary' && d?.pdf) return { url: d.pdf, kind: 'PDF' };
+  if (m.crossing_proof_url) return { url: m.crossing_proof_url, kind: 'PROOF' };
+  return m.gr_no ? { url: `https://console.movesure.io/print/${encodeURIComponent(m.gr_no)}`, kind: 'LINK' } : null;
+}
+
+export const fmtBiltyDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB') : '-');
+
 export async function buildBiltyCrossingBillPdf(bill) {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
@@ -77,34 +110,57 @@ export async function buildBiltyCrossingBillPdf(bill) {
     doc.text(String(v), x + 3, iy + 9.5, { maxWidth: iw - 5 });
   });
 
-  /* ── Line items ── */
+  /* ── Line items (with a proof QR per bilty) ── */
+  const details = await loadBiltyDetails(items);
+  const links = items.map((m) => proofLink(m, details[m.gr_no]));
+  const qrs = await Promise.all(links.map((l) => (l
+    ? QRCode.toDataURL(l.url, { width: 120, margin: 0, errorCorrectionLevel: 'M' }).catch(() => null)
+    : Promise.resolve(null))));
+  const QR_COL = 9;
+  const QR_SIZE = 13;
+
   autoTable(doc, {
     startY: iy + ih + 5,
-    head: [['#', 'GR No', 'Bilty No', 'Consignor', 'Consignee', 'Destination', 'Kaat', 'PF', 'Amount']],
+    head: [['#', 'Date', 'GR No', 'Bilty No', 'Consignee', 'Destination', 'Kaat', 'PF', 'Amount', 'Proof']],
     body: items.map((m, i) => [
-      i + 1, m.gr_no || '-', m.bilty_number || '-',
-      (m.consignor_name || '-').slice(0, 26), (m.consignee_name || '-').slice(0, 26), m.destination || '-',
-      RsRaw(m.kaat), RsRaw(m.pf), RsRaw(m.amount),
+      i + 1, fmtBiltyDate(details[m.gr_no]?.date), m.gr_no || '-', m.bilty_number || '-',
+      (m.consignee_name || '-').slice(0, 34), m.destination || '-',
+      RsRaw(m.kaat), RsRaw(m.pf), RsRaw(m.amount), '',
     ]),
     foot: [[
       { content: 'TOTAL', colSpan: 6, styles: { halign: 'right' } },
       { content: RsRaw(bill.total_kaat), styles: { halign: 'right' } },
       { content: RsRaw(bill.total_pf), styles: { halign: 'right' } },
       { content: RsRaw(bill.total_amount), styles: { halign: 'right' } },
+      '',
     ]],
     showFoot: 'lastPage',
-    styles: { fontSize: 7.5, cellPadding: 2, textColor: [0, 0, 0], lineColor: [190, 190, 190], lineWidth: 0.15, valign: 'middle' },
+    styles: { fontSize: 7, cellPadding: 1.6, textColor: [0, 0, 0], lineColor: [190, 190, 190], lineWidth: 0.15, valign: 'middle' },
     headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', lineColor: BRAND },
     footStyles: { fillColor: [241, 245, 249], textColor: BRAND, fontStyle: 'bold', lineColor: [180, 180, 180], lineWidth: 0.3 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       0: { halign: 'center', cellWidth: 8 },
-      1: { fontStyle: 'bold', cellWidth: 18 },
-      2: { cellWidth: 17 },
-      5: { cellWidth: 22 },
+      1: { cellWidth: 17 },
+      2: { fontStyle: 'bold', cellWidth: 17 },
+      3: { cellWidth: 16 },
+      5: { cellWidth: 24 },
       6: { halign: 'right', cellWidth: 18 },
       7: { halign: 'right', cellWidth: 18 },
       8: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
+      [QR_COL]: { cellWidth: QR_SIZE + 4, minCellHeight: QR_SIZE + 4, halign: 'center' },
+    },
+    // draw the proof QR inside its cell, with a tiny label (PDF / PROOF / LINK) under it
+    didDrawCell: (data) => {
+      if (data.section !== 'body' || data.column.index !== QR_COL) return;
+      const img = qrs[data.row.index];
+      if (!img) return;
+      const { x, y: cy, width, height } = data.cell;
+      const size = Math.min(QR_SIZE, width - 2, height - 4);
+      doc.addImage(img, 'PNG', x + (width - size) / 2, cy + 1, size, size);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(4.5); doc.setTextColor(110, 110, 110);
+      doc.text(links[data.row.index].kind, x + width / 2, cy + size + 2.6, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
     },
     margin: { left: mg, right: mg, top: 12, bottom: 18 },
   });

@@ -1,5 +1,12 @@
 # Hub challan details page — how data is loaded
 
+> **Update:** the page now loads through the hub API first:
+> `GET https://api.movesure.io/api/hub/challan/{challan_no}?include_masters=true` (one call: challan, bilties,
+> kaat, pohonch map, POD GRs, Kanpur GRs, masters). Refreshes use `/api/hub/kaat?gr_nos=`,
+> `/api/hub/pohonch/by-gr?gr_nos=`, and `/api/hub/masters?refresh=true` after adding a transport / hub rate.
+> If the API route is missing (404 `Not Found`) or unreachable, the page falls back to the Supabase reads
+> described below (`fetchChallanDetailsLegacy`). Writes are unchanged.
+
 Page: `src/app/hub-management/[challan_no]/page.js` (route `/hub-management/<challan_no>`)
 
 **No REST API (`api.movesure.io`) is used to load the challan.** Everything is read straight from

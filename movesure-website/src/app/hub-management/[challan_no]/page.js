@@ -26,6 +26,23 @@ import CrossChallanPrintModal, { useCrossChallanPrint } from '../../../component
 import { generatePohonchPDF } from '../../../components/transit-finance/pohonch-print/pohonch-pdf-generator';
 import BulkCrossChallanModal from '../../../components/hub-management/BulkCrossChallanModal';
 import CrossChallanManagement from '../../../components/hub-management/CrossChallanManagement';
+import HubChallanPrintModal from '../../../components/hub-management/HubChallanPrintModal';
+
+const API = 'https://api.movesure.io';
+
+// GET from the hub API. Returns { data } on success, { missing: true } when the route isn't deployed
+// (or the network fails) so the page can fall back to direct Supabase reads, or throws for API errors.
+async function hubGet(path, token) {
+  let res;
+  try {
+    res = await fetch(`${API}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch (e) { return { missing: true }; }
+  const j = await res.json().catch(() => ({}));
+  if (res.ok && j.status === 'success') return { data: j.data };
+  if (res.status === 404 && j.detail === 'Not Found') return { missing: true }; // route not deployed
+  if (res.status >= 500 && j.status !== 'error') return { missing: true };
+  throw new Error(j.message || j.detail || `Request failed (${res.status})`);
+}
 
 export default function ChallanDetailPage() {
   const { challan_no } = useParams();
@@ -108,6 +125,7 @@ export default function ChallanDetailPage() {
   const [ccSaving, setCcSaving] = useState(false);
   const [ccSavedPohonch, setCcSavedPohonch] = useState(null);
   const [showBulkCrossModal, setShowBulkCrossModal] = useState(false);
+  const [showHubPrint, setShowHubPrint] = useState(false);
 
   // Shared cross challan print hook (fetches fresh data, updates metadata)
   const crossChallanPrint = useCrossChallanPrint();
@@ -116,6 +134,8 @@ export default function ChallanDetailPage() {
   const fetchCrossChallanData = useCallback(async (grNos) => {
     if (!grNos?.length) return;
     try {
+      const api = await hubGet(`/api/hub/pohonch/by-gr?gr_nos=${encodeURIComponent(grNos.join(','))}`, token).catch(() => ({ missing: true }));
+      if (!api.missing) { setCrossChallanMap(api.data || {}); return; }
       const { data: pohonchData } = await supabase
         .from('pohonch')
         .select('pohonch_number, bilty_metadata')
@@ -133,20 +153,22 @@ export default function ChallanDetailPage() {
         setCrossChallanMap(ccMap);
       }
     } catch (e) { console.error('Crossing challan fetch error:', e); }
-  }, []);
+  }, [token]);
 
   /* ========== DATA FETCHING ========== */
   const fetchKaatData = useCallback(async (grNumbers) => {
     if (!grNumbers?.length) return;
     try {
+      const api = await hubGet(`/api/hub/kaat?gr_nos=${encodeURIComponent(grNumbers.join(','))}`, token).catch(() => ({ missing: true }));
+      if (!api.missing) { setKaatData(prev => ({ ...prev, ...(api.data || {}) })); return; }
       const { data } = await supabase.from('bilty_wise_kaat').select('*').in('gr_no', grNumbers);
       if (data) {
         const m = {};
         data.forEach(k => { m[k.gr_no] = k; });
-        setKaatData(m);
+        setKaatData(prev => ({ ...prev, ...m }));
       }
     } catch (e) { console.error('Kaat fetch error:', e); }
-  }, []);
+  }, [token]);
 
   const fetchKanpurBilties = useCallback(async (grNos, cityList) => {
     try {
@@ -169,7 +191,56 @@ export default function ChallanDetailPage() {
     finally { setLoadingKanpur(false); }
   }, []);
 
+  // masters (branches, cities, transports, hub rates) are loaded once per page visit
+  const mastersLoadedRef = useRef(false);
+  const applyMasters = useCallback((m) => {
+    setCities(m.cities || []);
+    setTransports(m.transports || []);
+    setTransportsByCity(m.transports_by_city || {});
+    setHubRates(m.hub_rates || []);
+    setHubRatesByTransport(m.hub_rates_map || {});
+    mastersLoadedRef.current = true;
+  }, []);
+
+  // server caches masters for 10 min: refresh after adding a transport / hub rate
+  const refreshMastersCache = useCallback(() => {
+    hubGet('/api/hub/masters?refresh=true', token).catch(() => {});
+  }, [token]);
+
+  // One API call for the challan + its bilties, kaat, pohonch, POD and Kanpur data.
+  // Falls back to the direct Supabase reads below if the API route isn't available.
   const fetchChallanDetails = useCallback(async () => {
+    if (!user?.id || !challan_no) return;
+    try {
+      setLoading(true); setError(null);
+      const dc = decodeURIComponent(challan_no);
+      const withMasters = !mastersLoadedRef.current;
+      const api = await hubGet(`/api/hub/challan/${encodeURIComponent(dc)}${withMasters ? '?include_masters=true' : ''}`, token);
+      if (api.missing) { await fetchChallanDetailsLegacy(); return; }
+
+      const d = api.data || {};
+      if (d.masters) applyMasters(d.masters);
+      else if (withMasters) {
+        const ms = await hubGet('/api/hub/masters', token).catch(() => ({ missing: true }));
+        if (!ms.missing) applyMasters(ms.data || {});
+      }
+      const bilties = d.bilties || [];
+      setChallan(d.challan);
+      setTransitDetails(bilties);
+      setEnrichedBilties(bilties);
+      setKaatData(d.kaat || {});
+      setCrossChallanMap(d.pohonch_map || {});
+      setPodGrNos(new Set(d.pod_gr_nos || []));
+      setKanpurGrNos(new Set(d.kanpur_gr_nos || []));
+    } catch (err) {
+      console.error('Error:', err);
+      setError('Failed to load challan details.');
+    } finally { setLoading(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, challan_no, token, applyMasters]);
+
+  // Old loader: direct Supabase reads (used only when the hub API is unavailable)
+  const fetchChallanDetailsLegacy = useCallback(async () => {
     if (!user?.id || !challan_no) return;
     try {
       setLoading(true); setError(null);
@@ -1052,12 +1123,13 @@ export default function ChallanDetailPage() {
       const { data, error } = await supabase.from('transports').insert(payload).select().single();
       if (error) throw error;
       setTransports(p => [...p, data]);
+      refreshMastersCache();
       if (data.city_id) setTransportsByCity(p => ({ ...p, [data.city_id]: [...(p[data.city_id] || []), data] }));
       setShowAddTransport(false);
       alert('Transport added successfully!');
     } catch (e) { console.error(e); alert('Failed to add transport.'); }
     finally { setSavingNewTransport(false); }
-  }, [user?.id, addTransportForm]);
+  }, [user?.id, addTransportForm, refreshMastersCache]);
 
   const openAddHubRateModal = useCallback((transportId, cityId) => {
     const tr = transports.find(t => t.id === transportId);
@@ -1091,6 +1163,7 @@ export default function ChallanDetailPage() {
       const { data, error } = await supabase.from('transport_hub_rates').insert(payload).select().single();
       if (error) throw error;
       setHubRates(p => [...p, data]);
+      refreshMastersCache();
       setHubRatesByTransport(p => {
         const n = { ...p };
         const tid = data.transport_id;
@@ -1104,7 +1177,7 @@ export default function ChallanDetailPage() {
       alert('Hub rate added successfully!');
     } catch (e) { console.error(e); alert('Failed to add hub rate.'); }
     finally { setSavingNewHubRate(false); }
-  }, [user?.id, addHubRateForm]);
+  }, [user?.id, addHubRateForm, refreshMastersCache]);
 
   /* ========== POD ========== */
   const handlePodPrint = useCallback(async (b) => {
@@ -1246,6 +1319,12 @@ export default function ChallanDetailPage() {
     return result;
   }, [enrichedBilties, kanpurFilter, kanpurGrNos, grSearch, citySearch, transportSearch, kaatData, transportsByCity]);
 
+  const hubPrintSets = useMemo(() => (showHubPrint ? {
+    all: enrichedBilties,
+    filtered: displayed,
+    selected: enrichedBilties.filter(b => selectedGrs.has(b.id)),
+  } : null), [showHubPrint, enrichedBilties, displayed, selectedGrs]);
+
   const kanpurCount = useMemo(() =>
     enrichedBilties.filter(t => kanpurGrNos.has(t.gr_no)).length,
   [enrichedBilties, kanpurGrNos]);
@@ -1365,6 +1444,13 @@ export default function ChallanDetailPage() {
                 {challan.is_received_at_hub && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200"><ShieldCheck className="h-2.5 w-2.5 inline mr-0.5"/>Received</span>}
               </div>
             </div>
+            <button
+              onClick={() => setShowHubPrint(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-slate-700 to-gray-900 text-white text-[11px] font-bold rounded-lg hover:from-slate-800 hover:to-black shadow-sm transition-all"
+              title="Print challan with kaat details and crossing proof"
+            >
+              <Printer className="h-3 w-3"/>Print Challan
+            </button>
             <button
               onClick={() => setShowBulkCrossModal(true)}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-[11px] font-bold rounded-lg hover:from-violet-600 hover:to-purple-700 shadow-sm transition-all"
@@ -1887,6 +1973,16 @@ export default function ChallanDetailPage() {
       )}
 
       {/* BULK CROSS CHALLAN MODAL */}
+      <HubChallanPrintModal
+        open={showHubPrint}
+        onClose={() => setShowHubPrint(false)}
+        challan={challan}
+        sets={hubPrintSets}
+        kaatData={kaatData}
+        crossChallanMap={crossChallanMap}
+        transports={transports}
+        kanpurGrNos={kanpurGrNos}
+      />
       <BulkCrossChallanModal
         isOpen={showBulkCrossModal}
         onClose={() => setShowBulkCrossModal(false)}

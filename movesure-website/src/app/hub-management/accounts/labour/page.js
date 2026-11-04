@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useAuth } from '@/app/utils/auth';
 import { useBranch } from '@/components/hub-management/accounts/useBranch';
-import { Loader2, Users, FileText, ArrowUpCircle } from 'lucide-react';
+import { Loader2, Users, FileText, ArrowUpCircle, Printer } from 'lucide-react';
 import { labourApi } from '@/components/hub-management/accounts/api';
 import { customAlert } from '@/components/common/alert-system';
 import PartyMasterDetail from '@/components/hub-management/accounts/PartyMasterDetail';
 import AddLabourExpenseModal from '@/components/hub-management/accounts/AddLabourExpenseModal';
 import PayModal from '@/components/hub-management/accounts/PayModal';
+import LabourLedgerPrintModal from '@/components/hub-management/accounts/LabourLedgerPrintModal';
 
 const ADD_FIELDS = [
   { key: 'name', label: 'Name', required: true, placeholder: 'e.g. Suresh Loader' },
@@ -22,6 +23,7 @@ export default function LabourKharchaPage() {
   const effectiveBranchId = isAllBranches ? user?.branch_id : branchId;
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showPay, setShowPay] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
 
   if (!user) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-emerald-600 animate-spin" /></div>;
@@ -49,6 +51,16 @@ export default function LabourKharchaPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-rose-200 text-rose-700 rounded-xl text-sm font-semibold hover:bg-rose-50 shadow-sm">
             <ArrowUpCircle className="h-4 w-4" /> Pay
           </button>
+          <button onClick={() => setShowPrint(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-800 rounded-xl text-sm font-semibold hover:bg-gray-50 shadow-sm">
+            <Printer className="h-4 w-4" /> Print Ledger
+          </button>
+
+          <LabourLedgerPrintModal
+            open={showPrint}
+            onClose={() => setShowPrint(false)}
+            detail={detail}
+          />
 
           <AddLabourExpenseModal
             isOpen={showAddExpense}

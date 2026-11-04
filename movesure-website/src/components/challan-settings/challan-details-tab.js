@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../app/utils/auth';
 import { format } from 'date-fns';
-import { FileText, Edit2, Truck, Calendar, User, TruckIcon, PackageCheck, Package } from 'lucide-react';
+import { FileText, Edit2, Truck, Calendar, User, TruckIcon, PackageCheck, Package, Warehouse, Undo2, CalendarClock, Loader2 } from 'lucide-react';
+import ChallanDatesModal from './ChallanDatesModal';
 
 const API_URL = 'https://api.movesure.io';
 
@@ -15,7 +16,7 @@ const ChallanDetailsTab = ({
   onEdit, 
   userBranch 
 }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [filters, setFilters] = useState({
     date: '',  // Empty by default to show all
     status: 'all',
@@ -32,33 +33,51 @@ const ChallanDetailsTab = ({
     onLoadChallans(activeFilters);
   }, [filters]);
 
-  const handleDispatch = async (challanId, isCurrentlyDispatched) => {
+  const [busy, setBusy] = useState({}); // challan id -> action
+  const [datesFor, setDatesFor] = useState(null);
+
+  // dispatch | undispatch | hub-received | undo-hub-received
+  const ACTIONS = {
+    'dispatch': { label: 'Dispatch', confirm: null },
+    'undispatch': { label: 'Undo dispatch', confirm: 'Undo dispatch of challan {no}? It goes back to pending.' },
+    'hub-received': { label: 'Mark received at hub', confirm: 'Mark challan {no} as received at hub (now)?' },
+    'undo-hub-received': { label: 'Undo received', confirm: 'Undo "Received at hub" for challan {no}? It goes back to dispatched (dispatch date is kept).' },
+  };
+
+  const runAction = async (challan, action) => {
+    const a = ACTIONS[action];
+    if (a.confirm && !window.confirm(a.confirm.replace('{no}', challan.challan_no))) return;
+    setBusy((b) => ({ ...b, [challan.id]: action }));
     try {
-      const endpoint = isCurrentlyDispatched
-        ? `${API_URL}/api/challan/${challanId}/undispatch`
-        : `${API_URL}/api/challan/${challanId}/dispatch`;
-      
-      const res = await fetch(endpoint, {
+      const res = await fetch(`${API_URL}/api/challan/${challan.id}/${action}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ user_id: user.id }),
       });
-      const result = await res.json();
-      
+      const result = await res.json().catch(() => ({}));
       if (result.status !== 'success') {
-        alert(result.message || 'Error updating dispatch status');
+        // 409 on undo received = bilties already in a transport ledger; show the server message as it is
+        alert(result.message || (res.status === 404 ? `${a.label} is not available on the server yet` : `${a.label} failed`));
         return;
       }
-
-      alert(isCurrentlyDispatched ? 'Challan marked as pending' : 'Challan dispatched successfully');
       onLoadChallans(filters);
     } catch (error) {
-      console.error('Error updating dispatch status:', error);
-      alert('Error updating dispatch status');
+      console.error(`${action} failed:`, error);
+      alert(`${a.label} failed`);
+    } finally {
+      setBusy((b) => { const n = { ...b }; delete n[challan.id]; return n; });
     }
   };
 
   const getStatusBadge = (challan) => {
+    if (challan.is_received_at_hub) {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+          <Warehouse className="w-3.5 h-3.5" />
+          Received at hub
+        </span>
+      );
+    }
     if (challan.is_dispatched) {
       return (
         <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-300">
@@ -207,6 +226,7 @@ const ChallanDetailsTab = ({
                   <th className="px-4 py-3 text-left text-xs font-medium text-black uppercase">Truck & Personnel</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-black uppercase">Bilty Count</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-black uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-black uppercase">Dates</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-black uppercase">Created</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-black uppercase">Actions</th>
                 </tr>
@@ -264,12 +284,25 @@ const ChallanDetailsTab = ({
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-1">
                         {getStatusBadge(challan)}
-                        {challan.is_dispatched && challan.dispatch_date && (
-                          <div className="text-xs text-gray-500">
-                            {format(new Date(challan.dispatch_date), 'dd/MM/yyyy HH:mm')}
-                          </div>
-                        )}
                       </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      {(() => {
+                        const fmt = (d, withTime = true) => (d ? format(new Date(d), withTime ? 'dd/MM/yyyy hh:mm a' : 'dd/MM/yyyy') : null);
+                        const line = (label, value, cls) => (
+                          <div className="flex gap-1.5 text-xs whitespace-nowrap">
+                            <span className="w-[68px] text-gray-500">{label}</span>
+                            <span className={value ? `font-semibold ${cls}` : 'text-gray-400'}>{value || '—'}</span>
+                          </div>
+                        );
+                        return (
+                          <div className="space-y-0.5">
+                            {line('Challan', fmt(challan.date, false), 'text-black')}
+                            {line('Dispatched', challan.is_dispatched ? fmt(challan.dispatch_date) : null, 'text-green-700')}
+                            {line('Received', challan.is_received_at_hub ? fmt(challan.received_at_hub_timing) : null, 'text-blue-700')}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-sm text-black">
@@ -287,21 +320,30 @@ const ChallanDetailsTab = ({
                         >
                           <Edit2 className="w-5 h-5" />
                         </button>
-                        <button
-                          onClick={() => handleDispatch(challan.id, challan.is_dispatched)}
-                          className={`p-2 rounded-lg transition-all ${
-                            challan.is_dispatched 
-                              ? 'text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50' 
-                              : 'text-green-600 hover:text-green-800 hover:bg-green-50'
-                          }`}
-                          title={challan.is_dispatched ? 'Mark as Pending' : 'Dispatch Challan'}
-                        >
-                          {challan.is_dispatched ? (
-                            <Package className="w-6 h-6" />
-                          ) : (
-                            <TruckIcon className="w-6 h-6" />
-                          )}
-                        </button>
+                        {(() => {
+                          const b = busy[challan.id];
+                          const btn = (action, cls, Icon, label) => (
+                            <button key={action} onClick={() => runAction(challan, action)} disabled={!!b} title={label}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ring-1 disabled:opacity-40 ${cls}`}>
+                              {b === action ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />}
+                              {label}
+                            </button>
+                          );
+                          return (
+                            <div className="flex flex-wrap gap-1.5">
+                              {!challan.is_dispatched && btn('dispatch', 'text-green-700 ring-green-200 bg-green-50 hover:bg-green-100', TruckIcon, 'Dispatch')}
+                              {challan.is_dispatched && !challan.is_received_at_hub && btn('hub-received', 'text-blue-700 ring-blue-200 bg-blue-50 hover:bg-blue-100', Warehouse, 'Received')}
+                              {challan.is_dispatched && !challan.is_received_at_hub && btn('undispatch', 'text-amber-700 ring-amber-200 bg-amber-50 hover:bg-amber-100', Undo2, 'Undo dispatch')}
+                              {challan.is_received_at_hub && btn('undo-hub-received', 'text-red-700 ring-red-200 bg-red-50 hover:bg-red-100', Undo2, 'Undo received')}
+                              {challan.is_dispatched && (
+                                <button onClick={() => setDatesFor(challan)} disabled={!!b} title="Change dispatch / received date"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ring-1 text-gray-700 ring-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40">
+                                  <CalendarClock className="w-3.5 h-3.5" /> Dates
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </td>
                   </tr>
@@ -356,7 +398,16 @@ const ChallanDetailsTab = ({
             <FileText className="w-8 h-8 text-blue-600" />
           </div>
         </div>
-      </div>
+    </div>
+      {datesFor && (
+        <ChallanDatesModal
+          challan={datesFor}
+          user={user}
+          token={token}
+          onClose={() => setDatesFor(null)}
+          onSaved={() => { setDatesFor(null); onLoadChallans(filters); }}
+        />
+      )}
     </>
   );
 };
